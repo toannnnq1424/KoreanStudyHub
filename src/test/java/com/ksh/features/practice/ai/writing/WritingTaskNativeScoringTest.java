@@ -17,9 +17,9 @@ class WritingTaskNativeScoringTest {
     void q53UsesEarnedScoreThirtyPointMaximumAndExplicitPercentage() throws Exception {
         JsonNode result = normalize("Q53", """
                 [
-                  {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","name":"ignored","score":9,"maxScore":12,"feedback":"A"},
-                  {"criterionId":"W_ORGANIZATION_COHERENCE","name":"ignored","score":6,"maxScore":9,"feedback":"B"},
-                  {"criterionId":"W_LANGUAGE_EXPRESSION","name":"ignored","score":7,"maxScore":9,"feedback":"C"}
+                  {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","name":"ignored","score":12,"maxScore":12,"feedback":"A"},
+                  {"criterionId":"W_ORGANIZATION_COHERENCE","name":"ignored","score":9,"maxScore":9,"feedback":"B"},
+                  {"criterionId":"W_LANGUAGE_EXPRESSION","name":"ignored","score":1,"maxScore":9,"feedback":"C"}
                 ]
                 """);
 
@@ -34,15 +34,26 @@ class WritingTaskNativeScoringTest {
     void q54UsesFiftyPointMaximum() throws Exception {
         JsonNode result = normalize("Q54", """
                 [
-                  {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","name":"ignored","score":16,"maxScore":20,"feedback":"A"},
-                  {"criterionId":"W_ORGANIZATION_COHERENCE","name":"ignored","score":12,"maxScore":15,"feedback":"B"},
-                  {"criterionId":"W_LANGUAGE_EXPRESSION","name":"ignored","score":10,"maxScore":15,"feedback":"C"}
+                  {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","name":"ignored","score":20,"maxScore":20,"feedback":"A"},
+                  {"criterionId":"W_ORGANIZATION_COHERENCE","name":"ignored","score":15,"maxScore":15,"feedback":"B"},
+                  {"criterionId":"W_LANGUAGE_EXPRESSION","name":"ignored","score":3,"maxScore":15,"feedback":"C"}
                 ]
                 """);
 
         assertThat(result.path("raw_score").asDouble()).isEqualTo(38.0);
         assertThat(result.path("raw_score_max").asDouble()).isEqualTo(50.0);
         assertThat(result.path("percentage").asDouble()).isEqualTo(76.0);
+
+        JsonNode fullScore = normalize("Q54", """
+                [
+                  {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","name":"ignored","score":20,"maxScore":20,"feedback":"A"},
+                  {"criterionId":"W_ORGANIZATION_COHERENCE","name":"ignored","score":15,"maxScore":15,"feedback":"B"},
+                  {"criterionId":"W_LANGUAGE_EXPRESSION","name":"ignored","score":15,"maxScore":15,"feedback":"C"}
+                ]
+                """);
+        assertThat(fullScore.path("evaluation_status").asText())
+                .isEqualTo("EVALUATED");
+        assertThat(fullScore.path("raw_score").asInt()).isEqualTo(50);
     }
 
     @Test
@@ -50,11 +61,11 @@ class WritingTaskNativeScoringTest {
         JsonNode result = normalize("Q51", """
                 [
                   {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","name":"ignored","score":2,"maxScore":2,"feedback":"A"},
-                  {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","name":"ignored","score":1.5,"maxScore":2,"feedback":"B"},
+                  {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","name":"ignored","score":2,"maxScore":2,"feedback":"B"},
                   {"criterionId":"W_CLOZE_BLANK_1_EXPRESSION","name":"ignored","score":1,"maxScore":1,"feedback":"C"},
-                  {"criterionId":"W_CLOZE_BLANK_2_CONTEXT","name":"ignored","score":1,"maxScore":2,"feedback":"D"},
-                  {"criterionId":"W_CLOZE_BLANK_2_GRAMMAR","name":"ignored","score":1,"maxScore":2,"feedback":"E"},
-                  {"criterionId":"W_CLOZE_BLANK_2_EXPRESSION","name":"ignored","score":0.5,"maxScore":1,"feedback":"F"}
+                  {"criterionId":"W_CLOZE_BLANK_2_CONTEXT","name":"ignored","score":2,"maxScore":2,"feedback":"D"},
+                  {"criterionId":"W_CLOZE_BLANK_2_GRAMMAR","name":"ignored","score":0,"maxScore":2,"feedback":"E"},
+                  {"criterionId":"W_CLOZE_BLANK_2_EXPRESSION","name":"ignored","score":0,"maxScore":1,"feedback":"F"}
                 ]
                 """);
 
@@ -75,6 +86,47 @@ class WritingTaskNativeScoringTest {
         assertThat(result.path("evaluation_status").asText()).isEqualTo("EVALUATION_CONTRACT_FAILED");
         assertThat(result.path("score_available").asBoolean()).isFalse();
         assertThat(result.has("raw_score")).isFalse();
+
+        String learnerAnswer =
+                WritingContractTestFixtures.scoreBearingLearnerAnswer(
+                        "Q53", 9);
+        var unjustifiedPartial =
+                WritingContractTestFixtures.zeroEnvelope(
+                        objectMapper, "Q53", learnerAnswer);
+        WritingContractTestFixtures.addEvidence(
+                unjustifiedPartial,
+                "EV_SCORE",
+                learnerAnswer,
+                learnerAnswer.substring(0, 1),
+                0);
+        var content = WritingContractTestFixtures.rubric(
+                unjustifiedPartial,
+                "W_CONTENT_TASK_ACHIEVEMENT");
+        content.put("score", 9);
+        WritingContractTestFixtures.replaceIds(
+                content, "evidenceIds", "EV_SCORE");
+        for (JsonNode coverage
+                : unjustifiedPartial.withArray("taskCoverage")) {
+            var row = (com.fasterxml.jackson.databind.node.ObjectNode)
+                    coverage;
+            row.put("status", "MET");
+            if (!row.path("requirementId").asText()
+                    .contains("_LENGTH_")) {
+                WritingContractTestFixtures.replaceIds(
+                        row, "evidenceIds", "EV_SCORE");
+            }
+        }
+        JsonNode rejectedPartial = objectMapper.readTree(
+                normalizer.normalize(
+                        objectMapper.writeValueAsString(
+                                unjustifiedPartial),
+                        "Q53",
+                        learnerAnswer,
+                        null));
+        assertThat(rejectedPartial.path("evaluation_status").asText())
+                .isEqualTo("EVALUATION_CONTRACT_FAILED");
+        assertThat(rejectedPartial.path("score_available").asBoolean())
+                .isFalse();
     }
 
     @Test
@@ -148,7 +200,7 @@ class WritingTaskNativeScoringTest {
                 BigDecimal.TEN,
                 BigDecimal.TEN,
                 "Q51",
-                "KSH_WRITING_EVALUATOR_V2",
+                WritingEvaluationNormalizer.EVALUATION_ENGINE,
                 "TASK_NATIVE_RUBRIC_V1",
                 WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
                 status,
@@ -160,18 +212,29 @@ class WritingTaskNativeScoringTest {
                 .hasExactCurrentScoreProvenance(value);
     }
 
-    private JsonNode normalize(String taskType, String rubricScores) throws Exception {
-        String json = """
-                {
-                  "summary":"OK",
-                  "rubric_scores":%s,
-                  "strengths":[],
-                  "needs_improvement":[],
-                  "upgraded_answer":"",
-                  "upgraded_answer_annotated":"",
-                  "sentence_rewrites":[]
-                }
-                """.formatted(rubricScores);
-        return objectMapper.readTree(normalizer.normalize(json, taskType, "한국어 답안", null));
+    private JsonNode normalize(String taskType, String rubricScores)
+            throws Exception {
+        int requestedRawScore = 0;
+        for (JsonNode row : objectMapper.readTree(rubricScores)) {
+            requestedRawScore += row.path("score").asInt();
+        }
+        String learnerAnswer =
+                WritingContractTestFixtures.scoreBearingLearnerAnswer(
+                        taskType, requestedRawScore);
+        var envelope = WritingContractTestFixtures.zeroEnvelope(
+                objectMapper, taskType, learnerAnswer);
+        WritingContractTestFixtures.applyRawScore(
+                envelope, taskType, learnerAnswer, requestedRawScore);
+        for (JsonNode source : objectMapper.readTree(rubricScores)) {
+            var target = WritingContractTestFixtures.rubric(
+                    envelope, source.path("criterionId").asText());
+            target.put("score", source.path("score").asInt());
+            target.put("maxScore", source.path("maxScore").asInt());
+        }
+        return objectMapper.readTree(normalizer.normalize(
+                objectMapper.writeValueAsString(envelope),
+                taskType,
+                learnerAnswer,
+                null));
     }
 }

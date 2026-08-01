@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 class PracticeAssessmentExcelServiceTest {
 
     @Test
-    void templateContainsOnlyTheFiveSupportedQuestionSheets() throws Exception {
+    void templateRetainsFiveLegacySheetsAndAddsTwoTypedObjectiveSheets() throws Exception {
         ExcelFixture fixture = fixture();
         byte[] bytes = fixture.service.buildTemplate();
 
@@ -42,6 +42,8 @@ class PracticeAssessmentExcelServiceTest {
             assertThat(workbook.getSheet("05_FILL_BLANK")).isNotNull();
             assertThat(workbook.getSheet("06_ESSAY")).isNotNull();
             assertThat(workbook.getSheet("07_SPEAKING")).isNotNull();
+            assertThat(workbook.getSheet("08_MULTIPLE_ANSWER")).isNotNull();
+            assertThat(workbook.getSheet("09_MATCHING")).isNotNull();
             assertThat(workbook.getSheet("10_DANH_MUC")).isNotNull();
             assertThat(workbook.getSheet("00_HUONG_DAN").getRow(10)
                     .getCell(1).getStringCellValue())
@@ -62,7 +64,7 @@ class PracticeAssessmentExcelServiceTest {
     }
 
     @Test
-    void generatedWorkbookPreviewsAllFiveTypesAndWritingTasksQ51ToQ54() throws Exception {
+    void generatedWorkbookPreviewsAllSevenTypesAndWritingTasksQ51ToQ54() throws Exception {
         ExcelFixture fixture = fixture();
 
         PracticeAssessmentExcelService.ExcelPreview preview = fixture.service.preview(
@@ -70,8 +72,9 @@ class PracticeAssessmentExcelServiceTest {
 
         assertThat(preview.canImport()).as(preview.issues().toString()).isTrue();
         assertThat(preview.rows()).extracting(PracticeAssessmentExcelService.ImportRowPreview::questionType)
-                .contains("SINGLE_CHOICE", "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")
-                .doesNotContain("MULTIPLE_CHOICE", "MATCHING");
+                .contains("SINGLE_CHOICE", "MULTIPLE_ANSWER", "MATCHING",
+                        "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")
+                .doesNotContain("MULTIPLE_CHOICE");
         assertThat(preview.rows().stream()
                 .filter(row -> "ESSAY".equals(row.questionType()))
                 .map(PracticeAssessmentExcelService.ImportRowPreview::questionNoInSection))
@@ -82,7 +85,9 @@ class PracticeAssessmentExcelServiceTest {
         assertThat(root.path("document").has("assessmentProgramCode")).isFalse();
         JsonNode speaking = findQuestion(root, "SPEAKING");
         assertThat(speaking.path("questionContent").path("schemaVersion").asText())
-                .isEqualTo("question-content-v2");
+                .isEqualTo("question-content-v3");
+        assertThat(speaking.path("questionContent").path("languageTag").asText())
+                .isEqualTo("ko");
         assertThat(speaking.path("questionContent").path("speakingDelivery")
                 .path("inputType").asText()).isEqualTo("audio_upload");
         assertThat(speaking.path("questionContent").path("speakingDelivery")
@@ -100,6 +105,20 @@ class PracticeAssessmentExcelServiceTest {
         JsonNode fillBlank = findQuestion(root, "FILL_BLANK");
         assertThat(fillBlank.path("prompt").asText()).contains("{{blank:B1}}");
         assertThat(writingPoints(root)).containsExactly("10", "10", "30", "50");
+        JsonNode q51 = findWritingQuestion(root, "Q51");
+        JsonNode q52 = findWritingQuestion(root, "Q52");
+        assertThat(q51.path("questionContent").path("writingResponse")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q51.path("answerSpec").path("writingBlankAuthority")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q52.path("questionContent").path("writingResponse")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q52.path("answerSpec").path("writingBlankAuthority")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q51.path("answer").path("value").asText())
+                .isEqualTo("STRUCTURED_BLANKS");
+        assertThat(q52.path("answer").path("value").asText())
+                .isEqualTo("STRUCTURED_BLANKS");
     }
 
     @Test
@@ -167,7 +186,7 @@ class PracticeAssessmentExcelServiceTest {
     }
 
     @Test
-    void historicalV1WorkbookReaderRemainsExactForItsLegacySheetContract()
+    void historicalV1WorkbookReaderCanonicalizesToCurrentLanguageContract()
             throws Exception {
         ExcelFixture fixture = fixture();
         MockMultipartFile file = workbookFile(
@@ -189,9 +208,11 @@ class PracticeAssessmentExcelServiceTest {
                 .path("questionContent")
                 .path("schemaVersion")
                 .asText())
-                .isEqualTo("question-content-v1");
+                .isEqualTo("question-content-v3");
         assertThat(imported.getDraftJson())
-                .contains("\"schemaVersion\":\"question-content-v1\"")
+                .contains(
+                        "\"schemaVersion\":\"question-content-v3\"",
+                        "\"languageTag\":\"ko\"")
                 .doesNotContain(
                         "\"inputType\"",
                         "\"deliveryMode\"",
@@ -400,6 +421,23 @@ class PracticeAssessmentExcelServiceTest {
             }
         }
         throw new AssertionError("Không tìm thấy câu " + questionType);
+    }
+
+    private static JsonNode findWritingQuestion(
+            JsonNode root,
+            String writingTask) {
+        for (JsonNode section : root.path("sections")) {
+            for (JsonNode group : section.path("groups")) {
+                for (JsonNode question : group.path("questions")) {
+                    if (writingTask.equals(
+                            question.path("essayTaskType").asText())) {
+                        return question;
+                    }
+                }
+            }
+        }
+        throw new AssertionError(
+                "Không tìm thấy Writing " + writingTask);
     }
 
     private static List<String> writingPoints(JsonNode root) {

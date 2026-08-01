@@ -428,6 +428,7 @@
     hideAction();
     setError("");
     promptCard.hidden = !promptDelivery.promptVisibleBeforePlayback;
+    promptText.lang = currentQuestion.languageTag === "vi" ? "vi" : "ko";
     promptText.textContent = promptDelivery.promptText || "";
     if (currentQuestion.imageReference && promptMedia && promptImage) {
       promptImage.src = currentQuestion.imageReference;

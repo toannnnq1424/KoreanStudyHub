@@ -31,7 +31,9 @@ class SpeakingEvaluationOrchestratorTest {
 
     @Test
     void validProviderJsonNormalizesThrough8EAFoundation() throws Exception {
-        FakeClient client = FakeClient.success(objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()));
+        FakeClient client = FakeClient.success(
+                SpeakingEvaluationTestFixtures.providerJson(
+                        objectMapper, "저는 학생이에요."));
         SpeakingEvaluationOrchestrator orchestrator = orchestrator(client);
 
         SpeakingEvaluationResult result = orchestrator.evaluate(input(transcription(SpeakingEvaluationStatus.EVALUATED,
@@ -109,9 +111,8 @@ class SpeakingEvaluationOrchestratorTest {
 
     @Test
     void authoritativeTranscriptionConfidenceDoesNotEnableAcousticScoring() throws Exception {
-        JsonNode evaluation = objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()
-                .replace("\"transcript_confidence\":0.81", "\"transcript_confidence\":0.2")
-                .replace("\"source\":\"TRANSCRIPT\"", "\"source\":\"INTERPRETED_INTENT\""));
+        JsonNode evaluation = SpeakingEvaluationTestFixtures.providerJson(
+                objectMapper, "저는 학생이에요.");
 
         SpeakingEvaluationResult result = orchestrator(FakeClient.success(evaluation))
                 .evaluate(input(transcription(SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE,
@@ -128,8 +129,8 @@ class SpeakingEvaluationOrchestratorTest {
 
     @Test
     void authoritativeLowConfidenceStatusFailsClosedEvenWhenNumericConfidenceLooksHigh() throws Exception {
-        JsonNode evaluation = objectMapper.readTree(
-                OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson());
+        JsonNode evaluation = SpeakingEvaluationTestFixtures.providerJson(
+                objectMapper, "저는 학생이에요.");
 
         SpeakingEvaluationResult result = orchestrator(FakeClient.success(evaluation))
                 .evaluate(input(transcription(SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE,
@@ -145,10 +146,8 @@ class SpeakingEvaluationOrchestratorTest {
 
     @Test
     void interpretedIntentCannotRepairGrammarFluencyOrPronunciationScores() throws Exception {
-        JsonNode evaluation = objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()
-                .replace("\"transcript_confidence\":0.81", "\"transcript_confidence\":0.2")
-                .replace("\"source\":\"TRANSCRIPT\"", "\"source\":\"INTERPRETED_INTENT\"")
-                .replace("\"source\":\"PROMPT\"", "\"source\":\"INTERPRETED_INTENT\""));
+        JsonNode evaluation = SpeakingEvaluationTestFixtures.providerJson(
+                objectMapper, "저는 학생이에요.");
 
         SpeakingEvaluationResult result = orchestrator(FakeClient.success(evaluation))
                 .evaluate(input(transcription(SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE,
@@ -162,11 +161,8 @@ class SpeakingEvaluationOrchestratorTest {
 
     @Test
     void textFallbackMapsExplicitStatusAndKeepsAcousticCriteriaNotScorable() throws Exception {
-        JsonNode evaluation = objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson()
-                .replace("\"evaluation_status\":\"EVALUATED\"", "\"evaluation_status\":\"TEXT_FALLBACK_EVALUATED\"")
-                .replace("\"source\":\"PROVIDER\"", "\"source\":\"TEXT_FALLBACK\"")
-                .replace("\"score\":10,\"max_score\":15,\"feedback\":\"Chỉ tham khảo\"",
-                        "\"score\":14,\"max_score\":15,\"feedback\":\"Không dựa trên bằng chứng âm thanh\""));
+        JsonNode evaluation = SpeakingEvaluationTestFixtures.providerJson(
+                objectMapper, "저는 학생이에요.");
 
         SpeakingEvaluationResult result = orchestrator(FakeClient.success(evaluation))
                 .evaluate(input(transcription(SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED, null), true));

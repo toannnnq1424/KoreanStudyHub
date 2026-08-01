@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
  */
 public enum SpeakingEvaluatorCapability {
     TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION(
-            "speaking-evidence-v1-transcript-language-only",
+            "speaking-evidence-v2-authoritative-utf16-ledger",
             false,
             false,
             false),

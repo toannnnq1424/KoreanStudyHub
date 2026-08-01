@@ -73,7 +73,8 @@ class QuestionExplanationLifecycleContractTest {
                 "features/practice/ai/readinglistening/PublishedVersionExplanationListener.java"));
 
         assertThat(publisher).contains(
-                "new PublishedVersionExplanationEvent(publishedVersion.getId())",
+                "new PublishedVersionExplanationEvent(",
+                "publishedVersion.getId()",
                 "applicationEventPublisher.publishEvent");
         assertThat(listener).contains(
                 "@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)",

@@ -3,8 +3,13 @@
 
   const CONTENT_SCHEMA = 'question-content-v1';
   const SPEAKING_CONTENT_SCHEMA = 'question-content-v2';
+  const LANGUAGE_REGION_CONTENT_SCHEMA = 'question-content-v3';
   const ANSWER_SCHEMA = 'answer-spec-v1';
   const SECTION_DELIVERY_SCHEMA = 'practice-section-delivery-v1';
+  const WRITING_BLANK_RESPONSE_SCHEMA = 'writing-blanks.v1';
+  const WRITING_BLANK_AUTHORITY_SCHEMA = 'writing-blank-authority.v1';
+  const WRITING_BLANK_RESPONSE_MODE = 'STRUCTURED_BLANKS';
+  const WRITING_LEGACY_READ_ONLY_MODE = 'LEGACY_ESSAY_READ_ONLY';
 
   function template(catalog, code) {
     const templates = catalog && Array.isArray(catalog.templates) ? catalog.templates : [];
@@ -48,6 +53,11 @@
     const canonicalContent = q.questionContent && typeof q.questionContent === 'object'
       ? q.questionContent
       : {};
+    // Editable drafts must carry an explicit region authority. Historical
+    // published versions remain compatible in their read-only presenters, but
+    // opening an editable legacy question upgrades its prompt region to Korean
+    // unless the lecturer has explicitly selected Vietnamese.
+    q.promptLanguageTag = canonicalContent.languageTag || q.promptLanguageTag || 'ko';
     const sourceOptions = Array.isArray(q.options) && q.options.length > 0
       ? q.options
       : (Array.isArray(canonicalContent.options) ? canonicalContent.options : []);
@@ -103,6 +113,45 @@
         }];
       }
     }
+    if (q.questionType === 'MULTIPLE_ANSWER') {
+      const correctIds = new Set(Array.isArray(q.answerSpec && q.answerSpec.correctOptionIds)
+        ? q.answerSpec.correctOptionIds.map(String)
+        : []);
+      const existing = String((q.answer && q.answer.value) || q.answerKey || '').trim();
+      if (!existing && correctIds.size > 0) {
+        const indexes = q.options.map((option, index) => correctIds.has(String(option.id))
+          ? String(index + 1)
+          : null).filter(Boolean);
+        q.answer = { type: 'MULTIPLE', value: indexes.join(',') };
+        q.answerKey = indexes.join(',');
+      }
+    }
+    if (q.questionType === 'MATCHING'
+        && (!Array.isArray(q.matchingTargets) || q.matchingTargets.length === 0)) {
+      const canonicalBlanks = Array.isArray(canonicalContent.blanks)
+        ? canonicalContent.blanks
+        : [];
+      const canonicalAnswers = q.answerSpec && Array.isArray(q.answerSpec.blanks)
+        ? q.answerSpec.blanks
+        : [];
+      q.matchingTargets = canonicalBlanks.map(blank => {
+        const answer = canonicalAnswers.find(candidate => candidate.blankId === blank.id);
+        const accepted = answer && Array.isArray(answer.acceptedValues)
+          ? answer.acceptedValues
+          : [];
+        return {
+          id: blank.id || makeId('match'),
+          prompt: blank.prompt || '',
+          candidateOptionId: accepted[0] || ''
+        };
+      });
+      if (q.matchingTargets.length === 0) {
+        q.matchingTargets = [
+          { id: makeId('match'), prompt: 'Nội dung cần ghép 1', candidateOptionId: '' },
+          { id: makeId('match'), prompt: 'Nội dung cần ghép 2', candidateOptionId: '' }
+        ];
+      }
+    }
     syncQuestionContract(q);
     return q;
   }
@@ -141,6 +190,17 @@
       options: [],
       blanks: []
     };
+    const languageTag = ['ko', 'vi'].includes(q.promptLanguageTag)
+      ? q.promptLanguageTag
+      : null;
+    if (languageTag) {
+      content.schemaVersion = LANGUAGE_REGION_CONTENT_SCHEMA;
+      content.languageTag = languageTag;
+    }
+    if (previousContent.writingResponse
+        && typeof previousContent.writingResponse === 'object') {
+      content.writingResponse = previousContent.writingResponse;
+    }
     const answer = {
       schemaVersion: ANSWER_SCHEMA,
       questionType: type,
@@ -150,7 +210,26 @@
       scoringPolicyCode: scoringPolicy(type)
     };
 
-    if (type === 'SINGLE_CHOICE') {
+    if (type === 'ESSAY' && isWritingBlankTask(q)) {
+      const writingResponse = previousContent.writingResponse;
+      const writingAuthority = previousSpec.writingBlankAuthority;
+      if (writingResponse && typeof writingResponse === 'object') {
+        content.writingResponse = writingResponse;
+      }
+      if (writingAuthority && typeof writingAuthority === 'object') {
+        answer.writingBlankAuthority = writingAuthority;
+      }
+      q.writingCompatibilityMode = content.writingResponse
+          && answer.writingBlankAuthority
+        ? WRITING_BLANK_RESPONSE_MODE
+        : WRITING_LEGACY_READ_ONLY_MODE;
+    } else {
+      delete content.writingResponse;
+      delete answer.writingBlankAuthority;
+      delete q.writingCompatibilityMode;
+    }
+
+    if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_ANSWER') {
       content.options = (q.options || []).map(option => ({
         id: option.id,
         text: option.text || '',
@@ -166,8 +245,12 @@
           ? previousSpec.correctOptionIds.filter(id => content.options.some(option => option.id === id))
           : []);
       const correctIndex = content.options.findIndex(option => answer.correctOptionIds.includes(option.id));
-      const legacyValue = correctIndex >= 0 ? String(correctIndex + 1) : '';
-      q.answer = { type: 'SINGLE', value: legacyValue };
+      const legacyValue = type === 'MULTIPLE_ANSWER'
+        ? content.options.map((option, index) => answer.correctOptionIds.includes(option.id)
+          ? String(index + 1)
+          : null).filter(Boolean).join(',')
+        : (correctIndex >= 0 ? String(correctIndex + 1) : '');
+      q.answer = { type: type === 'MULTIPLE_ANSWER' ? 'MULTIPLE' : 'SINGLE', value: legacyValue };
       q.answerKey = legacyValue;
     } else if (type === 'TRUE_FALSE_NOT_GIVEN') {
       answer.correctValue = String(
@@ -185,6 +268,26 @@
       const firstValue = answer.blanks[0] && answer.blanks[0].acceptedValues[0] || '';
       q.answer = { type: 'FILL', value: firstValue };
       q.answerKey = firstValue;
+    } else if (type === 'MATCHING') {
+      content.options = (q.options || []).map(option => ({
+        id: option.id,
+        text: option.text || '',
+        imageReference: option.imageReference || null
+      }));
+      const targets = Array.isArray(q.matchingTargets) ? q.matchingTargets : [];
+      content.blanks = targets.map(target => ({
+        id: target.id,
+        prompt: target.prompt || ''
+      }));
+      answer.blanks = targets.map(target => ({
+        blankId: target.id,
+        acceptedValues: target.candidateOptionId
+          && content.options.some(option => option.id === target.candidateOptionId)
+          ? [target.candidateOptionId]
+          : []
+      }));
+      q.answer = { type: 'MATCHING', value: '' };
+      q.answerKey = '';
     }
 
     content.imageReference = q.imageUrl !== undefined
@@ -207,7 +310,9 @@
         q, 'speakingPromptAudioUrl')
         ? (q.speakingPromptAudioUrl || null)
         : (previousDelivery.promptAudioReference || q.audioUrl || null);
-      content.schemaVersion = SPEAKING_CONTENT_SCHEMA;
+      content.schemaVersion = languageTag
+        ? LANGUAGE_REGION_CONTENT_SCHEMA
+        : SPEAKING_CONTENT_SCHEMA;
       content.speakingDelivery = {
         inputType,
         deliveryMode: inputType === 'audio_upload'
@@ -234,8 +339,104 @@
     return q;
   }
 
+  function isWritingBlankTask(q) {
+    return q && q.questionType === 'ESSAY'
+      && (q.essayTaskType === 'Q51' || q.essayTaskType === 'Q52');
+  }
+
+  /**
+   * Explicit editor conversion boundary for historical Q51/Q52.
+   *
+   * This function never parses prompt, answerKey or learner prose. In
+   * particular '/' and ';' are ordinary answer characters, not delimiters.
+   */
+  function initializeWritingBlanks(q, definitions) {
+    if (!isWritingBlankTask(q)) {
+      throw new Error('Structured Writing blanks are only valid for Q51/Q52.');
+    }
+    const taskType = q.essayTaskType;
+    const requested = Array.isArray(definitions) ? definitions : [];
+    const blanks = [1, 2].map(ordinal => {
+      const definition = requested[ordinal - 1] || {};
+      return {
+        blankId: taskType.toLowerCase() + '-b' + ordinal,
+        ordinal,
+        context: String(
+          definition.context || ('Ngữ cảnh ô ' + ordinal)
+        ).normalize('NFC')
+      };
+    });
+    const authorityBlanks = blanks.map((blank, index) => ({
+      blankId: blank.blankId,
+      ordinal: blank.ordinal,
+      acceptedAnswers: normalizeWritingAcceptedAnswers(
+        requested[index] && requested[index].acceptedAnswers)
+    }));
+    const previousContent = q.questionContent
+      && typeof q.questionContent === 'object' ? q.questionContent : {};
+    const previousSpec = q.answerSpec
+      && typeof q.answerSpec === 'object' ? q.answerSpec : {};
+    q.questionContent = {
+      ...previousContent,
+      schemaVersion: LANGUAGE_REGION_CONTENT_SCHEMA,
+      languageTag: q.promptLanguageTag || previousContent.languageTag || 'ko',
+      options: [],
+      blanks: [],
+      writingResponse: {
+        responseSchemaVersion: WRITING_BLANK_RESPONSE_SCHEMA,
+        responseMode: WRITING_BLANK_RESPONSE_MODE,
+        taskType,
+        blanks
+      }
+    };
+    q.answerSpec = {
+      ...previousSpec,
+      schemaVersion: ANSWER_SCHEMA,
+      questionType: 'ESSAY',
+      correctOptionIds: [],
+      correctValue: null,
+      blanks: [],
+      scoringPolicyCode: 'PROFILE_BASED',
+      writingBlankAuthority: {
+        contractVersion: WRITING_BLANK_AUTHORITY_SCHEMA,
+        taskType,
+        normalization: 'NFC',
+        whitespacePolicy: 'TRIM_COLLAPSE',
+        blanks: authorityBlanks
+      }
+    };
+    q.writingCompatibilityMode = WRITING_BLANK_RESPONSE_MODE;
+    return syncQuestionContract(q);
+  }
+
+  function normalizeWritingAcceptedAnswers(values) {
+    if (!Array.isArray(values)) return [];
+    const seen = new Set();
+    return values.map(value => {
+      const source = value && typeof value === 'object'
+        ? value
+        : { text: value };
+      const text = String(source.text == null ? '' : source.text)
+        .normalize('NFC')
+        .trim()
+        .replace(/\s+/g, ' ');
+      if (!text || seen.has(text)) return null;
+      seen.add(text);
+      return {
+        text,
+        equivalence: source.equivalence === 'SEMANTIC_EQUIVALENT'
+          ? 'SEMANTIC_EQUIVALENT'
+          : 'EXACT',
+        reason: source.reason || null,
+        evidenceIds: Array.isArray(source.evidenceIds)
+          ? Array.from(source.evidenceIds)
+          : []
+      };
+    }).filter(Boolean);
+  }
+
   function scoringPolicy(type) {
-    if (type === 'FILL_BLANK') return 'NORMALIZED_EXACT';
+    if (type === 'FILL_BLANK' || type === 'MATCHING') return 'NORMALIZED_EXACT';
     if (type === 'ESSAY' || type === 'SPEAKING') return 'PROFILE_BASED';
     return 'ALL_OR_NOTHING';
   }
@@ -272,6 +473,8 @@
     syncSectionContract,
     normalizeQuestion,
     syncQuestionContract,
+    initializeWritingBlanks,
+    isWritingBlankTask,
     applyTemplateMetadata
   };
 })();

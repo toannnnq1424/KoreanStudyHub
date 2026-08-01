@@ -5,11 +5,17 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HexFormat;
 
 @Component
 public class SpeakingEvaluationNormalizer {
@@ -44,15 +50,30 @@ public class SpeakingEvaluationNormalizer {
             if (actuallyHeardTranscript == null) {
                 return invalidProviderResult("MISSING_AUTHORITATIVE_TRANSCRIPT");
             }
+            List<SpeakingEvaluationResult.Evidence> evidence = lowConfidence
+                    ? List.of()
+                    : evidence(input.path("evidence"), actuallyHeardTranscript);
+            Map<String, SpeakingEvaluationResult.Evidence> evidenceById =
+                    evidenceById(evidence);
             List<SpeakingEvaluationResult.RubricScore> rubrics = lowConfidence
                     ? List.of()
-                    : rubrics(input.path("rubric_scores"));
+                    : rubrics(input.path("rubric_scores"), evidenceById);
             if (!lowConfidence && rubrics.size() != SpeakingRubricCriterion.values().length) {
                 return contractFailure("INVALID_RUBRIC_CONTRACT");
             }
-
-            List<SpeakingEvaluationResult.Evidence> evidence = evidence(
-                    input.path("evidence"), actuallyHeardTranscript);
+            List<SpeakingEvaluationResult.TranscriptAnnotation> annotations =
+                    lowConfidence ? List.of() : transcriptAnnotations(
+                            input.path("transcript_annotations"),
+                            actuallyHeardTranscript,
+                            evidenceById);
+            if (!lowConfidence
+                    && !scoreEvidenceReconciled(rubrics, annotations, evidenceById)) {
+                return contractFailure("SPEAKING_SCORE_EVIDENCE_CONTRADICTION");
+            }
+            List<SpeakingEvaluationResult.FeedbackItem> strengths =
+                    feedbackItems(annotations, true);
+            List<SpeakingEvaluationResult.FeedbackItem> needsImprovement =
+                    feedbackItems(annotations, false);
             List<String> recommendations = strings(input.path("recommendations"));
             if (lowConfidence) {
                 recommendations = appendWarning(recommendations,
@@ -90,13 +111,13 @@ public class SpeakingEvaluationNormalizer {
                     null,
                     transcriptGroundedText(text(input, "overall_summary")),
                     transcriptGroundedText(text(input, "task_achievement_summary")),
-                    transcriptGroundedStrings(input.path("major_strengths")),
-                    transcriptGroundedStrings(input.path("major_needs_improvement")),
+                    strengths.stream().map(SpeakingEvaluationResult.FeedbackItem::explanationVi).toList(),
+                    needsImprovement.stream().map(SpeakingEvaluationResult.FeedbackItem::explanationVi).toList(),
                     actionPlan(input.path("action_plan")),
                     lowConfidence ? List.of() : criterionFeedback(input.path("criterion_feedback"), rubrics),
-                    transcriptAnnotations(input.path("transcript_annotations"), actuallyHeardTranscript),
-                    feedbackItems(input.path("strengths"), actuallyHeardTranscript, true),
-                    feedbackItems(input.path("needs_improvement"), actuallyHeardTranscript, false),
+                    annotations,
+                    strengths,
+                    needsImprovement,
                     transcriptGroundedText(text(input, "confidence_notes")),
                     rubrics,
                     // The legacy generic finding has no evidence scope or span and
@@ -191,7 +212,10 @@ public class SpeakingEvaluationNormalizer {
                 SpeakingAssessmentPolicyBundle.fingerprint());
     }
 
-    private List<SpeakingEvaluationResult.RubricScore> rubrics(JsonNode array) {
+    private List<SpeakingEvaluationResult.RubricScore> rubrics(
+            JsonNode array,
+            Map<String, SpeakingEvaluationResult.Evidence> evidenceById
+    ) {
         if (!array.isArray()) {
             return List.of();
         }
@@ -213,20 +237,31 @@ public class SpeakingEvaluationNormalizer {
                 // are never accepted as measurements by this capability.
                 continue;
             }
+            final SpeakingRubricCriterion currentCriterion = criterion;
             BigDecimal score = decimal(node, "score");
             BigDecimal suppliedMax = decimal(node, "max_score");
+            List<String> evidenceIds = strings(node.path("evidence_ids"));
             if (score == null
                     || score.compareTo(BigDecimal.ZERO) < 0
                     || score.compareTo(criterion.maxScore()) > 0
                     || (suppliedMax != null && suppliedMax.compareTo(criterion.maxScore()) != 0)
-                    || values.containsKey(criterion)) {
+                    || values.containsKey(criterion)
+                    || evidenceIds.isEmpty()
+                    || evidenceIds.stream().distinct().count() != evidenceIds.size()
+                    || evidenceIds.stream().anyMatch(id -> {
+                        SpeakingEvaluationResult.Evidence row = evidenceById.get(id);
+                        return row == null
+                                || row.criterion() != currentCriterion;
+                    })) {
                 return List.of();
             }
             values.put(criterion, new SpeakingEvaluationResult.RubricScore(
                     criterion,
                     score.setScale(2, RoundingMode.HALF_UP),
                     criterion.maxScore(),
-                    transcriptGroundedText(text(node, "feedback"))));
+                    transcriptGroundedText(text(node, "feedback")),
+                    SpeakingCriterionAvailability.SCORED,
+                    evidenceIds));
         }
         List<SpeakingEvaluationResult.RubricScore> ordered = new ArrayList<>();
         for (SpeakingRubricCriterion criterion : SpeakingRubricCriterion.values()) {
@@ -251,27 +286,66 @@ public class SpeakingEvaluationNormalizer {
             JsonNode array,
             String actuallyHeardTranscript
     ) {
-        if (!array.isArray()) {
-            return List.of();
+        if (!array.isArray() || actuallyHeardTranscript == null) {
+            throw new IllegalArgumentException("Speaking evidence ledger is required");
         }
         List<SpeakingEvaluationResult.Evidence> rows = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        String expectedHash = sourceHash(actuallyHeardTranscript);
         for (JsonNode node : array) {
+            String evidenceId = text(node, "evidence_id");
             SpeakingEvidenceSource source = enumValue(
                     SpeakingEvidenceSource.class, text(node, "source"));
-            SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion"));
+            SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(
+                    firstText(node, "criterion_id", "criterion"));
+            String subCriterionId = text(node, "sub_criterion_id");
+            String scope = text(node, "evidence_scope");
             BigDecimal confidence = confidence(node, "confidence");
-            String excerpt = rawText(node, "excerpt");
-            boolean transcriptExcerptValid = source != SpeakingEvidenceSource.TRANSCRIPT
-                    || exactTranscriptSpan(excerpt, actuallyHeardTranscript);
-            if (source != null && criterion != null
-                    && criterion.transcriptGrounded()
-                    && evidenceAllowed(source, criterion)
-                    && transcriptExcerptValid) {
-                rows.add(new SpeakingEvaluationResult.Evidence(
-                        source, criterion, excerpt, confidence));
+            String excerpt = rawText(node, "exact_text");
+            Integer startOffset = intValue(node, "start_offset");
+            Integer endOffset = intValue(node, "end_offset");
+            Integer occurrenceIndex = intValue(node, "occurrence_index");
+            Integer occurrenceCount = intValue(node, "occurrence_count");
+            String normalization = text(node, "normalization");
+            String suppliedHash = text(node, "source_hash");
+            if (evidenceId == null || !ids.add(evidenceId)
+                    || source != SpeakingEvidenceSource.TRANSCRIPT
+                    || criterion == null || !criterion.transcriptGrounded()
+                    || !criterion.ownsSubcriterion(subCriterionId)
+                    || confidence == null
+                    || !"TEXT_SPAN".equals(scope)
+                    || !"UTF16_EXACT_V1".equals(normalization)
+                    || !expectedHash.equals(suppliedHash)
+                    || !validAuthoritativeOccurrence(
+                    actuallyHeardTranscript, excerpt, startOffset, endOffset,
+                    occurrenceIndex, occurrenceCount)) {
+                throw new IllegalArgumentException("Invalid Speaking evidence ledger row");
             }
+            rows.add(new SpeakingEvaluationResult.Evidence(
+                    evidenceId,
+                    source,
+                    criterion,
+                    subCriterionId,
+                    scope,
+                    excerpt,
+                    startOffset,
+                    endOffset,
+                    occurrenceIndex,
+                    occurrenceCount,
+                    normalization,
+                    suppliedHash,
+                    confidence));
         }
         return List.copyOf(rows);
+    }
+
+    private Map<String, SpeakingEvaluationResult.Evidence> evidenceById(
+            List<SpeakingEvaluationResult.Evidence> evidence
+    ) {
+        Map<String, SpeakingEvaluationResult.Evidence> result =
+                new LinkedHashMap<>();
+        evidence.forEach(row -> result.put(row.evidenceId(), row));
+        return Map.copyOf(result);
     }
 
     private List<SpeakingEvaluationResult.CriterionFeedback> criterionFeedback(
@@ -342,155 +416,232 @@ public class SpeakingEvaluationNormalizer {
 
     private List<SpeakingEvaluationResult.TranscriptAnnotation> transcriptAnnotations(
             JsonNode array,
-            String actuallyHeardTranscript
+            String actuallyHeardTranscript,
+            Map<String, SpeakingEvaluationResult.Evidence> evidenceById
     ) {
         if (!array.isArray()) {
-            return List.of();
+            throw new IllegalArgumentException("Speaking findings ledger is required");
         }
         List<SpeakingEvaluationResult.TranscriptAnnotation> rows = new ArrayList<>();
-        Map<String, Integer> nextSpanSearch = new HashMap<>();
+        Set<String> findingIds = new HashSet<>();
+        Set<String> claimedEvidenceIds = new HashSet<>();
         for (JsonNode node : array) {
+            String findingId = text(node, "finding_id");
+            String evidenceId = text(node, "evidence_id");
+            SpeakingEvaluationResult.Evidence evidence = evidenceById.get(evidenceId);
             SpeakingEvidenceSource source = enumValue(SpeakingEvidenceSource.class, text(node, "evidence_source"));
             SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion_id"));
-            if (source != null && criterion != null && criterion.transcriptGrounded()
-                    && evidenceAllowed(source, criterion)
-                    && criterion.ownsSubcriterion(text(node, "sub_criterion_id"))
-                    && transcriptGroundedClaim(firstText(node, "explanation", "explanation_vi"))) {
-                ValidatedEvidence validatedEvidence = validateEvidence(
-                        firstText(node, "evidence_scope", "evidenceScope"),
-                        rawText(node, "evidence"),
-                        source,
-                        actuallyHeardTranscript,
-                        nextSpanSearch);
-                if (validatedEvidence == null) {
-                    continue;
-                }
-                rows.add(new SpeakingEvaluationResult.TranscriptAnnotation(
-                        text(node, "annotation_type"),
-                        text(node, "category"),
-                        criterion,
-                        text(node, "sub_criterion_id"),
-                        validatedEvidence.textSpan() ? validatedEvidence.evidence() : null,
-                        firstText(node, "replacement", "suggestion_ko"),
-                        validatedEvidence.startOffset(),
-                        validatedEvidence.endOffset(),
-                        firstText(node, "explanation", "explanation_vi"),
-                        text(node, "severity"),
-                        source,
-                        validatedEvidence.scope(),
-                        validatedEvidence.evidence(),
-                        firstText(node, "explanation_vi", "explanationVi"),
-                        firstText(node, "suggestion_ko", "suggestionKo"),
-                        confidence(node, "confidence")));
+            String subCriterionId = text(node, "sub_criterion_id");
+            String annotationType = text(node, "annotation_type");
+            String operation = text(node, "operation");
+            String explanationVi = text(node, "explanation_vi");
+            String suggestionKo = rawText(node, "suggestion_ko");
+            BigDecimal findingConfidence = confidence(node, "confidence");
+            boolean strength = "strength".equals(annotationType);
+            boolean improvement = "needs_improvement".equals(annotationType);
+            if (findingId == null || !findingIds.add(findingId)
+                    || evidenceId == null || !claimedEvidenceIds.add(evidenceId)
+                    || evidence == null
+                    || source != SpeakingEvidenceSource.TRANSCRIPT
+                    || criterion == null || !criterion.transcriptGrounded()
+                    || criterion != evidence.criterion()
+                    || !java.util.Objects.equals(
+                    subCriterionId, evidence.subCriterionId())
+                    || !criterion.ownsSubcriterion(subCriterionId)
+                    || (!strength && !improvement)
+                    || !validFindingOperation(operation, strength)
+                    || !validContextualRepetitionFinding(
+                    subCriterionId, operation, improvement, evidence)
+                    || !transcriptGroundedClaim(explanationVi)
+                    || explanationVi == null
+                    || !meaningfulFindingFeedback(
+                    explanationVi, suggestionKo, evidence.excerpt(), improvement)
+                    || findingConfidence == null
+                    || strength && suggestionKo != null && !suggestionKo.isEmpty()
+                    || improvement && (suggestionKo == null || suggestionKo.isBlank())
+                    || !sourceHash(actuallyHeardTranscript).equals(
+                    evidence.sourceHash())) {
+                throw new IllegalArgumentException(
+                        "Invalid Speaking finding/evidence linkage");
             }
+            rows.add(new SpeakingEvaluationResult.TranscriptAnnotation(
+                    findingId,
+                    evidenceId,
+                    annotationType,
+                    text(node, "category"),
+                    criterion,
+                    subCriterionId,
+                    evidence.excerpt(),
+                    suggestionKo,
+                    evidence.startOffset(),
+                    evidence.endOffset(),
+                    evidence.occurrenceIndex(),
+                    evidence.occurrenceCount(),
+                    evidence.normalization(),
+                    evidence.sourceHash(),
+                    operation,
+                    explanationVi,
+                    text(node, "severity"),
+                    source,
+                    evidence.evidenceScope(),
+                    evidence.excerpt(),
+                    explanationVi,
+                    suggestionKo,
+                    findingConfidence));
         }
         return List.copyOf(rows);
     }
 
     private List<SpeakingEvaluationResult.FeedbackItem> feedbackItems(
-            JsonNode array,
-            String actuallyHeardTranscript,
+            List<SpeakingEvaluationResult.TranscriptAnnotation> annotations,
             boolean strengths
     ) {
-        if (!array.isArray()) {
-            return List.of();
-        }
-        List<SpeakingEvaluationResult.FeedbackItem> rows = new ArrayList<>();
-        for (JsonNode node : array) {
-            SpeakingRubricCriterion criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterion_id"));
-            if (criterion == null) {
-                criterion = SpeakingRubricCriterion.fromExternalId(text(node, "criterionId"));
-            }
-            SpeakingEvidenceSource source = enumValue(SpeakingEvidenceSource.class, text(node, "evidence_source"));
-            if (source == null) {
-                source = enumValue(SpeakingEvidenceSource.class, text(node, "evidenceSource"));
-            }
-            ValidatedEvidence validatedEvidence = validateEvidence(
-                    firstText(node, "evidence_scope", "evidenceScope"),
-                    rawText(node, "evidence"),
-                    source,
-                    actuallyHeardTranscript,
-                    new HashMap<>());
-            if (criterion != null && criterion.transcriptGrounded()
-                    && source != null && evidenceAllowed(source, criterion)
-                    && criterion.ownsSubcriterion(firstText(node, "sub_criterion_id", "subCriterionId"))
-                    && transcriptGroundedClaim(firstText(node, "explanation_vi", "explanationVi"))
-                    && (!strengths || "".equals(rawText(node, "correction")))
-                    && validatedEvidence != null) {
-                rows.add(new SpeakingEvaluationResult.FeedbackItem(
-                        criterion,
-                        firstText(node, "sub_criterion_id", "subCriterionId"),
-                        validatedEvidence.scope(),
-                        validatedEvidence.evidence(),
-                        source,
-                        firstText(node, "explanation_vi", "explanationVi"),
-                        node.has("correction") && node.get("correction").isTextual()
-                                ? node.get("correction").asText()
-                                : null));
-            }
-        }
-        return List.copyOf(rows);
+        String requiredType = strengths ? "strength" : "needs_improvement";
+        return annotations.stream()
+                .filter(row -> requiredType.equals(row.annotationType()))
+                .map(row -> new SpeakingEvaluationResult.FeedbackItem(
+                        row.findingId(),
+                        row.evidenceId(),
+                        row.criterion(),
+                        row.subCriterionId(),
+                        row.evidenceScope(),
+                        row.evidence(),
+                        row.evidenceSource(),
+                        row.startOffset(),
+                        row.endOffset(),
+                        row.occurrenceIndex(),
+                        row.occurrenceCount(),
+                        row.normalization(),
+                        row.sourceHash(),
+                        row.operation(),
+                        row.category(),
+                        row.explanationVi(),
+                        strengths ? "" : row.suggestionKo()))
+                .toList();
     }
 
-    private ValidatedEvidence validateEvidence(
-            String scope,
-            String evidence,
-            SpeakingEvidenceSource source,
-            String actuallyHeardTranscript,
-            Map<String, Integer> nextSpanSearch
+    private boolean scoreEvidenceReconciled(
+            List<SpeakingEvaluationResult.RubricScore> rubrics,
+            List<SpeakingEvaluationResult.TranscriptAnnotation> annotations,
+            Map<String, SpeakingEvaluationResult.Evidence> evidenceById
     ) {
-        if (scope == null || source == null) {
-            return null;
+        for (SpeakingEvaluationResult.RubricScore score : rubrics) {
+            if (score == null || !score.scored()) {
+                continue;
+            }
+            if (score.evidenceIds().isEmpty()
+                    || score.evidenceIds().stream().anyMatch(id -> {
+                SpeakingEvaluationResult.Evidence evidence =
+                        evidenceById.get(id);
+                return evidence == null
+                        || evidence.criterion() != score.criterion();
+            })) {
+                return false;
+            }
+            boolean confirmedImprovement = annotations.stream().anyMatch(row ->
+                    row.criterion() == score.criterion()
+                            && "needs_improvement".equals(
+                            row.annotationType()));
+            if (confirmedImprovement
+                    && score.score().compareTo(score.maxScore()) == 0) {
+                return false;
+            }
         }
-        return switch (scope.trim().toUpperCase(java.util.Locale.ROOT)) {
-            case "TEXT_SPAN" -> validatedTextSpan(
-                    evidence, source, actuallyHeardTranscript, nextSpanSearch);
-            case "WHOLE_ANSWER" -> source == SpeakingEvidenceSource.TRANSCRIPT
-                    && evidence != null && evidence.isEmpty()
-                    ? new ValidatedEvidence("WHOLE_ANSWER", "", null, null)
-                    : null;
-            // This normalizer receives no independently authenticated task-metadata
-            // envelope. Provider-authored TASK_METADATA can therefore never become
-            // CURRENT_VERIFIED evidence here.
-            case "TASK_METADATA" -> null;
-            default -> null;
-        };
+        return annotations.stream().allMatch(row ->
+                evidenceById.containsKey(row.evidenceId()));
     }
 
-    private ValidatedEvidence validatedTextSpan(
-            String evidence,
-            SpeakingEvidenceSource source,
-            String actuallyHeardTranscript,
-            Map<String, Integer> nextSpanSearch
+    private boolean validFindingOperation(String operation, boolean strength) {
+        if (strength) {
+            return "KEEP".equals(operation);
+        }
+        return Set.of("REPLACE", "REDUNDANT").contains(operation);
+    }
+
+    private boolean validContextualRepetitionFinding(
+            String subCriterionId,
+            String operation,
+            boolean improvement,
+            SpeakingEvaluationResult.Evidence evidence
     ) {
-        if (source != SpeakingEvidenceSource.TRANSCRIPT
-                || !exactTranscriptSpan(evidence, actuallyHeardTranscript)) {
-            return null;
+        if (!"S_VOCAB_REPETITION_CONTROL".equals(subCriterionId)) {
+            return true;
         }
-        int searchFrom = nextSpanSearch.getOrDefault(evidence, 0);
-        int startOffset = actuallyHeardTranscript.indexOf(evidence, searchFrom);
-        if (startOffset < 0) {
-            return null;
-        }
-        int endOffset = startOffset + evidence.length();
-        nextSpanSearch.put(evidence, endOffset);
-        return new ValidatedEvidence("TEXT_SPAN", evidence, startOffset, endOffset);
+        return evidence != null
+                && evidence.occurrenceCount() != null
+                && evidence.occurrenceCount() >= 2
+                && (!improvement || "REDUNDANT".equals(operation));
     }
 
-    private boolean exactTranscriptSpan(String evidence, String actuallyHeardTranscript) {
-        return evidence != null && !evidence.isBlank()
-                && actuallyHeardTranscript != null
-                && actuallyHeardTranscript.contains(evidence);
-    }
-
-    private record ValidatedEvidence(
-            String scope,
+    private boolean meaningfulFindingFeedback(
+            String explanationVi,
+            String suggestionKo,
             String evidence,
+            boolean improvement
+    ) {
+        if (explanationVi == null || explanationVi.isBlank()) {
+            return false;
+        }
+        String explanation = explanationVi.trim();
+        String exact = evidence == null ? "" : evidence.trim();
+        if (explanation.equals(exact)
+                || explanation.matches(
+                "(?iu)^Bằng chứng bản chép lời xác nhận .+\\.$")
+                || explanation.matches(
+                "(?iu)^Cần điều chỉnh .+ trong bản chép lời\\.$")) {
+            return false;
+        }
+        if (!improvement) {
+            return true;
+        }
+        return suggestionKo != null
+                && !suggestionKo.isBlank()
+                && !suggestionKo.trim().equals(exact)
+                && !"표현을 더 정확하고 자연스럽게 고쳐 보세요."
+                .equals(suggestionKo.trim());
+    }
+
+    private boolean validAuthoritativeOccurrence(
+            String source,
+            String exactText,
             Integer startOffset,
-            Integer endOffset
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount
     ) {
-        private boolean textSpan() {
-            return "TEXT_SPAN".equals(scope);
+        if (source == null || exactText == null || exactText.isBlank()
+                || startOffset == null || endOffset == null
+                || occurrenceIndex == null || occurrenceCount == null
+                || startOffset < 0
+                || endOffset != startOffset + exactText.length()
+                || endOffset > source.length()
+                || !source.substring(startOffset, endOffset).equals(exactText)) {
+            return false;
+        }
+        List<Integer> positions = new ArrayList<>();
+        for (int cursor = 0;
+             cursor + exactText.length() <= source.length();
+             cursor++) {
+            if (source.regionMatches(
+                    cursor, exactText, 0, exactText.length())) {
+                positions.add(cursor);
+            }
+        }
+        return occurrenceCount == positions.size()
+                && occurrenceIndex >= 1
+                && occurrenceIndex <= positions.size()
+                && positions.get(occurrenceIndex - 1).equals(startOffset);
+    }
+
+    private String sourceHash(String source) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(
+                            source.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(
+                    "SHA-256 is required for Speaking evidence identity",
+                    exception);
         }
     }
 
@@ -587,6 +738,12 @@ public class SpeakingEvaluationNormalizer {
     private Long longValue(JsonNode input, String field) {
         JsonNode value = input.get(field);
         return value != null && value.canConvertToLong() ? value.longValue() : null;
+    }
+
+    private Integer intValue(JsonNode input, String field) {
+        JsonNode value = input.get(field);
+        return value != null && value.canConvertToInt()
+                ? value.intValue() : null;
     }
 
     private String defaultText(JsonNode input, String field, String fallback) {

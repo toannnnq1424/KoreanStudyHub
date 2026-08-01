@@ -13,10 +13,13 @@ public record QuestionContent(
         List<Blank> blanks,
         String imageReference,
         String audioReference,
-        SpeakingDelivery speakingDelivery
+        SpeakingDelivery speakingDelivery,
+        WritingBlankContract.QuestionResponse writingResponse,
+        String languageTag
 ) {
     public static final String SCHEMA_VERSION_V1 = "question-content-v1";
     public static final String SCHEMA_VERSION_V2 = "question-content-v2";
+    public static final String SCHEMA_VERSION_V3 = "question-content-v3";
 
     /**
      * Existing assessment writers remain on v1 until their owning 13C3 slices
@@ -29,6 +32,30 @@ public record QuestionContent(
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
         options = immutable(options);
         blanks = immutable(blanks);
+        languageTag = languageTag == null || languageTag.isBlank()
+                ? null
+                : languageTag.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    public QuestionContent(String schemaVersion,
+                           List<Option> options,
+                           List<Blank> blanks,
+                           String imageReference,
+                           String audioReference,
+                           SpeakingDelivery speakingDelivery,
+                           WritingBlankContract.QuestionResponse writingResponse) {
+        this(schemaVersion, options, blanks, imageReference, audioReference,
+                speakingDelivery, writingResponse, null);
+    }
+
+    public QuestionContent(String schemaVersion,
+                           List<Option> options,
+                           List<Blank> blanks,
+                           String imageReference,
+                           String audioReference,
+                           SpeakingDelivery speakingDelivery) {
+        this(schemaVersion, options, blanks, imageReference, audioReference,
+                speakingDelivery, null, null);
     }
 
     public QuestionContent(String schemaVersion,
@@ -36,7 +63,8 @@ public record QuestionContent(
                            List<Blank> blanks,
                            String imageReference,
                            String audioReference) {
-        this(schemaVersion, options, blanks, imageReference, audioReference, null);
+        this(schemaVersion, options, blanks, imageReference, audioReference,
+                null, null, null);
     }
 
     public QuestionContent(String schemaVersion,
@@ -56,7 +84,26 @@ public record QuestionContent(
                 List.of(),
                 null,
                 null,
-                speakingDelivery);
+                speakingDelivery,
+                null,
+                null);
+    }
+
+    public static boolean supportsTypedSpeakingDelivery(String schemaVersion) {
+        return SCHEMA_VERSION_V2.equals(schemaVersion)
+                || SCHEMA_VERSION_V3.equals(schemaVersion);
+    }
+
+    public QuestionContent withLanguageTag(String nextLanguageTag) {
+        return new QuestionContent(
+                SCHEMA_VERSION_V3,
+                options,
+                blanks,
+                imageReference,
+                audioReference,
+                speakingDelivery,
+                writingResponse,
+                nextLanguageTag);
     }
 
     private static <T> List<T> immutable(List<T> values) {

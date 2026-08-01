@@ -40,12 +40,14 @@ class SpeakingPlayerPayloadPrivacyTest {
                         "Phần nói",
                         BigDecimal.ONE,
                         null,
+                        "ko",
                         delivery);
 
         JsonNode json = new ObjectMapper().readTree(
                 new ObjectMapper().writeValueAsString(question));
 
         assertThat(json.has("delivery")).isTrue();
+        assertThat(json.path("languageTag").asText()).isEqualTo("ko");
         assertThat(json.has("prompt")).isFalse();
         assertThat(json.has("promptAudioReference")).isFalse();
         assertThat(json.path("delivery").path("promptText").isMissingNode())

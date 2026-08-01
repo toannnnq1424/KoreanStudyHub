@@ -591,6 +591,12 @@ public class PracticeController {
                 PracticeModelAttributes.SAVED_ANSWERS,
                 playerView.savedAnswers());
         model.addAttribute(
+                PracticeModelAttributes.SAVED_WRITING_BLANK_ANSWERS,
+                playerView.savedWritingBlankAnswers());
+        model.addAttribute(
+                PracticeModelAttributes.LEGACY_WRITING_ANSWER_DOCUMENT,
+                playerView.legacyWritingAnswerDocument());
+        model.addAttribute(
                 PracticeModelAttributes.ATTEMPT_DEADLINE_EPOCH_MS,
                 toEpochMilli(playerView.deadlineAt()));
         model.addAttribute(

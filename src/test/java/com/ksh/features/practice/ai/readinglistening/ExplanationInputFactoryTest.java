@@ -11,6 +11,7 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeSetVersionRepository;
 import org.junit.jupiter.api.Test;
@@ -109,6 +110,13 @@ class ExplanationInputFactoryTest {
                         "version_option_x",
                         "version_option_y");
         assertThat(first.input().prompt()).isEqualTo("Chọn đáp án đúng.");
+        assertThat(first.input().stimulus().type())
+                .isEqualTo(
+                        com.ksh.features.practice.assessment
+                                .AssessmentStimulus.StimulusType
+                                .STANDALONE_PROMPT);
+        assertThat(first.input().stimulus().evidenceText())
+                .isEqualTo("Chọn đáp án đúng.");
         assertThat(first.input().teacherExplanation()).isEqualTo("Gợi ý của giáo viên.");
         assertThat(first.runtimeMedia())
                 .containsExactly(new ExplanationInputFactory.RuntimeMedia(
@@ -179,6 +187,13 @@ class ExplanationInputFactoryTest {
 
         assertThat(repeated.fingerprint().fingerprint())
                 .isEqualTo(first.fingerprint().fingerprint());
+        assertThat(first.input().stimulus().type())
+                .isEqualTo(
+                        com.ksh.features.practice.assessment
+                                .AssessmentStimulus.StimulusType
+                                .STANDALONE_PROMPT);
+        assertThat(first.input().stimulus().evidenceText())
+                .isEqualTo("Chọn đáp án đúng.");
         assertThat(first.fingerprint().inputContractJson())
                 .contains("blank_1")
                 .doesNotContain("draft_blank_a");
@@ -209,6 +224,20 @@ class ExplanationInputFactoryTest {
         when(question.getAnswerSpecJson()).thenReturn("{}");
         when(question.getPrompt()).thenReturn("Chọn đáp án đúng. ![minh họa](" + reference + ")");
         when(question.getExplanation()).thenReturn("Gợi ý của giáo viên. " + reference);
+        CanonicalQuestionType canonicalType =
+                "FILL_BLANK".equals(questionType)
+                        ? CanonicalQuestionType.FILL_BLANK
+                        : CanonicalQuestionType.SINGLE_CHOICE;
+        String strategyCode = canonicalType == CanonicalQuestionType.FILL_BLANK
+                ? ObjectiveExplanationStrategyRegistry.Code
+                        .CONSTRAINTS_AND_EVIDENCE.name()
+                : ObjectiveExplanationStrategyRegistry.Code
+                        .EVIDENCE_ONLY.name();
+        when(question.getExplanationStrategyRegistryVersion()).thenReturn(
+                ObjectiveExplanationStrategyRegistry.REGISTRY_VERSION);
+        when(question.getExplanationStrategyCode()).thenReturn(strategyCode);
+        when(question.getExplanationStrategyVersion()).thenReturn(
+                ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION);
         return question;
     }
 

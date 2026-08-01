@@ -19,7 +19,7 @@ import java.util.List;
 public final class SpeakingAssessmentPolicyBundle {
 
     public static final String POLICY_BUNDLE_ID =
-            "KSH_SPEAKING_POLICY_BUNDLE_V1";
+            "KSH_SPEAKING_POLICY_BUNDLE_V2";
     public static final String RUBRIC_REGISTRY_VERSION =
             "speaking-korean-rubric-registry-v2";
     public static final String SUBCRITERION_REGISTRY_VERSION =
@@ -27,7 +27,7 @@ public final class SpeakingAssessmentPolicyBundle {
     public static final String RULE_ENGINE_VERSION =
             "speaking-rules-advisory-v2";
     public static final String NORMALIZER_VERSION =
-            "speaking-normalizer-v3";
+            "speaking-normalizer-v4-authoritative-span-ledger";
     public static final String TRANSCRIPT_CONFIDENCE_VERSION =
             "speaking-transcript-confidence-v1";
     public static final String AVAILABILITY_POLICY_VERSION =

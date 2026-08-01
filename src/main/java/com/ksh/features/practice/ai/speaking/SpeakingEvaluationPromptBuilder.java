@@ -132,10 +132,10 @@ public class SpeakingEvaluationPromptBuilder {
         Map<String, Object> schema = objectSchema(List.of(
                 "evaluation_status", "score_available", "interpreted_intent", "intent_confidence",
                 "overall_score", "level_label", "overall_summary",
-                "task_achievement_summary", "major_strengths", "major_needs_improvement",
+                "task_achievement_summary",
                 "action_plan", "criterion_feedback", "transcript_annotations",
-                "rubric_scores", "strengths", "needs_improvement", "confidence_notes",
-                "findings", "evidence", "recommendations",
+                "rubric_scores", "confidence_notes",
+                "evidence", "recommendations",
                 "upgraded_answer", "sample_answer", "error_category", "retryable"));
         schema.put("properties", props(
                 "evaluation_status", enumSchema("EVALUATED"),
@@ -146,17 +146,12 @@ public class SpeakingEvaluationPromptBuilder {
                 "level_label", typed("null"),
                 "overall_summary", typed("string"),
                 "task_achievement_summary", typed("string"),
-                "major_strengths", arrayOf(typed("string")),
-                "major_needs_improvement", arrayOf(typed("string")),
                 "action_plan", arrayOf(actionPlanSchema()),
                 "criterion_feedback", arrayOf(criterionFeedbackSchema()),
                 "transcript_annotations", arrayOf(transcriptAnnotationSchema()),
                 "rubric_scores", fixedArrayOf(rubricScoreSchema(),
                         SpeakingRubricCriterion.transcriptGroundedCriteria().size()),
-                "strengths", arrayOf(feedbackItemSchema(true)),
-                "needs_improvement", arrayOf(feedbackItemSchema(false)),
                 "confidence_notes", typed("string"),
-                "findings", arrayOf(findingSchema()),
                 "evidence", arrayOf(evidenceSchema()),
                 "recommendations", arrayOf(typed("string")),
                 "upgraded_answer", typed("string"),
@@ -194,31 +189,23 @@ public class SpeakingEvaluationPromptBuilder {
 
     private Map<String, Object> transcriptAnnotationSchema() {
         return objectSchema(
-                List.of("criterion_id", "sub_criterion_id", "evidence_scope", "evidence", "evidence_source",
-                        "start_offset", "end_offset", "annotation_type", "explanation_vi", "suggestion_ko"),
-                props("criterion_id", enumSchema(rubricIds()),
+                List.of("finding_id", "evidence_id", "criterion_id",
+                        "sub_criterion_id", "evidence_source",
+                        "annotation_type", "operation", "category",
+                        "severity", "confidence", "explanation_vi",
+                        "suggestion_ko"),
+                props("finding_id", typed("string"),
+                        "evidence_id", typed("string"),
+                        "criterion_id", enumSchema(rubricIds()),
                         "sub_criterion_id", enumSchema(subcriterionIds()),
-                        "evidence_scope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER"),
-                        "evidence", typed("string"),
                         "evidence_source", enumSchema(evidenceSources()),
-                        "start_offset", anyOf(typed("integer"), typed("null")),
-                        "end_offset", anyOf(typed("integer"), typed("null")),
                         "annotation_type", enumSchema("strength", "needs_improvement", "advisory"),
+                        "operation", enumSchema("KEEP", "REPLACE", "REDUNDANT"),
+                        "category", typed("string"),
+                        "severity", enumSchema("LOW", "MEDIUM", "HIGH"),
+                        "confidence", typed("number"),
                         "explanation_vi", typed("string"),
                         "suggestion_ko", typed("string")));
-    }
-
-    private Map<String, Object> feedbackItemSchema(boolean strength) {
-        return objectSchema(
-                List.of("criterion_id", "sub_criterion_id", "evidence_scope", "evidence",
-                        "evidence_source", "explanation_vi", "correction"),
-                props("criterion_id", enumSchema(rubricIds()),
-                        "sub_criterion_id", enumSchema(subcriterionIds()),
-                        "evidence_scope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER"),
-                        "evidence", typed("string"),
-                        "evidence_source", enumSchema(evidenceSources()),
-                        "explanation_vi", typed("string"),
-                        "correction", strength ? constantString("") : typed("string")));
     }
 
     private Map<String, Object> actionPlanSchema() {
@@ -234,25 +221,34 @@ public class SpeakingEvaluationPromptBuilder {
 
     private Map<String, Object> rubricScoreSchema() {
         return objectSchema(
-                List.of("criterion", "score", "max_score", "feedback"),
+                List.of("criterion", "score", "max_score", "feedback",
+                        "evidence_ids"),
                 props("criterion", enumSchema(rubricIds()),
                         "score", typed("number"),
                         "max_score", typed("number"),
-                        "feedback", typed("string")));
-    }
-
-    private Map<String, Object> findingSchema() {
-        return objectSchema(
-                List.of("category", "message", "recommendation"),
-                props("category", typed("string"), "message", typed("string"), "recommendation", typed("string")));
+                        "feedback", typed("string"),
+                        "evidence_ids", arrayOf(typed("string"))));
     }
 
     private Map<String, Object> evidenceSchema() {
         return objectSchema(
-                List.of("source", "criterion", "excerpt", "confidence"),
-                props("source", enumSchema(evidenceSources()),
-                        "criterion", enumSchema(rubricIds()),
-                        "excerpt", typed("string"),
+                List.of("evidence_id", "source", "criterion_id",
+                        "sub_criterion_id", "evidence_scope", "exact_text",
+                        "start_offset", "end_offset", "occurrence_index",
+                        "occurrence_count", "normalization", "source_hash",
+                        "confidence"),
+                props("evidence_id", typed("string"),
+                        "source", enumSchema(evidenceSources()),
+                        "criterion_id", enumSchema(rubricIds()),
+                        "sub_criterion_id", enumSchema(subcriterionIds()),
+                        "evidence_scope", enumSchema("TEXT_SPAN"),
+                        "exact_text", typed("string"),
+                        "start_offset", typed("integer"),
+                        "end_offset", typed("integer"),
+                        "occurrence_index", typed("integer"),
+                        "occurrence_count", typed("integer"),
+                        "normalization", constantString("UTF16_EXACT_V1"),
+                        "source_hash", typed("string"),
                         "confidence", typed("number")));
     }
 

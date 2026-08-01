@@ -7,6 +7,8 @@ import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscription
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionRequest;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionResult;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
+import com.ksh.features.practice.ai.transport.PracticeAiCapability;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
 import com.ksh.features.practice.manage.speaking.SpeakingPromptEvaluationContextService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +31,7 @@ public class SpeakingEvaluationApplicationService {
     private final SpeakingEvaluatorProperties evaluatorProperties;
     private final AiQuestionImageResolver imageResolver;
     private final SpeakingPromptEvaluationContextService promptContextService;
+    private final PracticeStructuredGenerationPort structuredGeneration;
     private final boolean textFallbackEnabled;
 
     public SpeakingEvaluationApplicationService(
@@ -41,7 +45,7 @@ public class SpeakingEvaluationApplicationService {
     ) {
         this(mediaResolver, transcriptionClient, orchestrator, reusePolicy,
                 transcriptionProperties, evaluatorProperties, null, null,
-                textFallbackEnabled);
+                null, textFallbackEnabled);
     }
 
     public SpeakingEvaluationApplicationService(
@@ -56,7 +60,7 @@ public class SpeakingEvaluationApplicationService {
     ) {
         this(mediaResolver, transcriptionClient, orchestrator, reusePolicy,
                 transcriptionProperties, evaluatorProperties, imageResolver,
-                null, textFallbackEnabled);
+                null, null, textFallbackEnabled);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -69,6 +73,7 @@ public class SpeakingEvaluationApplicationService {
             SpeakingEvaluatorProperties evaluatorProperties,
             AiQuestionImageResolver imageResolver,
             SpeakingPromptEvaluationContextService promptContextService,
+            PracticeStructuredGenerationPort structuredGeneration,
             @Value("${app.practice.speaking-evaluator.text-fallback-enabled:false}") boolean textFallbackEnabled
     ) {
         this.mediaResolver = mediaResolver;
@@ -79,6 +84,7 @@ public class SpeakingEvaluationApplicationService {
         this.evaluatorProperties = evaluatorProperties;
         this.imageResolver = imageResolver;
         this.promptContextService = promptContextService;
+        this.structuredGeneration = structuredGeneration;
         this.textFallbackEnabled = textFallbackEnabled;
     }
 
@@ -87,12 +93,9 @@ public class SpeakingEvaluationApplicationService {
                 && evaluatorProperties.enabled()
                 && "openai".equals(
                         transcriptionProperties.provider())
-                && "openai-compatible".equals(
-                        evaluatorProperties.provider())
                 && transcriptionProperties.apiKey() != null
                 && !transcriptionProperties.apiKey().isBlank()
-                && evaluatorProperties.apiKey() != null
-                && !evaluatorProperties.apiKey().isBlank()
+                && evaluatorAuthorityAvailable()
                 && evaluatorVersionPinsCurrent();
     }
 
@@ -117,12 +120,11 @@ public class SpeakingEvaluationApplicationService {
                         .sorted()
                         .collect(Collectors.joining(",")),
                 Boolean.toString(evaluatorProperties.enabled()),
-                "evaluator-api-key-present="
-                        + (evaluatorProperties.apiKey() != null
-                        && !evaluatorProperties.apiKey().isBlank()),
-                evaluatorProperties.provider(),
-                evaluatorProperties.baseUrl(),
-                evaluatorProperties.model(),
+                "evaluator-authority-available="
+                        + evaluatorAuthorityAvailable(),
+                evaluatorProvider(),
+                evaluatorBaseUrl(),
+                evaluatorModel(),
                 evaluatorProperties.timeout().toString(),
                 Integer.toString(evaluatorProperties.maxRetries()),
                 evaluatorProperties.promptVersion(),
@@ -142,6 +144,53 @@ public class SpeakingEvaluationApplicationService {
                 evaluatorProperties.rubricVersion())
                 && SpeakingPromptRules.SCHEMA_VERSION.equals(
                 evaluatorProperties.schemaVersion());
+    }
+
+    private boolean evaluatorAuthorityAvailable() {
+        if (structuredGeneration == null) {
+            return Set.of(
+                            "openai-primary",
+                            "openai-compatible")
+                    .contains(evaluatorProperties.provider())
+                    && evaluatorProperties.apiKey() != null
+                    && !evaluatorProperties.apiKey().isBlank()
+                    && evaluatorProperties.model() != null
+                    && !evaluatorProperties.model().isBlank();
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+        return identity != null
+                && "openai-primary".equals(identity.provider())
+                && identity.available()
+                && identity.model() != null
+                && !identity.model().isBlank();
+    }
+
+    private String evaluatorProvider() {
+        if (structuredGeneration == null) {
+            return evaluatorProperties.provider();
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+        return identity == null ? "" : identity.provider();
+    }
+
+    private String evaluatorModel() {
+        if (structuredGeneration == null) {
+            return evaluatorProperties.model();
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+        return identity == null ? "" : identity.model();
+    }
+
+    private String evaluatorBaseUrl() {
+        return structuredGeneration == null
+                ? evaluatorProperties.baseUrl()
+                : "PRACTICE_STRUCTURED_GENERATION_PORT";
     }
 
     private static String sha256(String value) {
@@ -190,7 +239,7 @@ public class SpeakingEvaluationApplicationService {
                             null,
                             null,
                             transcriptionProperties.model(),
-                            evaluatorProperties.model(),
+                            evaluatorModel(),
                             evaluatorProperties.promptVersion(),
                             evaluatorProperties.rubricVersion(),
                             evaluatorProperties.schemaVersion());
@@ -216,7 +265,7 @@ public class SpeakingEvaluationApplicationService {
                 request.mediaId(),
                 request.mediaVersion(),
                 transcriptionProperties.model(),
-                evaluatorProperties.model(),
+                evaluatorModel(),
                 evaluatorProperties.promptVersion(),
                 evaluatorProperties.rubricVersion(),
                 evaluatorProperties.schemaVersion());
@@ -250,7 +299,7 @@ public class SpeakingEvaluationApplicationService {
                 promptContext.promptContextFingerprint(),
                 promptContext.promptContextContractIdentity(),
                 input.textFallbackAnswer(),
-                evaluatorProperties.model(),
+                evaluatorModel(),
                 evaluatorProperties.promptVersion(),
                 evaluatorProperties.rubricVersion(),
                 evaluatorProperties.schemaVersion());

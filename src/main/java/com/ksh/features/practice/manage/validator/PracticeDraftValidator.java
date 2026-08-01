@@ -12,6 +12,8 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
+import com.ksh.features.practice.assessment.WritingBlankContract;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -139,6 +141,14 @@ public class PracticeDraftValidator {
                                             messages, type, sIdx, gIdx, qIdx);
                                     if (canonicalType != null) {
                                         validatePolicy(messages, skill, canonicalType, sIdx, gIdx, qIdx);
+                                        validateExplanationStrategy(
+                                                messages,
+                                                skill,
+                                                canonicalType,
+                                                q,
+                                                sIdx,
+                                                gIdx,
+                                                qIdx);
                                     }
 
                                     if (prompt.isBlank()) {
@@ -174,6 +184,14 @@ public class PracticeDraftValidator {
                                             sIdx, gIdx, qIdx);
                                     validateWritingTaskMetadata(
                                             messages, skill, canonicalType, q, sIdx, gIdx, qIdx);
+                                    validateWritingBlankAuthoringContract(
+                                            messages,
+                                            skill,
+                                            canonicalType,
+                                            q,
+                                            sIdx,
+                                            gIdx,
+                                            qIdx);
 
                                     String explanation = q.path("explanationVi").asText("");
                                     if (explanation.isBlank()) {
@@ -192,6 +210,86 @@ public class PracticeDraftValidator {
 
         boolean hasBlocking = messages.stream().anyMatch(m -> "BLOCKING".equals(m.type()));
         return new ValidationResult(hasBlocking, messages, sectionCount, groupCount, questionCount, totalPoints);
+    }
+
+    private void validateExplanationStrategy(
+            List<ValidationMsg> messages,
+            String skill,
+            CanonicalQuestionType questionType,
+            JsonNode question,
+            int sectionIndex,
+            int groupIndex,
+            int questionIndex) {
+        if (!"READING".equalsIgnoreCase(skill)
+                && !"LISTENING".equalsIgnoreCase(skill)) {
+            return;
+        }
+        JsonNode strategy = question.path("explanationStrategy");
+        ObjectiveExplanationStrategyRegistry.Selection selection;
+        try {
+            selection = ObjectiveExplanationStrategyRegistry.requireSelection(
+                    questionType,
+                    strategy.path("registryVersion").asText(""),
+                    strategy.path("strategyCode").asText(""),
+                    strategy.path("strategyVersion").asText(""));
+        } catch (IllegalArgumentException exception) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "EXPLANATION_STRATEGY_REQUIRED",
+                    "Câu Reading/Listening phải được giảng viên chọn "
+                            + "chiến lược giải thích hợp lệ trước khi xuất bản.",
+                    sectionIndex,
+                    groupIndex,
+                    questionIndex));
+            return;
+        }
+
+        try {
+            AssessmentContractCodec codec = contractCodec == null
+                    ? new AssessmentContractCodec(
+                    objectMapper,
+                    questionTypeResolver)
+                    : contractCodec;
+            JsonNode typedContent = question.get("questionContent");
+            JsonNode typedSpec = question.get("answerSpec");
+            QuestionContent content;
+            AnswerSpec answerSpec;
+            if (typedContent != null && typedContent.isObject()
+                    && typedSpec != null && typedSpec.isObject()) {
+                content = codec.readQuestionContent(
+                        typedContent.toString(),
+                        questionType);
+                answerSpec = codec.readAnswerSpec(
+                        typedSpec.toString(),
+                        content);
+            } else if ((typedContent == null || typedContent.isMissingNode())
+                    && (typedSpec == null || typedSpec.isMissingNode())) {
+                content = codec.adaptLegacyContent(
+                        question.path("options").toString(),
+                        questionType.name());
+                answerSpec = codec.adaptLegacyAnswerSpec(
+                        questionType.name(),
+                        legacyAnswer(question),
+                        content);
+            } else {
+                throw new IllegalArgumentException(
+                        "Typed question and answer authority must be declared together");
+            }
+            ObjectiveExplanationStrategyRegistry.requireAllowed(
+                    questionType,
+                    selection,
+                    content,
+                    answerSpec);
+        } catch (IllegalArgumentException exception) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "EXPLANATION_STRATEGY_ANSWER_AUTHORITY_INVALID",
+                    "Chiến lược giải thích không khớp đáp án chuẩn "
+                            + "hoặc ID typed của câu hỏi.",
+                    sectionIndex,
+                    groupIndex,
+                    questionIndex));
+        }
     }
 
     private TestIndex validateTests(List<ValidationMsg> messages,
@@ -663,7 +761,7 @@ public class PracticeDraftValidator {
         boolean textAndAudio = "manual_text".equals(inputType)
                 && "text_and_audio".equals(deliveryMode)
                 && "ai_tts".equals(audioOrigin);
-        if (!QuestionContent.SCHEMA_VERSION_V2.equals(schemaVersion)
+        if (!QuestionContent.supportsTypedSpeakingDelivery(schemaVersion)
                 || (!upload && !textOnly && !textAndAudio)) {
             messages.add(new ValidationMsg(
                     "BLOCKING",
@@ -792,6 +890,100 @@ public class PracticeDraftValidator {
                     "BLOCKING",
                     "WRITING_TASK_UNSUPPORTED",
                     "Loại bài Writing không hợp lệ; chỉ hỗ trợ Q51, Q52, Q53 và Q54.",
+                    sIdx,
+                    gIdx,
+                    qIdx));
+        }
+    }
+
+    private void validateWritingBlankAuthoringContract(
+            List<ValidationMsg> messages,
+            String skill,
+            CanonicalQuestionType questionType,
+            JsonNode question,
+            int sIdx,
+            int gIdx,
+            int qIdx
+    ) {
+        if (!"WRITING".equalsIgnoreCase(skill)) {
+            return;
+        }
+        WritingTaskType taskType;
+        try {
+            taskType = WritingTaskType.valueOf(
+                    question.path("essayTaskType").asText(""));
+        } catch (IllegalArgumentException exception) {
+            return;
+        }
+
+        boolean structuredTask = taskType == WritingTaskType.Q51
+                || taskType == WritingTaskType.Q52;
+        JsonNode questionContent = question.path("questionContent");
+        JsonNode answerSpec = question.path("answerSpec");
+        boolean hasWritingResponse = questionContent.path(
+                "writingResponse").isObject();
+        boolean hasWritingAuthority = answerSpec.path(
+                "writingBlankAuthority").isObject();
+
+        if (!structuredTask) {
+            if (hasWritingResponse || hasWritingAuthority) {
+                messages.add(new ValidationMsg(
+                        "BLOCKING",
+                        "WRITING_BLANKS_TASK_MISMATCH",
+                        "Chỉ Q51/Q52 được dùng responseMode "
+                                + WritingBlankContract.RESPONSE_MODE + ".",
+                        sIdx,
+                        gIdx,
+                        qIdx));
+            }
+            return;
+        }
+        if (questionType != CanonicalQuestionType.ESSAY) {
+            return;
+        }
+        if (!hasWritingResponse || !hasWritingAuthority
+                || WritingBlankContract.AUTHORING_MODE_LEGACY_READ_ONLY
+                .equals(question.path("writingCompatibilityMode").asText())) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "WRITING_STRUCTURED_BLANKS_CONVERSION_REQUIRED",
+                    taskType + " lịch sử dạng bài viết chỉ được đọc. "
+                            + "Giảng viên phải chuyển đổi và xác nhận riêng "
+                            + "hai ô trả lời trước khi xuất bản.",
+                    sIdx,
+                    gIdx,
+                    qIdx));
+            return;
+        }
+
+        try {
+            AssessmentContractCodec codec = contractCodec == null
+                    ? new AssessmentContractCodec(
+                    objectMapper, questionTypeResolver)
+                    : contractCodec;
+            QuestionContent content = codec.readQuestionContent(
+                    questionContent.toString(),
+                    CanonicalQuestionType.ESSAY);
+            if (content.writingResponse() == null
+                    || content.writingResponse().taskType() != taskType) {
+                throw new IllegalArgumentException(
+                        "Writing response task does not match essayTaskType");
+            }
+            AnswerSpec spec = codec.readAnswerSpec(
+                    answerSpec.toString(), content);
+            if (spec.writingBlankAuthority() == null
+                    || spec.writingBlankAuthority().taskType() != taskType) {
+                throw new IllegalArgumentException(
+                        "Writing answer authority task does not match "
+                                + "essayTaskType");
+            }
+        } catch (IllegalArgumentException exception) {
+            messages.add(new ValidationMsg(
+                    "BLOCKING",
+                    "WRITING_STRUCTURED_BLANKS_INVALID",
+                    taskType + " phải có đúng hai blankId ổn định, "
+                            + "acceptedAnswers typed và authority khớp "
+                            + "writing-blanks.v1.",
                     sIdx,
                     gIdx,
                     qIdx));

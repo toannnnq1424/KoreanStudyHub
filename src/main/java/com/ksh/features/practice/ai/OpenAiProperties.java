@@ -22,8 +22,8 @@ public class OpenAiProperties {
     private final Duration readTimeout;
 
     public OpenAiProperties(@Value("${openai.api-key:}") String apiKey,
-                            @Value("${openai.evaluator-model:models/gemini-2.5-flash-lite}") String evaluatorModel,
-                            @Value("${openai.base-url:https://generativelanguage.googleapis.com/v1beta/openai}") String baseUrl,
+                            @Value("${openai.evaluator-model:}") String evaluatorModel,
+                            @Value("${openai.base-url:https://api.openai.com/v1}") String baseUrl,
                             @Value("${openai.connect-timeout:5s}") Duration connectTimeout,
                             @Value("${openai.read-timeout:60s}") Duration readTimeout) {
         this.apiKey = apiKey;

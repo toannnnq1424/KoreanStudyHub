@@ -21,7 +21,9 @@ class SpeakingResultRenderingContractTest {
         String dto = Files.readString(Path.of(
                 "src/main/java/com/ksh/features/practice/dto/PracticeDtos.java"));
         String css = Files.readString(Path.of(
-                "src/main/resources/static/css/practice-result.css"));
+                "src/main/resources/static/css/practice-result.css"))
+                + Files.readString(Path.of(
+                "src/main/resources/static/css/practice-result-prep.css"));
 
         assertThat(rubric)
                 .contains("S_CONTENT_TASK_FULFILLMENT")
@@ -39,7 +41,7 @@ class SpeakingResultRenderingContractTest {
                 .contains("LEGACY_UNVERIFIED")
                 .contains("AUDIO_DIRECT_FULL_RESERVED")
                 .contains("trustedOverviewCapability")
-                .contains("item.criterion().transcriptGrounded()")
+                .contains("criterion.transcriptGrounded()")
                 .contains("limit(4)");
         assertThat(dto)
                 .contains("String evaluatorCapability")
@@ -64,6 +66,9 @@ class SpeakingResultRenderingContractTest {
                 .contains("criterion.availabilityLabel()")
                 .contains("result.payload().criteria()")
                 .contains("result.payload().holisticScoreAvailable()")
+                .contains("result.payload().radarPolygonPoints()")
+                .contains("result.payload().radarAxes()")
+                .contains("axis.percentage()")
                 .contains("item.criterionLabel()")
                 .contains("media.playbackPath()");
         assertThat(overview + fragment)
@@ -77,7 +82,8 @@ class SpeakingResultRenderingContractTest {
                 .doesNotContain("criterion.band()")
                 .doesNotContain("criterion.percentage()")
                 .doesNotContain("pr-scale")
-                .doesNotContain("radar")
+                .contains("pr-speaking-radar")
+                .contains("Mỗi trục được chuẩn hóa độc lập theo điểm đạt được trên điểm tối đa")
                 .contains("bộ đánh giá chưa nhận âm thanh trực tiếp")
                 .contains("criterion.coverageLabel()");
         assertThat(css)
@@ -85,9 +91,9 @@ class SpeakingResultRenderingContractTest {
                 .contains(".pr-speaking-provenance")
                 .contains(".pr-speaking-criterion.is-not-scorable")
                 .contains(".pr-speaking-criterion-no-score")
+                .contains(".pr-speaking-radar")
                 .doesNotContain(".pr-band-chip")
-                .doesNotContain(".pr-scale")
-                .doesNotContain("radar");
+                .doesNotContain(".pr-scale");
     }
 
     @Test

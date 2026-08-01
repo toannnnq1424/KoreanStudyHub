@@ -1,13 +1,17 @@
 package com.ksh.features.practice.result;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeAttempt;
+import com.ksh.entities.PracticeQuestionVersion;
+import com.ksh.features.practice.assessment.WritingBlankContract;
+import com.ksh.features.practice.assessment.WritingBlankContractVerifier;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.ResultAttemptIdentity;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
 import com.ksh.features.practice.dto.PracticeDtos.ResultState;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.service.PracticeAttemptAnswerCodec;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeVersionSnapshot;
@@ -32,16 +36,19 @@ public class PracticeResultAssembler {
     private final PracticeAttemptRepository attemptRepository;
     private final PracticePublishedVersionService publishedVersionService;
     private final ObjectMapper objectMapper;
+    private final PracticeAttemptAnswerCodec attemptAnswerCodec;
     private final List<PracticeResultPresenter> presenters;
 
     public PracticeResultAssembler(
             PracticeAttemptRepository attemptRepository,
             PracticePublishedVersionService publishedVersionService,
             ObjectMapper objectMapper,
+            PracticeAttemptAnswerCodec attemptAnswerCodec,
             List<PracticeResultPresenter> presenters) {
         this.attemptRepository = attemptRepository;
         this.publishedVersionService = publishedVersionService;
         this.objectMapper = objectMapper;
+        this.attemptAnswerCodec = attemptAnswerCodec;
         this.presenters = List.copyOf(presenters);
     }
 
@@ -77,7 +84,10 @@ public class PracticeResultAssembler {
 
         ResultScoreSummary score = scoreSummary(attempt);
         return new PracticeResultContext(
-                attempt, snapshot, readAnswers(attempt.getAnswersJson()), score);
+                attempt,
+                snapshot,
+                readAnswers(attempt.getAnswersJson(), snapshot),
+                score);
     }
 
     PracticeAttemptResultView assemble(PracticeResultContext context) {
@@ -148,22 +158,55 @@ public class PracticeResultAssembler {
                 null);
     }
 
-    private Map<String, String> readAnswers(String json) {
-        if (json == null || json.isBlank()) {
-            return Map.of();
-        }
+    private Map<String, String> readAnswers(
+            String json,
+            PracticeVersionSnapshot snapshot
+    ) {
         try {
-            Map<String, String> values = objectMapper.readValue(json, new TypeReference<>() { });
-            Map<String, String> sanitized = new LinkedHashMap<>();
-            values.forEach((key, value) -> {
-                if (key != null) {
-                    sanitized.put(key, value == null ? "" : value);
-                }
-            });
-            return Map.copyOf(sanitized);
+            return attemptAnswerCodec.compatibilityTextAnswers(
+                    attemptAnswerCodec.read(
+                            json,
+                            writingAuthorities(snapshot.questions())));
         } catch (Exception exception) {
             throw new IllegalStateException("Không thể đọc đáp án đã khóa của bài làm.", exception);
         }
+    }
+
+    private Map<Long, WritingBlankContract.QuestionResponse>
+            writingAuthorities(List<PracticeQuestionVersion> questions) {
+        Map<Long, WritingBlankContract.QuestionResponse> result =
+                new LinkedHashMap<>();
+        for (PracticeQuestionVersion question : questions) {
+            String rawContent = question.getQuestionContentJson();
+            if (rawContent == null || rawContent.isBlank()) {
+                continue;
+            }
+            try {
+                JsonNode root = objectMapper.readTree(rawContent);
+                JsonNode writingResponse = root == null
+                        ? null
+                        : root.get("writingResponse");
+                if (writingResponse == null || writingResponse.isNull()) {
+                    continue;
+                }
+                WritingBlankContract.QuestionResponse authority =
+                        objectMapper.treeToValue(
+                                writingResponse,
+                                WritingBlankContract.QuestionResponse.class);
+                WritingBlankContractVerifier.verifyQuestion(authority);
+                if (result.putIfAbsent(
+                        question.getQuestionId(),
+                        authority) != null) {
+                    throw new IllegalArgumentException(
+                            "Duplicate structured Writing question authority");
+                }
+            } catch (Exception exception) {
+                throw new IllegalArgumentException(
+                        "Invalid immutable structured Writing authority",
+                        exception);
+            }
+        }
+        return Map.copyOf(result);
     }
 
     static ResultState resultState(PracticeAttempt attempt) {

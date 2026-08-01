@@ -2,19 +2,13 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <body>
 <th:block th:fragment="panel(result)">
-  <section id="result-analysis" class="pr-section" aria-labelledby="writing-overview-title">
+  <section id="result-analysis" class="pr-section pr-writing-overview" aria-labelledby="writing-overview-title">
     <div class="pr-section-heading">
       <div>
-        <p class="pr-section-kicker">Phân tích bài viết</p>
-        <h2 id="writing-overview-title">Kết quả theo nhiệm vụ viết</h2>
+        <h2 id="writing-overview-title">Phân tích bài viết</h2>
       </div>
       <span class="pr-denominator"
             th:text="${result.feedback().progressLabel('bài đã có đánh giá')}">1/1 bài đã có đánh giá</span>
-    </div>
-
-    <div class="pr-writing-scope" role="note">
-      <strong>Đánh giá luyện tập KSH</strong>
-      <span>Điểm dùng thang của từng nhiệm vụ và không phải điểm hoặc chứng chỉ TOPIK chính thức.</span>
     </div>
 
     <div class="pr-segmented" role="tablist" aria-label="Chọn nhiệm vụ viết"
@@ -32,22 +26,18 @@
     <article class="pr-writing-task"
              th:each="task, taskStatus : ${result.payload().tasks()}"
              th:id="${'writing-task-panel-' + taskStatus.index}"
+             th:hidden="${!taskStatus.first}"
              role="tabpanel"
              tabindex="0"
              th:attr="aria-labelledby=${'writing-task-tab-' + taskStatus.index}">
       <header class="pr-task-header">
         <div>
-          <span class="pr-task-type" th:text="${task.taskType()}">Q53</span>
-          <h3 th:text="${task.taskLabel()}">Câu 53</h3>
-          <details class="pr-task-prompt"
-                   th:if="${task.prompt() != null and !task.prompt().isBlank()}">
-            <summary>
-              <span class="pr-task-prompt-label">Đề bài</span>
-              <span class="pr-task-prompt-preview" th:text="${task.prompt()}">Đề bài</span>
-              <span class="pr-task-prompt-toggle">Xem toàn bộ đề bài</span>
-            </summary>
-            <p class="pr-task-prompt-full" th:text="${task.prompt()}">Nội dung đầy đủ của đề bài</p>
-          </details>
+          <div class="pr-task-prompt"
+               th:if="${task.prompt() != null and !task.prompt().isBlank()}">
+            <span class="pr-task-prompt-label">Đề bài</span>
+            <p class="pr-task-prompt-full" th:lang="${task.languageTag()}"
+               th:text="${task.prompt()}">Nội dung đầy đủ của đề bài</p>
+          </div>
           <div class="pr-task-prompt is-empty"
                th:unless="${task.prompt() != null and !task.prompt().isBlank()}">
             <span class="pr-task-prompt-label">Đề bài</span>
@@ -55,43 +45,75 @@
           </div>
         </div>
         <div class="pr-task-score" th:if="${task.evaluated()}">
-          <span class="pr-task-score-label">Điểm nhiệm vụ</span>
+          <span class="pr-task-score-label">Điểm</span>
           <strong th:text="${task.score().pointsDisplay()}">20/30</strong>
-          <span th:if="${task.score().percentage() != null}"
-                th:text="${task.score().percentage().stripTrailingZeros().toPlainString()} + '%'">67%</span>
           <small th:text="${task.score().scaleLabel()}">Thang điểm 30</small>
         </div>
         <span class="pr-feedback-state" th:unless="${task.evaluated()}"
               th:text="${task.feedback().label()}">Đang chờ đánh giá</span>
       </header>
 
-      <p class="pr-task-summary" th:if="${task.evaluated() and task.summary() != null}"
-         th:text="${task.summary()}">Nhận xét</p>
-
       <th:block th:if="${task.evaluated()}">
         <section class="pr-writing-scorecard"
                  th:attr="aria-labelledby=${'writing-score-heading-' + taskStatus.index}">
           <div class="pr-writing-block-heading">
             <div>
-              <p class="pr-section-kicker">Thành phần tính điểm</p>
-              <h4 th:id="${'writing-score-heading-' + taskStatus.index}"
-                  th:text="${task.clozeTask() ? 'Phân bổ điểm theo từng ô trống' : 'Tiêu chí tính điểm'}">
-                Tiêu chí tính điểm
+              <h4 class="pr-sr-only"
+                  th:id="${'writing-score-heading-' + taskStatus.index}">
+                Phân tích tiêu chí viết
               </h4>
             </div>
-            <span>Điểm ở đây được cộng vào điểm nhiệm vụ.</span>
           </div>
 
-          <div class="pr-rubric-list" th:unless="${task.officialCriteria().isEmpty()}">
-            <div class="pr-rubric-row" th:each="criterion : ${task.officialCriteria()}">
-              <div>
-                <strong th:text="${criterion.label()}">Tiêu chí</strong>
-                <p th:if="${criterion.feedback() != null}" th:text="${criterion.feedback()}">Nhận xét</p>
+          <div class="pr-writing-criterion-tabs"
+               role="tablist"
+               aria-label="Chọn nhóm tiêu chí viết"
+               data-result-tabs="writing-criterion-groups"
+               th:unless="${task.criterionGroups().isEmpty()}">
+            <button type="button"
+                    role="tab"
+                    th:each="group, groupStatus : ${task.criterionGroups()}"
+                    th:id="${'writing-criterion-tab-' + taskStatus.index + '-' + groupStatus.index}"
+                    th:attr="aria-controls=${'writing-criterion-panel-' + taskStatus.index + '-' + groupStatus.index},aria-selected=${groupStatus.first}"
+                    th:tabindex="${groupStatus.first ? 0 : -1}"
+                    th:classappend="${groupStatus.first ? ' is-active' : ''}"
+                    th:data-result-target="${'writing-criterion-panel-' + taskStatus.index + '-' + groupStatus.index}"
+                    th:text="${group.label()}">Nội dung và ngữ cảnh</button>
+          </div>
+
+          <div class="pr-rubric-groups" th:unless="${task.officialCriteria().isEmpty()}">
+            <section class="pr-rubric-group"
+                     role="tabpanel"
+                     tabindex="0"
+                     th:each="group, groupStatus : ${task.criterionGroups()}"
+                     th:id="${'writing-criterion-panel-' + taskStatus.index + '-' + groupStatus.index}"
+                     th:hidden="${!groupStatus.first}"
+                     th:attr="aria-labelledby=${'writing-criterion-tab-' + taskStatus.index + '-' + groupStatus.index}">
+              <h5 th:text="${group.label()}">Nội dung và ngữ cảnh</h5>
+              <div class="pr-rubric-row"
+                   th:each="criterion : ${group.criteria()}">
+                <div class="pr-rubric-row-heading">
+                  <div class="pr-rubric-row-copy">
+                    <strong th:if="${criterion.clozeItemLabel() != null}"
+                            th:text="${criterion.clozeItemLabel()}">Ô 1</strong>
+                    <span class="pr-rubric-inline-feedback"
+                          th:if="${criterion.feedback() != null}"
+                          th:text="${criterion.feedback()}">Đáp ứng đầy đủ</span>
+                  </div>
+                  <span th:text="${criterion.scoreDisplay()}">2/2</span>
+                </div>
+                <div class="pr-rubric-meter"
+                     th:classappend="${criterion.performanceCssClass()}"
+                     role="img"
+                     th:attr="aria-label=${group.label()
+                         + (criterion.clozeItemLabel() == null ? '' : ', ' + criterion.clozeItemLabel())
+                         + ': ' + criterion.performanceLabel()
+                         + ', ' + criterion.scoreDisplay()}">
+                  <span class="pr-rubric-meter-state"
+                        th:text="${criterion.performanceLabel()}">Tốt</span>
+                </div>
               </div>
-              <div class="pr-rubric-result">
-                <strong th:text="${criterion.scoreDisplay()}">8/10</strong>
-              </div>
-            </div>
+            </section>
           </div>
 
           <p class="pr-writing-native-note" th:if="${task.officialCriteria().isEmpty()}">
@@ -122,13 +144,6 @@
       </section>
 
       <div class="pr-task-actions">
-        <div>
-          <span>Chi tiết nhiệm vụ</span>
-          <p th:if="${task.detailAvailable()}">Mở đúng bài làm đã khóa theo nhiệm vụ này.</p>
-          <p th:unless="${task.detailAvailable()}">
-            Chi tiết riêng chưa khả dụng cho định dạng Writing lịch sử này; kết quả đã khóa vẫn hiển thị ở trên.
-          </p>
-        </div>
         <a class="pr-primary-action"
            th:if="${task.detailAvailable()}"
            th:href="@{/practice/attempts/{id}/result/detail(id=${result.identity().attemptId()},questionId=${task.questionId()})}"

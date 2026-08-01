@@ -6,9 +6,11 @@ import com.ksh.features.practice.manage.service.PracticeDraftPreviewService;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
 import com.ksh.features.practice.manage.service.PublishedPracticeGraphMutationBlockedException;
+import com.ksh.features.practice.ai.readinglistening.ObjectiveExplanationEditorialService;
 import com.ksh.features.practice.manage.speaking.SpeakingPromptAuthoringConflictException;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import org.slf4j.Logger;
@@ -21,6 +23,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,6 +46,7 @@ public class PracticeDraftController {
     private final AssessmentAuthoringCatalogService authoringCatalogService;
     private final PracticeDraftPreviewService draftPreviewService;
     private final LecturerAssetService assetService;
+    private final ObjectiveExplanationEditorialService objectiveExplanationEditorialService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeDraftController(PracticeDraftService draftService,
@@ -50,19 +54,23 @@ public class PracticeDraftController {
                                    PracticeDraftValidator draftValidator,
                                    AssessmentAuthoringCatalogService authoringCatalogService,
                                    PracticeDraftPreviewService draftPreviewService,
-                                   LecturerAssetService assetService) {
+                                   LecturerAssetService assetService,
+                                   ObjectiveExplanationEditorialService objectiveExplanationEditorialService) {
         this.draftService = draftService;
         this.publisherService = publisherService;
         this.draftValidator = draftValidator;
         this.authoringCatalogService = authoringCatalogService;
         this.draftPreviewService = draftPreviewService;
         this.assetService = assetService;
+        this.objectiveExplanationEditorialService =
+                objectiveExplanationEditorialService;
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
                                    PracticePublisherService publisherService,
                                    PracticeDraftValidator draftValidator) {
-        this(draftService, publisherService, draftValidator, null, null, null);
+        this(draftService, publisherService, draftValidator,
+                null, null, null, null);
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
@@ -70,7 +78,7 @@ public class PracticeDraftController {
                                    PracticeDraftValidator draftValidator,
                                    AssessmentAuthoringCatalogService authoringCatalogService) {
         this(draftService, publisherService, draftValidator,
-                authoringCatalogService, null, null);
+                authoringCatalogService, null, null, null);
     }
 
     public PracticeDraftController(PracticeDraftService draftService,
@@ -79,7 +87,7 @@ public class PracticeDraftController {
                                    AssessmentAuthoringCatalogService authoringCatalogService,
                                    PracticeDraftPreviewService draftPreviewService) {
         this(draftService, publisherService, draftValidator, authoringCatalogService,
-                draftPreviewService, null);
+                draftPreviewService, null, null);
     }
 
     @GetMapping("/create")
@@ -101,6 +109,12 @@ public class PracticeDraftController {
                 draftId, user.getId());
         model.addAttribute("draft", draft);
         model.addAttribute("draftJson", draft.getDraftJson());
+        model.addAttribute(
+                "objectiveExplanationStrategyCatalog",
+                ObjectiveExplanationStrategyRegistry.catalog());
+        model.addAttribute(
+                "objectiveExplanationApprovalBlockers",
+                objectiveExplanationApprovalBlockers(draft, user.getId()));
         if (authoringCatalogService != null) {
             model.addAttribute("authoringCatalog", authoringCatalogService.catalog());
         }
@@ -136,6 +150,19 @@ public class PracticeDraftController {
         }
     }
 
+    @GetMapping("/drafts/{draftId}/publish-blockers")
+    @ResponseBody
+    public ResponseEntity<?> publishBlockers(
+            @PathVariable("draftId") Long draftId,
+            @AuthenticationPrincipal KshUserDetails user) {
+        PracticeDraft draft = draftService.getDraft(
+                draftId, user.getId());
+        return ResponseEntity.ok(Map.of(
+                "publishBlockers",
+                objectiveExplanationApprovalBlockers(
+                        draft, user.getId())));
+    }
+
     // REST API endpoint for autosave
     @PostMapping("/drafts/{draftId}/autosave")
     @ResponseBody
@@ -164,7 +191,10 @@ public class PracticeDraftController {
             return ResponseEntity.ok(Map.of(
                     "status", "success",
                     "version", saved.getVersion(),
-                    "validation", valRes
+                    "validation", valRes,
+                    "publishBlockers",
+                    objectiveExplanationApprovalBlockers(
+                            saved, user.getId())
             ));
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException
                  | SpeakingPromptAuthoringConflictException e) {
@@ -195,10 +225,36 @@ public class PracticeDraftController {
         } catch (PublishedPracticeGraphMutationBlockedException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/practice/manage/drafts/" + draftId;
+        } catch (IllegalStateException e) {
+            log.warn("[DraftPublish] Publish preflight blocked draftId={}: {}",
+                    draftId, e.getMessage());
+            redirectAttributes.addFlashAttribute(
+                    "error",
+                    e.getMessage() == null || e.getMessage().isBlank()
+                            ? "Bản nháp chưa đáp ứng điều kiện xuất bản."
+                            : e.getMessage());
+            return "redirect:/practice/manage/drafts/" + draftId;
         } catch (Exception e) {
             log.error("[DraftPublish] Publish failed draftId={}", draftId, e);
             redirectAttributes.addFlashAttribute("error", "Không thể xuất bản bộ luyện tập.");
             return "redirect:/practice/manage/drafts/" + draftId;
+        }
+    }
+
+    private List<ObjectiveExplanationEditorialService.PublishBlocker>
+            objectiveExplanationApprovalBlockers(
+                    PracticeDraft draft,
+                    Long actorId) {
+        if (objectiveExplanationEditorialService == null) {
+            return List.of();
+        }
+        try {
+            return objectiveExplanationEditorialService.publishBlockers(
+                    draft.getId(), actorId, draft.getDraftJson());
+        } catch (IllegalArgumentException exception) {
+            // Structural/strategy validation is rendered by the canonical
+            // draft validator. Do not replace it with a generic duplicate.
+            return List.of();
         }
     }
 

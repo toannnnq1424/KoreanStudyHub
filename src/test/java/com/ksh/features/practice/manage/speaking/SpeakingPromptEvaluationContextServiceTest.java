@@ -59,6 +59,31 @@ class SpeakingPromptEvaluationContextServiceTest {
     }
 
     @Test
+    void v3LanguageAuthorityUsesTheSameImmutableVersionContext() {
+        SpeakingPromptVersionContextRepository repository =
+                mock(SpeakingPromptVersionContextRepository.class);
+        SpeakingPromptVersionContext context =
+                SpeakingPromptVersionContext.create(
+                        102L,
+                        manualContext("주말에 무엇을 합니까?"),
+                        20L);
+        when(repository.findById(102L)).thenReturn(Optional.of(context));
+
+        SpeakingPromptEvaluationContextService.EvaluatorContext resolved =
+                new SpeakingPromptEvaluationContextService(repository)
+                        .resolve(
+                                102L,
+                                QuestionContent.SCHEMA_VERSION_V3,
+                                "MUTABLE_SOURCE_MUST_NOT_BE_USED");
+
+        assertThat(resolved.promptContext())
+                .isEqualTo("주말에 무엇을 합니까?");
+        assertThat(resolved.promptContextContractIdentity())
+                .isEqualTo(
+                        SpeakingPromptContextIdentity.CONTRACT_IDENTITY);
+    }
+
+    @Test
     void historicalV1UsesOnlyImmutableVersionPromptAndNeverBackfills() {
         SpeakingPromptVersionContextRepository repository =
                 mock(SpeakingPromptVersionContextRepository.class);

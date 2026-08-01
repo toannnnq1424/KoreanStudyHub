@@ -161,6 +161,12 @@ class SpeakingFeedbackCompatibilityReaderTest {
         stored.put("evaluationStatus", SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE.name());
         stored.putArray("rubricScores");
         stored.putArray("criterionFeedback");
+        stored.putArray("transcriptAnnotations");
+        stored.putArray("strengths");
+        stored.putArray("needsImprovement");
+        stored.putArray("evidence");
+        stored.putArray("majorStrengths");
+        stored.putArray("majorNeedsImprovement");
 
         SpeakingEvaluationResult result = reader.read(stored);
 
@@ -297,54 +303,13 @@ class SpeakingFeedbackCompatibilityReaderTest {
     }
 
     private SpeakingEvaluationResult currentTypedResult() {
-        return new SpeakingEvaluationResult(
-                SpeakingEvaluationStatus.EVALUATED,
-                false,
-                SpeakingEvaluationSource.PROVIDER,
-                "gemini-compatible",
-                "gpt-4o-mini-transcribe",
-                SpeakingPromptRules.PROMPT_VERSION,
-                SpeakingPromptRules.RUBRIC_VERSION,
-                SpeakingPromptRules.SCHEMA_VERSION,
-                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
-                SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
-                SpeakingEvidenceMode.TRANSCRIPT_ONLY,
-                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
-                SpeakingContractTrust.CURRENT_VERIFIED,
-                null,
-                null,
-                null,
-                44L,
-                5L,
-                "들은 문장",
-                "들은 문장",
-                "들은 문장",
-                "intent",
-                null,
-                new BigDecimal("0.91"),
-                null,
-                null,
-                null,
-                "Tổng quan",
-                "Đạt yêu cầu",
-                List.of("Rõ ý"),
-                List.of("Thêm ví dụ"),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                "Tin cậy",
-                currentProfileRows(),
-                List.of(),
-                List.of(),
-                List.of(),
-                "업그레이드 답안",
-                "샘플 답안",
-                List.of(),
-                List.of(),
-                null,
-                false);
+        ObjectNode json = SpeakingEvaluationTestFixtures.providerJson(
+                objectMapper, "들은 문장", new BigDecimal("16"));
+        json.put("audio_media_id", 44L);
+        json.put("media_version", 5L);
+        json.put("upgraded_answer", "업그레이드 답안");
+        json.put("sample_answer", "샘플 답안");
+        return new SpeakingEvaluationNormalizer().normalize(json);
     }
 
     private ObjectNode storedCurrentResult() {
@@ -369,28 +334,4 @@ class SpeakingFeedbackCompatibilityReaderTest {
                 row.score() == null && row.maxScore() == null));
     }
 
-    private List<SpeakingEvaluationResult.RubricScore> currentProfileRows() {
-        return List.of(
-                scored(SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT, "16", "20"),
-                scored(SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL, "16", "20"),
-                scored(SpeakingRubricCriterion.VOCABULARY_EXPRESSIONS, "12", "15"),
-                scored(SpeakingRubricCriterion.COHERENCE_ORGANIZATION, "12", "15"),
-                unavailable(SpeakingRubricCriterion.FLUENCY),
-                unavailable(SpeakingRubricCriterion.PRONUNCIATION_DELIVERY));
-    }
-
-    private SpeakingEvaluationResult.RubricScore scored(
-            SpeakingRubricCriterion criterion,
-            String score,
-            String max
-    ) {
-        return new SpeakingEvaluationResult.RubricScore(
-                criterion, new BigDecimal(score), new BigDecimal(max), "Tốt");
-    }
-
-    private SpeakingEvaluationResult.RubricScore unavailable(SpeakingRubricCriterion criterion) {
-        return new SpeakingEvaluationResult.RubricScore(
-                criterion, null, null, "Không có âm thanh",
-                SpeakingCriterionAvailability.NOT_SCORABLE);
-    }
 }

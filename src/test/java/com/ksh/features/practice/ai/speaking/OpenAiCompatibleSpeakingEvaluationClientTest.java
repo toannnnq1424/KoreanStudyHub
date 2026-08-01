@@ -34,6 +34,18 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
                 .contains("Korean Study Hub");
         assertThat(port.lastRequest().responseSchema().toString())
                 .contains("S_CONTENT_TASK_FULFILLMENT");
+        assertThat((java.util.List<?>) port.lastRequest().input()
+                .get("allowed_subcriteria"))
+                .hasSize(16);
+        assertThat(port.lastRequest().input().toString())
+                .contains(
+                        "S_CONTENT_RELEVANCE",
+                        "S_GRAMMAR_HONORIFIC_REGISTER",
+                        "S_VOCAB_REPETITION_CONTROL",
+                        "S_COHERENCE_DISCOURSE_MARKERS")
+                .doesNotContain(
+                        "S_FLUENCY_CONTINUITY",
+                        "S_PRONUNCIATION_INTELLIGIBILITY");
         assertThat(port.lastRequest().authority().strategyCode())
                 .isEqualTo("TRANSCRIPT_ONLY");
     }

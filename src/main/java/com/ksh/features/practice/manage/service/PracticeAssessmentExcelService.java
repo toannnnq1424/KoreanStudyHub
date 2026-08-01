@@ -314,7 +314,7 @@ public class PracticeAssessmentExcelService {
                             "promptAudioReference").asText("").trim();
                     java.util.regex.Matcher matcher =
                             MANAGED_MEDIA_URL.matcher(reference);
-                    if (!QuestionContent.SCHEMA_VERSION_V2.equals(
+                    if (!QuestionContent.supportsTypedSpeakingDelivery(
                                 content.path("schemaVersion").asText())
                             || !"audio_upload".equals(
                                 delivery.path("inputType").asText())
@@ -798,18 +798,28 @@ public class PracticeAssessmentExcelService {
                                                 List<ImportIssue> issues) {
         Set<String> rejected = new LinkedHashSet<>();
         for (PracticeDraftValidator.ValidationMsg message : validation.messages()) {
+            boolean strategyPending =
+                    "EXPLANATION_STRATEGY_REQUIRED".equals(
+                            message.code());
+            String issueType = strategyPending
+                    ? "WARNING"
+                    : message.type();
             List<String> questionKeys = affectedQuestionKeys(normalizedRoot, message);
             if (questionKeys.isEmpty()) {
                 addUnique(issues, new ImportIssue(
-                        message.type(), message.code(), "Draft", 0, null, message.content(), null));
+                        issueType, message.code(), "Draft", 0, null,
+                        message.content(), null));
                 continue;
             }
             for (String questionKey : questionKeys) {
                 int sourceRow = sourceRows.getOrDefault(questionKey, 0);
                 addUnique(issues, new ImportIssue(
-                        message.type(), message.code(), "Questions", sourceRow, null,
+                        issueType, message.code(), "Questions", sourceRow, null,
                         message.content(), questionKey));
-                if ("BLOCKING".equals(message.type())) rejected.add(questionKey);
+                if (!strategyPending
+                        && "BLOCKING".equals(message.type())) {
+                    rejected.add(questionKey);
+                }
             }
         }
         return rejected;
@@ -1159,6 +1169,17 @@ public class PracticeAssessmentExcelService {
                     rows.value(row, "explanationVi"), writingTask,
                     nullableInt(rows.value(row, "prepTimeSeconds")),
                     nullableInt(rows.value(row, "responseTimeSeconds")), rowIndex + 1);
+            if (type == CanonicalQuestionType.SPEAKING) {
+                issues.add(blocking(
+                        "SPEAKING_PROMPT_AUDIO_REQUIRED",
+                        sheet.getSheetName(),
+                        rowIndex + 1,
+                        "questionType",
+                        "Speaking trong workbook v1 không có audio đề bài riêng "
+                                + "nên chỉ được đọc để sửa, không được nâng ngầm "
+                                + "thành câu text-only.",
+                        rowKey));
+            }
             result.put(id, question);
             group.questions.add(question);
         }

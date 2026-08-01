@@ -6,11 +6,30 @@ import com.ksh.features.practice.ai.media.AiImageEvidence;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SpeakingEvaluationPromptBuilderTest {
+    private static final List<String> TRANSCRIPT_SUBCRITERIA = List.of(
+            "S_CONTENT_RELEVANCE",
+            "S_CONTENT_PROMPT_COVERAGE",
+            "S_CONTENT_SPECIFICITY_EXAMPLES",
+            "S_GRAMMAR_PARTICLES",
+            "S_GRAMMAR_TENSE_ASPECT",
+            "S_GRAMMAR_ENDINGS",
+            "S_GRAMMAR_SENTENCE_STRUCTURE",
+            "S_GRAMMAR_HONORIFIC_REGISTER",
+            "S_GRAMMAR_CONNECTORS",
+            "S_VOCAB_TOPIC_WORDS",
+            "S_VOCAB_NATURAL_EXPRESSIONS",
+            "S_VOCAB_REPETITION_CONTROL",
+            "S_VOCAB_WORD_CHOICE",
+            "S_COHERENCE_ORGANIZATION",
+            "S_COHERENCE_LOGICAL_FLOW",
+            "S_COHERENCE_DISCOURSE_MARKERS");
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final SpeakingEvaluationPromptBuilder builder = new SpeakingEvaluationPromptBuilder(objectMapper);
 
@@ -39,6 +58,16 @@ class SpeakingEvaluationPromptBuilderTest {
         assertThat(root.path("allowed_rubric").toString()).contains("S_CONTENT_TASK_FULFILLMENT");
         assertThat(root.path("allowed_rubric").toString())
                 .doesNotContain("S_FLUENCY", "S_PRONUNCIATION_DELIVERY");
+        assertThat(root.path("allowed_subcriteria"))
+                .extracting(JsonNode::asText)
+                .containsExactlyInAnyOrderElementsOf(
+                        TRANSCRIPT_SUBCRITERIA);
+        assertThat(root.path("evaluator_capability")
+                .path("not_scorable_criteria"))
+                .extracting(JsonNode::asText)
+                .containsExactlyInAnyOrder(
+                        "S_FLUENCY",
+                        "S_PRONUNCIATION_DELIVERY");
         assertThat(root.path("allowed_evidence_sources")).hasSize(1);
         assertThat(root.path("allowed_evidence_sources").get(0).asText()).isEqualTo("TRANSCRIPT");
         assertThat(root.path("evaluator_capability").path("capability").asText())
@@ -99,6 +128,22 @@ class SpeakingEvaluationPromptBuilderTest {
     }
 
     @Test
+    void systemPromptRequiresContextualEvidenceInsteadOfFrequencyOrChecklistScoring() {
+        String prompt = builder.systemPrompt(request(false));
+
+        assertThat(prompt)
+                .contains("Số lần một từ/cụm xuất hiện chỉ là tín hiệu để kiểm tra")
+                .contains("Không tự động coi một từ xuất hiện hai lần")
+                .contains("nhấn mạnh có chủ đích")
+                .contains("operation=REDUNDANT")
+                .contains("gắn evidence vào đúng occurrence dư thừa")
+                .contains("allowed_subcriteria là danh mục được phép")
+                .contains("Nếu còn hai cách hiểu hợp lý")
+                .contains("không được lặp tên chip")
+                .contains("không dùng lời khuyên chung chung");
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void responseFormatUsesStrictJsonSchemaAndSpeakingCriterionIds() {
         Map<String, Object> responseFormat = builder.responseFormat(request(false));
@@ -124,13 +169,28 @@ class SpeakingEvaluationPromptBuilderTest {
                 .contains("maxItems=4")
                 .contains("subcriteria")
                 .contains("transcript_annotations")
+                .contains("finding_id")
+                .contains("evidence_id")
+                .contains("evidence_ids")
+                .contains("start_offset")
+                .contains("end_offset")
+                .contains("occurrence_index")
+                .contains("occurrence_count")
+                .contains("UTF16_EXACT_V1")
+                .contains("source_hash")
+                .contains("operation")
                 .contains("evidence_scope")
                 .contains("suggestion_ko")
                 .contains("S_GRAMMAR_HONORIFIC_REGISTER")
                 .doesNotContain("S_FLUENCY")
                 .doesNotContain("S_PRONUNCIATION_DELIVERY")
                 .doesNotContain("AUDIO_METADATA")
+                .doesNotContain("WHOLE_ANSWER")
                 .doesNotContain("W_CONTENT");
+        assertThat(TRANSCRIPT_SUBCRITERIA)
+                .allSatisfy(subcriterion ->
+                        assertThat(schema.toString())
+                                .contains(subcriterion));
     }
 
     static SpeakingEvaluationRequest request(boolean textFallback) {

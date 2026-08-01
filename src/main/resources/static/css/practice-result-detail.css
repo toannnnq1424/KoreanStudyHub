@@ -1020,6 +1020,7 @@
 
 .prd-back-btn:focus-visible,
 .prd-complete-btn:focus-visible,
+.prd-speaking-result-info > summary:focus-visible,
 .prd-tabs-primary a:focus-visible,
 .prd-task-row a:focus-visible,
 .prd-boundary-shell summary:focus-visible,
@@ -1808,7 +1809,7 @@
     grid-column: 1;
     grid-row: 2;
   }
-  .prd-boundary-header > .prd-complete-btn {
+  .prd-boundary-header > .prd-header-actions {
     grid-column: 2;
     grid-row: 2;
   }
@@ -2948,6 +2949,96 @@
   justify-self: end;
 }
 
+.prd-header-actions {
+  position: relative;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prd-speaking-result-info {
+  position: relative;
+}
+
+.prd-speaking-result-info > summary {
+  padding: 8px 12px;
+  border: 1px solid var(--prd-line);
+  border-radius: var(--prd-control-radius);
+  background: #fff;
+  color: var(--prd-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  list-style: none;
+  cursor: pointer;
+}
+
+.prd-speaking-result-info > summary::-webkit-details-marker {
+  display: none;
+}
+
+.prd-speaking-result-info > summary::before {
+  content: "ⓘ";
+  margin-right: 6px;
+  color: var(--detail-accent);
+}
+
+.prd-speaking-result-info[open] > summary {
+  border-color: var(--detail-accent);
+  color: var(--prd-ink);
+}
+
+.prd-speaking-result-info-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 130;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - var(--header-h) - 24px);
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid var(--prd-line);
+  border-radius: var(--prd-panel-radius);
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(20, 35, 70, 0.16);
+}
+
+.prd-speaking-result-info-panel section {
+  display: grid;
+  gap: 10px;
+}
+
+.prd-speaking-result-info-panel section + section {
+  margin-top: 22px;
+}
+
+.prd-speaking-result-info-panel h2 {
+  margin: 0;
+  color: var(--prd-ink);
+  font-size: 0.9rem;
+}
+
+.prd-speaking-result-info-panel .prd-speaking-score-trust,
+.prd-speaking-result-info-panel .prd-speaking-source-definition,
+.prd-speaking-result-info-panel .prd-speaking-media-meta {
+  border: 0;
+}
+
+.prd-speaking-result-info-panel .prd-speaking-score-trust > div,
+.prd-speaking-result-info-panel .prd-speaking-source-definition > div,
+.prd-speaking-result-info-panel .prd-speaking-media-meta > div {
+  padding: 6px 0;
+  border: 0;
+}
+
+.prd-speaking-result-info-panel .prd-speaking-proof-note {
+  margin: 4px 0 0;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #f4f6fa;
+}
+
 .prd-boundary-shell,
 .prd-objective-shell,
 .prd-writing-shell,
@@ -3074,11 +3165,16 @@
   line-height: 1.7;
 }
 
+.prd-boundary-prompt[lang="ko"] {
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.75;
+}
+
 .prd-boundary-answer {
   margin-top: 10px;
   padding: 16px 0;
-  border-top: 1px solid var(--prd-line);
-  border-bottom: 1px solid var(--prd-line);
+  border: 0;
   background: transparent;
   line-height: 1.8;
 }
@@ -3106,8 +3202,7 @@
 
 .prd-objective-breakdown > summary,
 .prd-objective-registry-state > summary,
-.prd-objective-source-technical > summary,
-.prd-speaking-source-technical > summary {
+.prd-objective-source-technical > summary {
   padding: 12px 2px;
   color: var(--prd-muted);
   font-size: 0.78rem;
@@ -3372,6 +3467,45 @@
 
 .prd-objective-explanation-body {
   padding-top: 16px;
+}
+
+.prd-objective-strategy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #cbd9ff;
+  border-radius: 10px;
+  background: #f2f6ff;
+  color: #31569a;
+  font-size: 0.76rem;
+}
+
+.prd-objective-claim-list {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.prd-objective-claim-list li {
+  padding: 12px 14px;
+  border: 1px solid #dce5f3;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.prd-objective-claim-list p {
+  margin: 0 0 6px;
+  color: var(--prd-ink);
+  line-height: 1.55;
+}
+
+.prd-objective-claim-list small {
+  color: var(--prd-muted);
 }
 
 .prd-objective-explanation-summary {
@@ -3916,8 +4050,8 @@
 .prd-writing-source-block,
 .prd-speaking-source-block {
   margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--prd-line);
+  padding-top: 0;
+  border-top: 0;
 }
 
 .prd-writing-source-block h3,
@@ -3934,7 +4068,7 @@
   gap: 0;
   padding: 0 20px;
   overflow: visible;
-  border-bottom: 1px solid var(--prd-line);
+  border-bottom: 0;
 }
 
 .prd-writing-tab,
@@ -3973,8 +4107,8 @@
 
 .prd-writing-panel-heading,
 .prd-speaking-panel-heading {
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--prd-line);
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .prd-writing-panel-heading h3,
@@ -4259,21 +4393,6 @@
   margin: 0 auto;
   color: var(--prd-muted);
   line-height: 1.6;
-}
-
-.prd-speaking-source-technical {
-  margin-top: 20px;
-  border-width: 1px 0;
-  border-style: solid;
-  border-color: var(--prd-line);
-}
-
-.prd-speaking-source-technical .prd-speaking-source-definition {
-  padding-top: 2px;
-}
-
-.prd-speaking-source-technical .prd-speaking-media-meta {
-  margin-top: 14px;
 }
 
 .prd-speaking-proof-note {
@@ -4806,6 +4925,28 @@
   font-weight: 800;
 }
 
+.prd-writing-inline-number {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  margin-inline-end: 0.25rem;
+  padding-inline: 0.22rem;
+  border-radius: 999px;
+  background: currentColor;
+  color: #fff;
+  font: 700 0.68rem/1 var(--font-family-sans, system-ui, sans-serif);
+  vertical-align: 0.1em;
+}
+
+.prd-writing-inline-annotation.is-strength .prd-writing-inline-number {
+  background: #16803a;
+}
+
+.prd-writing-inline-annotation.is-need .prd-writing-inline-number {
+  background: #c53737;
+}
+
 .prd-writing-finding.is-strength .prd-writing-finding-number,
 .prd-speaking-finding.is-strength .prd-speaking-finding-number {
   color: var(--str-primary);
@@ -5149,6 +5290,118 @@
   }
 }
 
+.prd-writing-coverage {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid #dfe6f3;
+  border-radius: 16px;
+  background: #f8faff;
+}
+
+.prd-writing-coverage > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.prd-writing-coverage h4,
+.prd-writing-coverage p {
+  margin: 0;
+}
+
+.prd-writing-coverage > header > p {
+  max-width: 420px;
+  color: #66738a;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.prd-writing-coverage-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prd-writing-coverage-list li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid #dfe6f3;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.prd-writing-coverage-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 2px solid #9aa7ba;
+  border-radius: 50%;
+}
+
+.prd-writing-coverage-list li.is-met .prd-writing-coverage-icon {
+  border-color: #1f9d61;
+  background: #1f9d61;
+  box-shadow: inset 0 0 0 4px #fff;
+}
+
+.prd-writing-coverage-list li.is-partial .prd-writing-coverage-icon {
+  border-color: #d58a18;
+  background: linear-gradient(90deg, #d58a18 50%, #fff 50%);
+}
+
+.prd-writing-coverage-list li.is-not-met .prd-writing-coverage-icon {
+  border-color: #d64b55;
+}
+
+.prd-writing-coverage-list strong,
+.prd-writing-coverage-list small,
+.prd-writing-coverage-evidence {
+  display: block;
+}
+
+.prd-writing-coverage-list strong {
+  color: #172033;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.prd-writing-coverage-list small {
+  margin-top: 3px;
+  color: #66738a;
+  font-size: 0.78rem;
+}
+
+.prd-writing-coverage-evidence {
+  margin-top: 5px;
+  color: #3b63d1;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .prd-writing-coverage > header {
+    display: block;
+  }
+
+  .prd-writing-coverage > header > p {
+    margin-top: 6px;
+    text-align: left;
+  }
+
+  .prd-writing-coverage-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Final radius contract: match the approved Stitch surfaces without card nesting. */
 .prd-objective-sources,
 .prd-objective-review,
@@ -5199,5 +5452,3791 @@
 
   .prd-objective-answer-table tbody tr {
     border-radius: 12px;
+  }
+}
+
+/* Pre-14 Writing Detail reconciliation: compact learner surface, no admin table. */
+.prd-writing-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.prd-speaking-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.prd-writing-blank-answers {
+  display: grid;
+  gap: 12px;
+}
+
+.prd-writing-blank-answer {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #d7dee9;
+  border-radius: 14px;
+  background: #fbfcff;
+}
+
+.prd-writing-blank-answer > strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border-radius: 999px;
+  background: #eaf0ff;
+  color: var(--ksh-blue);
+  font-size: 0.78rem;
+}
+
+.prd-writing-blank-answer-text {
+  min-width: 0;
+  color: var(--prd-ink);
+  font-size: 0;
+  line-height: 0;
+  overflow-wrap: anywhere;
+}
+
+.prd-writing-provenance-card.is-teacher-sample {
+  border-color: #2f855a;
+  background: #f3fbf7;
+}
+
+.prd-speaking-provenance-card.is-teacher-sample {
+  border-color: #2f855a;
+  background: #f3fbf7;
+}
+
+.prd-writing-annotated-answer {
+  font-size: 0;
+  line-height: 0;
+  /* Template indentation must not become learner-answer line breaks. Each
+     actual text segment still preserves its submitted whitespace. */
+  white-space: normal;
+}
+
+.prd-writing-answer-segment,
+.prd-writing-inline-annotation {
+  font-size: 1.125rem;
+  line-height: 1.8;
+}
+
+.prd-writing-answer-segment {
+  white-space: pre-wrap;
+}
+
+.prd-writing-inline-annotation {
+  white-space: normal;
+}
+
+.prd-writing-source-block:first-of-type {
+  margin-top: 0;
+}
+
+.prd-writing-prompt-ko {
+  font-size: 1.08rem;
+  line-height: 1.8;
+  letter-spacing: -0.01em;
+}
+
+.prd-writing-panel {
+  gap: 16px;
+  padding: 22px 24px 28px;
+}
+
+.prd-writing-overview-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prd-writing-total-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  min-height: 40px;
+  padding: 8px 13px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--detail-accent) 9%, #fff);
+  color: var(--detail-accent);
+}
+
+.prd-writing-total-score span {
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.prd-writing-total-score strong {
+  font-size: 1.08rem;
+  line-height: 1;
+}
+
+.prd-writing-total-score.is-unavailable {
+  background: #f3f5f8;
+  color: var(--prd-muted);
+}
+
+.prd-writing-score-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border: 0;
+}
+
+.prd-writing-score-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 76px;
+  padding: 12px 13px;
+  border: 0;
+  border-radius: 13px;
+  background: #f6f8fc;
+}
+
+.prd-writing-score-card progress {
+  grid-column: 1 / -1;
+  grid-row: auto;
+  height: 5px;
+}
+
+.prd-writing-score-card strong,
+.prd-writing-score-card > span {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 0.9rem;
+}
+
+.prd-writing-coverage {
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.prd-writing-coverage > header {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.prd-writing-coverage-list {
+  gap: 8px;
+}
+
+.prd-writing-coverage-list li {
+  min-height: 64px;
+  padding: 10px 11px;
+  border: 0;
+  background: #f6f8fc;
+}
+
+@media (max-width: 760px) {
+  .prd-writing-score-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pre-14 Writing Detail: PREP-aligned two-pane workspace.
+   Question switching belongs in the compact top rail, not a third column. */
+.prd-writing-shell {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+}
+
+.prd-writing-topbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  min-height: 68px;
+  padding: 10px 18px;
+  border: 1px solid #d7dee9;
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  background: #fff;
+}
+
+.prd-writing-topbar h1 {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.prd-writing-topbar .prd-boundary-task-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(88px, 1fr));
+  flex: 0 1 540px;
+  gap: 4px;
+  width: min(540px, 100%);
+  min-width: 0;
+  margin: 0 0 0 auto;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f3f5f9;
+}
+
+.prd-writing-topbar .prd-boundary-task-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 9px;
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-align: center;
+}
+
+.prd-writing-topbar .prd-boundary-task-nav a:hover,
+.prd-writing-topbar .prd-boundary-task-nav a:focus-visible {
+  background: #e9edf5;
+  color: #273248;
+}
+
+.prd-writing-topbar .prd-boundary-task-nav a.is-active {
+  background: color-mix(in srgb, var(--detail-accent) 82%, #fff);
+  color: #fff;
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--detail-accent) 18%, transparent);
+}
+
+.prd-writing-source {
+  grid-column: 1;
+  grid-row: 2;
+  border-radius: 0 0 0 20px;
+}
+
+.prd-writing-feedback {
+  grid-column: 2;
+  grid-row: 2;
+  border-left: 0;
+  border-radius: 0 0 20px 0;
+}
+
+.prd-writing-reevaluate {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+@media (min-width: 1081px) {
+  .prd-writing-source,
+  .prd-writing-feedback {
+    min-height: calc(100vh - var(--header-h) - 120px);
+    max-height: calc(100vh - var(--header-h) - 120px);
+  }
+}
+
+@media (max-width: 1080px) {
+  .prd-writing-topbar {
+    position: sticky;
+    top: calc(var(--header-h) + 8px);
+    z-index: 30;
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid #d7dee9;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 8px 22px rgba(30, 43, 76, 0.1);
+  }
+
+  .prd-writing-topbar h1 {
+    margin-bottom: 10px;
+  }
+
+  .prd-writing-topbar .prd-boundary-task-nav {
+    display: flex;
+    margin: 0;
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .prd-writing-topbar .prd-boundary-task-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .prd-writing-topbar .prd-boundary-task-nav a {
+    flex: 1 0 88px;
+  }
+
+  .prd-writing-source,
+  .prd-writing-feedback {
+    border: 1px solid #d7dee9;
+    border-radius: 16px;
+  }
+}
+
+/* Pre-14 Speaking Detail: PREP large-screen composition.
+   Task switching is a compact top row inside one sheet, not a third rail. */
+html.prd-speaking-root {
+  height: 100%;
+  overflow: hidden;
+}
+
+.prd-speaking-body {
+  height: 100dvh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, #3247ff 0%, #4f7ff5 66%, #86baf0 100%);
+}
+
+.prd-speaking-body .prd-boundary-header {
+  border-bottom: 0;
+  background: #3247ff;
+  color: #fff;
+}
+
+.prd-speaking-body .prd-back-btn,
+.prd-speaking-body .prd-back-btn:hover {
+  color: #fff;
+}
+
+.prd-speaking-body .prd-speaking-result-info > summary {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.prd-speaking-body .prd-speaking-result-info > summary::before {
+  color: #fff;
+}
+
+.prd-speaking-body .prd-complete-btn {
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.prd-speaking-shell {
+  --detail-accent: #315efb;
+  --speaking-split: 52%;
+  position: relative;
+  width: calc(100% - 60px);
+  height: calc(100vh - 94px);
+  margin: 70px auto 24px;
+  padding: 0;
+  grid-template-columns: var(--speaking-split) minmax(0, 1fr);
+  grid-template-rows: 62px minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(28, 45, 145, 0.2);
+}
+
+.prd-speaking-topbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  min-height: 62px;
+  padding: 9px 20px;
+  border: 0;
+  border-bottom: 1px solid #e0e5ee;
+  border-radius: 12px 12px 0 0;
+  background: #fff;
+}
+
+.prd-speaking-topbar h1 {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #315efb;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.prd-speaking-topbar .prd-boundary-task-nav {
+  display: flex;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+}
+
+.prd-speaking-topbar .prd-boundary-task-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.prd-speaking-topbar .prd-boundary-task-nav a:hover,
+.prd-speaking-topbar .prd-boundary-task-nav a:focus-visible {
+  background: #edf2ff;
+  color: #2447c8;
+}
+
+.prd-speaking-topbar .prd-boundary-task-nav a.is-active {
+  background: #315efb;
+  color: #fff;
+  box-shadow: 0 3px 9px rgba(49, 94, 251, 0.2);
+}
+
+.prd-speaking-source {
+  grid-column: 1;
+  grid-row: 2;
+  position: static;
+  min-height: 0;
+  max-height: none;
+  padding: 28px 32px;
+  overflow-y: auto;
+  border: 0;
+  border-right: 1px solid #e0e5ee;
+  border-radius: 0 0 0 12px;
+  box-shadow: none;
+}
+
+.prd-writing-review-layout > .prd-writing-source,
+.prd-speaking-review-layout > .prd-speaking-source {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.prd-writing-review-layout > .prd-writing-splitter,
+.prd-speaking-review-layout > .prd-speaking-splitter {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.prd-writing-review-layout > .prd-writing-feedback,
+.prd-speaking-review-layout > .prd-speaking-feedback {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.prd-speaking-feedback {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0 0 12px 0;
+  box-shadow: none;
+}
+
+.prd-speaking-splitter {
+  position: absolute;
+  top: 62px;
+  bottom: 0;
+  left: var(--speaking-split);
+  z-index: 18;
+  width: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  transform: translateX(-50%);
+}
+
+.prd-speaking-splitter::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: 1px;
+  background: #d9e1ee;
+  transform: translateX(-50%);
+}
+
+.prd-speaking-splitter > span {
+  position: sticky;
+  top: calc(50% - 22px);
+  display: grid;
+  width: 10px;
+  height: 44px;
+  margin: calc(50vh - 126px) auto 0;
+  border: 1px solid #cad5e8;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(25, 48, 110, 0.13);
+}
+
+.prd-speaking-splitter > span::before {
+  content: "";
+  align-self: center;
+  justify-self: center;
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: #6d7c96;
+  box-shadow: 4px 0 0 #6d7c96;
+  transform: translateX(-2px);
+}
+
+.prd-speaking-splitter:hover > span,
+.prd-speaking-splitter:focus-visible > span,
+.prd-speaking-splitter.is-dragging > span {
+  border-color: #315efb;
+  box-shadow: 0 0 0 3px rgba(49, 94, 251, 0.16);
+}
+
+.prd-speaking-splitter:focus-visible {
+  outline: none;
+}
+
+.prd-speaking-source-heading h2 {
+  font-size: 1.35rem;
+}
+
+.prd-speaking-source-block {
+  margin-top: 22px;
+}
+
+.prd-speaking-tabs {
+  top: 0;
+  min-height: 58px;
+  padding: 0 18px;
+  border-bottom: 1px solid #e0e5ee;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.prd-speaking-tab {
+  min-height: 58px;
+  color: #5f6777;
+}
+
+.prd-speaking-tab.is-active,
+.prd-speaking-tab[aria-selected="true"] {
+  border-bottom-color: #315efb;
+  color: #315efb;
+}
+
+.prd-speaking-panel {
+  padding: 26px 32px 34px;
+}
+
+@media (min-width: 1081px) {
+  .prd-speaking-score-card {
+    grid-template-columns: minmax(190px, 0.86fr) minmax(180px, 1fr) minmax(62px, auto);
+  }
+
+  .prd-speaking-score-card progress {
+    min-width: 180px;
+  }
+}
+
+.prd-speaking-upgrade-criteria {
+  display: grid;
+  gap: 12px;
+}
+
+.prd-speaking-upgrade-criteria > header h4,
+.prd-speaking-upgrade-criteria > header p {
+  margin: 0;
+}
+
+.prd-speaking-upgrade-criteria > header h4 {
+  color: #273248;
+  font-size: 0.9rem;
+}
+
+.prd-speaking-upgrade-criteria > header p {
+  margin-top: 5px;
+  color: #657188;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.prd-speaking-upgrade-criterion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.prd-speaking-upgrade-criterion {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #dbe3f2;
+  border-radius: 14px;
+  background: #f8faff;
+}
+
+.prd-speaking-upgrade-criterion > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.prd-speaking-upgrade-criterion h5 {
+  margin: 0;
+  color: #273248;
+  font-size: 0.78rem;
+}
+
+.prd-speaking-upgrade-criterion > header > strong,
+.prd-speaking-upgrade-chip b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #315efb;
+  color: #fff;
+  font-size: 0.72rem;
+}
+
+.prd-speaking-upgrade-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prd-speaking-upgrade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid #dbe3f2;
+  border-radius: 10px;
+  background: #fff;
+  color: #566176;
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prd-speaking-upgrade-chip b {
+  min-width: 20px;
+  height: 20px;
+  border-radius: 7px;
+  background: #e8edff;
+  color: #315efb;
+  font-size: 0.66rem;
+}
+
+.prd-speaking-upgrade-chip[aria-pressed="true"] {
+  border-color: #315efb;
+  background: #edf2ff;
+  color: #2447c8;
+  box-shadow: 0 0 0 2px rgba(49, 94, 251, 0.12);
+}
+
+/* Speaking transcript annotations stay visually neutral until a learner
+   selects an evidence chip. Selected spans use a straight semantic underline. */
+.prd-speaking-inline-annotation,
+.prd-speaking-inline-annotation.is-strength,
+.prd-speaking-inline-annotation.is-need {
+  padding-inline: 0;
+  border-radius: 0;
+  background: transparent;
+  text-decoration: none;
+  cursor: text;
+}
+
+.prd-speaking-inline-annotation.is-selected {
+  background: transparent;
+  box-shadow: none;
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.prd-speaking-inline-annotation.is-selected.is-strength {
+  text-decoration-color: #16803a;
+}
+
+.prd-speaking-inline-annotation.is-selected.is-need {
+  text-decoration-color: #d92d45;
+}
+
+.prd-speaking-inline-annotation.is-selected.is-upgrade {
+  text-decoration-color: #2563eb;
+}
+
+.prd-speaking-inline-annotation.is-muted {
+  opacity: 1;
+}
+
+@media (max-width: 1080px) {
+  html.prd-speaking-root {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .prd-speaking-body {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: #f5f7fb;
+  }
+
+  .prd-speaking-shell {
+    display: block;
+    width: min(900px, calc(100% - 32px));
+    height: auto;
+    margin: 80px auto 36px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .prd-speaking-topbar {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid #d7dee9;
+    border-radius: 16px;
+  }
+
+  .prd-speaking-topbar h1 {
+    margin-bottom: 10px;
+  }
+
+  .prd-speaking-topbar .prd-boundary-task-nav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .prd-speaking-topbar .prd-boundary-task-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .prd-speaking-topbar .prd-boundary-task-nav a {
+    flex: 1 0 112px;
+  }
+
+  .prd-speaking-source,
+  .prd-speaking-feedback {
+    max-height: none;
+    margin-bottom: 20px;
+    overflow: visible;
+    border: 1px solid #d7dee9;
+    border-radius: 16px;
+  }
+
+  .prd-speaking-splitter {
+    display: none;
+  }
+
+  .prd-speaking-upgrade-criterion-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pre-14 Writing Detail large-screen correction. The page uses one PREP-like
+   white sheet on the KSH blue canvas, with a bounded resizable review split. */
+.prd-writing-body {
+  height: 100dvh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, #3247ff 0%, #4f7ff5 66%, #86baf0 100%);
+}
+
+.prd-writing-body .prd-boundary-header {
+  border-bottom: 0;
+  background: #3247ff;
+  color: #fff;
+}
+
+.prd-writing-body .prd-back-btn,
+.prd-writing-body .prd-back-btn:hover {
+  color: #fff;
+}
+
+.prd-writing-body .prd-complete-btn {
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.prd-writing-body .prd-header-actions {
+  min-width: 0;
+}
+
+.prd-writing-body .prd-header-reevaluate {
+  position: static;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.prd-writing-body .prd-header-reevaluate .prd-reevaluate-btn {
+  min-height: 36px;
+  padding: 8px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  background: #fff;
+  color: #2847cf;
+  font-size: 0.76rem;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.prd-writing-shell {
+  --detail-accent: #315efb;
+  --writing-split: 52%;
+  position: relative;
+  width: calc(100% - 60px);
+  height: calc(100vh - 94px);
+  margin: 70px auto 24px;
+  padding: 0;
+  grid-template-columns: var(--writing-split) minmax(0, 1fr);
+  grid-template-rows: 62px minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 34px rgba(28, 45, 145, 0.2);
+}
+
+.prd-writing-topbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-height: 62px;
+  padding: 9px 20px;
+  border: 0;
+  border-bottom: 1px solid #e0e5ee;
+  border-radius: 12px 12px 0 0;
+}
+
+.prd-writing-topbar h1 {
+  color: #315efb;
+}
+
+.prd-writing-topbar .prd-boundary-task-nav {
+  display: flex;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  gap: 4px;
+  width: auto;
+  max-width: none;
+  padding: 0;
+  background: transparent;
+}
+
+.prd-writing-topbar .prd-boundary-task-nav a {
+  flex: 0 1 112px;
+  min-width: 92px;
+  min-height: 40px;
+}
+
+.prd-writing-source {
+  grid-column: 1;
+  grid-row: 2;
+  position: static;
+  min-height: 0;
+  max-height: none;
+  padding: 28px 32px;
+  overflow-y: auto;
+  border: 0;
+  border-right: 1px solid #e0e5ee;
+  border-radius: 0 0 0 12px;
+  box-shadow: none;
+}
+
+.prd-writing-feedback {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0 0 12px 0;
+  box-shadow: none;
+}
+
+.prd-writing-reevaluate {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.prd-writing-splitter {
+  position: absolute;
+  top: 62px;
+  bottom: 0;
+  left: var(--writing-split);
+  z-index: 18;
+  width: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  transform: translateX(-50%);
+}
+
+.prd-writing-splitter::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: 1px;
+  background: #d9e1ee;
+  transform: translateX(-50%);
+}
+
+.prd-writing-splitter > span {
+  position: sticky;
+  top: calc(50% - 22px);
+  display: grid;
+  width: 10px;
+  height: 44px;
+  margin: calc(50vh - 126px) auto 0;
+  border: 1px solid #cad5e8;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(25, 48, 110, 0.13);
+}
+
+.prd-writing-splitter > span::before {
+  content: "";
+  align-self: center;
+  justify-self: center;
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: #6d7c96;
+  box-shadow: 4px 0 0 #6d7c96;
+  transform: translateX(-2px);
+}
+
+.prd-writing-splitter:hover > span,
+.prd-writing-splitter:focus-visible > span,
+.prd-writing-splitter.is-dragging > span {
+  border-color: #315efb;
+  box-shadow: 0 0 0 3px rgba(49, 94, 251, 0.16);
+}
+
+.prd-writing-splitter:focus-visible {
+  outline: none;
+}
+
+.prd-writing-tabs {
+  top: 0;
+  min-height: 58px;
+  padding: 0 18px;
+  border-bottom: 1px solid #e0e5ee;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.prd-writing-tab {
+  min-height: 58px;
+  color: #5f6777;
+}
+
+.prd-writing-tab.is-active,
+.prd-writing-tab[aria-selected="true"] {
+  border-bottom-color: #315efb;
+  color: #315efb;
+}
+
+.prd-writing-panel {
+  padding: 26px 30px 34px;
+}
+
+.prd-writing-overview-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.prd-writing-overview-heading h3,
+.prd-writing-overview-heading p {
+  margin: 0;
+}
+
+.prd-writing-overview-heading h3 {
+  margin-top: 4px;
+  color: #172033;
+  font-size: 1.12rem;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-grid,
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(76px, auto));
+  gap: 8px 12px;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(-n + 3),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(-n + 3) {
+  grid-column: 1;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(n + 4),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(n + 4) {
+  grid-column: 2;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(1),
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(4),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(1),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(4) {
+  grid-row: 1;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(2),
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(5),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(2),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(5) {
+  grid-row: 2;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(3),
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card:nth-child(6),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(3),
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card:nth-child(6) {
+  grid-row: 3;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-score-grid,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-score-grid {
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-score-card,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-score-card {
+  grid-template-columns: minmax(0, 1fr) minmax(116px, 0.7fr) auto;
+  min-height: 72px;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-score-card progress,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-score-card progress {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-score-card strong,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-score-card strong,
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-score-card > span,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-score-card > span {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-coverage-list,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-coverage-list {
+  grid-template-columns: 1fr;
+}
+
+.prd-writing-upgrade-criteria {
+  display: grid;
+  gap: 12px;
+}
+
+.prd-writing-upgrade-criteria > header h4,
+.prd-writing-upgrade-criteria > header p {
+  margin: 0;
+}
+
+.prd-writing-upgrade-criteria > header h4 {
+  color: #273248;
+  font-size: 0.9rem;
+}
+
+.prd-writing-upgrade-criteria > header p {
+  margin-top: 5px;
+  color: #657188;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.prd-writing-upgrade-criterion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.prd-writing-upgrade-criterion {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #dbe3f2;
+  border-radius: 14px;
+  background: #f8faff;
+}
+
+.prd-writing-upgrade-criterion > header {
+  margin-bottom: 10px;
+}
+
+.prd-writing-upgrade-criterion h5 {
+  margin: 0;
+  color: #273248;
+  font-size: 0.78rem;
+}
+
+.prd-writing-upgrade-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prd-writing-upgrade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid #dbe3f2;
+  border-radius: 10px;
+  background: #fff;
+  color: #566176;
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prd-writing-upgrade-chip b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: #e8edff;
+  color: #315efb;
+  font-size: 0.66rem;
+}
+
+.prd-writing-upgrade-chip[aria-pressed="true"] {
+  border-color: #315efb;
+  background: #edf2ff;
+  color: #2447c8;
+  box-shadow: 0 0 0 2px rgba(49, 94, 251, 0.12);
+}
+
+/* Writing annotations do not reserve badge width or change line wrapping.
+   A selected chip adds a straight semantic underline without reflow. */
+.prd-writing-inline-annotation,
+.prd-writing-inline-annotation.is-strength,
+.prd-writing-inline-annotation.is-need {
+  position: relative;
+  padding-inline: 0;
+  border-radius: 0;
+  background: transparent;
+  text-decoration: none;
+  cursor: text;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.prd-writing-inline-number {
+  position: absolute;
+  top: -0.72rem;
+  right: -0.45rem;
+  z-index: 2;
+  display: none;
+  width: 1.05rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  padding: 0;
+  font-size: 0.6rem;
+  pointer-events: none;
+}
+
+.prd-writing-inline-annotation.is-selected {
+  background: transparent;
+  box-shadow: none;
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.prd-writing-inline-annotation.is-selected .prd-writing-inline-number {
+  display: inline-grid;
+}
+
+.prd-writing-inline-annotation.is-selected.is-strength {
+  text-decoration-color: #16803a;
+}
+
+.prd-writing-inline-annotation.is-selected.is-need {
+  text-decoration-color: #d92d45;
+}
+
+.prd-writing-inline-annotation.is-selected.is-upgrade {
+  text-decoration-color: #2563eb;
+}
+
+.prd-writing-inline-annotation.is-muted {
+  opacity: 1;
+}
+
+@media (max-width: 1080px) {
+  .prd-writing-body {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: #f5f7fb;
+  }
+
+  .prd-writing-shell {
+    display: block;
+    width: min(900px, calc(100% - 32px));
+    height: auto;
+    margin: 80px auto 36px;
+    overflow: visible;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .prd-writing-topbar {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid #d7dee9;
+    border-radius: 16px;
+  }
+
+  .prd-writing-topbar h1 {
+    margin-bottom: 10px;
+  }
+
+  .prd-writing-topbar .prd-boundary-task-nav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .prd-writing-topbar .prd-boundary-task-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .prd-writing-topbar .prd-boundary-task-nav a {
+    flex: 1 0 92px;
+  }
+
+  .prd-writing-source,
+  .prd-writing-feedback {
+    max-height: none;
+    margin-bottom: 20px;
+    overflow: visible;
+    border: 1px solid #d7dee9;
+    border-radius: 16px;
+  }
+
+  .prd-writing-splitter {
+    display: none;
+  }
+
+  .prd-writing-upgrade-criterion-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .prd-writing-body .prd-header-actions {
+    gap: 5px;
+  }
+
+  .prd-writing-body .prd-header-reevaluate .prd-reevaluate-btn,
+  .prd-writing-body .prd-complete-btn {
+    min-height: 32px;
+    padding: 7px 8px;
+    font-size: 0.68rem;
+  }
+
+  .prd-writing-topbar {
+    top: 87px;
+  }
+
+  .prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-grid,
+  .prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+
+  .prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card,
+  .prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+/* PREP interaction/visual convergence: tab -> chip -> occurrence -> detail. */
+.prd-writing-body,
+.prd-speaking-body {
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, #769ce9 0%, #a1c5ee 100%);
+}
+
+.prd-writing-shell,
+.prd-speaking-shell {
+  display: block;
+  position: fixed;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1376px, calc(100vw - 56px));
+  height: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(216, 224, 238, 0.95);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(38, 61, 110, 0.12);
+  overflow: hidden;
+}
+
+.prd-writing-topbar,
+.prd-speaking-topbar {
+  position: static;
+  min-height: 58px;
+  margin: 0;
+  padding: 0 20px;
+  border: 0;
+  border-bottom: 1px solid #e2e7ef;
+  border-radius: 16px 16px 0 0;
+  background: #fff;
+}
+
+.prd-writing-topbar h1,
+.prd-speaking-topbar h1 {
+  color: #3d6ee8;
+  font-size: 0.94rem;
+}
+
+.prd-writing-review-layout,
+.prd-speaking-review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, var(--writing-split, 52%)) 10px minmax(0, 1fr);
+  height: calc(100vh - 148px);
+  min-height: 620px;
+  max-height: none;
+  gap: 0;
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+}
+
+.prd-speaking-review-layout {
+  grid-template-columns: minmax(0, var(--speaking-split, 52%)) 10px minmax(0, 1fr);
+}
+
+.prd-writing-source,
+.prd-speaking-source,
+.prd-writing-feedback,
+.prd-speaking-feedback {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.prd-writing-source,
+.prd-speaking-source {
+  padding: 30px 34px 48px;
+}
+
+.prd-writing-feedback,
+.prd-speaking-feedback {
+  border-left: 1px solid #e2e7ef;
+}
+
+.prd-writing-splitter,
+.prd-speaking-splitter {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 10px;
+  min-width: 10px;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-left: 1px solid #e2e7ef;
+  border-right: 1px solid #e2e7ef;
+  background: #f7f9fc;
+  cursor: col-resize;
+}
+
+.prd-writing-splitter span,
+.prd-speaking-splitter span {
+  width: 3px;
+  height: 34px;
+  border-radius: 999px;
+  background: #aab7ca;
+}
+
+.prd-writing-tabs,
+.prd-speaking-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-width: 620px;
+  height: 58px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid #e4e9f1;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.prd-writing-tab,
+.prd-speaking-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: #647086;
+  background: transparent;
+  font-size: 0.77rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.prd-writing-tab svg,
+.prd-speaking-tab svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.prd-writing-tab.is-active,
+.prd-speaking-tab.is-active {
+  color: #3e6ee8;
+  border-bottom-color: #4d78ed;
+  background: transparent;
+}
+
+.prd-writing-panel,
+.prd-speaking-panel {
+  padding: 28px 30px 54px;
+}
+
+.prd-writing-panel-heading,
+.prd-speaking-panel-heading {
+  margin-bottom: 18px;
+}
+
+.prd-writing-panel-heading h3,
+.prd-speaking-panel-heading h3 {
+  margin: 0 0 8px;
+  color: #1f293b;
+  font-size: 1.22rem;
+}
+
+.prd-writing-panel-heading p,
+.prd-speaking-panel-heading p,
+.prd-writing-diagnostic-state,
+.prd-speaking-diagnostic-state,
+.prd-filter-status {
+  color: #778399;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.prd-writing-diagnostic-state,
+.prd-speaking-diagnostic-state {
+  padding: 11px 13px;
+  border: 1px solid #dce5f4;
+  border-radius: 10px;
+  background: #f9fbfe;
+}
+
+.prd-writing-diagnostic-groups,
+.prd-speaking-diagnostic-groups {
+  display: block;
+}
+
+.prd-writing-diagnostic-group,
+.prd-speaking-diagnostic-group {
+  margin: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.prd-writing-diagnostic-group + .prd-writing-diagnostic-group,
+.prd-speaking-diagnostic-group + .prd-speaking-diagnostic-group {
+  margin-top: 10px;
+  border-top: 1px solid #edf0f5;
+}
+
+.prd-writing-diagnostic-group > header,
+.prd-speaking-diagnostic-group > header {
+  padding: 0;
+  border: 0;
+}
+
+.prd-writing-diagnostic-group > header h4,
+.prd-speaking-diagnostic-group > header h4 {
+  margin: 0 0 10px;
+  color: #364154;
+  font-size: 0.82rem;
+}
+
+.prd-writing-chip-list,
+.prd-speaking-chip-list,
+.prd-writing-upgrade-chip-list,
+.prd-speaking-upgrade-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 10px;
+}
+
+.prd-writing-chip,
+.prd-speaking-chip,
+.prd-writing-upgrade-chip,
+.prd-speaking-upgrade-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid #dbe2ed;
+  border-radius: 9px;
+  color: #5d687b;
+  background: #fff;
+  box-shadow: none;
+  font-size: 0.76rem;
+}
+
+.prd-writing-chip strong,
+.prd-speaking-chip strong,
+.prd-writing-upgrade-chip b,
+.prd-speaking-upgrade-chip b {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 6px;
+  color: #5871a5;
+  background: #eef2f8;
+  font-size: 0.7rem;
+}
+
+.prd-writing-chip[aria-pressed="true"],
+.prd-speaking-chip[aria-pressed="true"],
+.prd-writing-upgrade-chip[aria-pressed="true"],
+.prd-speaking-upgrade-chip[aria-pressed="true"] {
+  border-color: #6689ef;
+  color: #315fcf;
+  background: #f5f7ff;
+  box-shadow: 0 0 0 2px rgba(87, 123, 236, 0.1);
+}
+
+.prd-writing-finding,
+.prd-speaking-finding {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid #edf0f5;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.prd-occurrence-trigger {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) minmax(90px, auto);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 3px;
+  border: 0;
+  color: #293449;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prd-occurrence-trigger:hover,
+.prd-occurrence-trigger[aria-expanded="true"] {
+  background: #f8faff;
+}
+
+.prd-occurrence-trigger h5 {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.prd-occurrence-preview {
+  overflow: hidden;
+  color: #68768d;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prd-occurrence-detail {
+  margin: 0 0 14px 38px;
+  padding: 15px 16px;
+  border: 1px solid #dce3ee;
+  border-radius: 12px;
+  background: #fbfcfe;
+}
+
+.prd-writing-finding.is-strength .prd-occurrence-detail,
+.prd-speaking-finding.is-strength .prd-occurrence-detail {
+  border-color: #b9dfc9;
+  background: #f6fcf8;
+}
+
+.prd-writing-finding.is-need .prd-occurrence-detail,
+.prd-speaking-finding.is-need .prd-occurrence-detail {
+  border-color: #efc7cc;
+  background: #fff8f8;
+}
+
+.prd-chip-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 122px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px dashed #d7deea;
+  border-radius: 14px;
+  color: #758197;
+  background: #fafbfe;
+  text-align: left;
+}
+
+.prd-chip-empty[hidden] {
+  display: none;
+}
+
+.prd-chip-empty img {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  opacity: 0.82;
+}
+
+.prd-writing-inline-annotation,
+.prd-speaking-inline-annotation,
+.prd-writing-inline-annotation.is-strength,
+.prd-speaking-inline-annotation.is-strength,
+.prd-writing-inline-annotation.is-need,
+.prd-speaking-inline-annotation.is-need {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  text-decoration: none;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  white-space: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.prd-writing-inline-annotation.is-selected.is-strength,
+.prd-speaking-inline-annotation.is-selected.is-strength {
+  text-decoration: underline solid #22965d;
+}
+
+.prd-writing-inline-annotation.is-selected.is-need,
+.prd-speaking-inline-annotation.is-selected.is-need {
+  text-decoration: underline solid #df4655;
+}
+
+.prd-writing-inline-annotation.is-selected.is-upgrade,
+.prd-speaking-inline-annotation.is-selected.is-upgrade {
+  text-decoration-color: #3575e8;
+}
+
+.prd-writing-inline-annotation.is-occurrence-selected,
+.prd-speaking-inline-annotation.is-occurrence-selected {
+  border-radius: 2px;
+  background: rgba(74, 116, 232, 0.09);
+}
+
+.prd-writing-inline-number,
+.prd-speaking-inline-number {
+  display: none;
+  position: relative;
+  top: -0.55em;
+  margin: 0 2px 0 1px;
+  padding: 0;
+  color: #3e6ee8;
+  background: transparent;
+  font-size: 0.62em;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.prd-writing-inline-annotation.is-selected .prd-writing-inline-number:not([hidden]),
+.prd-speaking-inline-annotation.is-selected .prd-speaking-inline-number:not([hidden]) {
+  display: inline;
+}
+
+.prd-writing-upgrade-criteria,
+.prd-speaking-upgrade-criteria {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.prd-writing-upgrade-criterion-grid,
+.prd-speaking-upgrade-criterion-grid {
+  display: block;
+}
+
+.prd-writing-upgrade-criterion,
+.prd-speaking-upgrade-criterion {
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+}
+
+.prd-writing-upgrade-criterion > header,
+.prd-speaking-upgrade-criterion > header {
+  margin: 0 0 6px;
+  padding: 0;
+  border: 0;
+}
+
+.prd-writing-provenance-card,
+.prd-speaking-provenance-card,
+.prd-writing-rewrites,
+.prd-speaking-rewrites {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid #dce3ee;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.prd-writing-upgraded-answer,
+.prd-speaking-upgraded-answer,
+.prd-writing-reference-answer,
+.prd-speaking-reference-answer {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
+.prd-speaking-audio-alignment {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #edf0f5;
+}
+
+.prd-speaking-audio-unavailable {
+  display: flex;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  color: #6f7b8e;
+  background: #f7f9fc;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 980px) {
+  .prd-writing-body,
+  .prd-speaking-body {
+    height: auto;
+    overflow: auto;
+  }
+
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: calc(100vw - 24px);
+    margin-top: 68px;
+  }
+
+  .prd-writing-review-layout,
+  .prd-speaking-review-layout {
+    display: block;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .prd-writing-source,
+  .prd-speaking-source,
+  .prd-writing-feedback,
+  .prd-speaking-feedback {
+    overflow: visible;
+  }
+
+  .prd-writing-feedback,
+  .prd-speaking-feedback {
+    border-top: 1px solid #e2e7ef;
+    border-left: 0;
+  }
+
+  .prd-writing-splitter,
+  .prd-speaking-splitter {
+    display: none;
+  }
+
+  .prd-writing-tabs,
+  .prd-speaking-tabs {
+    min-width: 0;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    width: 100%;
+    margin: 60px 0 0;
+    border-radius: 0;
+  }
+
+  .prd-writing-topbar,
+  .prd-speaking-topbar {
+    overflow-x: auto;
+    border-radius: 0;
+  }
+
+  .prd-writing-source,
+  .prd-speaking-source,
+  .prd-writing-panel,
+  .prd-speaking-panel {
+    padding: 22px 18px 42px;
+  }
+
+  .prd-writing-tabs,
+  .prd-speaking-tabs {
+    grid-template-columns: repeat(5, minmax(86px, 1fr));
+    padding: 0 6px;
+  }
+
+  .prd-writing-tab,
+  .prd-speaking-tab {
+    gap: 4px;
+    font-size: 0.7rem;
+  }
+
+  .prd-writing-tab svg,
+  .prd-speaking-tab svg {
+    display: none;
+  }
+
+  .prd-occurrence-trigger {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .prd-occurrence-preview {
+    grid-column: 2;
+  }
+
+  .prd-occurrence-detail {
+    margin-left: 0;
+  }
+}
+
+/* Gate D: scalable question navigation for immutable Speaking snapshots.
+   The snapshot currently owns one authoritative section label, so the drawer
+   groups by that section and never invents PREP-only Part names. */
+.prd-speaking-question-drawer-trigger {
+  display: grid;
+  grid-template-columns: minmax(0, auto) auto 18px;
+  align-items: center;
+  gap: 9px;
+  min-width: 172px;
+  min-height: 40px;
+  margin-left: auto;
+  padding: 8px 12px;
+  border: 1px solid #dbe3f1;
+  border-radius: 10px;
+  background: #fff;
+  color: #26344c;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.is-speaking-question-drawer-open {
+  overflow: hidden !important;
+}
+
+.prd-speaking-question-drawer-trigger:hover,
+.prd-speaking-question-drawer-trigger:focus-visible,
+.prd-speaking-question-drawer-trigger[aria-expanded="true"] {
+  border-color: #6d8cff;
+  background: #f4f7ff;
+  color: #244ccf;
+}
+
+.prd-speaking-question-drawer-trigger:focus-visible,
+.prd-speaking-question-drawer [data-speaking-question-drawer-close]:focus-visible,
+.prd-speaking-question-list a:focus-visible {
+  outline: 3px solid color-mix(in srgb, #315efb 28%, transparent);
+  outline-offset: 2px;
+}
+
+.prd-speaking-question-drawer-current {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prd-speaking-question-drawer-trigger small {
+  color: #7b879b;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.prd-speaking-question-drawer-trigger svg,
+.prd-speaking-question-drawer [data-speaking-question-drawer-close] svg,
+.prd-speaking-question-list svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.prd-speaking-question-drawer {
+  inset: 0 auto 0 0;
+  width: min(300px, calc(100vw - 24px));
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0 18px 18px 0;
+  background: #fff;
+  color: #172033;
+  box-shadow: 22px 0 52px rgba(13, 29, 65, 0.2);
+}
+
+.prd-speaking-question-drawer[open] {
+  display: block;
+  animation: prd-speaking-drawer-enter 180ms ease-out both;
+}
+
+.prd-speaking-question-drawer::backdrop {
+  background: rgba(14, 25, 47, 0.44);
+  backdrop-filter: blur(2px);
+}
+
+.prd-speaking-question-drawer-surface {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: #fff;
+}
+
+.prd-speaking-question-drawer-surface > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 auto;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid #e6eaf1;
+}
+
+.prd-speaking-question-drawer-surface > header h2 {
+  margin: 0;
+  font-size: 1.18rem;
+}
+
+.prd-speaking-question-drawer [data-speaking-question-drawer-close] {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #dfe5ee;
+  border-radius: 50%;
+  background: #fff;
+  color: #526078;
+  cursor: pointer;
+}
+
+.prd-speaking-question-group {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.prd-speaking-question-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.prd-speaking-question-group-heading h3 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.prd-speaking-question-group-heading span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #edf2ff;
+  color: #315efb;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.prd-speaking-question-list {
+  display: grid;
+  gap: 8px;
+}
+
+.prd-speaking-question-list a {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 18px;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 8px 10px;
+  border: 1px solid #e2e7ef;
+  border-radius: 13px;
+  background: #fff;
+  color: #2a3549;
+  text-decoration: none;
+}
+
+.prd-speaking-question-list a:hover {
+  border-color: #b6c5fb;
+  background: #f8faff;
+}
+
+.prd-speaking-question-list a.is-active {
+  border-color: #7694ff;
+  background: #f2f5ff;
+  color: #244ccf;
+  box-shadow: 0 0 0 2px rgba(49, 94, 251, 0.08);
+}
+
+.prd-speaking-question-index {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #edf1f8;
+  color: #5e6b80;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.prd-speaking-question-list a.is-active .prd-speaking-question-index {
+  background: #315efb;
+  color: #fff;
+}
+
+.prd-speaking-question-list a > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.prd-speaking-question-list strong,
+.prd-speaking-question-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prd-speaking-question-list strong {
+  font-size: 0.82rem;
+}
+
+.prd-speaking-question-list small {
+  color: #7d889b;
+  font-size: 0.68rem;
+}
+
+.prd-speaking-question-current {
+  color: #315efb;
+  font-size: 0.67rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@keyframes prd-speaking-drawer-enter {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 700px) {
+  .prd-speaking-question-drawer-trigger {
+    min-width: 0;
+    margin-left: auto;
+  }
+
+  .prd-speaking-question-drawer-trigger small {
+    display: none;
+  }
+
+  .prd-speaking-question-drawer {
+    width: calc(100vw - 14px);
+    border-radius: 0 16px 16px 0;
+  }
+
+  .prd-speaking-question-current {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prd-speaking-question-drawer[open] {
+    animation: none;
+  }
+}
+
+/* pre14-e9 — interactive PREP-style overview criteria and upgrade evidence. */
+.prd-writing-overview .prd-writing-score-card,
+.prd-speaking-overview .prd-speaking-score-card {
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prd-writing-overview .prd-writing-score-card:not(.is-active):not([aria-selected="true"]),
+.prd-speaking-overview .prd-speaking-score-card:not(.is-active):not([aria-selected="true"]) {
+  border-color: #e1e6ee;
+  color: #303b50;
+  background: #fff;
+}
+
+.prd-writing-overview .prd-writing-score-card.is-active,
+.prd-writing-overview .prd-writing-score-card[aria-selected="true"],
+.prd-speaking-overview .prd-speaking-score-card.is-active,
+.prd-speaking-overview .prd-speaking-score-card[aria-selected="true"] {
+  border-color: #7597ff;
+  color: #315efb;
+  background: #f4f7ff;
+}
+
+.prd-writing-overview .prd-writing-score-card:focus-visible,
+.prd-speaking-overview .prd-speaking-score-card:focus-visible,
+.prd-writing-coverage-list button:focus-visible {
+  outline: 3px solid color-mix(in srgb, #315efb 24%, transparent);
+  outline-offset: 2px;
+}
+
+.prd-overview-criterion-details {
+  min-width: 0;
+}
+
+.prd-overview-criterion-detail {
+  display: grid;
+  gap: 7px;
+  margin: 2px 0 7px;
+  padding: 15px 17px;
+  border: 1px solid #dfe6f2;
+  border-radius: 14px;
+  color: #4d5a70;
+  background: #fff;
+  font-size: 0.79rem;
+  line-height: 1.55;
+}
+
+.prd-overview-criterion-detail[hidden] {
+  display: none;
+}
+
+.prd-overview-criterion-detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.prd-overview-criterion-detail h4,
+.prd-overview-criterion-detail p {
+  margin: 0;
+}
+
+.prd-overview-criterion-detail h4 {
+  color: #202a3d;
+  font-size: 0.9rem;
+}
+
+.prd-overview-criterion-detail > header > strong,
+.prd-overview-criterion-detail > header > span,
+.prd-overview-performance-level {
+  color: #315efb;
+  font-weight: 780;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li {
+  display: block;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li > button {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 10px;
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li > button > i {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-right: 1.5px solid #68758a;
+  border-bottom: 1.5px solid #68758a;
+  transform: rotate(45deg);
+}
+
+.prd-writing-overview .prd-writing-coverage-list li > button[aria-expanded="true"] > i {
+  margin-top: 8px;
+  transform: rotate(225deg);
+}
+
+.prd-writing-coverage-detail {
+  margin: 8px 0 0 30px;
+  color: #66738a;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.prd-writing-coverage-detail[hidden] {
+  display: none;
+}
+
+.prd-writing-inline-annotation.is-selected.is-strength .prd-writing-inline-number,
+.prd-speaking-inline-annotation.is-selected.is-strength .prd-speaking-inline-number {
+  color: #1d9b55;
+  background: transparent;
+  box-shadow: none;
+}
+
+.prd-writing-inline-annotation.is-selected.is-need .prd-writing-inline-number,
+.prd-speaking-inline-annotation.is-selected.is-need .prd-speaking-inline-number {
+  color: #dc2944;
+  background: transparent;
+  box-shadow: none;
+}
+
+.prd-writing-inline-annotation.is-selected.is-upgrade.is-strength,
+.prd-speaking-inline-annotation.is-selected.is-upgrade.is-strength {
+  text-decoration-color: #1d9b55;
+}
+
+.prd-writing-inline-annotation.is-selected.is-upgrade.is-need,
+.prd-speaking-inline-annotation.is-selected.is-upgrade.is-need {
+  text-decoration-color: #dc2944;
+}
+
+.prd-writing-rewrite,
+.prd-speaking-rewrite {
+  transition: opacity 140ms ease, border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.prd-writing-rewrite.is-muted,
+.prd-speaking-rewrite.is-muted {
+  opacity: 0.42;
+}
+
+.prd-writing-rewrite.is-upgrade-selected,
+.prd-speaking-rewrite.is-upgrade-selected {
+  border-color: #8bcf91;
+  background: #f3fbf4;
+}
+
+.prd-writing-rewrite.is-upgrade-selected del,
+.prd-speaking-rewrite.is-upgrade-selected del {
+  color: #d72e47;
+  background: transparent;
+  text-decoration-color: currentColor;
+}
+
+.prd-writing-rewrite.is-upgrade-selected .prd-upgrade-suggestion,
+.prd-speaking-rewrite.is-upgrade-selected .prd-upgrade-suggestion {
+  color: #1b9a4a;
+  background: transparent;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 700px) {
+  .prd-overview-criterion-detail {
+    padding: 13px 14px;
+  }
+
+  .prd-overview-criterion-detail > header {
+    gap: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prd-writing-rewrite,
+  .prd-speaking-rewrite {
+    transition: none;
+  }
+}
+
+/* Gate C/D convergence — PREP hierarchy with KSH scoring authority.
+   Overview criteria form one compact horizontal rail; Writing requirement
+   coverage remains the only requirement list, while Speaking explicitly
+   fails closed instead of inventing a task total. */
+.prd-writing-overview-heading,
+.prd-speaking-overview-heading {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.prd-writing-overview-heading > div:first-child,
+.prd-speaking-overview-heading > div:first-child {
+  min-width: 0;
+}
+
+.prd-writing-overview-heading h3,
+.prd-speaking-overview-heading h3 {
+  margin: 5px 0 0;
+  color: #171f31;
+  font-size: 1.18rem;
+  line-height: 1.2;
+}
+
+.prd-writing-overview-task-label {
+  margin: 5px 0 0 !important;
+  color: #6f7a8e;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.prd-writing-total-score,
+.prd-speaking-task-score {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  min-width: max-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #315efb;
+}
+
+.prd-writing-total-score strong,
+.prd-speaking-task-score strong {
+  color: #315efb;
+  font-size: clamp(1.9rem, 4cqi, 2.55rem);
+  font-weight: 760;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.prd-writing-total-score.is-unavailable strong {
+  color: #7a8597;
+  font-size: 0.92rem;
+  letter-spacing: 0;
+}
+
+.prd-speaking-task-score span {
+  color: #758095;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.prd-writing-overview .prd-writing-score-grid,
+.prd-speaking-overview .prd-speaking-score-grid,
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-grid,
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-grid,
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-score-grid,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-score-grid {
+  display: flex;
+  grid-template: none;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  margin: 2px 0 4px;
+  padding: 2px 0 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.prd-writing-overview .prd-writing-score-card,
+.prd-speaking-overview .prd-speaking-score-card,
+.prd-writing-overview[data-writing-overview-task="Q51"] .prd-writing-score-card,
+.prd-writing-overview[data-writing-overview-task="Q52"] .prd-writing-score-card,
+.prd-writing-overview[data-writing-overview-task="Q53"] .prd-writing-score-card,
+.prd-writing-overview[data-writing-overview-task="Q54"] .prd-writing-score-card {
+  display: inline-flex;
+  grid-column: auto;
+  grid-row: auto;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  min-width: max-content;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid #e1e6ee;
+  border-radius: 14px;
+  color: #303b50;
+  background: #fff;
+}
+
+.prd-writing-overview .prd-writing-score-card.is-active,
+.prd-writing-overview .prd-writing-score-card[aria-selected="true"],
+.prd-speaking-overview .prd-speaking-score-card.is-active,
+.prd-speaking-overview .prd-speaking-score-card[aria-selected="true"] {
+  border-color: #7597ff;
+  color: #315efb;
+  background: #f4f7ff;
+}
+
+.prd-writing-overview :is(.prd-writing-score-card, .prd-speaking-score-card) h4,
+.prd-speaking-overview :is(.prd-writing-score-card, .prd-speaking-score-card) h4 {
+  margin: 0;
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.prd-writing-overview .prd-writing-score-card strong,
+.prd-speaking-overview .prd-speaking-score-card strong,
+.prd-writing-overview .prd-writing-score-card > span,
+.prd-speaking-overview .prd-speaking-score-card > span {
+  order: -1;
+  display: inline-grid;
+  grid-column: auto;
+  grid-row: auto;
+  min-width: 34px;
+  min-height: 28px;
+  place-items: center;
+  padding: 4px 7px;
+  border-radius: 9px;
+  color: #315efb;
+  background: #edf3ff;
+  font-size: 0.72rem;
+  font-weight: 780;
+  line-height: 1.1;
+}
+
+.prd-speaking-overview .prd-speaking-score-card > span {
+  max-width: 155px;
+  color: #7a8496;
+  background: #f3f5f8;
+  font-size: 0.66rem;
+  font-weight: 650;
+  text-align: center;
+  white-space: normal;
+}
+
+.prd-writing-overview .prd-writing-score-card progress,
+.prd-speaking-overview .prd-speaking-score-card progress {
+  display: none;
+}
+
+.prd-speaking-overview-context {
+  display: grid;
+  gap: 4px;
+  margin: -2px 0 1px;
+  color: #6f7b8f;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.prd-speaking-overview-context p,
+.prd-writing-coverage-summary {
+  margin: 0;
+}
+
+.prd-speaking-overview .prd-speaking-status-spotlight {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 11px;
+  border: 0;
+  border-bottom: 1px solid #e7ebf1;
+  border-radius: 0;
+  color: #607089;
+  background: transparent;
+  font-size: 0.73rem;
+}
+
+.prd-speaking-overview .prd-speaking-status-spotlight strong {
+  color: #2d3950;
+  font-size: 0.75rem;
+}
+
+.prd-writing-coverage-summary {
+  color: #66738a;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.prd-writing-overview .prd-writing-coverage-list {
+  border-top: 0;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li {
+  min-height: 0;
+  padding: 10px 12px;
+  border: 1px solid #e7ebf1;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li + li {
+  margin-top: 8px;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li.is-not-met,
+.prd-writing-overview .prd-writing-coverage-list li.is-partial {
+  border-color: #e7ebf1;
+  background: #fff;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li.is-met:first-child {
+  border-color: #80cf78;
+  background: #f2fbf3;
+}
+
+/* A code-native listbox replaces the platform select popup, keeping the menu
+   inside the feedback pane and making focus/keyboard behaviour deterministic. */
+.prd-diagnostic-parent-picker {
+  position: relative;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 12px;
+}
+
+.prd-diagnostic-custom-select {
+  position: relative;
+  min-width: 0;
+}
+
+.prd-diagnostic-parent-picker:has([aria-expanded="true"]) {
+  z-index: 40;
+}
+
+.prd-diagnostic-group-trigger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 13px;
+  border: 1px solid #dce3ed;
+  border-radius: 13px;
+  color: #2c374c;
+  background: #fff;
+  font: inherit;
+  font-size: 0.79rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prd-diagnostic-group-trigger:hover,
+.prd-diagnostic-group-trigger[aria-expanded="true"] {
+  border-color: #7496f8;
+  background: #f8faff;
+}
+
+.prd-diagnostic-group-trigger:focus-visible,
+.prd-diagnostic-group-option:focus-visible {
+  outline: 3px solid color-mix(in srgb, #315efb 25%, transparent);
+  outline-offset: 2px;
+}
+
+.prd-diagnostic-group-trigger i {
+  width: 8px;
+  height: 8px;
+  justify-self: center;
+  border-right: 1.7px solid currentColor;
+  border-bottom: 1.7px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 140ms ease;
+}
+
+.prd-diagnostic-group-trigger[aria-expanded="true"] i {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
+.prd-diagnostic-group-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  z-index: 70;
+  max-height: var(--diagnostic-menu-max-height, 280px);
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #dce3ed;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgb(30 48 88 / 16%);
+}
+
+.prd-diagnostic-parent-picker.opens-upward .prd-diagnostic-group-menu {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.prd-diagnostic-group-menu[hidden] {
+  display: none;
+}
+
+.prd-diagnostic-group-option {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: #344057;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prd-diagnostic-group-option:hover,
+.prd-diagnostic-group-option:focus-visible {
+  color: #2554cb;
+  background: #f0f4ff;
+}
+
+.prd-diagnostic-group-option[aria-selected="true"] {
+  color: #fff;
+  background: #315efb;
+}
+
+/* PREP density: no large dead bands between status, parent, child and the
+   selected occurrence; Korean reading line-height remains generous. */
+.prd-writing-panel,
+.prd-speaking-panel {
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 11px;
+  padding: 22px 26px 28px;
+}
+
+.prd-writing-panel-heading,
+.prd-speaking-panel-heading {
+  margin: 0;
+}
+
+.prd-writing-panel-heading h3,
+.prd-speaking-panel-heading h3,
+.prd-writing-panel-heading p,
+.prd-speaking-panel-heading p {
+  margin: 0;
+}
+
+.prd-writing-panel-heading p,
+.prd-speaking-panel-heading p,
+.prd-writing-diagnostic-state,
+.prd-speaking-diagnostic-state,
+.prd-filter-status {
+  line-height: 1.45;
+}
+
+.prd-writing-diagnostic-state,
+.prd-speaking-diagnostic-state,
+.prd-filter-status {
+  margin: 0;
+}
+
+.prd-diagnostic-chip-groups {
+  gap: 8px;
+  margin: 5px 0 9px;
+  padding: 0;
+}
+
+.prd-diagnostic-chip-groups:has(.prd-diagnostic-parent-picker)
+  .prd-diagnostic-group-children {
+  margin-top: 0;
+  padding: 8px 0 0;
+  border: 0;
+  background: transparent;
+}
+
+.prd-diagnostic-group-children .prd-speaking-chip-list,
+.prd-writing-chip-catalogue,
+.prd-writing-upgrade-chip-children {
+  gap: 7px;
+  margin: 0;
+}
+
+.prd-writing-finding + .prd-writing-finding,
+.prd-speaking-finding + .prd-speaking-finding {
+  margin-top: 8px;
+}
+
+.prd-occurrence-trigger {
+  min-height: 54px;
+  padding: 10px 13px;
+}
+
+@media (max-width: 980px) {
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    width: calc(100% - 24px);
+    max-width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .prd-writing-source,
+  .prd-speaking-source,
+  .prd-writing-panel,
+  .prd-speaking-panel {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+}
+
+@media (max-width: 700px) {
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    width: calc(100% - 16px);
+    margin: 8px auto 0;
+    border-radius: 14px;
+  }
+
+  .prd-writing-topbar,
+  .prd-speaking-topbar {
+    border-radius: 14px 14px 0 0;
+  }
+
+  .prd-diagnostic-parent-picker {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .prd-writing-source,
+  .prd-speaking-source,
+  .prd-writing-panel,
+  .prd-speaking-panel {
+    padding: 18px 15px 24px;
+  }
+
+  .prd-writing-overview-heading h3,
+  .prd-speaking-overview-heading h3 {
+    font-size: 1.05rem;
+  }
+
+  .prd-writing-total-score strong,
+  .prd-speaking-task-score strong {
+    font-size: 1.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prd-diagnostic-group-trigger i {
+    transition: none;
+  }
+}
+
+/* Gate E — one parent picker instead of a wall of parent chips. The selected
+   typed parent reveals only its child rail; occurrences remain hidden until a
+   child criterion is chosen. */
+.prd-diagnostic-parent-picker {
+  order: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.prd-diagnostic-parent-picker label {
+  color: #4f5c72;
+  font-size: 0.76rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.prd-diagnostic-parent-picker select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 40px 9px 13px;
+  border: 1px solid #dfe5ee;
+  border-radius: 13px;
+  color: #263248;
+  background-color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.prd-diagnostic-parent-picker select:hover {
+  border-color: #b9c5da;
+}
+
+.prd-diagnostic-parent-picker select:focus-visible {
+  border-color: #5e84f5;
+  outline: 3px solid color-mix(in srgb, #315efb 24%, transparent);
+  outline-offset: 1px;
+}
+
+.prd-diagnostic-chip-groups:has(.prd-diagnostic-parent-picker)
+  .prd-diagnostic-group-chip {
+  display: none !important;
+}
+
+.prd-diagnostic-chip-groups:has(.prd-diagnostic-parent-picker)
+  .prd-diagnostic-group-children {
+  order: 1;
+  margin-top: 2px;
+}
+
+/* The feedback pane owns vertical scrolling. Keep its primary tabs reachable
+   even after a long finding list and reset the pane when changing tabs. */
+.prd-writing-feedback,
+.prd-speaking-feedback {
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+
+.prd-writing-feedback > .prd-writing-tabs,
+.prd-speaking-feedback > .prd-speaking-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: #fff;
+  box-shadow: 0 1px 0 #e8ecf2;
+}
+
+@media (max-width: 700px) {
+  .prd-diagnostic-parent-picker {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .prd-diagnostic-parent-picker label {
+    white-space: normal;
+  }
+}
+
+/* Keep horizontal tab overflow isolated from the feedback pane. The pane
+   itself must never pan and crop its left edge when the splitter is dragged. */
+.prd-writing-review-layout,
+.prd-speaking-review-layout {
+  grid-template-columns: minmax(0, var(--writing-split, 52%)) 8px minmax(0, 1fr);
+}
+
+.prd-speaking-review-layout {
+  grid-template-columns: minmax(0, var(--speaking-split, 52%)) 8px minmax(0, 1fr);
+}
+
+.prd-writing-feedback,
+.prd-speaking-feedback {
+  container-type: inline-size;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.prd-writing-tabs,
+.prd-speaking-tabs {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(5, minmax(84px, 1fr));
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+}
+
+.prd-writing-panel,
+.prd-speaking-panel,
+.prd-writing-provenance-card,
+.prd-speaking-provenance-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.prd-writing-splitter,
+.prd-speaking-splitter {
+  width: 8px;
+  min-width: 8px;
+  border: 0;
+  background: #eef2f7;
+}
+
+.prd-writing-splitter span,
+.prd-speaking-splitter span {
+  display: none;
+}
+
+@container (max-width: 580px) {
+  .prd-writing-tabs svg,
+  .prd-speaking-tabs svg {
+    display: none;
+  }
+
+  .prd-writing-tab,
+  .prd-speaking-tab {
+    gap: 0;
+    padding-inline: 5px;
+    font-size: 0.69rem;
+    white-space: nowrap;
+  }
+}
+
+/* The responsive shell already follows the sticky header in normal flow.
+   Keep only a small breathing gap; a second header-sized margin creates a
+   conspicuous empty blue band and pushes the task switcher below the fold. */
+@media (min-width: 701px) and (max-width: 980px) {
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    margin-top: 72px;
+  }
+}
+
+@media (max-width: 700px) {
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    margin-top: 8px;
+  }
+}
+
+/* Keep the five primary diagnostic tabs outside the desktop scrollport. A
+   sticky child of the old feedback scroll container could still be pushed out
+   when an occurrence received focus. Only the active tab panel scrolls now;
+   on compact layouts the document remains the single vertical scroll owner. */
+@media (min-width: 981px) {
+  .prd-writing-review-layout,
+  .prd-speaking-review-layout {
+    overflow: clip;
+  }
+
+  .prd-writing-feedback,
+  .prd-speaking-feedback {
+    display: flex;
+    flex-direction: column;
+    overflow: clip;
+  }
+
+  .prd-writing-feedback > .prd-writing-tabs,
+  .prd-speaking-feedback > .prd-speaking-tabs {
+    position: relative;
+    top: auto;
+    flex: 0 0 58px;
+  }
+
+  .prd-writing-feedback > .prd-writing-panel,
+  .prd-speaking-feedback > .prd-speaking-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
+@media (max-width: 980px) {
+  .prd-writing-feedback,
+  .prd-speaking-feedback {
+    display: block;
+    overflow: visible;
+    container-type: normal;
+  }
+
+  .prd-writing-feedback > .prd-writing-tabs,
+  .prd-speaking-feedback > .prd-speaking-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .prd-writing-feedback > .prd-writing-panel,
+  .prd-speaking-feedback > .prd-speaking-panel {
+    overflow: visible;
+  }
+}
+
+@media (max-width: 640px) {
+  .prd-writing-feedback > .prd-writing-tabs,
+  .prd-speaking-feedback > .prd-speaking-tabs {
+    top: var(--header-h);
+  }
+}
+
+/* Gate C/D — PREP detail hierarchy. Only the typed parent groups are visible
+   at tab entry. A parent disclosure reveals its few child criteria; a child
+   criterion then reveals the matching occurrences. */
+.prd-writing-chip-catalogue,
+.prd-writing-upgrade-chip-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+}
+
+.prd-writing-chip-catalogue .prd-writing-chip,
+.prd-writing-upgrade-chip-rail .prd-writing-upgrade-chip {
+  flex: 0 0 auto;
+}
+
+.prd-diagnostic-chip-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 12px 0 16px;
+}
+
+.prd-diagnostic-chip-groups > .prd-speaking-diagnostic-group,
+.prd-diagnostic-chip-groups > .prd-speaking-upgrade-criterion {
+  display: contents;
+}
+
+.prd-diagnostic-group-chip {
+  order: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 11px;
+  border: 1px solid #dce3ee;
+  border-radius: 10px;
+  background: #fff;
+  color: #344057;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease,
+    color 150ms ease;
+}
+
+.prd-diagnostic-group-chip small {
+  color: #7b879b;
+  font-size: 0.66rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.prd-diagnostic-group-chip i {
+  width: 7px;
+  height: 7px;
+  margin: -3px 2px 0 1px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 150ms ease;
+}
+
+.prd-diagnostic-group-chip:hover {
+  border-color: #aebce0;
+  background: #f8faff;
+}
+
+.prd-diagnostic-group-chip[aria-expanded="true"] {
+  border-color: #6689ef;
+  background: #eef3ff;
+  color: #2858cc;
+}
+
+.prd-diagnostic-group-chip[aria-expanded="true"] i {
+  margin-top: 3px;
+  transform: rotate(225deg);
+}
+
+.prd-diagnostic-group-chip:focus-visible {
+  outline: 3px solid color-mix(in srgb, #315efb 30%, transparent);
+  outline-offset: 2px;
+}
+
+.prd-diagnostic-group-children {
+  order: 2;
+  flex: 1 0 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  margin-top: 2px;
+  padding: 12px 14px;
+  border: 0;
+  border-left: 3px solid #6e91ef;
+  border-radius: 0;
+  background: #f8faff;
+}
+
+.prd-diagnostic-group-children[hidden] {
+  display: none !important;
+}
+
+.prd-diagnostic-group-children .prd-speaking-chip-list {
+  margin: 0 0 12px;
+}
+
+@media (max-width: 700px) {
+  .prd-diagnostic-group-chip {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prd-diagnostic-group-chip,
+  .prd-diagnostic-group-chip i {
+    transition: none;
+  }
+}
+
+.prd-writing-occurrence-list {
+  border-top: 1px solid #e7ebf2;
+}
+
+.prd-writing-occurrence-list .prd-writing-finding:first-child {
+  border-top: 0;
+}
+
+.prd-writing-occurrence-list .prd-occurrence-trigger[aria-expanded="true"] {
+  box-shadow: inset 3px 0 #4d78ed;
+}
+
+.prd-writing-blank-answer.is-selected {
+  background: #f3f6ff;
+  box-shadow: inset 3px 0 #4d78ed;
+}
+
+/* Overview requirement coverage is a compact ruled checklist. Internal
+   evidence identifiers never participate in learner-facing presentation. */
+.prd-writing-overview .prd-writing-coverage-list {
+  display: block;
+  border-top: 1px solid #e7ebf2;
+}
+
+.prd-writing-overview .prd-writing-coverage-list li {
+  min-height: 0;
+  padding: 11px 2px;
+  border: 0;
+  border-bottom: 1px solid #e7ebf2;
+  border-radius: 0;
+  background: #fff;
+}
+
+/* Upgraded and teacher samples are independent continuous responses, not
+   nested provenance cards. Their authority stays explicit in a restrained
+   source line after the response. */
+.prd-writing-continuous-panel {
+  width: 100%;
+  min-width: 0;
+  margin-top: 18px;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid #e7ebf2;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.prd-writing-continuous-panel.is-learner-derived {
+  margin-top: 10px;
+}
+
+.prd-writing-continuous-panel > header {
+  margin-bottom: 10px;
+}
+
+.prd-writing-continuous-panel > header h4 {
+  margin: 0;
+  color: #273248;
+  font-size: 0.9rem;
+}
+
+.prd-writing-source-note {
+  margin: 14px 0 0;
+  color: #758197;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+/* Gate D — the evidence disclosure inherits a white header foreground from
+   the Speaking shell, so explicitly restore readable ink inside its paper
+   popover. */
+.prd-speaking-result-info-panel dd {
+  color: #344057;
+}
+
+.prd-speaking-result-info-panel .prd-speaking-source-definition dt,
+.prd-speaking-result-info-panel .prd-speaking-media-meta dt {
+  color: #64748b;
+}
+
+.prd-speaking-continuous-panel {
+  width: 100%;
+  min-width: 0;
+  margin-top: 18px;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid #e7ebf2;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.prd-speaking-continuous-panel.is-learner-derived {
+  margin-top: 10px;
+}
+
+.prd-speaking-continuous-panel > header {
+  margin-bottom: 10px;
+}
+
+.prd-speaking-continuous-panel > header h4 {
+  margin: 0;
+  color: #273248;
+  font-size: 0.9rem;
+}
+
+.prd-speaking-source-note {
+  margin: 14px 0 0;
+  color: #758197;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+/* Gate E — PREP-flat diagnostic catalogue.
+   Parent groups preserve KSH's typed hierarchy, while child chips and
+   occurrences use PREP's single-surface visual grammar: a quiet horizontal
+   rail, polarity-coloured active state, and one expandable list card. */
+.prd-diagnostic-chip-groups {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 18px;
+  padding: 2px 0 6px;
+  overflow: visible;
+}
+
+.prd-diagnostic-group-chip {
+  flex: 1 1 calc(50% - 5px);
+  max-width: calc(50% - 5px);
+  min-height: 44px;
+  padding: 8px 13px;
+  border-color: #e4e9f1;
+  border-radius: 13px;
+  color: #566176;
+  background: #fff;
+  box-shadow: none;
+  font-size: 0.79rem;
+  font-weight: 700;
+}
+
+.prd-diagnostic-group-chip small {
+  display: inline-grid;
+  min-width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 8px;
+  color: #65738d;
+  background: #f1f4f9;
+  font-size: 0.66rem;
+}
+
+.prd-diagnostic-group-chip[aria-expanded="true"] {
+  border-color: #6f94ff;
+  color: #315fda;
+  background: #f5f8ff;
+  box-shadow: none;
+}
+
+.prd-diagnostic-group-chip[aria-expanded="true"] small {
+  color: #fff;
+  background: #4778f1;
+}
+
+.prd-diagnostic-group-children {
+  align-self: stretch;
+  box-sizing: border-box;
+  flex: 1 0 100%;
+  min-width: 0;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.prd-diagnostic-group-children .prd-writing-chip-list,
+.prd-diagnostic-group-children .prd-speaking-chip-list,
+.prd-writing-upgrade-chip-children,
+.prd-speaking-upgrade-chip-list {
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0 0 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.prd-diagnostic-group-children .prd-writing-chip-list::-webkit-scrollbar,
+.prd-diagnostic-group-children .prd-speaking-chip-list::-webkit-scrollbar,
+.prd-writing-upgrade-chip-children::-webkit-scrollbar,
+.prd-speaking-upgrade-chip-list::-webkit-scrollbar {
+  display: none;
+}
+
+.prd-writing-diagnostic-state,
+.prd-speaking-diagnostic-state {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #778399;
+  background: transparent;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.prd-filter-status {
+  margin: 0;
+  color: #293449;
+  font-size: 0.79rem;
+  font-weight: 720;
+  line-height: 1.5;
+}
+
+.prd-writing-chip,
+.prd-speaking-chip,
+.prd-writing-upgrade-chip,
+.prd-speaking-upgrade-chip {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 8px 13px;
+  border: 1px solid #e4e9f1;
+  border-radius: 13px;
+  color: #4e596d;
+  background: #fff;
+  box-shadow: none;
+  font-size: 0.79rem;
+  font-weight: 650;
+}
+
+.prd-writing-chip strong,
+.prd-speaking-chip strong,
+.prd-writing-upgrade-chip b,
+.prd-speaking-upgrade-chip b {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 8px;
+  color: #61718f;
+  background: #f1f4f9;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+[id*="panel-strengths-"] :is(.prd-writing-chip, .prd-speaking-chip)[aria-pressed="true"] {
+  border-color: #69c760;
+  color: #2da923;
+  background: #f3fbf3;
+  box-shadow: none;
+}
+
+[id*="panel-strengths-"] :is(.prd-writing-chip, .prd-speaking-chip)[aria-pressed="true"] strong {
+  color: #fff;
+  background: #35b92b;
+}
+
+[id*="panel-needs-"] :is(.prd-writing-chip, .prd-speaking-chip)[aria-pressed="true"] {
+  border-color: #ef6679;
+  color: #d80f31;
+  background: #fff5f6;
+  box-shadow: none;
+}
+
+[id*="panel-needs-"] :is(.prd-writing-chip, .prd-speaking-chip)[aria-pressed="true"] strong {
+  color: #fff;
+  background: #dc1235;
+}
+
+[id*="panel-upgrade-"] :is(.prd-writing-upgrade-chip, .prd-speaking-upgrade-chip)[aria-pressed="true"] {
+  border-color: #6c91ff;
+  color: #315fda;
+  background: #f3f7ff;
+  box-shadow: none;
+}
+
+[id*="panel-upgrade-"] :is(.prd-writing-upgrade-chip, .prd-speaking-upgrade-chip)[aria-pressed="true"] b {
+  color: #fff;
+  background: #4778f1;
+}
+
+.prd-writing-occurrence-list {
+  display: grid;
+  gap: 12px;
+  border: 0;
+}
+
+.prd-writing-finding,
+.prd-speaking-finding,
+.prd-writing-finding.is-strength,
+.prd-speaking-finding.is-strength,
+.prd-writing-finding.is-need,
+.prd-speaking-finding.is-need {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e7ebf1;
+  border-radius: 15px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.prd-speaking-finding + .prd-speaking-finding {
+  margin-top: 12px;
+}
+
+.prd-writing-finding:has(> .prd-occurrence-trigger[aria-expanded="true"]).is-strength,
+.prd-speaking-finding:has(> .prd-occurrence-trigger[aria-expanded="true"]).is-strength {
+  border-color: #69c760;
+  background: #f2fbf3;
+}
+
+.prd-writing-finding:has(> .prd-occurrence-trigger[aria-expanded="true"]).is-need,
+.prd-speaking-finding:has(> .prd-occurrence-trigger[aria-expanded="true"]).is-need {
+  border-color: #ef6679;
+  background: #fff5f6;
+}
+
+.prd-occurrence-trigger {
+  grid-template-columns: 32px minmax(0, 1fr) minmax(96px, auto);
+  gap: 12px;
+  min-height: 62px;
+  padding: 13px 17px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.prd-occurrence-trigger:hover,
+.prd-occurrence-trigger[aria-expanded="true"],
+.prd-writing-occurrence-list .prd-occurrence-trigger[aria-expanded="true"] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.prd-writing-finding-number,
+.prd-speaking-finding-number {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 10px;
+  color: #36ad2d;
+  background: #effaf0;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.is-need > .prd-occurrence-trigger :is(.prd-writing-finding-number, .prd-speaking-finding-number) {
+  color: #d51434;
+  background: #fff0f2;
+}
+
+.is-strength > .prd-occurrence-trigger[aria-expanded="true"] :is(.prd-writing-finding-number, .prd-speaking-finding-number) {
+  color: #fff;
+  background: #35b92b;
+}
+
+.is-need > .prd-occurrence-trigger[aria-expanded="true"] :is(.prd-writing-finding-number, .prd-speaking-finding-number) {
+  color: #fff;
+  background: #dc1235;
+}
+
+.prd-occurrence-trigger h5 {
+  color: #20293a;
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.prd-occurrence-trigger h5 [lang="ko"] {
+  color: #20293a;
+  font-size: 0.94rem;
+  font-weight: 650;
+}
+
+.prd-occurrence-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #6b768a;
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.prd-occurrence-preview b {
+  color: #2da923;
+  font-weight: 750;
+}
+
+.prd-occurrence-detail,
+.prd-writing-finding.is-strength .prd-occurrence-detail,
+.prd-speaking-finding.is-strength .prd-occurrence-detail,
+.prd-writing-finding.is-need .prd-occurrence-detail,
+.prd-speaking-finding.is-need .prd-occurrence-detail {
+  margin: 0;
+  padding: 0 17px 17px 61px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.prd-occurrence-detail :is(.prd-writing-evidence, .prd-speaking-evidence-block),
+.prd-occurrence-detail :is(.prd-writing-explanation, .prd-speaking-explanation),
+.prd-occurrence-detail :is(.prd-writing-correction, .prd-speaking-correction) {
+  margin: 0;
+  padding: 8px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.prd-occurrence-detail :is(.prd-writing-evidence, .prd-speaking-evidence-block) blockquote {
+  margin: 7px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #283348;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.prd-occurrence-detail :is(.prd-writing-explanation, .prd-speaking-explanation) p,
+.prd-occurrence-detail :is(.prd-writing-correction, .prd-speaking-correction) p {
+  margin: 6px 0 0;
+  color: #505d72;
+  line-height: 1.6;
+}
+
+.prd-writing-replacement,
+.prd-speaking-replacement {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 700px) {
+  .prd-diagnostic-chip-groups {
+    align-items: flex-start;
+  }
+
+  .prd-diagnostic-group-chip {
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .prd-occurrence-trigger {
+    grid-template-columns: 30px minmax(0, 1fr);
+    padding: 12px 13px;
+  }
+
+  .prd-occurrence-preview {
+    grid-column: 2;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .prd-occurrence-detail,
+  .prd-writing-finding.is-strength .prd-occurrence-detail,
+  .prd-speaking-finding.is-strength .prd-occurrence-detail,
+  .prd-writing-finding.is-need .prd-occurrence-detail,
+  .prd-speaking-finding.is-need .prd-occurrence-detail {
+    padding: 0 13px 14px 55px;
+  }
+}
+
+/* pre14-e6 final density and safe-gutter cascade. */
+.prd-writing-panel,
+.prd-speaking-panel {
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 11px;
+  padding: 22px 26px 28px;
+}
+
+.prd-writing-panel-heading,
+.prd-speaking-panel-heading,
+.prd-writing-panel-heading h3,
+.prd-speaking-panel-heading h3,
+.prd-writing-panel-heading p,
+.prd-speaking-panel-heading p,
+.prd-writing-diagnostic-state,
+.prd-speaking-diagnostic-state,
+.prd-filter-status {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.prd-writing-panel-heading p,
+.prd-speaking-panel-heading p,
+.prd-writing-diagnostic-state,
+.prd-speaking-diagnostic-state,
+.prd-filter-status {
+  line-height: 1.45;
+}
+
+.prd-diagnostic-chip-groups {
+  gap: 8px;
+  margin: 5px 0 9px;
+  padding: 0;
+}
+
+.prd-diagnostic-chip-groups:has(.prd-diagnostic-parent-picker)
+  .prd-diagnostic-group-children {
+  margin-top: 0;
+  padding: 8px 0 0;
+  border: 0;
+  background: transparent;
+}
+
+.prd-diagnostic-group-children .prd-writing-chip-list,
+.prd-diagnostic-group-children .prd-speaking-chip-list,
+.prd-writing-upgrade-chip-children,
+.prd-speaking-upgrade-chip-list {
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.prd-writing-occurrence-list {
+  gap: 8px;
+}
+
+.prd-writing-finding + .prd-writing-finding,
+.prd-speaking-finding + .prd-speaking-finding {
+  margin-top: 8px;
+}
+
+.prd-occurrence-trigger {
+  min-height: 54px;
+  padding: 10px 13px;
+}
+
+@media (max-width: 980px) {
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    width: calc(100% - 24px);
+    max-width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .prd-writing-source,
+  .prd-speaking-source,
+  .prd-writing-panel,
+  .prd-speaking-panel {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+}
+
+@media (max-width: 700px) {
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    width: calc(100% - 16px);
+    margin: 8px auto 0;
+    border-radius: 14px;
+  }
+
+  .prd-writing-topbar,
+  .prd-speaking-topbar {
+    border-radius: 14px 14px 0 0;
+  }
+
+  .prd-writing-source,
+  .prd-speaking-source,
+  .prd-writing-panel,
+  .prd-speaking-panel {
+    padding: 18px 15px 24px;
   }
 }

@@ -53,6 +53,19 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
       <span class="toolbar-action-label">Kho ảnh</span>
     </button>
+    <a id="korean-font-preference-action"
+       th:href="@{/practice/preferences}"
+       class="btn-action btn-sec"
+       target="_blank"
+       rel="noopener"
+       aria-label="Chọn kiểu chữ và cỡ chữ nội dung tiếng Hàn"
+       title="Kiểu chữ Hàn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+        <path d="M4 20h16M7 17 12 4l5 13M8.5 13h7"/>
+      </svg>
+      <span class="toolbar-action-label">Kiểu chữ Hàn</span>
+    </a>
     <button type="button" class="btn-action btn-sec" onclick="openPreviewModal()" aria-label="Xem trước" title="Xem trước">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       <span class="toolbar-action-label">Xem trước</span>
@@ -102,7 +115,7 @@
 
   <!-- 1. Structure Panel -->
   <aside class="panel-structure"
-         aria-label="Cấu trúc đề — di chuột hoặc dùng nút menu để mở rộng">
+         aria-label="Cấu trúc đề — dùng nút menu để mở hoặc thu gọn">
     <div class="panel-header">
       <button type="button" id="structure-panel-trigger"
               class="structure-panel-toggle"
@@ -297,11 +310,31 @@
 
         <div style="margin-bottom:20px;">
           <label class="form-label" for="grp-instruction">Hướng dẫn làm nhóm câu</label>
-          <input id="grp-instruction" class="form-input" placeholder="Nhập hướng dẫn..." oninput="saveCurrentNode()">
+          <input id="grp-instruction" class="form-input" lang="vi"
+                 placeholder="Nhập hướng dẫn..." oninput="saveCurrentNode()">
+          <label class="form-label" for="grp-instruction-language" style="margin-top:10px;">
+            Ngôn ngữ vùng hướng dẫn
+          </label>
+          <select id="grp-instruction-language" class="form-input"
+                  onchange="syncEditorLanguageAttributes(); saveCurrentNode()">
+            <option value="vi">Tiếng Việt (vi) — giữ kiểu chữ giao diện</option>
+            <option value="ko">Tiếng Hàn (ko) — dùng kiểu chữ luyện tập</option>
+          </select>
         </div>
 
         <!-- Shared Content Tabs -->
         <label class="form-label">Nội dung dùng chung cho cả nhóm</label>
+        <div style="margin:0 0 14px; max-width:320px;">
+          <label class="form-label" for="grp-stimulus-language">Ngôn ngữ vùng nguồn chung</label>
+          <select id="grp-stimulus-language" class="form-input"
+                  onchange="syncEditorLanguageAttributes(); saveCurrentNode()">
+            <option value="ko">Tiếng Hàn (ko) — dùng kiểu chữ luyện tập</option>
+            <option value="vi">Tiếng Việt (vi) — giữ kiểu chữ giao diện</option>
+          </select>
+          <p class="form-help" style="margin:6px 0 0;">
+            Áp dụng cho đoạn đọc hoặc bản chép lời của nhóm; không đổi font của giao diện tiếng Việt.
+          </p>
+        </div>
         <div class="segmented-control" role="tablist" aria-label="Loại nội dung dùng chung">
           <button type="button" role="tab" class="segmented-tab active" id="tab-passage"
                   aria-selected="true" tabindex="0" aria-controls="grp-passage-area"
@@ -317,7 +350,10 @@
         <div style="margin-bottom:20px;" id="grp-passage-area" role="tabpanel"
              aria-labelledby="tab-passage">
           <label class="form-label" id="grp-passage-label" for="grp-passage">Văn bản đọc hiểu</label>
-          <textarea id="grp-passage" class="form-textarea" style="height:150px;" placeholder="Nhập nội dung bài đọc hoặc lời thoại..." oninput="saveCurrentNode()"></textarea>
+          <textarea id="grp-passage" class="form-textarea" lang="ko"
+                    style="height:150px;"
+                    placeholder="Nhập nội dung bài đọc hoặc lời thoại..."
+                    oninput="saveCurrentNode()"></textarea>
         </div>
 
         <!-- Audio resources (Listening only) -->
@@ -370,6 +406,47 @@
           </div>
         </div>
 
+        <section id="grp-explanation-strategy-panel"
+                 class="group-explanation-strategy"
+                 hidden
+                 aria-labelledby="grp-explanation-strategy-title">
+          <div class="group-explanation-strategy__heading">
+            <div>
+              <span class="editor-eyebrow">Lời giải typed cho cả nhóm</span>
+              <h3 id="grp-explanation-strategy-title">
+                Áp dụng một chiến lược chung
+              </h3>
+              <p>
+                Chỉ liệt kê chiến lược hợp lệ với mọi câu trong nhóm. Khi lưu,
+                mỗi phiên bản câu hỏi vẫn giữ đúng một strategyCode riêng.
+              </p>
+            </div>
+            <span class="objective-preview__badge">0 lần gọi AI</span>
+          </div>
+          <div class="group-explanation-strategy__controls">
+            <label class="form-label" for="grp-explanation-strategy">
+              Chiến lược chung
+            </label>
+            <select id="grp-explanation-strategy"
+                    class="form-input objective-strategy-select"
+                    onchange="previewGroupExplanationStrategy()">
+              <option value="">Chọn chiến lược chung</option>
+            </select>
+            <button type="button"
+                    id="grp-explanation-strategy-apply"
+                    class="btn-action btn-pri"
+                    onclick="applyGroupExplanationStrategy()"
+                    disabled>
+              Áp dụng cho cả nhóm
+            </button>
+          </div>
+          <p id="grp-explanation-strategy-status"
+             class="group-explanation-strategy__status"></p>
+          <div id="grp-explanation-strategy-preview"
+               class="objective-strategy-preview"
+               aria-live="polite"></div>
+        </section>
+
         <!-- Questions in Group -->
         <div class="form-section-title" style="display:flex; justify-content:space-between; align-items:center;">
           <span>Câu hỏi trong nhóm</span>
@@ -394,6 +471,8 @@
             <label class="form-label" for="q-type">Dạng câu hỏi</label>
             <select id="q-type" class="form-input" onchange="handleQuestionTypeChange()">
               <option value="SINGLE_CHOICE">객관식 (Trắc nghiệm chọn một)</option>
+              <option value="MULTIPLE_ANSWER">복수 선택 (Chọn nhiều đáp án)</option>
+              <option value="MATCHING">연결하기 (Ghép A–H)</option>
               <option value="TRUE_FALSE_NOT_GIVEN">맞다/틀리다 (Đúng/Sai)</option>
               <option value="FILL_BLANK">빈칸 채우기 (Điền từ)</option>
               <option value="ESSAY">쓰기/주관식 (Tự luận)</option>
@@ -402,10 +481,26 @@
           </div>
         </div>
 
+        <div class="question-language-control">
+          <label class="form-label" for="q-prompt-language">
+            Ngôn ngữ vùng đề
+          </label>
+          <select id="q-prompt-language" class="form-input"
+                  onchange="syncEditorLanguageAttributes(); saveCurrentNode()"
+                  aria-label="Ngôn ngữ của vùng đề bài và phương án">
+            <option value="ko">Tiếng Hàn (ko)</option>
+            <option value="vi">Tiếng Việt (vi)</option>
+          </select>
+        </div>
+
         <div id="standard-question-prompt-field" style="margin-bottom:20px;">
           <label class="form-label" for="q-prompt">Đề bài / Câu hỏi</label>
-          <textarea id="q-prompt" class="form-textarea question-prompt-editor" rows="3"
+          <textarea id="q-prompt" class="form-textarea question-prompt-editor"
+                    lang="ko" rows="3"
                     placeholder="Ví dụ: Đoạn văn sau nói về chủ đề gì?" oninput="handleQuestionPromptInput()"></textarea>
+          <p style="margin:7px 0 0; color:var(--pp-text-muted); font-size:0.76rem;">
+            Nhãn này quyết định thuộc tính <code>lang</code> và kiểu chữ học tập khi hiển thị; không thay đổi nội dung.
+          </p>
         </div>
 
         <div id="fill-question-prompt-field" class="fill-prompt-field" style="display:none;">
@@ -417,7 +512,8 @@
             <button type="button" class="btn-action btn-sec"
                     onmousedown="rememberFillComposerSelection()" onclick="addFillBlank(true)">+ Chèn ô trống</button>
           </div>
-          <div id="fill-prompt-composer" class="fill-prompt-composer" contenteditable="true"
+          <div id="fill-prompt-composer" class="fill-prompt-composer"
+               lang="ko" contenteditable="true"
                role="textbox" aria-multiline="true" aria-labelledby="fill-prompt-composer-label"
                data-placeholder="Nhập nội dung, đặt con trỏ rồi chọn Chèn ô trống..."
                oninput="handleFillComposerInput()" onbeforeinput="handleFillComposerBeforeInput(event)"
@@ -443,6 +539,17 @@
             <!-- Dynamic option cards -->
           </div>
           <button id="add-option-button" onclick="addOptionRow()" class="btn-action btn-sec" style="margin-top:8px; padding:6px 12px; font-size:0.8rem; width:100%; justify-content:center;">+ Thêm phương án</button>
+        </div>
+
+        <div id="matching-area" style="margin-bottom:24px; display:none;">
+          <div class="fill-authoring-heading">
+            <div>
+              <label class="form-label">Các nội dung cần ghép</label>
+              <p>Mỗi dòng chọn đúng một phương án A–H. ID của nội dung và phương án được giữ ổn định khi lưu.</p>
+            </div>
+            <button type="button" class="btn-action btn-sec" onclick="addMatchingTarget()">+ Thêm nội dung</button>
+          </div>
+          <div id="matching-targets-list"></div>
         </div>
 
         <!-- 2. True / False / Not Given configuration -->
@@ -647,6 +754,76 @@
 
         <!-- Translation & Explanations -->
         <div class="form-section-title">Giải thích & Dịch</div>
+        <div id="q-explanation-strategy-row"
+             style="display:none; margin-bottom:16px;">
+          <label class="form-label" for="q-explanation-strategy">
+            Chiến lược giải thích cho học viên
+          </label>
+          <select id="q-explanation-strategy"
+                  class="form-input objective-strategy-select"
+                  onchange="saveCurrentNode(); renderObjectiveStrategyPreview(currentObjectiveQuestion())">
+            <option value="">Chọn chiến lược trước khi xuất bản</option>
+          </select>
+          <small style="display:block; margin-top:6px; color:var(--pp-text-muted);">
+            Lựa chọn này được khóa vào phiên bản câu hỏi và AI không được tự đổi.
+          </small>
+          <section id="objective-explanation-editorial"
+                   class="objective-explanation-editorial"
+                   aria-labelledby="objective-explanation-editorial-title">
+            <div id="objective-explanation-strategy-preview"
+                 class="objective-strategy-preview"
+                 aria-live="polite"></div>
+            <div class="objective-explanation-editorial__header">
+              <div>
+                <strong id="objective-explanation-editorial-title">
+                  Lời giải typed đã kiểm chứng
+                </strong>
+                <p>
+                  Tạo bản nháp theo strategy, kiểm tra JSON/evidence rồi duyệt
+                  trước khi xuất bản.
+                </p>
+              </div>
+              <span id="objective-explanation-editorial-state"
+                    class="objective-explanation-editorial__state">
+                Chưa có bản nháp
+              </span>
+            </div>
+            <div class="objective-explanation-editorial__actions">
+              <button type="button" class="btn-action btn-sec"
+                      onclick="generateObjectiveExplanationDraft()">
+                Tạo bản nháp
+              </button>
+              <button type="button" class="btn-action btn-sec"
+                      id="objective-explanation-save"
+                      onclick="saveObjectiveExplanationRevision()" disabled hidden>
+                Lưu chỉnh sửa
+              </button>
+              <button type="button" class="btn-action btn-pri"
+                      id="objective-explanation-approve"
+                      onclick="approveObjectiveExplanationRevision()" disabled hidden>
+                Duyệt để xuất bản
+              </button>
+            </div>
+            <details id="objective-explanation-json-details"
+                     class="objective-explanation-editorial__technical"
+                     hidden>
+              <summary>JSON kỹ thuật</summary>
+              <label class="sr-only" for="objective-explanation-json">
+                Xem trước/chỉnh sửa JSON typed
+              </label>
+              <textarea id="objective-explanation-json"
+                        class="form-textarea objective-explanation-editorial__json"
+                        spellcheck="false"
+                        aria-describedby="objective-explanation-editorial-help"
+                        placeholder="Bản nháp typed sẽ xuất hiện tại đây."
+                        disabled></textarea>
+              <small id="objective-explanation-editorial-help">
+                Chỉ JSON v4 đúng strategy và evidence IDs hợp lệ mới được lưu
+                hoặc duyệt. Kết quả chưa duyệt không hiển thị cho học viên.
+              </small>
+            </details>
+          </section>
+        </div>
         <div style="margin-bottom:16px;">
           <label class="form-label" for="q-explanation">Bài dịch & Giải thích đáp án (Tiếng Việt)</label>
           <textarea id="q-explanation" class="form-textarea" style="height:120px;" placeholder="Lời giải thích tiếng Việt cho đáp án đúng và bài dịch đoạn văn..." oninput="saveCurrentNode()"></textarea>
@@ -882,6 +1059,10 @@
   const DRAFT_ID = /*[[${draft.id}]]*/ 0;
   let DRAFT_VERSION = /*[[${draft.version}]]*/ 0;
   const AUTHORING_CATALOG = /*[[${authoringCatalog}]]*/ { schemaVersion: 'assessment-authoring-catalog-v1', templates: [] };
+  const OBJECTIVE_EXPLANATION_STRATEGY_CATALOG =
+    /*[[${objectiveExplanationStrategyCatalog}]]*/ [];
+  const INITIAL_PUBLISH_BLOCKERS =
+    /*[[${objectiveExplanationApprovalBlockers}]]*/ [];
   /*]]>*/
 </script>
 <script>
@@ -891,6 +1072,7 @@
   let autosaveBlocked = false;
   let draftOperationChain = Promise.resolve();
   let editorToastTimeout = null;
+  const objectiveEditorialStateByQuestion = new Map();
 
   function runPracticeDraftVersionedOperation(operation) {
     if (typeof operation !== 'function') {
@@ -920,6 +1102,9 @@
   let autosaveTimeout = null;
   let validationFilter = 'ALL';
   let latestValidation = null;
+  let latestPublishBlockers = Array.isArray(INITIAL_PUBLISH_BLOCKERS)
+    ? INITIAL_PUBLISH_BLOCKERS
+    : [];
   let expandedNodes = {}; // Tracks expanded/collapsed state
   let fillPromptSelection = null;
   let previewReturnFocus = null;
@@ -1043,6 +1228,8 @@
       renderTree();
       validateDraft();
       setupDropzone();
+      initializeManagedEditorSelects();
+      syncEditorLanguageAttributes();
       if (new URLSearchParams(window.location.search).get('preview') === '1') {
         window.setTimeout(() => openPreviewModal(), 0);
       }
@@ -1050,6 +1237,306 @@
       console.error('[PracticeEditor] Initialization failed after binding click handlers:', err);
     }
   });
+
+  const managedEditorSelects = new Map();
+  let openManagedEditorSelect = null;
+
+  function normalizedEditorLanguage(selectId, fallback) {
+    const select = document.getElementById(selectId);
+    return select && ['ko', 'vi'].includes(select.value)
+      ? select.value
+      : fallback;
+  }
+
+  function syncEditorLanguageAttributes() {
+    const instructionLanguage =
+      normalizedEditorLanguage('grp-instruction-language', 'vi');
+    const stimulusLanguage =
+      normalizedEditorLanguage('grp-stimulus-language', 'ko');
+    const promptLanguage =
+      normalizedEditorLanguage('q-prompt-language', 'ko');
+    const instruction = document.getElementById('grp-instruction');
+    const stimulus = document.getElementById('grp-passage');
+    const questionPrompt = document.getElementById('q-prompt');
+    const fillComposer = document.getElementById('fill-prompt-composer');
+    if (instruction) instruction.lang = instructionLanguage;
+    if (stimulus) stimulus.lang = stimulusLanguage;
+    if (questionPrompt) questionPrompt.lang = promptLanguage;
+    if (fillComposer) fillComposer.lang = promptLanguage;
+    document.querySelectorAll('.opt-text-input').forEach(input => {
+      input.lang = promptLanguage;
+    });
+  }
+
+  function initializeManagedEditorSelects() {
+    [
+      'q-type',
+      'q-prompt-language',
+      'q-explanation-strategy',
+      'grp-explanation-strategy',
+      'grp-instruction-language',
+      'grp-stimulus-language'
+    ].forEach(enhanceManagedEditorSelect);
+    document.addEventListener('mousedown', event => {
+      if (!openManagedEditorSelect) return;
+      const state = managedEditorSelects.get(openManagedEditorSelect);
+      if (!state || state.button.contains(event.target)
+          || state.popover && state.popover.contains(event.target)) return;
+      closeManagedEditorSelect(openManagedEditorSelect);
+    });
+    window.addEventListener('resize', () => {
+      if (openManagedEditorSelect) {
+        closeManagedEditorSelect(openManagedEditorSelect);
+      }
+    });
+    document.addEventListener('scroll', event => {
+      if (!openManagedEditorSelect) return;
+      const state = managedEditorSelects.get(openManagedEditorSelect);
+      if (state?.popover?.contains(event.target)) return;
+      closeManagedEditorSelect(openManagedEditorSelect);
+    }, true);
+  }
+
+  function enhanceManagedEditorSelect(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select || managedEditorSelects.has(selectId)) return;
+    select.classList.add('managed-select__native');
+    select.setAttribute('aria-hidden', 'true');
+    select.tabIndex = -1;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = `${selectId}-managed-trigger`;
+    button.className = 'managed-select__button';
+    button.setAttribute('aria-haspopup', 'listbox');
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', `${selectId}-managed-listbox`);
+    select.insertAdjacentElement('afterend', button);
+
+    const explicitLabel = document.querySelector(`label[for="${selectId}"]`);
+    const labelText = explicitLabel?.textContent?.trim()
+      || select.getAttribute('aria-label')
+      || 'Lựa chọn';
+    if (explicitLabel) explicitLabel.htmlFor = button.id;
+
+    const state = { select, button, popover: null, labelText };
+    managedEditorSelects.set(selectId, state);
+    button.addEventListener('click', () => {
+      if (openManagedEditorSelect === selectId) {
+        closeManagedEditorSelect(selectId);
+      } else {
+        openManagedSelectPopover(selectId);
+      }
+    });
+    button.addEventListener('keydown', event => {
+      if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault();
+        openManagedSelectPopover(selectId);
+      }
+    });
+    select.addEventListener('change', () => syncManagedEditorSelect(selectId));
+    syncManagedEditorSelect(selectId);
+  }
+
+  function syncManagedEditorSelect(selectId) {
+    const state = managedEditorSelects.get(selectId);
+    if (!state) return;
+    const selected = state.select.selectedOptions[0];
+    state.button.textContent = selected
+      ? selected.textContent.trim()
+      : 'Chọn';
+    state.button.disabled = state.select.disabled;
+    state.button.dataset.empty = state.select.value ? 'false' : 'true';
+    state.button.setAttribute(
+      'aria-label',
+      `${state.labelText}: ${state.button.textContent}`);
+  }
+
+  function managedSelectRows(select) {
+    const rows = [];
+    [...select.children].forEach(child => {
+      if (child.tagName === 'OPTGROUP') {
+        rows.push({ kind: 'group', label: child.label });
+        [...child.children].forEach(option =>
+          rows.push({ kind: 'option', option }));
+      } else if (child.tagName === 'OPTION') {
+        rows.push({ kind: 'option', option: child });
+      }
+    });
+    return rows;
+  }
+
+  function openManagedSelectPopover(selectId) {
+    const state = managedEditorSelects.get(selectId);
+    if (!state || state.select.disabled) return;
+    if (openManagedEditorSelect) {
+      closeManagedEditorSelect(openManagedEditorSelect);
+    }
+    const rows = managedSelectRows(state.select);
+    const popover = document.createElement('div');
+    popover.id = `${selectId}-managed-popover`;
+    popover.className = 'managed-select__popover';
+    popover.setAttribute('role', 'dialog');
+    popover.setAttribute('aria-label',
+      `${state.labelText} — danh sách lựa chọn`);
+
+    const searchable = selectId.includes('strategy') || rows.length > 8;
+    let search = null;
+    if (searchable) {
+      search = document.createElement('input');
+      search.type = 'search';
+      search.className = 'managed-select__search';
+      search.placeholder = 'Tìm chiến lược…';
+      search.setAttribute('aria-label', 'Tìm trong danh sách');
+      search.setAttribute('aria-controls', `${selectId}-managed-listbox`);
+      popover.appendChild(search);
+      search.addEventListener('input', () =>
+        filterManagedSelectPopover(popover, search.value));
+    }
+
+    const list = document.createElement('div');
+    list.id = `${selectId}-managed-listbox`;
+    list.className = 'managed-select__list';
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', state.labelText);
+    rows.forEach(row => {
+      if (row.kind === 'group') {
+        const heading = document.createElement('div');
+        heading.className = 'managed-select__group';
+        heading.textContent = row.label;
+        list.appendChild(heading);
+        return;
+      }
+      const option = row.option;
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'managed-select__option';
+      item.dataset.search = `${option.textContent} `
+        .concat(option.dataset.description || '')
+        .toLocaleLowerCase('vi');
+      item.dataset.value = option.value;
+      item.disabled = option.disabled;
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected',
+        String(option.value === state.select.value));
+      const title = document.createElement('strong');
+      title.textContent = option.textContent.trim();
+      item.appendChild(title);
+      if (option.dataset.description) {
+        const description = document.createElement('span');
+        description.textContent = option.dataset.description;
+        item.appendChild(description);
+      }
+      if (option.dataset.requirements) {
+        const requirements = document.createElement('small');
+        requirements.textContent =
+          `Cần: ${option.dataset.requirements}`;
+        item.appendChild(requirements);
+      }
+      item.addEventListener('click', () => {
+        if (item.disabled) return;
+        state.select.value = option.value;
+        state.select.dispatchEvent(new Event('change', { bubbles: true }));
+        closeManagedEditorSelect(selectId, true);
+      });
+      list.appendChild(item);
+    });
+    popover.appendChild(list);
+    document.body.appendChild(popover);
+    state.popover = popover;
+    openManagedEditorSelect = selectId;
+    state.button.setAttribute('aria-expanded', 'true');
+
+    const rect = state.button.getBoundingClientRect();
+    const edge = 12;
+    const width = Math.min(
+      Math.max(rect.width, searchable ? 360 : 240),
+      window.innerWidth - edge * 2);
+    popover.style.width = `${width}px`;
+    const viewportHeight = Math.max(96, window.innerHeight - edge * 2);
+    const measuredHeight = Math.min(
+      popover.scrollHeight, 360, viewportHeight);
+    const spaceBelow = Math.max(0,
+      window.innerHeight - rect.bottom - edge - 6);
+    const spaceAbove = Math.max(0, rect.top - edge - 6);
+    const placeAbove = spaceBelow < Math.min(measuredHeight, 180)
+      && spaceAbove > spaceBelow;
+    const availableHeight = Math.max(72,
+      Math.min(measuredHeight, placeAbove ? spaceAbove : spaceBelow));
+    popover.style.maxHeight = `${availableHeight}px`;
+    popover.style.left = `${Math.max(
+      edge, Math.min(rect.left, window.innerWidth - width - edge))}px`;
+    popover.style.top = `${Math.max(edge, Math.min(
+      placeAbove ? rect.top - availableHeight - 6 : rect.bottom + 6,
+      window.innerHeight - availableHeight - edge))}px`;
+
+    const focusTarget = search
+      || popover.querySelector(
+        '.managed-select__option[aria-selected="true"]:not(:disabled)')
+      || popover.querySelector('.managed-select__option:not(:disabled)');
+    if (focusTarget) focusTarget.focus();
+    popover.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeManagedEditorSelect(selectId, true);
+        return;
+      }
+      const options = [...popover.querySelectorAll(
+        '.managed-select__option:not(:disabled):not([hidden])')];
+      if (!options.length) return;
+      const activeIndex = options.indexOf(document.activeElement);
+      let nextIndex = null;
+      if (event.key === 'ArrowDown') {
+        nextIndex = activeIndex < 0
+          ? 0
+          : Math.min(activeIndex + 1, options.length - 1);
+      } else if (event.key === 'ArrowUp') {
+        nextIndex = activeIndex < 0
+          ? options.length - 1
+          : Math.max(activeIndex - 1, 0);
+      } else if (event.key === 'Home') {
+        nextIndex = 0;
+      } else if (event.key === 'End') {
+        nextIndex = options.length - 1;
+      } else if (event.key === 'Tab') {
+        closeManagedEditorSelect(selectId);
+        return;
+      }
+      if (nextIndex !== null) {
+        event.preventDefault();
+        options[nextIndex].focus();
+        options[nextIndex].scrollIntoView({ block: 'nearest' });
+      }
+    });
+  }
+
+  function filterManagedSelectPopover(popover, query) {
+    const normalized = String(query || '').trim().toLocaleLowerCase('vi');
+    popover.querySelectorAll('.managed-select__option').forEach(item => {
+      item.hidden = normalized && !item.dataset.search.includes(normalized);
+    });
+    popover.querySelectorAll('.managed-select__group').forEach(group => {
+      let sibling = group.nextElementSibling;
+      let visible = false;
+      while (sibling && !sibling.classList.contains('managed-select__group')) {
+        if (sibling.classList.contains('managed-select__option')
+            && !sibling.hidden) visible = true;
+        sibling = sibling.nextElementSibling;
+      }
+      group.hidden = !visible;
+    });
+  }
+
+  function closeManagedEditorSelect(selectId, restoreFocus = false) {
+    const state = managedEditorSelects.get(selectId);
+    if (!state) return;
+    if (state.popover) state.popover.remove();
+    state.popover = null;
+    state.button.setAttribute('aria-expanded', 'false');
+    openManagedEditorSelect = null;
+    syncManagedEditorSelect(selectId);
+    if (restoreFocus) state.button.focus();
+  }
 
   function closeAddMenu() {
     const menu = document.getElementById('add-structure-menu');
@@ -1187,7 +1674,7 @@
   }
 
   function defaultOptionsForQuestionType(type, skill = null) {
-    if (type === 'SINGLE_CHOICE') {
+    if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_ANSWER' || type === 'MATCHING') {
       const questionPolicy = skill
         ? window.PracticeAuthoringContract.questionPolicy(AUTHORING_CATALOG, DRAFT_DATA, skill, type)
         : null;
@@ -1205,6 +1692,8 @@
 
   const QUESTION_TYPE_LABELS = {
     SINGLE_CHOICE: '객관식 (Trắc nghiệm chọn một)',
+    MULTIPLE_ANSWER: '복수 선택 (Chọn nhiều đáp án)',
+    MATCHING: '연결하기 (Ghép A–H)',
     TRUE_FALSE_NOT_GIVEN: '맞다/틀리다 (Đúng/Sai/Không có thông tin)',
     FILL_BLANK: '빈칸 채우기 (Điền từ)',
     ESSAY: '쓰기/주관식 (Tự luận)',
@@ -1257,6 +1746,7 @@
     select.value = canonicalSelected;
     select.disabled = allowed.length === 1 && allowed.includes(canonicalSelected);
     select.title = select.disabled ? 'Dạng câu hỏi được hệ thống quản lý.' : '';
+    syncManagedEditorSelect('q-type');
   }
 
   function refreshQuestionPolicyControls(section, question, type) {
@@ -1412,6 +1902,12 @@
         grp.label = grp.label || grp.groupCode;
         grp.instruction = grp.instruction || '';
         grp.stimulus = grp.stimulus && typeof grp.stimulus === 'object' ? grp.stimulus : {};
+        grp.stimulusLanguageTag = ['ko', 'vi'].includes(grp.stimulus.languageTag)
+          ? grp.stimulus.languageTag
+          : (['ko', 'vi'].includes(grp.stimulusLanguageTag) ? grp.stimulusLanguageTag : 'ko');
+        grp.instructionLanguageTag = ['ko', 'vi'].includes(grp.stimulus.instructionLanguageTag)
+          ? grp.stimulus.instructionLanguageTag
+          : (['ko', 'vi'].includes(grp.instructionLanguageTag) ? grp.instructionLanguageTag : 'vi');
         grp.stimulusKind = grp.stimulusKind || (grp.stimulus.type === 'LISTENING_AUDIO' ? 'TRANSCRIPT'
           : (grp.stimulus.type === 'READING_PASSAGE' ? 'PASSAGE' : (grp.passageText ? 'PASSAGE' : 'NONE')));
         grp.passageText = grp.stimulusKind === 'TRANSCRIPT'
@@ -1629,6 +2125,17 @@
     }
     const panel = document.querySelector('.panel-structure');
     setStructurePanelOpen(!panel.classList.contains('is-expanded'));
+  }
+
+  const structurePanelMedia = window.matchMedia('(max-width: 900px)');
+  function resetStructurePanelAtBreakpoint() {
+    setStructurePanelOpen(false);
+  }
+  if (typeof structurePanelMedia.addEventListener === 'function') {
+    structurePanelMedia.addEventListener(
+      'change', resetStructurePanelAtBreakpoint);
+  } else if (typeof structurePanelMedia.addListener === 'function') {
+    structurePanelMedia.addListener(resetStructurePanelAtBreakpoint);
   }
 
   function getGroupName(grp, gIdx) {
@@ -1936,7 +2443,7 @@
           <div class="tree-row-content" role="button" tabindex="0"
                aria-expanded="${isTestExpanded}"
                aria-label="Chọn bài kiểm tra ${escapeHtml(test.title)}"
-               onpointerdown="setStructurePanelOpen(true); this.focus()"
+               onpointerdown="this.focus()"
                onclick="selectNode('test', ${testIdx})"
                onkeydown="handleTreeRowKey(event, () => selectNode('test', ${testIdx}), '${testKey}')">
             <div class="tree-row-chevron ${isTestExpanded ? '' : 'collapsed'}" onclick="toggleExpand('${testKey}', event)">
@@ -1970,7 +2477,7 @@
               <div class="tree-row-content" role="button" tabindex="0"
                    aria-expanded="${isSecExpanded}"
                    aria-label="Chọn phần ${escapeHtml(sec.title)}"
-                   onpointerdown="setStructurePanelOpen(true); this.focus()"
+                   onpointerdown="this.focus()"
                    onclick="selectNode('section', ${sIdx})"
                    onkeydown="handleTreeRowKey(event, () => selectNode('section', ${sIdx}), '${secKey}')">
                 <div class="tree-row-chevron ${isSecExpanded ? '' : 'collapsed'}" onclick="toggleExpand('${secKey}', event)">
@@ -2008,7 +2515,7 @@
                   <div class="tree-row-content" role="button" tabindex="0"
                        aria-expanded="${isGrpExpanded}"
                        aria-label="Chọn nhóm ${escapeHtml(getGroupName(grp, gIdx))}"
-                       onpointerdown="setStructurePanelOpen(true); this.focus()"
+                       onpointerdown="this.focus()"
                        onclick="selectNode('group', ${sIdx}, ${gIdx})"
                        onkeydown="handleTreeRowKey(event, () => selectNode('group', ${sIdx}, ${gIdx}), '${grpKey}')">
                     <div class="tree-row-chevron ${isGrpExpanded ? '' : 'collapsed'}" onclick="toggleExpand('${grpKey}', event)">
@@ -2036,7 +2543,7 @@
                     qRow.innerHTML = `
                       <div class="tree-row-content" role="button" tabindex="0"
                            aria-label="Chọn câu ${escapeHtml(q.questionNo)}"
-                           onpointerdown="setStructurePanelOpen(true); this.focus()"
+                           onpointerdown="this.focus()"
                            onclick="selectNode('question', ${sIdx}, ${gIdx}, ${qIdx})"
                            onkeydown="handleTreeRowKey(event, () => selectNode('question', ${sIdx}, ${gIdx}, ${qIdx}))">
                         <div class="question-badge">${escapeHtml(q.questionNo)}</div>
@@ -2094,6 +2601,9 @@
 
   // Switch context-based editor panels
   async function selectNode(type, sIdx = null, gIdx = null, qIdx = null) {
+    if (structurePanelMedia.matches) {
+      setStructurePanelOpen(false);
+    }
     if (window.SpeakingPromptAuthoring) {
       const speakingSaved = await window.SpeakingPromptAuthoring.flush();
       if (!speakingSaved) {
@@ -2156,8 +2666,15 @@
       document.getElementById('grp-label').value = grp.label;
       document.getElementById('grp-code').value = grp.groupCode;
       document.getElementById('grp-instruction').value = grp.instruction || '';
+      document.getElementById('grp-instruction-language').value =
+        ['ko', 'vi'].includes(grp.instructionLanguageTag) ? grp.instructionLanguageTag : 'vi';
       document.getElementById('grp-audio').value = grp.audioUrl || '';
       document.getElementById('grp-passage').value = grp.passageText || '';
+      document.getElementById('grp-stimulus-language').value =
+        ['ko', 'vi'].includes(grp.stimulusLanguageTag) ? grp.stimulusLanguageTag : 'ko';
+      syncManagedEditorSelect('grp-instruction-language');
+      syncManagedEditorSelect('grp-stimulus-language');
+      syncEditorLanguageAttributes();
       document.getElementById('grp-meta-info').innerText = `Phần: ${getSkillName(DRAFT_DATA.sections[sIdx].skill)} · ${grp.questions ? grp.questions.length : 0} câu`;
       
       // Select segmented tab
@@ -2180,6 +2697,8 @@
       
       // Render questions list
       renderGroupQuestions(sIdx, gIdx);
+      refreshGroupExplanationStrategyField(
+        DRAFT_DATA.sections[sIdx], grp);
     } else if (type === 'question') {
       const q = DRAFT_DATA.sections[sIdx].groups[gIdx].questions[qIdx];
       if (!q) return;
@@ -2198,8 +2717,15 @@
       refreshQuestionTypeOptions(DRAFT_DATA.sections[sIdx].skill, q.questionType);
       document.getElementById('q-type').value = q.questionType;
       document.getElementById('q-prompt').value = q.prompt || '';
+      document.getElementById('q-prompt-language').value =
+        ['ko', 'vi'].includes(q.promptLanguageTag) ? q.promptLanguageTag : 'ko';
+      syncManagedEditorSelect('q-type');
+      syncManagedEditorSelect('q-prompt-language');
+      syncEditorLanguageAttributes();
       document.getElementById('q-points').value = q.points || 2.0;
       document.getElementById('q-explanation').value = q.explanationVi || '';
+      refreshExplanationStrategyField(
+        DRAFT_DATA.sections[sIdx], q);
       const aiReviewRow = document.getElementById('q-ai-review-row');
       aiReviewRow.style.display = q.importSource === 'PDF_AI' ? 'flex' : 'none';
       document.getElementById('q-ai-reviewed').checked = q.reviewRequired !== true;
@@ -2211,6 +2737,15 @@
       // Load specific fields
       await handleQuestionTypeChange();
     }
+
+    const editorPanel = document.querySelector('.panel-editor');
+    if (editorPanel) {
+      editorPanel.scrollTop = 0;
+      editorPanel.scrollLeft = 0;
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }
 
   function selectedSectionContext() {
@@ -2667,6 +3202,8 @@
     if (!type) return "";
     switch (type) {
       case 'SINGLE_CHOICE': return '객관식 (Trắc nghiệm chọn một)';
+      case 'MULTIPLE_ANSWER': return '복수 선택 (Chọn nhiều đáp án)';
+      case 'MATCHING': return '연결하기 (Ghép A–H)';
       case 'TRUE_FALSE_NOT_GIVEN': return '맞다/틀리다 (Đúng/Sai)';
       case 'GAP_FILL':
       case 'FILL_BLANK': return '빈칸 채우기 (Điền từ)';
@@ -2721,6 +3258,1312 @@
     });
   }
 
+  const LEGACY_OBJECTIVE_STRATEGY_LABELS = {
+    EVIDENCE_ONLY: 'Tương thích v1 · Chỉ dùng bằng chứng',
+    ELIMINATE_ALL_INCORRECT: 'Tương thích v1 · Loại phương án sai',
+    FULL_CONTEXT_THEN_ANSWER: 'Tương thích v1 · Toàn văn rồi trả lời',
+    HYBRID: 'Tương thích v1 · Bằng chứng và loại trừ',
+    CLAIM_EVIDENCE_RELATION: 'Tương thích v1 · Quan hệ mệnh đề',
+    CONSTRAINTS_AND_EVIDENCE: 'Tương thích v1 · Ràng buộc chỗ trống'
+  };
+
+  function objectiveStrategyCatalogEntry(strategyCode) {
+    return (OBJECTIVE_EXPLANATION_STRATEGY_CATALOG || []).find(entry =>
+      String(entry.code || '') === String(strategyCode || '')) || null;
+  }
+
+  function normalizedObjectiveQuestionType(question) {
+    return question && question.questionType === 'GAP_FILL'
+      ? 'FILL_BLANK'
+      : question && question.questionType;
+  }
+
+  function objectiveStrategyOptions(question) {
+    const questionType = normalizedObjectiveQuestionType(question);
+    const context = currentObjectiveGroup();
+    const group = context && context.group;
+    return (OBJECTIVE_EXPLANATION_STRATEGY_CATALOG || []).filter(entry => {
+      if (!entry.selectable
+          || !(entry.supportedQuestionTypes || []).includes(questionType)) {
+        return false;
+      }
+      const requirements = entry.requiredEvidence || [];
+      if (requirements.includes('OPTION_IDS')
+          && !(question && Array.isArray(question.options)
+            && question.options.length > 0)) return false;
+      if (requirements.includes('BLANK_IDS')) {
+        const blanks = question && (question.blanks
+          || question.questionContent && question.questionContent.blanks);
+        if (!Array.isArray(blanks) || blanks.length === 0) return false;
+      }
+      if (requirements.includes('SOURCE_TEXT')) {
+        const source = group
+          && (group.passageText || group.transcriptText)
+          || question && question.prompt;
+        if (!String(source || '').trim()) return false;
+      }
+      return true;
+    });
+  }
+
+  function currentObjectiveGroup() {
+    if (!currentNode) return null;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const group = section && section.groups[currentNode.gIdx];
+    if (!section || !group
+        || !['READING', 'LISTENING'].includes(section.skill)) return null;
+    return { section, group };
+  }
+
+  function groupCommonObjectiveStrategies(group) {
+    const questions = group && Array.isArray(group.questions)
+      ? group.questions
+      : [];
+    if (questions.length === 0) return [];
+    const first = objectiveStrategyOptions(questions[0]);
+    return first.filter(entry => questions.every(question =>
+      objectiveStrategyOptions(question).some(candidate =>
+        candidate.code === entry.code)));
+  }
+
+  function previewText(value, fallback, maxLength = 210) {
+    const text = String(value || '').trim() || fallback;
+    return text.length > maxLength
+      ? `${text.substring(0, maxLength).trim()}…`
+      : text;
+  }
+
+  function previewFullText(value, fallback) {
+    return String(value || '').trim() || fallback;
+  }
+
+  function objectivePreviewOptionLabel(option, index) {
+    if (option && option.label) return String(option.label);
+    if (index < 26) return String.fromCharCode(65 + index);
+    return String(index + 1);
+  }
+
+  function objectivePreviewTableRegion(label, tableMarkup) {
+    return `
+      <div class="objective-preview__table-scroll"
+           role="region"
+           tabindex="0"
+           aria-label="${escapeHtml(label)}">
+        ${tableMarkup}
+      </div>`;
+  }
+
+  function objectivePreviewOptions(question) {
+    if (question && Array.isArray(question.options)) {
+      return question.options;
+    }
+    if (question && question.questionContent
+        && Array.isArray(question.questionContent.options)) {
+      return question.questionContent.options;
+    }
+    return [];
+  }
+
+  function objectivePreviewOptionAuthority(question) {
+    const options = objectivePreviewOptions(question);
+    const type = normalizedObjectiveQuestionType(question);
+    const correctOptionIds = question && question.answerSpec
+      && Array.isArray(question.answerSpec.correctOptionIds)
+      ? question.answerSpec.correctOptionIds
+        .map(value => String(value || '').trim())
+      : null;
+    const correctCountValid = type === 'SINGLE_CHOICE'
+      ? correctOptionIds && correctOptionIds.length === 1
+      : type === 'MULTIPLE_ANSWER'
+      ? correctOptionIds && correctOptionIds.length >= 2
+      : false;
+    if (options.length < 2 || !correctCountValid
+        || correctOptionIds.some(value => !value)) {
+      return null;
+    }
+    const optionIds = options.map(option =>
+      String(option && option.id || '').trim());
+    if (optionIds.some(value => !value)
+        || new Set(optionIds).size !== optionIds.length
+        || new Set(correctOptionIds).size !== correctOptionIds.length
+        || correctOptionIds.some(value => !optionIds.includes(value))) {
+      return null;
+    }
+    return { options, correctOptionIds };
+  }
+
+  function objectivePreviewMatchingAuthority(question) {
+    if (normalizedObjectiveQuestionType(question) !== 'MATCHING') return null;
+    const options = objectivePreviewOptions(question);
+    const blanks = question && question.questionContent
+      && Array.isArray(question.questionContent.blanks)
+      ? question.questionContent.blanks : [];
+    const answers = question && question.answerSpec
+      && Array.isArray(question.answerSpec.blanks)
+      ? question.answerSpec.blanks : [];
+    const optionIds = options.map(option =>
+      String(option && option.id || '').trim());
+    const targetIds = blanks.map(blank =>
+      String(blank && blank.id || '').trim());
+    if (options.length < 2 || blanks.length === 0
+        || optionIds.some(value => !value)
+        || targetIds.some(value => !value)
+        || new Set(optionIds).size !== optionIds.length
+        || new Set(targetIds).size !== targetIds.length
+        || answers.length !== blanks.length) return null;
+    const answerByTarget = new Map(answers.map(answer => [
+      String(answer && answer.blankId || '').trim(),
+      answer && Array.isArray(answer.acceptedValues)
+        ? answer.acceptedValues.map(value => String(value || '').trim())
+        : []
+    ]));
+    if (answerByTarget.size !== targetIds.length) return null;
+    const rows = blanks.map(blank => {
+      const targetId = String(blank.id);
+      const accepted = answerByTarget.get(targetId) || [];
+      if (accepted.length !== 1 || !optionIds.includes(accepted[0])) return null;
+      const optionIndex = optionIds.indexOf(accepted[0]);
+      return {
+        targetId,
+        targetText: String(blank.prompt || ''),
+        option: options[optionIndex],
+        optionLabel: objectivePreviewOptionLabel(options[optionIndex], optionIndex)
+      };
+    });
+    return rows.some(row => row === null) ? null : { options, rows };
+  }
+
+  function objectivePreviewBlanks(question) {
+    const fillQuestion =
+      normalizedObjectiveQuestionType(question) === 'FILL_BLANK';
+    const hasUnexpectedBlankPayload = Boolean(
+      question && Array.isArray(question.fillBlanks)
+        && question.fillBlanks.length > 0
+      || question && question.questionContent
+        && Array.isArray(question.questionContent.blanks)
+        && question.questionContent.blanks.length > 0
+      || question && question.answerSpec
+        && Array.isArray(question.answerSpec.blanks)
+        && question.answerSpec.blanks.length > 0);
+    if (!fillQuestion) {
+      return hasUnexpectedBlankPayload ? null : [];
+    }
+    if (question && Array.isArray(question.fillBlanks)) {
+      const seenIds = new Set();
+      let invalid = false;
+      const blanks = question.fillBlanks.map(blank => {
+        const blankId = String(blank && blank.id || '').trim();
+        if (!blankId || seenIds.has(blankId)) invalid = true;
+        seenIds.add(blankId);
+        const acceptedValues = blank && Array.isArray(blank.acceptedValues)
+          ? blank.acceptedValues.map(value =>
+            String(value && value.text !== undefined ? value.text : value)
+              .normalize('NFC')
+              .replace(/\s+/g, ' ')
+              .trim())
+          : [];
+        const normalizedAnswers = new Set();
+        acceptedValues.forEach(value => {
+          const canonical = value.toLocaleLowerCase('ko-KR');
+          if (!value || normalizedAnswers.has(canonical)) invalid = true;
+          normalizedAnswers.add(canonical);
+        });
+        if (acceptedValues.length === 0) invalid = true;
+        return {
+          id: blankId,
+          prompt: blank && blank.prompt,
+          acceptedValues
+        };
+      });
+      return invalid || blanks.length === 0 ? null : blanks;
+    }
+    const contentBlanks = question && question.questionContent
+      && Array.isArray(question.questionContent.blanks)
+      ? question.questionContent.blanks
+      : [];
+    const answerBlanks = question && question.answerSpec
+      && Array.isArray(question.answerSpec.blanks)
+      ? question.answerSpec.blanks
+      : [];
+    const answerById = new Map();
+    let invalid = false;
+    answerBlanks.forEach(blank => {
+      const blankId = String(blank && blank.blankId || '').trim();
+      if (!blankId || answerById.has(blankId)) {
+        invalid = true;
+        return;
+      }
+      const acceptedValues = blank && Array.isArray(blank.acceptedValues)
+        ? blank.acceptedValues.map(value =>
+          String(value && value.text !== undefined ? value.text : value)
+            .normalize('NFC')
+            .replace(/\s+/g, ' ')
+            .trim())
+        : [];
+      const normalizedAnswers = new Set();
+      acceptedValues.forEach(value => {
+        const canonical = value.toLocaleLowerCase('ko-KR');
+        if (!value || normalizedAnswers.has(canonical)) invalid = true;
+        normalizedAnswers.add(canonical);
+      });
+      if (acceptedValues.length === 0) invalid = true;
+      answerById.set(blankId, { ...blank, acceptedValues });
+    });
+    const seenContentIds = new Set();
+    const blanks = contentBlanks.map(blank => {
+      const blankId = String(blank && blank.id || '').trim();
+      if (!blankId || seenContentIds.has(blankId)) invalid = true;
+      seenContentIds.add(blankId);
+      const answer = answerById.get(blankId);
+      return {
+        id: blankId,
+        prompt: blank && blank.prompt,
+        acceptedValues: answer && Array.isArray(answer.acceptedValues)
+          ? answer.acceptedValues
+          : []
+      };
+    });
+    if (contentBlanks.length === 0 || answerBlanks.length === 0
+        || contentBlanks.length !== answerBlanks.length
+        || [...seenContentIds].some(blankId => !answerById.has(blankId))
+        || [...answerById.keys()].some(blankId =>
+          !seenContentIds.has(blankId))) {
+      invalid = true;
+    }
+    return invalid ? null : blanks;
+  }
+
+  function objectivePreviewSafeText(
+      value, question, requireAllDeclared = false) {
+    const raw = String(value || '');
+    if (normalizedObjectiveQuestionType(question) === 'MATCHING') {
+      const unresolvedMatchingBlankPrefix =
+        String.fromCharCode(123, 123) + 'blank:';
+      return raw.replace(/\s+/g, '').toLowerCase()
+        .includes(unresolvedMatchingBlankPrefix) ? null : raw;
+    }
+    const blanks = objectivePreviewBlanks(question);
+    if (blanks === null) return null;
+    const ordinalByBlankId = new Map();
+    blanks.forEach((blank, index) => {
+      const blankId = String(blank && blank.id || '').trim();
+      if (blankId) ordinalByBlankId.set(blankId, index + 1);
+    });
+    const tokenCounts = new Map();
+    let invalid = false;
+    const safeText = raw.replace(/\{\{\s*blank:([^{}]+)\s*\}\}/gi,
+      (_token, rawBlankId) => {
+        const blankId = String(rawBlankId || '').trim();
+        if (!ordinalByBlankId.has(blankId)) {
+          invalid = true;
+          return _token;
+        }
+        const nextCount = (tokenCounts.get(blankId) || 0) + 1;
+        tokenCounts.set(blankId, nextCount);
+        if (nextCount > 1) invalid = true;
+        return `[Ô ${ordinalByBlankId.get(blankId)}]`;
+      });
+    const unresolvedBlankPrefix = String.fromCharCode(123, 123) + 'blank:';
+    if (safeText.replace(/\s+/g, '').toLowerCase()
+        .includes(unresolvedBlankPrefix)) {
+      invalid = true;
+    }
+    if (requireAllDeclared
+        && [...ordinalByBlankId.keys()].some(
+          blankId => tokenCounts.get(blankId) !== 1)) {
+      invalid = true;
+    }
+    return invalid ? null : safeText;
+  }
+
+  function objectivePreviewTfngDecision(question) {
+    const correctValue = question && question.answerSpec
+      && question.answerSpec.correctValue;
+    const normalized = String(correctValue || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[-\s]+/g, '_');
+    return ['TRUE', 'FALSE', 'NOT_GIVEN'].includes(normalized)
+      ? normalized
+      : null;
+  }
+
+  function objectivePreviewSourceLanguage(group) {
+    const languageTag = group && group.stimulusLanguageTag
+      || group && group.stimulus && group.stimulus.languageTag
+      || '';
+    return ['ko', 'vi'].includes(languageTag) ? languageTag : 'ko';
+  }
+
+  function objectiveStrategyPreviewMarkup(strategyCode, question, group) {
+    const meta = objectiveStrategyCatalogEntry(strategyCode);
+    if (!meta) {
+      return `
+        <div class="objective-preview__empty">
+          Chọn một chiến lược để xem trước bố cục lời giải mà học viên sẽ nhận.
+        </div>`;
+    }
+    const questionLanguage = question && question.questionContent
+      && ['ko', 'vi'].includes(question.questionContent.languageTag)
+      ? question.questionContent.languageTag
+      : 'ko';
+    const sourceLanguage = objectivePreviewSourceLanguage(group);
+    const options = objectivePreviewOptions(question);
+    const header = `
+      <header class="objective-preview__header">
+        <span class="objective-preview__info" aria-hidden="true">i</span>
+        <strong>Giải thích đáp án</strong>
+        <span class="objective-preview__strategy-name">
+          ${escapeHtml(meta.labelVi)}
+        </span>
+      </header>`;
+    const promptValue = objectivePreviewSafeText(
+      question && question.prompt,
+      question,
+      normalizedObjectiveQuestionType(question) === 'FILL_BLANK');
+    const sourceValue = objectivePreviewSafeText(
+      group && (group.passageText || group.transcriptText)
+        || question && question.prompt,
+      question);
+    if (promptValue === null || sourceValue === null) {
+      return `${header}
+        <div class="objective-preview__unsupported
+                    objective-preview__invalid-blank-token"
+             role="status">
+          Phiên bản câu hỏi chứa blankId lạ, trùng hoặc chưa được đặt đúng
+          một lần. Preview dừng an toàn và không hiển thị token kỹ thuật.
+        </div>`;
+    }
+    const prompt = escapeHtml(previewText(
+      promptValue, 'Câu hỏi sẽ hiển thị ở đây.'));
+    const source = escapeHtml(previewText(
+      sourceValue,
+      'Đoạn nguồn đã được khóa vào phiên bản sẽ hiển thị ở đây.'));
+    const fullSource = escapeHtml(previewFullText(
+      sourceValue,
+      'Đoạn nguồn đã được khóa vào phiên bản sẽ hiển thị ở đây.'));
+
+    if (meta.rendererCode === 'EXACT_EVIDENCE_ONLY') {
+      const table = `
+        <div class="objective-preview__prep-table"
+             role="table"
+             aria-label="Xem trước lời giải chỉ dùng bằng chứng chính xác">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>CÂU HỎI · BẰNG CHỨNG CHÍNH XÁC</strong>
+            <em>
+              Chỉ hiển thị span nguồn ngắn nhất đủ thẩm quyền; không thêm
+              suy luận ngoài nguồn.
+            </em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head"
+               role="row">
+            <strong role="columnheader">CÂU HỎI</strong>
+            <strong role="columnheader">VÙNG THÔNG TIN</strong>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell" lang="${questionLanguage}">
+              ${prompt}
+              <mark class="objective-preview__keyword">
+                từ khóa câu hỏi
+              </mark>
+            </span>
+            <span role="cell" lang="${sourceLanguage}">
+              ${source}
+              <strong class="objective-preview__answer-span">
+                evidence chính xác
+              </strong>
+            </span>
+          </div>
+          <strong class="objective-preview__prep-translation-title"
+                  role="row">DỊCH NGHĨA</strong>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell">Bản dịch câu hỏi theo questionId.</span>
+            <span role="cell" class="objective-preview__inline-translation">
+              Bản dịch tiếng Việt gắn đúng evidenceId.
+            </span>
+          </div>
+          <div class="objective-preview__decision" role="row">
+            <strong>Kết luận:</strong>
+            Đáp án được chứng minh trực tiếp bởi span đã tô.
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng bằng chứng chính xác có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'FULL_SOURCE_INLINE_HIGHLIGHT') {
+      return `${header}
+        <div class="objective-preview__prep-document">
+          <p class="objective-preview__source-guide">
+            <span>
+              <mark class="objective-preview__keyword">Từ khóa câu hỏi</mark>
+            </span>
+            <span>
+              <strong class="objective-preview__answer-span">
+                Đáp án và evidence
+              </strong>
+            </span>
+            <span>
+              <em class="objective-preview__inline-translation">
+                [Dịch nghĩa]
+              </em>
+            </span>
+          </p>
+          <div class="objective-preview__source objective-preview__source--full">
+            <p class="objective-preview__continuous-source"
+               lang="${sourceLanguage}">
+              ${fullSource}
+              <mark class="objective-preview__keyword">từ khóa</mark>
+              <strong class="objective-preview__answer-span">
+                vùng bằng chứng chính xác
+              </strong>
+              <em class="objective-preview__inline-translation">
+                [Bản dịch tiếng Việt gắn đúng span]
+              </em>
+            </p>
+          </div>
+        </div>`;
+    }
+    if (meta.rendererCode === 'TFNG_CONTRADICTION_TABLE') {
+      const decision = objectivePreviewTfngDecision(question);
+      if (!decision) {
+        return `${header}
+          <div class="objective-preview__unsupported
+                      objective-preview__invalid-answer-authority"
+               role="status">
+            Câu Đúng/Sai/Không có thông tin chưa có đáp án canonical hợp lệ
+            trong answerSpec.correctValue. Preview dừng an toàn.
+          </div>`;
+      }
+      const decisionSourceNote = decision === 'TRUE'
+        ? 'Nguồn xác nhận trực tiếp nội dung mệnh đề.'
+        : decision === 'FALSE'
+          ? 'Nguồn nêu điều ngược lại với mệnh đề.'
+          : 'Nguồn không thiết lập phần claim bổ sung.';
+      const decisionReason = decision === 'TRUE'
+        ? 'Evidence xác nhận đầy đủ mệnh đề; loại FALSE và NOT GIVEN.'
+        : decision === 'FALSE'
+          ? 'Evidence mâu thuẫn trực tiếp với mệnh đề; loại TRUE và NOT GIVEN.'
+          : 'Nguồn không xác nhận cũng không phủ định chi tiết bổ sung; loại TRUE và FALSE.';
+      const table = `
+        <div class="objective-preview__prep-table
+                    objective-preview__prep-table--tfng
+                    objective-preview__tfng-contradiction"
+             role="table"
+             aria-label="Xem trước bảng đối chiếu đúng sai không có thông tin">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>
+              CÂU HỎI ${escapeHtml(question && question.questionNo || '1')}
+              — ${escapeHtml(decision.replaceAll('_', ' '))}
+            </strong>
+            <em>
+              <mark class="objective-preview__keyword">
+                Từ khóa trong mệnh đề
+              </mark>
+              được đối chiếu với span nguồn ngắn nhất đủ thẩm quyền.
+            </em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head"
+               role="row">
+            <strong role="columnheader">MỆNH ĐỀ</strong>
+            <strong role="columnheader">VÙNG THÔNG TIN</strong>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell" lang="${questionLanguage}">${prompt}</span>
+            <span role="cell" lang="${sourceLanguage}">
+              ${source}
+              <strong class="objective-preview__contradiction">
+                ${decisionSourceNote}
+              </strong>
+            </span>
+          </div>
+          <strong class="objective-preview__prep-translation-title"
+                  role="row">DỊCH NGHĨA</strong>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell">Bản dịch mệnh đề.</span>
+            <span role="cell" class="objective-preview__inline-translation">
+              Bản dịch evidence.
+            </span>
+          </div>
+          <div class="objective-preview__decision" role="row">
+            <strong>Giải thích:</strong>
+            ${decisionReason}
+            <b aria-label="Kết luận">
+              ⇒ ${escapeHtml(decision.replaceAll('_', ' '))}
+            </b>
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng đối chiếu TFNG có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'NOT_GIVEN_BOUNDARY') {
+      const decision = objectivePreviewTfngDecision(question);
+      if (!decision || decision !== 'NOT_GIVEN') {
+        return `${header}
+          <div class="objective-preview__unsupported
+                      objective-preview__invalid-answer-authority"
+               role="status">
+            Chiến lược ranh giới NOT GIVEN chỉ dùng khi đáp án canonical là
+            NOT_GIVEN. Preview không tự đổi hoặc suy đoán đáp án.
+          </div>`;
+      }
+      const table = `
+        <div class="objective-preview__prep-table
+                    objective-preview__not-given-boundary"
+             role="table"
+             aria-label="Xem trước ranh giới thông tin không được nguồn thiết lập">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>RANH GIỚI NOT GIVEN</strong>
+            <em>
+              Tách phần nguồn thật sự nêu khỏi chi tiết mệnh đề tự bổ sung.
+              Không biến “không có thông tin” thành một phủ định.
+            </em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head"
+               role="row">
+            <strong role="columnheader">NGUỒN THỰC SỰ NÊU</strong>
+            <strong role="columnheader">
+              CHI TIẾT NGUỒN KHÔNG THIẾT LẬP
+            </strong>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell" lang="${sourceLanguage}">
+              ${source}
+              <strong class="objective-preview__answer-span">
+                evidence có thẩm quyền
+              </strong>
+            </span>
+            <span role="cell" lang="${questionLanguage}">
+              ${prompt}
+              <mark class="objective-preview__keyword">
+                claim bổ sung chưa được nguồn xác nhận
+              </mark>
+            </span>
+          </div>
+          <strong class="objective-preview__prep-translation-title"
+                  role="row">DỊCH NGHĨA</strong>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell">Nguồn chỉ xác nhận phần evidence bên trái.</span>
+            <span role="cell" class="objective-preview__inline-translation">
+              Không có câu nguồn nào xác nhận hoặc phủ định chi tiết bổ sung.
+            </span>
+          </div>
+          <div class="objective-preview__decision" role="row">
+            <strong>Đường quyết định:</strong>
+            Có thông tin trùng khớp một phần nhưng claim bổ sung không được
+            thiết lập ⇒ loại TRUE; không có bằng chứng ngược ⇒ loại FALSE.
+            <b aria-label="Kết luận">⇒ NOT GIVEN</b>
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng ranh giới NOT GIVEN có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'FILL_SLOT_GRAMMAR_ANALYSIS') {
+      const blanks = objectivePreviewBlanks(question);
+      if (blanks === null) {
+        return `${header}
+          <div class="objective-preview__unsupported" role="status">
+            Cấu trúc blankId bị thiếu hoặc trùng. Preview dừng an toàn để không
+            gắn đáp án của ô này sang ô khác.
+          </div>`;
+      }
+      const blankRows = (blanks.length > 0 ? blanks : [{
+        prompt: 'Ô trống',
+        acceptedValues: []
+      }]).map((blank, index) => {
+        const accepted = Array.isArray(blank.acceptedValues)
+          ? blank.acceptedValues.filter(Boolean)
+          : [];
+        return `
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell" lang="${questionLanguage}">
+              <b>Ô ${index + 1}</b> ·
+              ${escapeHtml(blank.prompt || 'Ngữ cảnh trái/phải')}
+              <small>Danh từ/cụm danh từ · giới hạn từ</small>
+            </span>
+            <span role="cell" lang="${sourceLanguage}">
+              ${source}
+              ${accepted.length > 0
+                ? `<strong class="objective-preview__answer-span">${
+                    escapeHtml(accepted[0])
+                  }</strong>`
+                : '<em>Đáp án nguồn xuất hiện sau khi khóa evidence.</em>'}
+            </span>
+          </div>`;
+      }).join('');
+      const table = `
+        <div class="objective-preview__prep-table objective-preview__prep-table--fill"
+             role="table"
+             aria-label="Xem trước phân tích chỗ trống">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>CÂU HỎI · CHỖ TRỐNG</strong>
+            <em>
+              Vị trí trống, ngữ cảnh trái/phải, từ loại và giới hạn từ được
+              kiểm tra trước khi đối chiếu đáp án.
+            </em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head"
+               role="row">
+            <strong role="columnheader">CÂU HỎI</strong>
+            <strong role="columnheader">VÙNG THÔNG TIN</strong>
+          </div>
+          ${blankRows}
+          <strong class="objective-preview__prep-translation-title"
+                  role="row">DỊCH NGHĨA</strong>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell">Bản dịch câu hỏi theo từng blankId.</span>
+            <span role="cell" class="objective-preview__inline-translation">
+              Bản dịch vùng thông tin theo evidenceId; ký tự “/” hoặc “;” trong
+              nội dung vẫn được giữ nguyên.
+            </span>
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng phân tích chỗ trống có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'QUESTION_EVIDENCE_TRANSLATION_TABLE') {
+      const questionNo = escapeHtml(
+        question && question.questionNo || '1');
+      const table = `
+        <div class="objective-preview__prep-table"
+             role="table"
+             aria-label="Xem trước bảng câu hỏi, vùng thông tin và dịch nghĩa">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>CÂU HỎI ${questionNo}</strong>
+            <em>
+              Đối chiếu từ khóa và ràng buộc câu hỏi với vùng nguồn chính xác.
+            </em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head"
+               role="row">
+            <strong role="columnheader">CÂU HỎI</strong>
+            <strong role="columnheader">VÙNG THÔNG TIN</strong>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell" lang="${questionLanguage}">
+              ${prompt}
+              <mark class="objective-preview__keyword">từ khóa</mark>
+            </span>
+            <span role="cell" lang="${sourceLanguage}">
+              ${source}
+              <strong class="objective-preview__answer-span">
+                evidence chính xác
+              </strong>
+            </span>
+          </div>
+          <strong class="objective-preview__prep-translation-title"
+                  role="row">
+            DỊCH NGHĨA
+          </strong>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell">
+              Bản dịch tiếng Việt của câu hỏi được gắn đúng questionId.
+            </span>
+            <span role="cell" class="objective-preview__inline-translation">
+              Bản dịch vùng thông tin được gắn đúng evidenceId.
+            </span>
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng câu hỏi và vùng thông tin có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'MCQ_OPTION_ELIMINATION') {
+      const optionAuthority = objectivePreviewOptionAuthority(question);
+      if (!optionAuthority) {
+        return `${header}
+          <div class="objective-preview__unsupported
+                      objective-preview__invalid-answer-authority"
+               role="status">
+            Câu trắc nghiệm chưa có optionId duy nhất và đúng một
+            correctOptionId canonical. Preview không suy đoán từ dữ liệu
+            legacy.
+          </div>`;
+      }
+      const optionStates = optionAuthority.options.map((option, index) => ({
+        option,
+        index,
+        correct: optionAuthority.correctOptionIds.includes(String(option.id)),
+        label: objectivePreviewOptionLabel(option, index)
+      }));
+      const rows = optionStates.length > 0
+        ? optionStates.map(state => `
+            <div class="objective-preview__elimination-row ${
+                 state.correct ? 'is-correct' : 'is-rejected'
+               }"
+                 role="row">
+              <span role="cell" lang="${questionLanguage}">
+                <b>${escapeHtml(state.label)}.</b>
+                ${escapeHtml(state.option.text || '')}
+              </span>
+              <span role="cell">
+                <strong>${state.correct
+                  ? 'GIỮ LẠI'
+                  : 'LOẠI'}</strong>
+                <small>${state.correct
+                  ? 'Đáp án này có evidence trực tiếp.'
+                  : 'Lý do loại phải tham chiếu optionId và evidenceId.'}</small>
+              </span>
+            </div>`).join('')
+        : `<p class="objective-preview__data-missing">
+             Chưa có phương án trong câu hỏi này.
+           </p>`;
+      const table = `
+        <div class="objective-preview__prep-table
+                    objective-preview__mcq-elimination"
+             role="table"
+             aria-label="Xem trước loại từng phương án trắc nghiệm">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>LOẠI TỪNG PHƯƠNG ÁN MCQ</strong>
+            <em>
+              Mỗi lựa chọn có một verdict và một lý do riêng; không dùng một
+              đoạn nhận xét chung cho tất cả distractor.
+            </em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head"
+               role="row">
+            <strong role="columnheader">PHƯƠNG ÁN</strong>
+            <strong role="columnheader">QUYẾT ĐỊNH VÀ LÝ DO</strong>
+          </div>
+          ${rows}
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng loại từng phương án MCQ có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'EVIDENCE_AND_ELIMINATION') {
+      const optionAuthority = objectivePreviewOptionAuthority(question);
+      if (!optionAuthority) {
+        return `${header}
+          <div class="objective-preview__unsupported
+                      objective-preview__invalid-answer-authority"
+               role="status">
+            Câu trắc nghiệm chưa có optionId duy nhất hoặc tập đáp án đúng
+            canonical chưa phù hợp với dạng câu. Preview không suy đoán từ
+            dữ liệu legacy.
+          </div>`;
+      }
+      const optionStates = optionAuthority.options.map((option, index) => ({
+        option,
+        index,
+        correct: optionAuthority.correctOptionIds.includes(String(option.id)),
+        label: objectivePreviewOptionLabel(option, index)
+      }));
+      const rows = optionStates.length > 0
+        ? optionStates.map(state => `
+            <div class="objective-preview__option ${
+              state.correct ? 'is-correct' : 'is-rejected'
+            }">
+              <span>
+                <b>${escapeHtml(state.label)}.</b>
+                ${escapeHtml(state.option.text || '')}
+              </span>
+              <small>${state.correct
+                ? 'Đúng · có evidence'
+                : 'Loại · xem lý do đối chiếu bên dưới'}</small>
+            </div>`).join('')
+        : `<p class="objective-preview__data-missing">
+             Chưa có phương án trong câu hỏi này.
+           </p>`;
+      const rejectedRows = optionStates.filter(state => !state.correct);
+      const eliminationRows = rejectedRows.length > 0
+        ? rejectedRows.map(state => `
+            <p>
+              <strong>Loại ${escapeHtml(state.label)}:</strong>
+              lý do phải tham chiếu optionId và evidenceId tương ứng.
+            </p>`).join('')
+        : `<p>Không có phương án sai để loại trừ.</p>`;
+      const table = `
+        <div class="objective-preview__prep-table
+                    objective-preview__prep-table--mcq
+                    objective-preview__evidence-elimination"
+             role="table"
+             aria-label="Xem trước bảng evidence và loại trừ phương án">
+          <div class="objective-preview__prep-row objective-preview__prep-head"
+               role="row">
+            <strong role="columnheader">CÂU HỎI</strong>
+            <strong role="columnheader">VÙNG THÔNG TIN</strong>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <div role="cell" lang="${questionLanguage}">
+              <p>${prompt}</p>
+              ${rows}
+            </div>
+            <div role="cell" lang="${sourceLanguage}">
+              <p>
+                ${source}
+                <mark class="objective-preview__keyword">từ khóa</mark>
+                <strong class="objective-preview__answer-span">
+                  evidence chứng minh đáp án đúng
+                </strong>
+              </p>
+              <em class="objective-preview__inline-translation">
+                [Bản dịch tiếng Việt gắn evidence]
+              </em>
+            </div>
+          </div>
+          <div class="objective-preview__elimination-reasons" role="row">
+            ${eliminationRows}
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng evidence và loại trừ phương án có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'MATCHING_MATRIX') {
+      const matching = objectivePreviewMatchingAuthority(question);
+      if (!matching) {
+        return `${header}
+          <div class="objective-preview__unsupported
+                      objective-preview__invalid-answer-authority"
+               role="status">
+            Câu ghép chưa phủ đúng mọi targetId bằng đúng một candidate
+            optionId canonical. Preview không suy đoán mapping.
+          </div>`;
+      }
+      const rows = matching.rows.map(row => `
+        <div class="objective-preview__prep-row
+                    objective-preview__prep-body is-three-column"
+             role="row">
+          <span role="cell" lang="${questionLanguage}">
+            ${escapeHtml(row.targetText)}
+          </span>
+          <span role="cell" lang="${questionLanguage}">
+            <strong>${escapeHtml(row.optionLabel)}</strong>
+            ${escapeHtml(row.option && row.option.text || '')}
+          </span>
+          <span role="cell">
+            Lời giải phải tham chiếu targetId, candidateOptionId và evidenceId.
+          </span>
+        </div>`).join('');
+      const table = `
+        <div class="objective-preview__prep-table" role="table"
+             aria-label="Xem trước ma trận ghép nối A đến H">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>MA TRẬN GHÉP NỐI A–H</strong>
+            <em>Mỗi target có đúng một mapping chính thức.</em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head
+                      is-three-column" role="row">
+            <strong role="columnheader">NỘI DUNG CẦN GHÉP</strong>
+            <strong role="columnheader">ĐÁP ÁN</strong>
+            <strong role="columnheader">GIẢI THÍCH / BẰNG CHỨNG</strong>
+          </div>
+          ${rows}
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Ma trận ghép nối A đến H có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'KEYWORD_PARAPHRASE_BRIDGE') {
+      const table = `
+        <div class="objective-preview__prep-table"
+             role="table"
+             aria-label="Xem trước cầu nối từ khóa và diễn đạt tương đương">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>CẦU NỐI TỪ KHÓA VÀ DIỄN ĐẠT TƯƠNG ĐƯƠNG</strong>
+            <em>
+              Quan hệ nghĩa được xác minh theo span; màu không thay thế
+              evidenceId và offset.
+            </em>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-head objective-preview__prep-head--three"
+               role="row">
+            <strong role="columnheader">TỪ KHÓA CÂU HỎI</strong>
+            <strong role="columnheader">DIỄN ĐẠT TRONG NGUỒN</strong>
+            <strong role="columnheader">QUYẾT ĐỊNH</strong>
+          </div>
+          <div class="objective-preview__prep-row objective-preview__prep-body objective-preview__prep-body--three"
+               role="row">
+            <span role="cell" lang="${questionLanguage}">
+              <mark class="objective-preview__keyword">어디에서 공부</mark>
+            </span>
+            <span role="cell" lang="${sourceLanguage}">
+              <strong class="objective-preview__paraphrase">
+                도서관에서 한국어를 공부
+              </strong>
+            </span>
+            <span role="cell" lang="${sourceLanguage}">
+              <strong class="objective-preview__answer-span">
+                ${source}
+              </strong>
+            </span>
+          </div>
+          <strong class="objective-preview__prep-translation-title"
+                  role="row">DỊCH NGHĨA VÀ QUAN HỆ</strong>
+          <div class="objective-preview__prep-row objective-preview__prep-body"
+               role="row">
+            <span role="cell" class="objective-preview__inline-translation">
+              Từ khóa: học ở đâu.
+            </span>
+            <span role="cell" class="objective-preview__inline-translation">
+              Nguồn: học tiếng Hàn tại thư viện → cùng quan hệ nghĩa.
+            </span>
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng từ khóa và paraphrase có thể cuộn', table)}`;
+    }
+    if (meta.rendererCode === 'BILINGUAL_STEP_BY_STEP') {
+      const table = `
+        <div class="objective-preview__prep-table"
+             role="table"
+             aria-label="Xem trước giải thích song ngữ từng bước">
+          <div class="objective-preview__prep-context" role="row">
+            <strong>GIẢI THÍCH SONG NGỮ TỪNG BƯỚC</strong>
+            <em>
+              Mỗi bước tham chiếu cùng questionId, evidenceId và quyết định
+              đáp án đã được kiểm chứng.
+            </em>
+          </div>
+          <div class="objective-preview__step-table-row" role="row">
+            <b role="rowheader">1</b>
+            <span role="cell">
+              <strong>Xác định từ khóa</strong>
+              <mark class="objective-preview__keyword"
+                    lang="${questionLanguage}">${prompt}</mark>
+            </span>
+          </div>
+          <div class="objective-preview__step-table-row" role="row">
+            <b role="rowheader">2</b>
+            <span role="cell">
+              <strong>Đối chiếu evidence</strong>
+              <span class="objective-preview__answer-span"
+                    lang="${sourceLanguage}">${source}</span>
+            </span>
+          </div>
+          <div class="objective-preview__step-table-row" role="row">
+            <b role="rowheader">3</b>
+            <span role="cell">
+              <strong>Kết luận</strong>
+              <em class="objective-preview__inline-translation">
+                Đáp án được suy ra trực tiếp từ evidence đã tô; không thêm
+                suy luận ngoài nguồn.
+              </em>
+            </span>
+          </div>
+        </div>`;
+      return `${header}${objectivePreviewTableRegion(
+        'Bảng giải thích song ngữ từng bước có thể cuộn', table)}`;
+    }
+    return `${header}
+      <div class="objective-preview__unsupported" role="status">
+        Chưa có renderer typed an toàn cho chiến lược
+        <strong>${escapeHtml(meta.labelVi)}</strong>. Không dùng preview
+        free-text thay thế.
+      </div>`;
+  }
+
+  function renderObjectiveStrategyPreview(question) {
+    const preview = document.getElementById(
+      'objective-explanation-strategy-preview');
+    const select = document.getElementById('q-explanation-strategy');
+    if (!preview) return;
+    const context = currentObjectiveGroup();
+    const strategyCode = select && select.value
+      || question && question.explanationStrategy
+        && question.explanationStrategy.strategyCode
+      || '';
+    preview.innerHTML = objectiveStrategyPreviewMarkup(
+      strategyCode, question, context && context.group);
+  }
+
+  function refreshGroupExplanationStrategyField(section, group) {
+    const panel = document.getElementById('grp-explanation-strategy-panel');
+    const select = document.getElementById('grp-explanation-strategy');
+    const apply = document.getElementById(
+      'grp-explanation-strategy-apply');
+    const status = document.getElementById(
+      'grp-explanation-strategy-status');
+    if (!panel || !select || !apply || !status) return;
+    const objective = section
+      && ['READING', 'LISTENING'].includes(section.skill);
+    panel.hidden = !objective;
+    if (!objective) return;
+
+    const common = groupCommonObjectiveStrategies(group);
+    select.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = common.length > 0
+      ? 'Chọn chiến lược chung'
+      : 'Nhóm nhiều dạng — không có strategy chung';
+    select.appendChild(placeholder);
+    common.forEach(entry => {
+      const option = document.createElement('option');
+      option.value = entry.code;
+      option.textContent = `${entry.categoryVi} · ${entry.labelVi}`;
+      select.appendChild(option);
+    });
+    const selections = new Set((group.questions || []).map(question =>
+      question.explanationStrategy
+        && question.explanationStrategy.strategyCode || ''));
+    const shared = selections.size === 1 ? [...selections][0] : '';
+    select.value = common.some(entry => entry.code === shared) ? shared : '';
+    select.disabled = common.length === 0;
+    apply.disabled = !select.value;
+    status.textContent = common.length === 0
+      ? 'Các câu trong nhóm đang khác dạng. Hãy chọn strategy riêng cho từng câu.'
+      : (shared
+        ? `Đang áp dụng cho ${group.questions.length} câu trong nhóm.`
+        : 'Chọn một strategy rồi áp dụng; nội dung đã duyệt cũ sẽ cần duyệt lại.');
+    syncManagedEditorSelect('grp-explanation-strategy');
+    previewGroupExplanationStrategy();
+  }
+
+  function previewGroupExplanationStrategy() {
+    const context = currentObjectiveGroup();
+    const select = document.getElementById('grp-explanation-strategy');
+    const apply = document.getElementById(
+      'grp-explanation-strategy-apply');
+    const preview = document.getElementById(
+      'grp-explanation-strategy-preview');
+    if (!context || !select || !apply || !preview) return;
+    apply.disabled = !select.value;
+    preview.innerHTML = `
+      <div class="objective-preview__group-container">
+        ${objectiveStrategyPreviewMarkup(
+          select.value,
+          context.group.questions && context.group.questions[0],
+          context.group)}
+      </div>`;
+  }
+
+  async function applyGroupExplanationStrategy() {
+    const context = currentObjectiveGroup();
+    const select = document.getElementById('grp-explanation-strategy');
+    if (!context || !select || !select.value) return;
+    const common = groupCommonObjectiveStrategies(context.group);
+    if (!common.some(entry => entry.code === select.value)) {
+      showEditorToast(
+        'Strategy này không tương thích với mọi câu trong nhóm.', 'error');
+      return;
+    }
+    context.group.questions.forEach(question => {
+      question.explanationStrategy = {
+        registryVersion: 'rl-explanation-strategy-registry-v2',
+        strategyCode: select.value,
+        strategyVersion: 'v1'
+      };
+      if (question.clientId) {
+        objectiveEditorialStateByQuestion.delete(question.clientId);
+      }
+    });
+    triggerAutosave();
+    const saved = await performAutosave();
+    refreshGroupExplanationStrategyField(context.section, context.group);
+    renderGroupQuestions(currentNode.sIdx, currentNode.gIdx);
+    const selectedEntry = objectiveStrategyCatalogEntry(select.value);
+    showEditorToast(saved
+      ? `Đã áp dụng ${selectedEntry ? selectedEntry.labelVi : select.value}`
+        + ` cho ${context.group.questions.length} câu.`
+      : 'Không thể lưu strategy chung của nhóm.',
+      saved ? 'success' : 'error');
+  }
+
+  function refreshExplanationStrategyField(section, question) {
+    const row = document.getElementById('q-explanation-strategy-row');
+    const select = document.getElementById('q-explanation-strategy');
+    if (!row || !select) return;
+    const objective = section
+      && ['READING', 'LISTENING'].includes(section.skill);
+    row.style.display = objective ? 'block' : 'none';
+    select.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Chọn chiến lược trước khi xuất bản';
+    select.appendChild(placeholder);
+    if (!objective) {
+      select.value = '';
+      return;
+    }
+    const entries = objectiveStrategyOptions(question);
+    const entriesByCategory = Object.groupBy
+      ? Object.groupBy(entries, entry => entry.categoryVi)
+      : entries.reduce((groups, entry) => {
+        (groups[entry.categoryVi] ||= []).push(entry);
+        return groups;
+      }, {});
+    Object.entries(entriesByCategory).forEach(([category, categoryEntries]) => {
+      const group = document.createElement('optgroup');
+      group.label = category;
+      categoryEntries.forEach(entry => {
+        const option = document.createElement('option');
+        option.value = entry.code;
+        option.textContent = entry.labelVi;
+        option.dataset.description = entry.descriptionVi;
+        option.dataset.renderer = entry.rendererCode;
+        option.dataset.requirements = (entry.requiredEvidence || []).join(', ');
+        group.appendChild(option);
+      });
+      select.appendChild(group);
+    });
+    const current = question && question.explanationStrategy
+      && question.explanationStrategy.strategyCode || '';
+    if (current && ![...select.options].some(option =>
+      option.value === current)) {
+      const legacy = document.createElement('option');
+      legacy.value = current;
+      legacy.textContent = LEGACY_OBJECTIVE_STRATEGY_LABELS[current]
+        || `Strategy cũ · ${current}`;
+      legacy.disabled = true;
+      select.appendChild(legacy);
+    }
+    select.value = [...select.options].some(option => option.value === current)
+      ? current
+      : '';
+    syncManagedEditorSelect('q-explanation-strategy');
+    renderObjectiveStrategyPreview(question);
+    refreshObjectiveEditorialPanel(question);
+  }
+
+  function currentObjectiveQuestion() {
+    if (!currentNode || currentNode.type !== 'question') return null;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const group = section && section.groups[currentNode.gIdx];
+    const question = group && group.questions[currentNode.qIdx];
+    if (!section || !question
+        || !['READING', 'LISTENING'].includes(section.skill)) return null;
+    return question;
+  }
+
+  function objectiveEditorialStateLabel(state) {
+    if (state === 'APPROVED') return 'Đã duyệt';
+    if (state === 'GENERATED_DRAFT') return 'Bản nháp cần duyệt';
+    if (state === 'INVALIDATED') return 'Đã hết hiệu lực';
+    return 'Chưa có bản nháp';
+  }
+
+  function renderObjectiveEditorialState(question, editorial) {
+    const panel = document.getElementById('objective-explanation-editorial');
+    const state = document.getElementById(
+      'objective-explanation-editorial-state');
+    const json = document.getElementById('objective-explanation-json');
+    const save = document.getElementById('objective-explanation-save');
+    const approve = document.getElementById('objective-explanation-approve');
+    const technical = document.getElementById(
+      'objective-explanation-json-details');
+    if (!panel || !state || !json || !save || !approve || !technical) return;
+    panel.hidden = !question;
+    if (!question) return;
+    state.textContent = objectiveEditorialStateLabel(
+      editorial && editorial.state);
+    state.dataset.state = editorial && editorial.state || 'NONE';
+    json.disabled = !editorial;
+    json.value = editorial && editorial.explanationJson
+      ? JSON.stringify(JSON.parse(editorial.explanationJson), null, 2)
+      : '';
+    save.disabled = !editorial || editorial.state === 'APPROVED';
+    save.hidden = !editorial || editorial.state === 'APPROVED';
+    approve.disabled = !editorial
+      || editorial.state !== 'GENERATED_DRAFT'
+      || !editorial.revisionId;
+    approve.hidden = !editorial
+      || editorial.state !== 'GENERATED_DRAFT'
+      || !editorial.revisionId;
+    technical.hidden = !editorial;
+  }
+
+  async function refreshObjectiveEditorialPanel(question) {
+    if (!question || !question.clientId || !isBackendDraftAvailable()) return;
+    const strategyCode = question.explanationStrategy
+      && String(question.explanationStrategy.strategyCode || '').trim();
+    if (!strategyCode) {
+      objectiveEditorialStateByQuestion.delete(question.clientId);
+      renderObjectiveEditorialState(question, null);
+      return;
+    }
+    renderObjectiveEditorialState(
+      question,
+      objectiveEditorialStateByQuestion.get(question.clientId));
+    try {
+      const response = await fetch(
+        `/api/practice/manage/explanations/drafts/${DRAFT_ID}`
+          + `/questions/${encodeURIComponent(question.clientId)}/current`,
+        { headers: editorApiHeaders() });
+      if (response.status === 204 || response.status === 404) {
+        objectiveEditorialStateByQuestion.delete(question.clientId);
+        if (currentObjectiveQuestion() === question) {
+          renderObjectiveEditorialState(question, null);
+        }
+        return;
+      }
+      const editorial = await readEditorJsonResponse(
+        response, 'Không thể tải bản lời giải hiện tại.');
+      objectiveEditorialStateByQuestion.set(question.clientId, editorial);
+      if (currentObjectiveQuestion() === question) {
+        renderObjectiveEditorialState(question, editorial);
+      }
+    } catch (error) {
+      if (currentObjectiveQuestion() === question) {
+        showEditorToast(error.message, 'error');
+      }
+    }
+  }
+
+  async function generateObjectiveExplanationDraft() {
+    const question = currentObjectiveQuestion();
+    if (!question) return;
+    saveCurrentNode();
+    if (!(await performAutosave())) {
+      showEditorToast('Phải lưu bản nháp trước khi tạo lời giải.', 'error');
+      return;
+    }
+    const payload = await editorJsonFetch(
+      `/api/practice/manage/explanations/drafts/${DRAFT_ID}`
+        + `/questions/${encodeURIComponent(question.clientId)}/generate`,
+      { method: 'POST', headers: editorApiHeaders() },
+      'Không thể tạo lời giải typed.');
+    objectiveEditorialStateByQuestion.set(question.clientId, payload);
+    renderObjectiveEditorialState(question, payload);
+    await refreshPublishBlockers();
+    showEditorToast('Đã tạo bản nháp lời giải. Hãy kiểm tra trước khi duyệt.',
+      'success');
+  }
+
+  async function saveObjectiveExplanationRevision() {
+    const question = currentObjectiveQuestion();
+    const json = document.getElementById('objective-explanation-json');
+    if (!question || !json || !json.value.trim()) return;
+    const payload = await editorJsonFetch(
+      `/api/practice/manage/explanations/drafts/${DRAFT_ID}`
+        + `/questions/${encodeURIComponent(question.clientId)}/revisions`,
+      {
+        method: 'PUT',
+        headers: editorApiHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({ explanationJson: json.value })
+      },
+      'Không thể lưu lời giải typed.');
+    objectiveEditorialStateByQuestion.set(question.clientId, payload);
+    renderObjectiveEditorialState(question, payload);
+    await refreshPublishBlockers();
+    showEditorToast('Đã lưu bản chỉnh sửa; cần duyệt lại.', 'success');
+  }
+
+  async function approveObjectiveExplanationRevision() {
+    const question = currentObjectiveQuestion();
+    const editorial = question
+      && objectiveEditorialStateByQuestion.get(question.clientId);
+    if (!question || !editorial || !editorial.revisionId) return;
+    const payload = await editorJsonFetch(
+      `/api/practice/manage/explanations/drafts/${DRAFT_ID}`
+        + `/questions/${encodeURIComponent(question.clientId)}`
+        + `/revisions/${editorial.revisionId}/approve`,
+      { method: 'POST', headers: editorApiHeaders() },
+      'Không thể duyệt lời giải typed.');
+    objectiveEditorialStateByQuestion.set(question.clientId, payload);
+    renderObjectiveEditorialState(question, payload);
+    await refreshPublishBlockers();
+    showEditorToast('Lời giải đã được duyệt cho authority hiện tại.',
+      'success');
+  }
+
   // Handle options rows and specific fields
   async function handleQuestionTypeChange() {
     if (!currentNode || currentNode.type !== 'question') return;
@@ -2738,10 +4581,12 @@
         && window.SpeakingPromptAuthoring) {
       if (!(await flushSpeakingBeforeStructureMutation())) {
         typeSelect.value = previousType;
+        syncManagedEditorSelect('q-type');
         return;
       }
       if ((await window.SpeakingPromptAuthoring.deactivate()) === false) {
         typeSelect.value = previousType;
+        syncManagedEditorSelect('q-type');
         showEditorToast(
           'Không thể đổi dạng câu vì đề bài Nói chưa đóng an toàn.',
           'error');
@@ -2752,6 +4597,7 @@
     if (previousType !== type) {
       if (previousType === 'FILL_BLANK' && type !== 'FILL_BLANK') {
         q.prompt = fillBlankPromptDisplay(q.prompt);
+        q.fillBlanks = [];
       }
       q.answer = { value: '' };
       q.answerKey = '';
@@ -2764,6 +4610,7 @@
 
     // Hide all area components
     document.getElementById('options-area').style.display = 'none';
+    document.getElementById('matching-area').style.display = 'none';
     document.getElementById('tfng-area').style.display = 'none';
     document.getElementById('gapfill-area').style.display = 'none';
     document.getElementById('essay-area').style.display = 'none';
@@ -2771,12 +4618,26 @@
 
     refreshQuestionPolicyControls(section, q, type);
 
-    if (type === 'SINGLE_CHOICE') {
+    if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_ANSWER') {
       document.getElementById('options-area').style.display = 'block';
       if (!Array.isArray(q.options) || q.options.length === 0) {
         q.options = defaultOptionsForQuestionType(type, section.skill);
       }
       renderOptionRows(q);
+    } else if (type === 'MATCHING') {
+      document.getElementById('options-area').style.display = 'block';
+      document.getElementById('matching-area').style.display = 'block';
+      if (!Array.isArray(q.options) || q.options.length === 0) {
+        q.options = defaultOptionsForQuestionType(type, section.skill);
+      }
+      if (!Array.isArray(q.matchingTargets) || q.matchingTargets.length === 0) {
+        q.matchingTargets = [
+          { id: makeClientId('match'), prompt: 'Nội dung cần ghép 1', candidateOptionId: '' },
+          { id: makeClientId('match'), prompt: 'Nội dung cần ghép 2', candidateOptionId: '' }
+        ];
+      }
+      renderOptionRows(q);
+      renderMatchingTargets(q);
     } else if (type === 'TRUE_FALSE_NOT_GIVEN') {
       document.getElementById('tfng-area').style.display = 'block';
       const val = (q.answer && q.answer.value) || q.answerKey || '';
@@ -2805,6 +4666,7 @@
     }
 
     window.PracticeAuthoringContract.syncQuestionContract(q);
+    refreshExplanationStrategyField(section, q);
     const questionChanged = JSON.stringify(q) !== questionBefore;
     if (questionChanged) triggerAutosave();
     if (type === 'SPEAKING' && window.SpeakingPromptAuthoring) {
@@ -2842,6 +4704,9 @@
   function renderOptionRows(q) {
     const list = document.getElementById('options-list');
     list.innerHTML = '';
+    const promptLanguage = ['ko', 'vi'].includes(q.promptLanguageTag)
+      ? q.promptLanguageTag
+      : normalizedEditorLanguage('q-prompt-language', 'ko');
 
     if (!q.options) q.options = defaultOptionsForQuestionType(q.questionType, DRAFT_DATA.sections[currentNode.sIdx].skill);
 
@@ -2867,13 +4732,16 @@
         <div class="opt-card-grid">
           <div class="opt-drag-handle" aria-hidden="true">${editorGripIcon(18)}</div>
           <div class="opt-index">${getCircledNumber(idx + 1)}</div>
-          <input type="${q.questionType === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'}" 
-                 name="correct-opt" 
+          ${q.questionType === 'MATCHING'
+            ? `<span class="opt-checkbox" aria-hidden="true">${String.fromCharCode(65 + idx)}</span>`
+            : `<input type="${q.questionType === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'}"
+                 name="correct-opt"
                  class="opt-checkbox"
                  aria-label="Đánh dấu phương án ${idx + 1} là đáp án đúng"
-                 ${isCorrect ? 'checked' : ''} 
-                 onchange="setCorrectOption(${idx})">
-          <input type="text" class="opt-text-input" value="${escapeHtml(val)}"
+                 ${isCorrect ? 'checked' : ''}
+                 onchange="setCorrectOption(${idx})">`}
+          <input type="text" class="opt-text-input" lang="${promptLanguage}"
+                 value="${escapeHtml(val)}"
                  aria-label="Nội dung phương án ${idx + 1}" oninput="saveOptions()">
           <button type="button" class="tree-ellipsis-btn" onclick="chooseOptionImage(${idx})" title="Chọn ảnh cho phương án" aria-label="Chọn ảnh cho phương án">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
@@ -2891,6 +4759,7 @@
       `;
       list.appendChild(card);
     });
+    syncEditorLanguageAttributes();
   }
 
   function currentQuestionOptionPolicy(question) {
@@ -2916,8 +4785,13 @@
   function setCorrectOption(idx) {
     if (!currentNode) return;
     const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
-    q.answer = { type: "SINGLE", value: String(idx + 1) };
-    q.answerKey = String(idx + 1);
+    const value = q.questionType === 'MULTIPLE_ANSWER'
+      ? Array.from(document.querySelectorAll('#options-list .opt-checkbox:checked'))
+        .map(input => String(Array.from(document.querySelectorAll('#options-list .opt-checkbox')).indexOf(input) + 1))
+        .join(',')
+      : String(idx + 1);
+    q.answer = { type: q.questionType === 'MULTIPLE_ANSWER' ? 'MULTIPLE' : 'SINGLE', value };
+    q.answerKey = value;
     window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
   }
@@ -2935,6 +4809,72 @@
         imageReference: previous[index] && (previous[index].imageReference || previous[index].imageUrl) || null
       });
     });
+    window.PracticeAuthoringContract.syncQuestionContract(q);
+    if (q.questionType === 'MATCHING') renderMatchingTargets(q);
+    triggerAutosave();
+  }
+
+  function renderMatchingTargets(q) {
+    const list = document.getElementById('matching-targets-list');
+    if (!list) return;
+    const targets = Array.isArray(q.matchingTargets) ? q.matchingTargets : [];
+    list.innerHTML = '';
+    targets.forEach((target, index) => {
+      const row = document.createElement('div');
+      row.className = 'fill-blank-card';
+      const choices = (q.options || []).map((option, optionIndex) => `
+        <option value="${escapeHtml(option.id)}" ${target.candidateOptionId === option.id ? 'selected' : ''}>
+          ${String.fromCharCode(65 + optionIndex)} — ${escapeHtml(option.text || '')}
+        </option>`).join('');
+      row.innerHTML = `
+        <div class="fill-blank-card-heading">
+          <strong>Nội dung ${index + 1}</strong>
+          <button type="button" class="opt-delete-btn" onclick="removeMatchingTarget(${index})"
+                  ${targets.length <= 1 ? 'disabled' : ''} aria-label="Xóa nội dung ghép ${index + 1}">${editorCloseIcon(14)}</button>
+        </div>
+        <div style="display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,.55fr); gap:10px;">
+          <input type="text" class="form-input" value="${escapeHtml(target.prompt || '')}"
+                 aria-label="Nội dung cần ghép ${index + 1}"
+                 oninput="saveMatchingTarget(${index}, 'prompt', this.value)">
+          <select class="form-input" aria-label="Đáp án cho nội dung ${index + 1}"
+                  onchange="saveMatchingTarget(${index}, 'candidateOptionId', this.value)">
+            <option value="">Chọn đáp án A–H</option>${choices}
+          </select>
+        </div>`;
+      list.appendChild(row);
+    });
+  }
+
+  function addMatchingTarget() {
+    if (!currentNode) return;
+    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    if (!Array.isArray(q.matchingTargets)) q.matchingTargets = [];
+    q.matchingTargets.push({
+      id: makeClientId('match'),
+      prompt: `Nội dung cần ghép ${q.matchingTargets.length + 1}`,
+      candidateOptionId: ''
+    });
+    window.PracticeAuthoringContract.syncQuestionContract(q);
+    renderMatchingTargets(q);
+    triggerAutosave();
+  }
+
+  function removeMatchingTarget(index) {
+    if (!currentNode) return;
+    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    if (!Array.isArray(q.matchingTargets) || q.matchingTargets.length <= 1) return;
+    q.matchingTargets.splice(index, 1);
+    window.PracticeAuthoringContract.syncQuestionContract(q);
+    renderMatchingTargets(q);
+    triggerAutosave();
+  }
+
+  function saveMatchingTarget(index, field, value) {
+    if (!currentNode) return;
+    const q = DRAFT_DATA.sections[currentNode.sIdx].groups[currentNode.gIdx].questions[currentNode.qIdx];
+    const target = Array.isArray(q.matchingTargets) ? q.matchingTargets[index] : null;
+    if (!target || !['prompt', 'candidateOptionId'].includes(field)) return;
+    target[field] = value;
     window.PracticeAuthoringContract.syncQuestionContract(q);
     triggerAutosave();
   }
@@ -3019,6 +4959,7 @@
     q.answer = { type: "TFNG", value: val };
     q.answerKey = val;
     window.PracticeAuthoringContract.syncQuestionContract(q);
+    renderObjectiveStrategyPreview(q);
     triggerAutosave();
   }
 
@@ -3471,13 +5412,17 @@
       if (!grp) return;
       grp.label = document.getElementById('grp-label').value;
       grp.instruction = document.getElementById('grp-instruction').value;
+      grp.instructionLanguageTag = document.getElementById('grp-instruction-language').value;
       grp.audioUrl = document.getElementById('grp-audio').value;
       grp.passageText = document.getElementById('grp-passage').value;
+      grp.stimulusLanguageTag = document.getElementById('grp-stimulus-language').value;
       const kind = grp.stimulusKind || 'NONE';
       const previousProvenance = grp.stimulus && grp.stimulus.provenance || {};
       grp.stimulus = {
-        schemaVersion: 'practice-stimulus-v1',
+        schemaVersion: 'practice-stimulus-v2',
         type: kind === 'PASSAGE' ? 'READING_PASSAGE' : (kind === 'TRANSCRIPT' ? 'LISTENING_AUDIO' : 'NONE'),
+        languageTag: grp.stimulusLanguageTag,
+        instructionLanguageTag: grp.instructionLanguageTag,
         instruction: grp.instruction,
         passageText: kind === 'PASSAGE' ? grp.passageText : null,
         transcriptText: kind === 'TRANSCRIPT' ? grp.passageText : null,
@@ -3501,6 +5446,7 @@
         ? Number(q.essayTaskType.substring(1))
         : (parseInt(document.getElementById('q-no').value) || (qIdx + 1));
       const typeSel = document.getElementById('q-type').value;
+      q.promptLanguageTag = document.getElementById('q-prompt-language').value;
       if (typeSel === 'SPEAKING' && window.SpeakingPromptAuthoring) {
         window.SpeakingPromptAuthoring.syncToQuestion(q);
       } else {
@@ -3511,6 +5457,25 @@
       document.getElementById('q-prompt').value = q.prompt;
       q.points = parseFloat(document.getElementById('q-points').value) || 1.0;
       q.explanationVi = document.getElementById('q-explanation').value;
+      const strategySelect = document.getElementById('q-explanation-strategy');
+      if (['READING', 'LISTENING'].includes(
+          DRAFT_DATA.sections[sIdx].skill)) {
+        const strategyCode = strategySelect.value;
+        const selectedEntry = objectiveStrategyCatalogEntry(strategyCode);
+        const existingStrategy = q.explanationStrategy;
+        q.explanationStrategy = strategyCode
+          ? (selectedEntry ? {
+              registryVersion: selectedEntry.registryVersion,
+              strategyCode,
+              strategyVersion: selectedEntry.strategyVersion
+            } : existingStrategy
+              && existingStrategy.strategyCode === strategyCode
+                ? existingStrategy
+                : null)
+          : null;
+      } else {
+        delete q.explanationStrategy;
+      }
       if (q.importSource === 'PDF_AI') {
         q.reviewRequired = !document.getElementById('q-ai-reviewed').checked;
       }
@@ -3803,12 +5768,16 @@
       groupCode: `${sec.lessonCode}.${sec.groups.length + 1}`,
       label: `${sec.lessonCode}.${sec.groups.length + 1}`,
       instruction: "Hãy đọc đoạn văn sau và chọn đáp án chính xác.",
+      instructionLanguageTag: 'vi',
       passageText: "",
       transcriptText: "",
       stimulusKind: sec.skill === 'READING' ? 'PASSAGE' : (sec.skill === 'LISTENING' ? 'TRANSCRIPT' : 'NONE'),
+      stimulusLanguageTag: 'ko',
       stimulus: {
-        schemaVersion: 'practice-stimulus-v1',
+        schemaVersion: 'practice-stimulus-v2',
         type: sec.skill === 'READING' ? 'READING_PASSAGE' : (sec.skill === 'LISTENING' ? 'LISTENING_AUDIO' : 'NONE'),
+        languageTag: 'ko',
+        instructionLanguageTag: 'vi',
         instruction: "Hãy đọc đoạn văn sau và chọn đáp án chính xác.",
         passageText: null,
         transcriptText: null,
@@ -3876,6 +5845,7 @@
       questionNo: nextQNo,
       questionType: qType,
       prompt: qType === "SINGLE_CHOICE" ? "Nội dung câu hỏi trắc nghiệm" : "Yêu cầu bài làm",
+      promptLanguageTag: "ko",
       options: options,
       answer: qType === "SINGLE_CHOICE" ? { type: "SINGLE", value: answerKey } : null,
       answerKey: answerKey,
@@ -4263,8 +6233,11 @@
             status.style.background = 'rgba(16, 185, 129, 0.1)';
             status.style.color = 'var(--pp-success)';
             DRAFT_VERSION = data.version;
-            latestValidation = data.validation;
-            updateValidationPanel(data.validation);
+            latestPublishBlockers = Array.isArray(data.publishBlockers)
+              ? data.publishBlockers
+              : [];
+            latestValidation = mergePublishBlockers(data.validation);
+            updateValidationPanel(latestValidation);
             updatePublishEligibilityBanner();
             return true;
           }
@@ -4531,11 +6504,16 @@
 
     const btnPublish = document.getElementById('btn-publish');
     if (res.hasBlocking) {
+      const firstBlocking = res.messages.find(m => m.type === 'BLOCKING');
       btnPublish.disabled = true;
-      btnPublish.title = "Đang có lỗi BLOCKING cần sửa đổi.";
+      btnPublish.title = firstBlocking?.content
+        ? `Chưa thể xuất bản: ${firstBlocking.content}`
+        : "Chưa thể xuất bản vì đề còn lỗi nghiêm trọng.";
+      btnPublish.setAttribute('aria-describedby', 'publish-status-banner');
     } else {
       btnPublish.disabled = false;
       btnPublish.title = "";
+      btnPublish.removeAttribute('aria-describedby');
     }
 
     const filtered = res.messages.filter(m => {
@@ -4613,11 +6591,58 @@
 
   // Pre-validate initial fetch
   function validateDraft() {
-    const validation = calculateDraftValidation(DRAFT_DATA);
+    const validation = mergePublishBlockers(
+      calculateDraftValidation(DRAFT_DATA));
     latestValidation = validation;
     updateValidationPanel(validation);
     updatePublishEligibilityBanner();
     return validation;
+  }
+
+  function mergePublishBlockers(validation) {
+    if (!validation) return validation;
+    const baseMessages = Array.isArray(validation.messages)
+      ? validation.messages
+      : [];
+    const seen = new Set(baseMessages.map(message => [
+      message.code || '',
+      message.sIdx ?? '',
+      message.gIdx ?? '',
+      message.qIdx ?? ''
+    ].join(':')));
+    const publishMessages = latestPublishBlockers.filter(message => {
+      const key = [
+        message.code || '',
+        message.sIdx ?? '',
+        message.gIdx ?? '',
+        message.qIdx ?? ''
+      ].join(':');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const messages = [...baseMessages, ...publishMessages];
+    return {
+      ...validation,
+      messages,
+      hasBlocking: messages.some(message => message.type === 'BLOCKING')
+    };
+  }
+
+  async function refreshPublishBlockers() {
+    if (!isBackendDraftAvailable()) return latestPublishBlockers;
+    const payload = await editorJsonFetch(
+      `/practice/manage/drafts/${DRAFT_ID}/publish-blockers`,
+      { headers: editorApiHeaders() },
+      'Không thể kiểm tra điều kiện xuất bản.');
+    latestPublishBlockers = Array.isArray(payload.publishBlockers)
+      ? payload.publishBlockers
+      : [];
+    latestValidation = mergePublishBlockers(
+      calculateDraftValidation(DRAFT_DATA));
+    updateValidationPanel(latestValidation);
+    updatePublishEligibilityBanner();
+    return latestPublishBlockers;
   }
 
   function calculateDraftValidation(draftData) {
@@ -4692,12 +6717,22 @@
               });
             }
           }
-          if (type === 'SINGLE_CHOICE') {
+          if (type === 'SINGLE_CHOICE' || type === 'MULTIPLE_ANSWER') {
             if (!Array.isArray(q.options) || q.options.length < 2) {
               messages.push({ type: 'BLOCKING', content: `Câu ${q.questionNo} cần ít nhất 2 phương án.`, sIdx, gIdx, qIdx });
             }
             if (!String(answerVal || '').trim()) {
               messages.push({ type: 'BLOCKING', content: `Câu ${q.questionNo} chưa có đáp án đúng.`, sIdx, gIdx, qIdx });
+            }
+            if (type === 'MULTIPLE_ANSWER' && String(answerVal).split(',').filter(Boolean).length < 2) {
+              messages.push({ type: 'BLOCKING', code: 'MULTIPLE_ANSWER_KEYS_REQUIRED', content: `Câu ${q.questionNo} phải có ít nhất 2 đáp án đúng.`, sIdx, gIdx, qIdx });
+            }
+          }
+          if (type === 'MATCHING') {
+            const targets = q.answerSpec && Array.isArray(q.answerSpec.blanks) ? q.answerSpec.blanks : [];
+            if (!Array.isArray(q.options) || q.options.length < 2 || !targets.length
+                || targets.some(target => !Array.isArray(target.acceptedValues) || target.acceptedValues.length !== 1)) {
+              messages.push({ type: 'BLOCKING', code: 'MATCHING_AUTHORITY_REQUIRED', content: `Câu ${q.questionNo} còn nội dung ghép chưa có đáp án A–H.`, sIdx, gIdx, qIdx });
             }
           }
           if (type === 'TRUE_FALSE_NOT_GIVEN' && !['TRUE', 'FALSE', 'NOT_GIVEN'].includes(String(answerVal))) {
@@ -4771,12 +6806,16 @@
       return;
     }
 
-    const blockingCount = latestValidation.messages.filter(m => m.type === 'BLOCKING').length;
+    const blockingMessages = latestValidation.messages.filter(m => m.type === 'BLOCKING');
+    const blockingCount = blockingMessages.length;
+    const firstBlocking = String(blockingMessages[0]?.content || '').trim();
     banner.style.display = 'flex';
     banner.style.background = '#FFF7ED';
     banner.style.color = '#C2410C';
     banner.style.border = '1px solid #FED7AA';
-    banner.textContent = `Còn ${blockingCount} lỗi nghiêm trọng cần sửa trước khi xuất bản.`;
+    banner.textContent = firstBlocking
+      ? `Chưa thể xuất bản: ${firstBlocking}${blockingCount > 1 ? ` (và ${blockingCount - 1} lỗi khác)` : ''}`
+      : `Còn ${blockingCount} lỗi nghiêm trọng cần sửa trước khi xuất bản.`;
   }
 
   // Preview Modal functions
@@ -4896,7 +6935,8 @@
     const instruction = String(grp.instruction || '').trim();
     const instructionHtml = instruction ? `
       <div style="font-size:0.75rem; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">HƯỚNG DẪN BÀI THI:</div>
-      <div style="font-weight:600; color:#1E293B;">${escapeHtml(instruction)}</div>
+      <div lang="${['ko', 'vi'].includes(grp.instructionLanguageTag) ? grp.instructionLanguageTag : 'vi'}"
+           style="font-weight:600; color:#1E293B;">${escapeHtml(instruction)}</div>
     ` : '';
     document.getElementById('preview-group-instruction').innerHTML = instructionHtml;
     document.getElementById('preview-focus-instruction').innerHTML = instructionHtml;
@@ -4925,6 +6965,9 @@
 
     // 4. Passage Text
     const passageContainer = document.getElementById('preview-group-passage');
+    passageContainer.lang = ['ko', 'vi'].includes(grp.stimulusLanguageTag)
+      ? grp.stimulusLanguageTag
+      : 'ko';
     if ((item.skill === 'READING' || item.skill === 'WRITING') && passage) {
       passageContainer.style.display = 'block';
       passageContainer.innerText = passage;
@@ -4940,6 +6983,7 @@
         block.className = 'preview-writing-prompt';
         if (q.prompt) {
           const prompt = document.createElement('p');
+          prompt.lang = ['ko', 'vi'].includes(q.promptLanguageTag) ? q.promptLanguageTag : 'ko';
           prompt.textContent = q.prompt;
           block.appendChild(prompt);
         }
@@ -5009,8 +7053,12 @@
             </div>
           `
           : '';
+        const promptLanguage = q.questionContent
+          && ['ko', 'vi'].includes(q.questionContent.languageTag)
+          ? q.questionContent.languageTag
+          : 'ko';
         const promptText = presentation.promptText
-          ? `<p>${escapeHtml(presentation.promptText)}</p>`
+          ? `<p lang="${promptLanguage}">${escapeHtml(presentation.promptText)}</p>`
           : '';
         qCard.classList.add('preview-speaking-state');
         qCard.innerHTML = `
@@ -5048,7 +7096,8 @@
         : '';
 
       let optionsHtml = '';
-      if (q.questionType === 'SINGLE_CHOICE') {
+      if (q.questionType === 'SINGLE_CHOICE'
+          || q.questionType === 'MULTIPLE_ANSWER') {
         if (q.options) {
           q.options.forEach((opt, oIdx) => {
             const optionImage = opt && opt.imageReference
@@ -5056,12 +7105,37 @@
               : '';
             optionsHtml += `
               <div class="preview-option">
-                <div class="preview-option-letter">${getCircledNumber(oIdx + 1)}</div>
+                <div class="preview-option-letter">${q.questionType === 'MULTIPLE_ANSWER'
+                  ? String.fromCharCode(65 + oIdx)
+                  : getCircledNumber(oIdx + 1)}</div>
                 <div style="flex:1;">${escapeHtml(opt && opt.text !== undefined ? opt.text : opt)}${optionImage}</div>
               </div>
             `;
           });
         }
+      } else if (q.questionType === 'MATCHING') {
+        const matchingOptions = Array.isArray(q.options) ? q.options : [];
+        const matchingTargets = q.questionContent
+          && Array.isArray(q.questionContent.blanks)
+          ? q.questionContent.blanks
+          : [];
+        optionsHtml += `
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:12px;">
+            ${matchingOptions.map((option, optionIndex) => `
+              <div class="preview-option" style="margin:0;">
+                <div class="preview-option-letter">${String.fromCharCode(65 + optionIndex)}</div>
+                <span>${escapeHtml(option && option.text !== undefined ? option.text : option)}</span>
+              </div>`).join('')}
+          </div>
+          <div style="display:grid;gap:8px;">
+            ${matchingTargets.map((target, targetIndex) => `
+              <label style="display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,.45fr);gap:8px;align-items:center;font-size:.82rem;font-weight:600;">
+                <span>${escapeHtml(target.prompt || `Nội dung ${targetIndex + 1}`)}</span>
+                <select class="form-input" disabled aria-label="Đáp án ghép cho nội dung ${targetIndex + 1}">
+                  <option>Chọn đáp án A–H</option>
+                </select>
+              </label>`).join('')}
+          </div>`;
       } else if (q.questionType === 'TRUE_FALSE_NOT_GIVEN') {
         ['TRUE', 'FALSE', 'NOT_GIVEN'].forEach(tf => {
           const tfngLabel = tf === 'TRUE'
@@ -5078,6 +7152,10 @@
         });
       } else if (q.questionType === 'GAP_FILL' || q.questionType === 'FILL_BLANK') {
         const blanks = q.questionContent && q.questionContent.blanks || [];
+        const questionLanguage = q.questionContent
+          && ['ko', 'vi'].includes(q.questionContent.languageTag)
+          ? q.questionContent.languageTag
+          : 'ko';
         let fillTemplate = escapeHtml(q.prompt || '');
         let placedCount = 0;
         blanks.forEach((blank, blankIndex) => {
@@ -5090,7 +7168,7 @@
         });
         fillTemplate = fillTemplate.replace(/\{\{blank:[^{}]+\}\}/g,
           '<span class="fill-preview-invalid">Ô trống không hợp lệ</span>');
-        optionsHtml += `<div class="preview-fill-template">${fillTemplate}</div>`;
+        optionsHtml += `<div class="preview-fill-template" lang="${questionLanguage}">${fillTemplate}</div>`;
         if (placedCount < blanks.length) {
           optionsHtml += blanks
             .filter(blank => !String(q.prompt || '').includes(`{{blank:${blank.id}}}`))
@@ -5137,7 +7215,7 @@
         || q.questionType === 'FILL_BLANK'
         || (speakingPresentation && !speakingPresentation.promptText)
         ? ''
-        : `<p style="margin:0 0 12px 0; font-size:0.9rem; font-weight:600; color:#1E293B; white-space:pre-wrap;">${escapeHtml(speakingPresentation ? speakingPresentation.promptText : (q.prompt || 'Chưa có tiêu đề câu hỏi'))}</p>`;
+        : `<p lang="${q.questionContent && ['ko', 'vi'].includes(q.questionContent.languageTag) ? q.questionContent.languageTag : 'ko'}" style="margin:0 0 12px 0; font-size:0.9rem; font-weight:600; color:#1E293B; white-space:pre-wrap;">${escapeHtml(speakingPresentation ? speakingPresentation.promptText : (q.prompt || 'Chưa có tiêu đề câu hỏi'))}</p>`;
       qCard.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #F1F5F9; padding-bottom:8px;">
           <h4 style="margin:0; font-size:0.95rem; font-weight:700; color:#315EFB;">Câu ${escapeHtml(q.questionNo)}</h4>

@@ -11,8 +11,12 @@ import com.ksh.entities.PracticeSetVersion;
 import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
+import com.ksh.features.practice.ai.writing.WritingEvaluationNormalizer;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
+import com.ksh.features.practice.ai.writing.WritingEvidenceLedgerVerifier;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingScoreAnchorPolicy;
+import com.ksh.features.practice.ai.writing.WritingTaskRequirementPolicy;
 import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.dto.PracticeDtos.HeatmapCell;
 import com.ksh.features.practice.dto.PracticeDtos.LearningProgressOverview;
@@ -79,7 +83,7 @@ public class PracticeProgressService {
     private static final String DURATION_PROFILE = "ELAPSED_WALL_CLOCK_1_TO_239_MINUTES_V1";
     private static final String WRITING_TASK_NATIVE_CONTRACT = "TASK_NATIVE_RUBRIC_V1";
     private static final String WRITING_EVALUATION_ENGINE =
-            "KSH_WRITING_EVALUATOR_V2";
+            WritingEvaluationNormalizer.EVALUATION_ENGINE;
     private static final String WRITING_TASK_COHORT_PROFILE =
             "WRITING_TASK_COHORTS_ONLY_V1";
     private static final List<String> SKILLS =
@@ -1200,7 +1204,22 @@ public class PracticeProgressService {
                 && entry.path("score_available").isBoolean()
                 && entry.path("score_available").asBoolean()
                 && entry.path("raw_score").isNumber()
-                && entry.path("raw_score_max").isNumber();
+                && entry.path("raw_score_max").isNumber()
+                && WritingEvidenceLedgerVerifier.CONTRACT_VERSION.equals(
+                        entry.path("ledger_contract_version").asText())
+                && WritingScoreAnchorPolicy.VERSION.equals(
+                        entry.path("score_anchor_version").asText())
+                && WritingTaskRequirementPolicy.VERSION.equals(
+                        entry.path("task_requirement_version").asText())
+                && WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION.equals(
+                        entry.path("source_normalization").asText())
+                && entry.path("source_hash").isTextual()
+                && entry.path("source_hash").asText().length() == 64
+                && entry.path("rubric_scores").isArray()
+                && entry.path("task_coverage").isArray()
+                && entry.path("evidence_ledger").isArray()
+                && entry.path("strengths").isArray()
+                && entry.path("needs_improvement").isArray();
     }
 
     private ProgressCoverage coverageFromReasons(

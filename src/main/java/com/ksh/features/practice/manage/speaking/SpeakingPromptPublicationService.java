@@ -118,7 +118,8 @@ public class SpeakingPromptPublicationService {
         for (Map.Entry<String, JsonNode> entry : questions.entrySet()) {
             String clientId = entry.getKey();
             SpeakingPromptSource source = sourcesByClient.get(clientId);
-            QuestionContent draftContent = readV2(entry.getValue(), clientId);
+            QuestionContent draftContent =
+                    readTypedContent(entry.getValue(), clientId);
             Candidate candidate = SpeakingPromptSource.INPUT_AUDIO_UPLOAD.equals(
                     source.getInputType())
                     ? uploaded(draftId, ownerId, clientId, entry.getValue(),
@@ -242,7 +243,7 @@ public class SpeakingPromptPublicationService {
                 delivery.promptAudioReference(), assetId);
 
         QuestionContent learnerContent = learnerContent(
-                delivery, QuestionContent.SpeakingPromptInputType.AUDIO_UPLOAD,
+                draftContent, QuestionContent.SpeakingPromptInputType.AUDIO_UPLOAD,
                 QuestionContent.SpeakingDeliveryMode.AUDIO_ONLY,
                 QuestionContent.SpeakingAudioOrigin.TEACHER_UPLOAD,
                 materialUrl(assetId));
@@ -293,7 +294,7 @@ public class SpeakingPromptPublicationService {
                         "câu chỉ dùng văn bản không được có audio, artifact hoặc giới hạn phát");
             }
             QuestionContent learnerContent = learnerContent(
-                    delivery, QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
+                    draftContent, QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
                     QuestionContent.SpeakingDeliveryMode.TEXT_ONLY,
                     QuestionContent.SpeakingAudioOrigin.NONE, null);
             SpeakingPromptVersionContext.ImmutableData context =
@@ -352,7 +353,7 @@ public class SpeakingPromptPublicationService {
                 draftId, clientId, "generated",
                 delivery.promptAudioReference(), assetId);
         QuestionContent learnerContent = learnerContent(
-                delivery, QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
+                draftContent, QuestionContent.SpeakingPromptInputType.MANUAL_TEXT,
                 QuestionContent.SpeakingDeliveryMode.TEXT_AND_AUDIO,
                 QuestionContent.SpeakingAudioOrigin.AI_TTS,
                 materialUrl(assetId));
@@ -450,21 +451,25 @@ public class SpeakingPromptPublicationService {
                 base.allowedOutputFormats(), base.allowedOutputMimeTypes());
     }
 
-    private QuestionContent readV2(JsonNode question, String clientId) {
+    private QuestionContent readTypedContent(
+            JsonNode question,
+            String clientId) {
         try {
             QuestionContent content = contractCodec.readQuestionContent(
                     question.path("questionContent").toString(),
                     CanonicalQuestionType.SPEAKING);
-            if (!QuestionContent.SCHEMA_VERSION_V2.equals(content.schemaVersion())) {
+            if (!QuestionContent.supportsTypedSpeakingDelivery(
+                    content.schemaVersion())) {
                 throw invalid(clientId,
-                        "lần xuất bản mới phải dùng question-content-v2");
+                        "lần xuất bản mới phải dùng question-content-v2/v3");
             }
             return content;
         } catch (IllegalStateException exception) {
             throw exception;
         } catch (RuntimeException exception) {
             throw invalid(clientId,
-                    "hợp đồng giao đề v2 không hợp lệ: " + exception.getMessage());
+                    "hợp đồng giao đề typed không hợp lệ: "
+                            + exception.getMessage());
         }
     }
 
@@ -484,16 +489,26 @@ public class SpeakingPromptPublicationService {
     }
 
     private static QuestionContent learnerContent(
-            QuestionContent.SpeakingDelivery draft,
+            QuestionContent draftContent,
             QuestionContent.SpeakingPromptInputType input,
             QuestionContent.SpeakingDeliveryMode mode,
             QuestionContent.SpeakingAudioOrigin origin,
             String audioReference) {
+        QuestionContent.SpeakingDelivery draft =
+                draftContent.speakingDelivery();
         Integer playLimit = mode == QuestionContent.SpeakingDeliveryMode.TEXT_ONLY
                 ? null : draft.promptPlayLimit();
-        return QuestionContent.speakingV2(new QuestionContent.SpeakingDelivery(
-                input, mode, audioReference, origin, playLimit,
-                draft.preparationSeconds(), draft.responseSeconds()));
+        return new QuestionContent(
+                draftContent.schemaVersion(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                new QuestionContent.SpeakingDelivery(
+                        input, mode, audioReference, origin, playLimit,
+                        draft.preparationSeconds(), draft.responseSeconds()),
+                null,
+                draftContent.languageTag());
     }
 
     private static Map<String, JsonNode> speakingQuestions(JsonNode root) {
