@@ -153,11 +153,18 @@ final class WritingDiagnosticDescriptorRegistry {
                     : "PARENT_LINKED";
         } else {
             if (authoritativeTarget != null
-                    && authoritativeTarget.kind() != WritingDiagnosticTargetKind.WHOLE_ANSWER) {
+                    && authoritativeTarget.kind()
+                    != WritingDiagnosticTargetKind.WHOLE_ANSWER
+                    && authoritativeTarget.kind()
+                    != WritingDiagnosticTargetKind.TEXT_SPAN) {
                 return null;
             }
             target = new WritingDiagnosticTarget(
-                    WritingDiagnosticTargetKind.WHOLE_ANSWER, null, null);
+                    authoritativeTarget == null
+                            ? WritingDiagnosticTargetKind.WHOLE_ANSWER
+                            : authoritativeTarget.kind(),
+                    null,
+                    null);
             parentCriterionId = longFormParent(feature.category().code());
             scoreEffect = parentCriterionId == null
                     ? "DIAGNOSTIC_ONLY"
@@ -182,6 +189,11 @@ final class WritingDiagnosticDescriptorRegistry {
     static AuthoritativeTarget wholeAnswerTarget() {
         return new AuthoritativeTarget(
                 WritingDiagnosticTargetKind.WHOLE_ANSWER, null, null);
+    }
+
+    static AuthoritativeTarget textSpanTarget() {
+        return new AuthoritativeTarget(
+                WritingDiagnosticTargetKind.TEXT_SPAN, null, null);
     }
 
     static AuthoritativeTarget blankTarget(String blankId, int blankIndex) {

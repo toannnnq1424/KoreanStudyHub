@@ -5,10 +5,10 @@ import java.util.List;
 public final class WritingPromptRules {
 
     // --- Version constants for cache key stability ---
-    public static final String PROMPT_VERSION = "v6.0";
-    public static final String RUBRIC_VERSION = "v4.2";
-    public static final String EVALUATION_SCHEMA_VERSION = "v5.0";
-    public static final String EVALUATION_CONTRACT_VERSION = "v7.0";
+    public static final String PROMPT_VERSION = "v7.2";
+    public static final String RUBRIC_VERSION = "v5.2";
+    public static final String EVALUATION_SCHEMA_VERSION = "v6.1";
+    public static final String EVALUATION_CONTRACT_VERSION = "v8.2";
 
     // --- Essay rubrics (Q53, Q54, GENERAL) ---
     public static final String RUBRIC_CONTENT = "Hoàn thành nhiệm vụ & Nội dung (내용 및 과제 수행)";
@@ -57,7 +57,7 @@ public final class WritingPromptRules {
                 - Mỗi tiêu chí phải được chấm theo max_score được cung cấp trong allowed_rubric.scoring_criteria.
                 - Không tự tạo tiêu chí mới, không tự đổi trọng số, không chấm theo cảm tính hoặc theo thang điểm 10.
                 - Không dùng band hoặc nhãn điểm bên ngoài.
-                - Tổng điểm cuối cùng do backend tính từ rubric_scores.
+                - Tổng điểm cuối cùng do backend tính từ rubricScores đã xác minh.
                 - Không tự trả về score tổng, total_score, raw_score hoặc raw_score_max.
                 - Chất lượng không đồng đều phải được phản ánh trong từng tiêu chí thay vì ép về band tổng quát.
 
@@ -93,8 +93,8 @@ public final class WritingPromptRules {
 
                 [SPAM / OFF-TOPIC GUARDRAIL]
                 Nếu bài viết gõ bừa, chửi thề, không phải tiếng Hàn, lặp lại đề bài nhiều lần, hoặc lạc đề hoàn toàn:
-                - rubric_scores đều ở mức tối thiểu theo allowed_rubric
-                - summary bắt đầu chính xác bằng: [SPAM_DETECTED]
+                - taskCoverage phản ánh NOT_MET/PARTIAL theo bằng chứng thật;
+                - rubricScores dùng anchor thấp tương ứng và dẫn chiếu finding/evidence;
                 - không cố tạo điểm mạnh giả.
                 Các từ hợp lệ như TOPIK, AI, K-pop, 2026 được chấp nhận nếu đúng ngữ cảnh.
 
@@ -106,17 +106,31 @@ public final class WritingPromptRules {
                 Dựa trên đề bài, bài làm, rule_violations và char_count_warning, hãy phân tích điểm mạnh và lỗi cần cải thiện.
 
                 [NGUYÊN TẮC VÀNG]
-                - Mỗi finding phải dùng evidenceScope được liệt kê trong allowed_rubric.
-                - TEXT_SPAN: evidence PHẢI là chuỗi con CHÍNH XÁC trong learner_answer và không được rỗng.
-                - WHOLE_ANSWER: evidence phải là chuỗi rỗng; finding đánh giá toàn bài và không tạo highlight giả.
-                - strengths correction luôn là chuỗi rỗng "".
-                - needs_improvement dùng TEXT_SPAN thì correction bắt buộc là từ/câu tiếng Hàn đã sửa chính xác; với WHOLE_ANSWER, correction có thể để rỗng nếu không có một đoạn sửa cục bộ trung thực.
+                - Mỗi finding phải atomic. Finding TEXT_SPAN dẫn đúng một
+                  evidenceId. Finding WHOLE_ANSWER không có span và evidenceIds
+                  phải rỗng; không được tạo highlight giả. operation=MISSING
+                  cũng không có span và evidenceIds phải rỗng.
+                - evidenceLedger.exactText PHẢI là chuỗi con CHÍNH XÁC trong
+                  learner_answer NFC; provider phải trả đúng UTF-16 offsets và
+                  occurrence identity, backend chỉ xác minh và không đoán.
+                - STRENGTH chỉ dùng operation=KEEP và replacementKo rỗng.
+                  STRENGTH WHOLE_ANSWER chỉ được dùng khi evidenceScopes của
+                  criterionId cho phép WHOLE_ANSWER; phải gắn requirementIds
+                  có thẩm quyền khi claim dựa trên taskCoverage.
+                - IMPROVEMENT dùng REPLACE thì replacementKo bắt buộc; MISSING
+                  hoặc REDUNDANT không được bịa replacement.
                 - Chỉ dùng criterionId có trong allowed_rubric, không tự bịa ID.
                 - subtype phải thuộc allowedSubtypes của criterionId.
-                - scoringCriterionId phải khớp exactScoringCriterionId; nếu giá trị đó là null thì phải trả null, không đoán parent.
+                - scoringCriterionId phải thuộc allowedScoringCriterionIds.
+                  Với Q51/Q52, requirementIds phải dẫn chính xác một ô
+                  CLOZE_BLANK_1_CONTEXT hoặc CLOZE_BLANK_2_CONTEXT để backend
+                  xác định tiêu chí con của đúng ô; không được đoán ô.
                 - impact chỉ dùng MINOR, MODERATE, MAJOR hoặc BLOCKING.
                 - frequency là số nguyên từ 1 trở lên; confidence là số từ 0 đến 1.
-                - observability chỉ dùng DIRECT hoặc INFERRED_BOUNDED và phải phù hợp evidenceScope.
+                - observability chỉ dùng DIRECT hoặc INFERRED_BOUNDED; finding
+                  có evidenceIds phải DIRECT. WHOLE_ANSWER không có span chỉ
+                  được INFERRED_BOUNDED hoặc DIRECT khi taskCoverage/rubric
+                  ledger đã cung cấp bằng chứng có thẩm quyền.
                 - Quét tuần tự từ đầu đến cuối văn bản.
 
                 [STRENGTHS - WRITING]
@@ -126,7 +140,10 @@ public final class WritingPromptRules {
                 4. W_TOPIC_SPECIFIC_EXPRESSIONS: từ Hán-Hàn/collocation đúng chủ đề như 소득 창출, 인구 감소 현상.
                 5. W_NATURAL_KOREAN_EXPRESSIONS: diễn đạt lại ý đề bài tự nhiên, không chép nguyên văn.
                 6. W_ACCURATE_SPELLING_SPACING: chính tả và cách chữ chính xác trong evidence.
-                7. W_LENGTH_REQUIREMENT_MET: toàn bài đạt phạm vi ký tự; dùng evidenceScope WHOLE_ANSWER.
+                Ngoài các span trực tiếp, chỉ tạo strength WHOLE_ANSWER có trong
+                allowed_rubric khi taskCoverage/rubric ledger xác nhận claim,
+                ví dụ dung lượng, bao phủ yêu cầu, tổ chức logic, luận điểm hoặc
+                lý do/ví dụ. Không tạo span hoặc lời khen ngoài allowlist.
 
                 [NEEDS IMPROVEMENT - WRITING]
                 1. W_VOCABULARY_ERRORS: sai nghĩa, sai ngữ cảnh, hoặc quá sơ cấp ở vị trí cần từ học thuật.
@@ -139,7 +156,7 @@ public final class WritingPromptRules {
                 8. W_SPELLING_SPACING_ERRORS: sai 맞춤법, 받침, dấu câu, 띄어쓰기.
 
                 [QUY TẮC NEEDS_IMPROVEMENT CORRECTION]
-                - correction phải sửa đúng lỗi được nêu, không viết lại quá xa ý gốc.
+                - replacementKo phải sửa đúng lỗi REPLACE được nêu, không viết lại quá xa ý gốc.
                 - Không bịa lỗi nếu câu của học viên chấp nhận được; không biến mọi cách diễn đạt đơn giản thành lỗi.
                 - Chỉ ghi lỗi khi ảnh hưởng chất lượng bài hoặc chưa phù hợp task.
                 - Gộp lỗi cùng loại lặp lại và luôn dựa trên evidence thật hoặc whole-answer issue hợp lý.
@@ -151,9 +168,9 @@ public final class WritingPromptRules {
                 Không lặp lại máy móc nhiều finding cho cùng một vấn đề deterministic; gộp hoặc giải thích ngắn gọn nếu cùng loại.
 
                 [QUY TẮC EVIDENCE — QUAN TRỌNG]
-                Backend chỉ tính start/end index cho TEXT_SPAN.
-                - TEXT_SPAN phải nguyên văn, không thêm/bớt ký tự hay khoảng trắng.
-                - WHOLE_ANSWER không có start/end và không được bịa đoạn trích.
+                Provider phải trả start/end UTF-16; backend chỉ verify fail-closed.
+                - Span phải nguyên văn, không thêm/bớt ký tự hay khoảng trắng.
+                - Không xác định được exact occurrence thì không tạo evidence giả.
 
                 """ + taskDetailRules(taskType) + """
 
@@ -161,16 +178,15 @@ public final class WritingPromptRules {
                 PHẦN 3: BÀI NÂNG CẤP VÀ SENTENCE REWRITES
                 ========================================
 
-                Tạo upgraded_answer và sentence_rewrites.
+                Tạo upgradedAnswer.content và upgradedAnswer.rewrites.
 
                 [NGUYÊN TẮC BẮT BUỘC]
-                - upgraded_answer phải dựa sát 100% ý tưởng, dữ liệu và lập luận gốc của học sinh.
+                - upgradedAnswer.content phải dựa sát 100% ý tưởng, dữ liệu và lập luận gốc của học sinh.
                 - Chỉ sửa chính tả, cách chữ, tiểu từ, văn phong, từ vựng sơ cấp/khẩu ngữ, ngữ pháp lỗi và liên kết.
                 - Không bịa dữ kiện hoặc lập luận mới; không viết lại thành bài khác; giữ độ dài và trình độ gần bản gốc.
-                - upgraded_answer bằng tiếng Hàn.
-                - upgraded_answer_annotated chỉ annotate cải thiện thật với criterionId hợp lệ, không quá dày.
-                - sentence_rewrites chỉ liệt kê thay đổi đáng kể: original phải là chuỗi chính xác từ learner_answer,
-                  upgraded bằng tiếng Hàn, reason ngắn bằng tiếng Việt.
+                - upgradedAnswer.content bằng tiếng Hàn.
+                - Mỗi rewrite phải dẫn đúng findingIds âm và evidenceId; replacementKo
+                  bằng tiếng Hàn, reasonVi ngắn bằng tiếng Việt.
                 - Không tạo bài mẫu độc lập. Không tạo sample_answer.
 
                 """ + taskUpgradeRules(taskType) + """
@@ -181,16 +197,33 @@ public final class WritingPromptRules {
                 YÊU CẦU OUTPUT
                 ========================================
 
-                Trả về JSON nghiêm ngặt gồm đúng các trường sau (KHÔNG trả score, raw_score, raw_score_max — backend tự tính):
-                - summary (string): nhận xét tổng quan
-                - rubric_scores (array): đúng tất cả tiêu chí trong allowed_rubric.scoring_criteria, mỗi phần tử có criterionId, name, score, maxScore, feedback
-                - strengths (array): mỗi phần tử có criterionId, subtype, scoringCriterionId, evidenceScope, evidence, explanationVi, correction, impact, frequency, confidence, observability
-                - needs_improvement (array): mỗi phần tử có criterionId, subtype, scoringCriterionId, evidenceScope, evidence, explanationVi, correction, impact, frequency, confidence, observability
-                - upgraded_answer (string)
-                - upgraded_answer_annotated (string)
-                - sentence_rewrites (array): mỗi phần tử có original, upgraded, reason
+                Trả về đúng strict JSON schema. Không trả summary hoặc lời khen
+                tổng quát: backend tự tổng hợp từ ledger đã kiểm chứng.
 
-                rubric_scores phải dùng đúng criterionId, displayName và max_score trong allowed_rubric.scoring_criteria.
+                - schemaVersion/promptVersion/scoreAnchorVersion/
+                  taskRequirementVersion phải đúng hằng số được cung cấp.
+                - evidenceLedger: mỗi span có stable evidenceId, exactText,
+                  UTF-16 startOffset/endOffset, occurrenceIndex/count,
+                  normalization=NFC và sourceHash đúng nguồn learnerAnswerNfc.
+                  Không đoán offset; nếu không xác định chính xác thì không tạo span.
+                - taskCoverage: đúng từng requirementId trong
+                  task_requirements, status MET/PARTIAL/NOT_MET/
+                  NOT_APPLICABLE và evidenceIds.
+                - findings: atomic, stable findingId, polarity
+                  STRENGTH/IMPROVEMENT, operation KEEP/MISSING/REPLACE/
+                  REDUNDANT, criterionId/subtype/scoringCriterionId,
+                  errorCategory, evidenceIds, requirementIds và metadata.
+                  KEEP phải là điểm mạnh; REPLACE phải có replacementKo.
+                - rubricScores: dùng đúng criterionId, điểm nguyên thuộc
+                  scoreAnchors, maxScore, và tham chiếu đầy đủ evidenceIds,
+                  findingIds, requirementIds thuộc tiêu chí.
+                - upgradedAnswer: chỉ chứa rewrite liên kết đến finding âm và
+                  evidenceId chính xác. Không bịa dữ kiện hoặc ý mới.
+
+                Điểm tối đa không được đồng thời tồn tại với finding
+                IMPROVEMENT đã xác nhận hoặc yêu cầu bắt buộc chưa MET thuộc
+                cùng tiêu chí. Số lượng finding không tự động trừ điểm; quan hệ
+                bằng chứng và score anchor mới là authority.
                 """;
     }
 

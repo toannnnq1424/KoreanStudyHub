@@ -13,17 +13,23 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.WritingBlankContract;
+import com.ksh.features.practice.assessment.WritingBlankContractVerifier;
 import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.writing.WritingDiagnosticContract;
+import com.ksh.features.practice.ai.writing.WritingEvidenceLedgerVerifier;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
 import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.writing.WritingRubricCriterion;
+import com.ksh.features.practice.ai.writing.WritingScoreAnchorPolicy;
 import com.ksh.features.practice.ai.writing.WritingScoringCriterion;
 import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.ai.writing.WritingScoringRubric;
+import com.ksh.features.practice.ai.writing.WritingTaskRequirementPolicy;
 import com.ksh.features.practice.dto.PracticeDtos.WritingAnnotationView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingAnswerArtifact;
+import com.ksh.features.practice.dto.PracticeDtos.WritingBlankAnswerView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticChip;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticFinding;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDiagnosticGroup;
@@ -33,8 +39,10 @@ import com.ksh.features.practice.dto.PracticeDtos.ResultAnswerDistribution;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPolarity;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailSpanMembership;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScoreCriterion;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
+import com.ksh.features.practice.dto.PracticeDtos.ResultPerformanceLevel;
 import com.ksh.features.practice.dto.PracticeDtos.ResultRubricCriterion;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
 import com.ksh.features.practice.dto.PracticeDtos.WritingAnalysisLens;
@@ -42,12 +50,15 @@ import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingSentenceRewriteView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTaskResult;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTaskCoverageView;
+import com.ksh.features.practice.dto.PracticeDtos.WritingTeacherSampleView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.WritingUpgradeView;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -61,7 +72,8 @@ import java.util.Set;
 final class WritingResultPresenter implements PracticeResultPresenter, PracticeResultDetailPresenter {
 
     private static final String CURRENT_SCORING_CONTRACT = "TASK_NATIVE_RUBRIC_V1";
-    private static final String CURRENT_EVALUATION_ENGINE = "KSH_WRITING_EVALUATOR_V2";
+    private static final String CURRENT_EVALUATION_ENGINE =
+            "KSH_WRITING_EVALUATOR_V3";
 
     private final ObjectMapper objectMapper;
     private final WritingFeedbackViewMapper feedbackMapper;
@@ -194,7 +206,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         criterion.maxScore(),
                         criterion.score() == null || criterion.maxScore() == null
                                 ? "UNAVAILABLE" : "SCORED",
-                        taskIndex * 100 + criterionIndex + 1));
+                        taskIndex * 100 + criterionIndex + 1,
+                        resultPerformanceLevel(criterion)));
             }
         }
 
@@ -207,14 +220,27 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         List<WritingTextSegment> learnerAnswerSegments = activeTask == null
                 ? List.of()
                 : plainLearnerAnswer(activeTask.learnerAnswer());
+        List<WritingBlankAnswerView> structuredBlankAnswers =
+                activeTask == null
+                        ? List.of()
+                        : structuredBlankAnswers(
+                        context.snapshot().questions(),
+                        activeTask);
         WritingUpgradeView upgrade = null;
+        WritingTeacherSampleView teacherSample =
+                WritingTeacherSampleView.unavailable();
+        List<WritingTaskCoverageView> taskCoverage = List.of();
         DiagnosticAvailability diagnosticAvailability =
                 DiagnosticAvailability.noDetailTask();
         if (activeTask != null) {
             JsonNode selectedNode = strictQuestionFeedbackNode(
                     feedbackRoot, activeTask.questionId());
-            learnerAnswerSegments = learnerAnswerSegments(activeTask, selectedNode);
+            // Exact inline annotations are assembled from the validated
+            // diagnostic ledger below.  Do not build a second UI-only span map.
+            learnerAnswerSegments = plainLearnerAnswer(activeTask.learnerAnswer());
             upgrade = writingUpgrade(activeTask, selectedNode);
+            teacherSample = teacherSample(selectedNode);
+            taskCoverage = taskCoverage(activeTask, selectedNode);
             String feedbackState = activeTask.feedback() == null
                     ? null
                     : activeTask.feedback().state();
@@ -226,10 +252,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             } else if (!currentTaskContractMatches(activeTask, selectedNode)) {
                 diagnosticAvailability =
                         DiagnosticAvailability.taskIdentityUnavailable();
-            } else if (activeTask.clozeTask()) {
-                // Current immutable task/finding contracts do not expose a
-                // blank id/index. Findings therefore fail closed instead of
-                // being guessed onto blank 1, blank 2, or an essay parent.
+            } else if (activeTask.clozeTask()
+                    && structuredBlankAnswers.isEmpty()) {
                 diagnosticAvailability = DiagnosticAvailability.blankIdentityUnavailable();
             } else if (!activeTask.feedback().ready()) {
                 diagnosticAvailability = DiagnosticAvailability.feedbackUnavailable();
@@ -243,22 +267,50 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                             DiagnosticAvailability.currentEvidenceUnavailable();
                 } else {
                     List<ResolvedDiagnostic> resolved = new ArrayList<>();
+                    WritingFeedbackView feedback =
+                            feedbackMapper.map(currentQuestionNode);
+                    Map<String, WritingAnnotationView> annotations =
+                            annotationsByFindingId(feedback);
+                    Set<String> findingIds = new LinkedHashSet<>();
                     addValidatedWritingDiagnostics(
                             resolved,
                             activeTask,
                             currentQuestionNode.path("strengths"),
-                            ResultDetailPolarity.STRENGTH);
+                            ResultDetailPolarity.STRENGTH,
+                            annotations,
+                            findingIds,
+                            structuredBlankAnswers);
                     addValidatedWritingDiagnostics(
                             resolved,
                             activeTask,
                             currentQuestionNode.path("needs_improvement"),
-                            ResultDetailPolarity.NEEDS_IMPROVEMENT);
-                    diagnosticGroups = diagnosticGroups(resolved);
+                            ResultDetailPolarity.NEEDS_IMPROVEMENT,
+                            annotations,
+                            findingIds,
+                            structuredBlankAnswers);
+                    if (annotations == null
+                            || annotations.values().stream().anyMatch(
+                            annotation -> !findingIds.contains(
+                                    annotation.findingId()))) {
+                        resolved.clear();
+                    }
+                    diagnosticGroups = diagnosticGroups(
+                            resolved, activeTask, structuredBlankAnswers);
                     diagnosticAvailability = resolved.isEmpty()
                             ? DiagnosticAvailability.noValidatedEvidence()
                             : DiagnosticAvailability.available();
                 }
             }
+        }
+        structuredBlankAnswers = annotateStructuredBlankAnswers(
+                structuredBlankAnswers,
+                diagnosticGroups);
+        if (activeTask != null && !activeTask.clozeTask()
+                && !diagnosticGroups.isEmpty()) {
+            learnerAnswerSegments =
+                    learnerAnswerSegmentsFromDiagnostics(
+                            activeTask,
+                            diagnosticGroups);
         }
 
         return new WritingDetailPayload(
@@ -267,6 +319,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 activeQuestionId,
                 learnerAnswerSegments,
                 List.copyOf(scoreCriteria),
+                taskCoverage,
                 WritingScoringPolicy.PROFILE_ID,
                 WritingDiagnosticDescriptorRegistry.SEAM_ID,
                 WritingDiagnosticDescriptorRegistry.SEAM_STATE,
@@ -276,7 +329,340 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 diagnosticAvailability.noteVi(),
                 diagnosticAvailability.noteKo(),
                 diagnosticGroups,
-                upgrade);
+                upgrade,
+                structuredBlankAnswers,
+                teacherSample);
+    }
+
+    private List<WritingBlankAnswerView> structuredBlankAnswers(
+            List<PracticeQuestionVersion> questions,
+            WritingTaskResult task
+    ) {
+        if (task == null || !task.clozeTask()
+                || task.learnerAnswer() == null
+                || task.learnerAnswer().isBlank()) {
+            return List.of();
+        }
+        PracticeQuestionVersion question = questions.stream()
+                .filter(candidate -> java.util.Objects.equals(
+                        candidate.getQuestionId(),
+                        task.questionId()))
+                .findFirst()
+                .orElse(null);
+        if (question == null) {
+            return List.of();
+        }
+        try {
+            CanonicalQuestionType type =
+                    typeResolver.resolve(question.getQuestionType());
+            QuestionContent content =
+                    contractCodec.readQuestionContent(
+                            question.getQuestionContentJson(),
+                            type);
+            WritingBlankContract.QuestionResponse authority =
+                    content.writingResponse();
+            WritingBlankContract.LearnerResponse response =
+                    objectMapper.readValue(
+                            task.learnerAnswer(),
+                            WritingBlankContract.LearnerResponse.class);
+            WritingBlankContractVerifier.verifyLearnerResponse(
+                    authority,
+                    response);
+            List<WritingBlankAnswerView> result = new ArrayList<>();
+            for (int index = 0; index < authority.blanks().size(); index++) {
+                WritingBlankContract.BlankDefinition definition =
+                        authority.blanks().get(index);
+                WritingBlankContract.LearnerBlankAnswer answer =
+                        response.answers().get(index);
+                result.add(new WritingBlankAnswerView(
+                        definition.blankId(),
+                        definition.ordinal(),
+                        answer.text(),
+                        List.of(WritingTextSegment.plain(
+                                answer.text()))));
+            }
+            return List.copyOf(result);
+        } catch (Exception exception) {
+            return List.of();
+        }
+    }
+
+    private static List<WritingBlankAnswerView>
+            annotateStructuredBlankAnswers(
+            List<WritingBlankAnswerView> blanks,
+            List<WritingDiagnosticGroup> groups
+    ) {
+        if (blanks.isEmpty() || groups.isEmpty()) {
+            return blanks;
+        }
+        List<WritingDiagnosticFinding> findings = groups.stream()
+                .flatMap(group -> java.util.stream.Stream.concat(
+                        group.strengths().stream(),
+                        group.needsImprovement().stream()))
+                .filter(finding -> finding.target().kind()
+                        == com.ksh.features.practice.dto.PracticeDtos
+                        .WritingDiagnosticTargetKind.BLANK)
+                .toList();
+        List<WritingBlankAnswerView> result = new ArrayList<>();
+        for (WritingBlankAnswerView blank : blanks) {
+            List<BlankAnnotationCandidate> candidates = new ArrayList<>();
+            for (WritingDiagnosticFinding finding : findings) {
+                if (!blank.blankId().equals(
+                        finding.target().blankId())
+                        || !"TEXT_SPAN".equals(
+                        finding.evidenceScope())) {
+                    continue;
+                }
+                Integer start = finding.startOffset();
+                Integer end = finding.endOffset();
+                if (start == null || end == null
+                        || start < 0 || end <= start
+                        || end > blank.text().length()
+                        || !blank.text().substring(start, end)
+                        .equals(finding.evidence())) {
+                    continue;
+                }
+                candidates.add(new BlankAnnotationCandidate(
+                        start,
+                        end,
+                        finding));
+            }
+            candidates.sort(Comparator
+                    .comparingInt(BlankAnnotationCandidate::start)
+                    .thenComparingInt(BlankAnnotationCandidate::end)
+                    .thenComparing(candidate ->
+                            candidate.finding().findingId()));
+            int previousEnd = 0;
+            boolean overlaps = false;
+            for (BlankAnnotationCandidate candidate : candidates) {
+                if (candidate.start() < previousEnd) {
+                    overlaps = true;
+                    break;
+                }
+                previousEnd = candidate.end();
+            }
+            if (overlaps || candidates.isEmpty()) {
+                result.add(blank);
+                continue;
+            }
+            List<WritingTextSegment> segments = new ArrayList<>();
+            int cursor = 0;
+            for (BlankAnnotationCandidate candidate : candidates) {
+                if (candidate.start() > cursor) {
+                    segments.add(WritingTextSegment.plain(
+                            blank.text().substring(
+                                    cursor,
+                                    candidate.start())));
+                }
+                WritingDiagnosticFinding finding =
+                        candidate.finding();
+                segments.add(new WritingTextSegment(
+                        blank.text().substring(
+                                candidate.start(),
+                                candidate.end()),
+                        true,
+                        finding.findingId(),
+                        finding.displayNumber(),
+                        finding.polarity().name(),
+                        finding.categoryCode(),
+                        finding.featureCode(),
+                        finding.explanationVi(),
+                        finding.correctionKo() == null
+                                || finding.correctionKo().isBlank()
+                                ? null
+                                : finding.correctionKo(),
+                        finding.descriptorId(),
+                        List.of(finding.spanMembership())));
+                cursor = candidate.end();
+            }
+            if (cursor < blank.text().length()) {
+                segments.add(WritingTextSegment.plain(
+                        blank.text().substring(cursor)));
+            }
+            result.add(new WritingBlankAnswerView(
+                    blank.blankId(),
+                    blank.ordinal(),
+                    blank.text(),
+                    segments));
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<WritingTextSegment>
+            learnerAnswerSegmentsFromDiagnostics(
+            WritingTaskResult task,
+            List<WritingDiagnosticGroup> groups
+    ) {
+        String source = Normalizer.normalize(
+                task.learnerAnswer() == null
+                        ? ""
+                        : task.learnerAnswer(),
+                Normalizer.Form.NFC);
+        List<FindingAnnotationCandidate> candidates = groups.stream()
+                .flatMap(group -> java.util.stream.Stream.concat(
+                        group.strengths().stream(),
+                        group.needsImprovement().stream()))
+                .filter(finding -> "TEXT_SPAN".equals(
+                        finding.evidenceScope()))
+                .filter(finding -> finding.startOffset() != null
+                        && finding.endOffset() != null
+                        && finding.startOffset() >= 0
+                        && finding.endOffset()
+                        <= source.length()
+                        && finding.endOffset()
+                        > finding.startOffset()
+                        && source.substring(
+                        finding.startOffset(),
+                        finding.endOffset())
+                        .equals(finding.evidence()))
+                .map(finding -> new FindingAnnotationCandidate(
+                        finding.startOffset(),
+                        finding.endOffset(),
+                        finding))
+                .sorted(Comparator
+                        .comparingInt(
+                                FindingAnnotationCandidate::start)
+                        .thenComparingInt(
+                                FindingAnnotationCandidate::end)
+                        .thenComparing(candidate ->
+                                candidate.finding().findingId()))
+                .toList();
+        if (candidates.isEmpty()) {
+            return plainLearnerAnswer(source);
+        }
+        java.util.SortedSet<Integer> boundaries = new java.util.TreeSet<>();
+        boundaries.add(0);
+        boundaries.add(source.length());
+        candidates.forEach(candidate -> {
+            boundaries.add(candidate.start());
+            boundaries.add(candidate.end());
+        });
+        List<WritingTextSegment> result = new ArrayList<>();
+        List<Integer> points = List.copyOf(boundaries);
+        for (int index = 0; index < points.size() - 1; index++) {
+            int start = points.get(index);
+            int end = points.get(index + 1);
+            if (start == end) {
+                continue;
+            }
+            List<WritingDiagnosticFinding> active = candidates.stream()
+                    .filter(candidate -> candidate.start() <= start
+                            && candidate.end() >= end)
+                    .map(FindingAnnotationCandidate::finding)
+                    .toList();
+            String text = source.substring(start, end);
+            if (active.isEmpty()) {
+                result.add(WritingTextSegment.plain(text));
+                continue;
+            }
+            WritingDiagnosticFinding primary = active.get(0);
+            List<ResultDetailSpanMembership> memberships = active.stream()
+                    .map(WritingDiagnosticFinding::spanMembership)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+            result.add(new WritingTextSegment(
+                    text,
+                    true,
+                    primary.findingId(),
+                    primary.displayNumber(),
+                    primary.polarity().name(),
+                    primary.categoryCode(),
+                    primary.featureCode(),
+                    primary.explanationVi(),
+                    primary.correctionKo() == null
+                            || primary.correctionKo().isBlank()
+                            ? null
+                            : primary.correctionKo(),
+                    primary.descriptorId(),
+                    memberships));
+        }
+        return List.copyOf(result);
+    }
+
+    private static WritingTeacherSampleView teacherSample(
+            JsonNode feedbackNode
+    ) {
+        JsonNode sample = feedbackNode == null
+                ? null
+                : feedbackNode.get("teacher_sample");
+        if (sample == null || !sample.isObject()
+                || !"ksh-teacher-sample-v1".equals(
+                sample.path("contractVersion").asText(null))
+                || !"TEACHER_AUTHORED".equals(
+                sample.path("source").asText(null))
+                || !"LECTURER".equals(
+                sample.path("authorRole").asText(null))
+                || sample.path("fixtureId").asText("").isBlank()
+                || sample.path("content").asText("").isBlank()) {
+            return WritingTeacherSampleView.unavailable();
+        }
+        return new WritingTeacherSampleView(
+                sample.path("content").asText(),
+                "AVAILABLE",
+                "TEACHER_AUTHORED",
+                "LECTURER",
+                sample.path("fixtureId").asText());
+    }
+
+    private List<WritingTaskCoverageView> taskCoverage(
+            WritingTaskResult task,
+            JsonNode feedbackNode
+    ) {
+        if (task == null
+                || task.questionId() == null
+                || !currentTaskContractMatches(task, feedbackNode)) {
+            return List.of();
+        }
+        JsonNode coverage = feedbackNode.path("task_coverage");
+        JsonNode evidenceLedger = feedbackNode.path("evidence_ledger");
+        if (!coverage.isArray() || !evidenceLedger.isArray()) {
+            return List.of();
+        }
+        Set<String> knownEvidenceIds = new LinkedHashSet<>();
+        for (JsonNode evidence : evidenceLedger) {
+            String evidenceId = text(evidence, "evidenceId");
+            if (evidenceId == null
+                    || evidenceId.isBlank()
+                    || !knownEvidenceIds.add(evidenceId)) {
+                return List.of();
+            }
+        }
+        Map<String, WritingTaskRequirementPolicy.Requirement> requirements =
+                new LinkedHashMap<>();
+        for (WritingTaskRequirementPolicy.Requirement requirement
+                : WritingTaskRequirementPolicy.requirementsFor(
+                        task.taskType())) {
+            requirements.put(requirement.requirementId(), requirement);
+        }
+        List<WritingTaskCoverageView> result = new ArrayList<>();
+        Set<String> seenRequirements = new LinkedHashSet<>();
+        for (JsonNode row : coverage) {
+            String requirementId = text(row, "requirementId");
+            String status = text(row, "status");
+            WritingTaskRequirementPolicy.Requirement requirement =
+                    requirements.get(requirementId);
+            List<String> evidenceIds =
+                    stringArray(row.get("evidenceIds"));
+            if (requirement == null
+                    || status == null
+                    || !Set.of(
+                            "MET", "PARTIAL",
+                            "NOT_MET", "NOT_APPLICABLE").contains(status)
+                    || evidenceIds == null
+                    || !knownEvidenceIds.containsAll(evidenceIds)
+                    || !seenRequirements.add(requirementId)) {
+                return List.of();
+            }
+            result.add(new WritingTaskCoverageView(
+                    task.questionId(),
+                    requirementId,
+                    requirement.labelVi(),
+                    status,
+                    evidenceIds));
+        }
+        return seenRequirements.equals(requirements.keySet())
+                ? List.copyOf(result)
+                : List.of();
     }
 
     private List<WritingTextSegment> learnerAnswerSegments(
@@ -285,7 +671,9 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     ) {
         String learnerAnswer = task == null || task.learnerAnswer() == null
                 ? ""
-                : task.learnerAnswer();
+                : Normalizer.normalize(
+                        task.learnerAnswer(),
+                        Normalizer.Form.NFC);
         List<WritingTextSegment> fallback = plainLearnerAnswer(learnerAnswer);
         if (task == null
                 || task.clozeTask()
@@ -344,6 +732,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     learnerAnswer.substring(annotation.start(), annotation.end()),
                     true,
                     annotation.annotationId(),
+                    annotation.displayNumber(),
                     annotation.polarity().name(),
                     annotation.categoryCode(),
                     annotation.criterionId(),
@@ -366,12 +755,27 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     ) {
         if (annotation == null
                 || annotation.id() == null || annotation.id().isBlank()
+                || !annotation.id().equals(annotation.findingId())
+                || annotation.evidenceId() == null
+                || annotation.evidenceId().isBlank()
                 || annotation.start() == null || annotation.end() == null
                 || annotation.start() < 0
                 || annotation.end() <= annotation.start()
                 || annotation.end() > learnerAnswer.length()
                 || annotation.evidence() == null
                 || annotation.evidence().isBlank()
+                || annotation.index() == null || annotation.index() < 1
+                || annotation.occurrenceIndex() == null
+                || annotation.occurrenceIndex() < 1
+                || annotation.occurrenceCount() == null
+                || annotation.occurrenceCount()
+                < annotation.occurrenceIndex()
+                || annotation.sourceHash() == null
+                || !annotation.sourceHash().equals(
+                        WritingEvidenceLedgerVerifier.sha256(learnerAnswer))
+                || annotation.operation() == null
+                || !Set.of("KEEP", "REPLACE", "REDUNDANT")
+                .contains(annotation.operation())
                 || annotation.explanationVi() == null
                 || annotation.explanationVi().isBlank()) {
             return null;
@@ -395,8 +799,12 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 && annotation.correction() != null
                 && !annotation.correction().isBlank())
                 || (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                && (("REPLACE".equals(annotation.operation())
                 && (annotation.correction() == null
-                || annotation.correction().isBlank()))) {
+                || annotation.correction().isBlank()))
+                || ("REDUNDANT".equals(annotation.operation())
+                && annotation.correction() != null
+                && !annotation.correction().isBlank())))) {
             return null;
         }
         String exactText = learnerAnswer.substring(
@@ -404,12 +812,20 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         if (!exactText.equals(annotation.evidence())) {
             return null;
         }
+        List<Integer> occurrences = exactOccurrences(
+                learnerAnswer, exactText);
+        if (occurrences.size() != annotation.occurrenceCount()
+                || annotation.occurrenceIndex() > occurrences.size()
+                || occurrences.get(annotation.occurrenceIndex() - 1)
+                != annotation.start()) {
+            return null;
+        }
         WritingDiagnosticDescriptorRegistry.Resolution descriptor =
                 WritingDiagnosticDescriptorRegistry.resolve(
                         criterion,
                         task.taskType(),
                         polarity,
-                        WritingDiagnosticDescriptorRegistry.wholeAnswerTarget());
+                        WritingDiagnosticDescriptorRegistry.textSpanTarget());
         if (descriptor == null) {
             return null;
         }
@@ -417,6 +833,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 annotation.start(),
                 annotation.end(),
                 annotation.id().trim(),
+                annotation.index(),
+                annotation.evidenceId(),
                 polarity,
                 descriptor.feature().category().code(),
                 criterion.canonicalId(),
@@ -467,21 +885,43 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 null,
                 List.of(),
                 List.of(),
-                task.detailAvailable());
+                task.detailAvailable(),
+                task.languageTag(),
+                ResultPerformanceLevel.unavailableView());
     }
 
     private static void addValidatedWritingDiagnostics(
             List<ResolvedDiagnostic> target,
             WritingTaskResult task,
             JsonNode findings,
-            ResultDetailPolarity polarity
+            ResultDetailPolarity polarity,
+            Map<String, WritingAnnotationView> annotations,
+            Set<String> acceptedFindingIds,
+            List<WritingBlankAnswerView> structuredBlankAnswers
     ) {
-        if (!findings.isArray()) {
+        if (!findings.isArray()
+                || annotations == null
+                || acceptedFindingIds == null) {
             return;
         }
         for (int index = 0; index < findings.size(); index++) {
             JsonNode finding = findings.get(index);
             if (finding == null || !finding.isObject()) {
+                continue;
+            }
+            String findingId = finding.path("findingId").asText("").trim();
+            String operation = finding.path("operation").asText("").trim();
+            int displayNumber = finding.path("index").asInt(0);
+            String errorCategory =
+                    finding.path("errorCategory").asText("").trim();
+            List<String> requirementIds =
+                    stringArray(finding.path("requirementIds"));
+            if (findingId.isBlank()
+                    || displayNumber < 1
+                    || errorCategory.isBlank()
+                    || requirementIds == null
+                    || acceptedFindingIds.contains(findingId)
+                    || !validFindingOperation(polarity, operation)) {
                 continue;
             }
             // Validate the raw id before any compatibility canonicalization so
@@ -505,6 +945,14 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 continue;
             }
             String evidence = finding.path("evidence").asText("");
+            String evidenceId = nullableText(finding.get("evidenceId"));
+            Integer startOffset = nullableInteger(
+                    finding.get("startOffset"));
+            Integer endOffset = nullableInteger(finding.get("endOffset"));
+            Integer occurrenceIndex = nullableInteger(
+                    finding.get("occurrenceIndex"));
+            Integer occurrenceCount = nullableInteger(
+                    finding.get("occurrenceCount"));
             String explanation = finding.path("explanationVi").asText("").trim();
             String correction = finding.path("correction").asText("").trim();
             if (explanation.isBlank()) {
@@ -513,19 +961,43 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             if (evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
                     && (evidence.isBlank()
                     || task.learnerAnswer() == null
-                    || !task.learnerAnswer().contains(evidence))) {
+                    || evidenceId == null
+                    || startOffset == null
+                    || endOffset == null
+                    || occurrenceIndex == null
+                    || occurrenceCount == null)) {
                 continue;
             }
             if (evidenceScope == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER
-                    && !evidence.isEmpty()) {
+                    && (!evidence.isEmpty()
+                    || evidenceId != null
+                    || startOffset != null
+                    || endOffset != null
+                    || occurrenceIndex != null
+                    || occurrenceCount != null)) {
                 continue;
             }
             if (polarity == ResultDetailPolarity.STRENGTH && !correction.isEmpty()) {
                 continue;
             }
             if (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
-                    && evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && "REPLACE".equals(operation)
                     && correction.isBlank()) {
+                continue;
+            }
+            if (("REDUNDANT".equals(operation)
+                    || "MISSING".equals(operation))
+                    && !correction.isBlank()) {
+                continue;
+            }
+            WritingAnnotationView annotation = annotations.get(findingId);
+            if (evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                    && !matchesAuthoritativeAnnotation(
+                    task, finding, annotation)) {
+                continue;
+            }
+            if (evidenceScope == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER
+                    && annotation != null) {
                 continue;
             }
             WritingDiagnosticDescriptorRegistry.Resolution descriptor =
@@ -533,7 +1005,11 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                             criterion,
                             task.taskType(),
                             polarity,
-                            WritingDiagnosticDescriptorRegistry.wholeAnswerTarget());
+                            authoritativeDiagnosticTarget(
+                            task.taskType(),
+                            evidenceScope,
+                            requirementIds,
+                            structuredBlankAnswers));
             String evidenceAvailability = ResultDetailDescriptorRegistry
                     .evidenceAvailability(evidenceScope.name());
             if (descriptor == null || evidenceAvailability == null
@@ -552,7 +1028,16 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     feature.category();
             WritingDiagnosticFinding diagnostic = new WritingDiagnosticFinding(
                     task.questionId(),
-                    "W:" + task.questionId() + ":" + descriptor.id() + ":" + (index + 1),
+                    findingId,
+                    displayNumber,
+                    evidenceId,
+                    startOffset,
+                    endOffset,
+                    occurrenceIndex,
+                    occurrenceCount,
+                    operation,
+                    errorCategory,
+                    requirementIds,
                     category.code(),
                     category.labelVi(),
                     category.labelKo(),
@@ -576,8 +1061,157 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     finding.path("frequency").intValue(),
                     finding.path("confidence").decimalValue(),
                     finding.path("observability").asText());
+            acceptedFindingIds.add(findingId);
             target.add(new ResolvedDiagnostic(descriptor, diagnostic));
         }
+    }
+
+    private static WritingDiagnosticDescriptorRegistry.AuthoritativeTarget
+            authoritativeDiagnosticTarget(
+            String taskType,
+            WritingRubricCriterion.EvidenceScope evidenceScope,
+            List<String> requirementIds,
+            List<WritingBlankAnswerView> structuredBlankAnswers
+    ) {
+        if ("Q51".equals(taskType)
+                || "Q52".equals(taskType)
+                || "Q51_52".equals(taskType)) {
+            boolean blankOne = requirementIds != null
+                    && requirementIds.contains("CLOZE_BLANK_1_CONTEXT");
+            boolean blankTwo = requirementIds != null
+                    && requirementIds.contains("CLOZE_BLANK_2_CONTEXT");
+            if (blankOne == blankTwo) {
+                return null;
+            }
+            int ordinal = blankOne ? 1 : 2;
+            String blankId = structuredBlankAnswers.stream()
+                    .filter(blank -> blank.ordinal() == ordinal)
+                    .map(WritingBlankAnswerView::blankId)
+                    .findFirst()
+                    .orElse(null);
+            return blankId == null
+                    ? null
+                    : WritingDiagnosticDescriptorRegistry.blankTarget(
+                    blankId, ordinal);
+        }
+        return evidenceScope
+                == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
+                ? WritingDiagnosticDescriptorRegistry.textSpanTarget()
+                : WritingDiagnosticDescriptorRegistry.wholeAnswerTarget();
+    }
+
+    private static Map<String, WritingAnnotationView> annotationsByFindingId(
+            WritingFeedbackView feedback) {
+        if (feedback == null) {
+            return null;
+        }
+        Map<String, WritingAnnotationView> result = new LinkedHashMap<>();
+        for (WritingAnnotationView annotation : feedback.annotations()) {
+            if (annotation == null
+                    || annotation.findingId() == null
+                    || annotation.findingId().isBlank()
+                    || result.putIfAbsent(
+                    annotation.findingId(), annotation) != null) {
+                return null;
+            }
+        }
+        return java.util.Collections.unmodifiableMap(result);
+    }
+
+    private static boolean validFindingOperation(
+            ResultDetailPolarity polarity,
+            String operation) {
+        return polarity == ResultDetailPolarity.STRENGTH
+                ? "KEEP".equals(operation)
+                : Set.of("MISSING", "REPLACE", "REDUNDANT")
+                .contains(operation);
+    }
+
+    private static boolean matchesAuthoritativeAnnotation(
+            WritingTaskResult task,
+            JsonNode finding,
+            WritingAnnotationView annotation) {
+        if (task == null || annotation == null || finding == null) {
+            return false;
+        }
+        String source = Normalizer.normalize(
+                task.learnerAnswer() == null ? "" : task.learnerAnswer(),
+                Normalizer.Form.NFC);
+        Integer start = nullableInteger(finding.get("startOffset"));
+        Integer end = nullableInteger(finding.get("endOffset"));
+        Integer occurrenceIndex = nullableInteger(
+                finding.get("occurrenceIndex"));
+        Integer occurrenceCount = nullableInteger(
+                finding.get("occurrenceCount"));
+        String evidence = finding.path("evidence").asText("");
+        if (!finding.path("findingId").asText()
+                .equals(annotation.findingId())
+                || !finding.path("evidenceId").asText()
+                .equals(annotation.evidenceId())
+                || !java.util.Objects.equals(start, annotation.start())
+                || !java.util.Objects.equals(end, annotation.end())
+                || !java.util.Objects.equals(
+                occurrenceIndex, annotation.occurrenceIndex())
+                || !java.util.Objects.equals(
+                occurrenceCount, annotation.occurrenceCount())
+                || !finding.path("operation").asText()
+                .equals(annotation.operation())
+                || !evidence.equals(annotation.evidence())
+                || !WritingEvidenceLedgerVerifier.sha256(source)
+                .equals(annotation.sourceHash())
+                || start == null || end == null
+                || start < 0 || end <= start || end > source.length()
+                || !source.startsWith(evidence, start)
+                || end != start + evidence.length()) {
+            return false;
+        }
+        List<Integer> occurrences = exactOccurrences(source, evidence);
+        return occurrenceCount != null
+                && occurrenceIndex != null
+                && occurrences.size() == occurrenceCount
+                && occurrenceIndex <= occurrences.size()
+                && occurrences.get(occurrenceIndex - 1).equals(start);
+    }
+
+    private static List<String> stringArray(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return null;
+        }
+        List<String> values = new ArrayList<>();
+        Set<String> unique = new LinkedHashSet<>();
+        for (JsonNode value : node) {
+            if (!value.isTextual()
+                    || value.asText().isBlank()
+                    || !unique.add(value.asText())) {
+                return null;
+            }
+            values.add(value.asText());
+        }
+        return List.copyOf(values);
+    }
+
+    private static Integer nullableInteger(JsonNode node) {
+        return node != null
+                && node.isIntegralNumber()
+                && node.canConvertToInt()
+                ? node.intValue()
+                : null;
+    }
+
+    private static List<Integer> exactOccurrences(
+            String source,
+            String exactText) {
+        if (exactText == null || exactText.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> offsets = new ArrayList<>();
+        int limit = source.length() - exactText.length();
+        for (int offset = 0; offset <= limit; offset++) {
+            if (source.startsWith(exactText, offset)) {
+                offsets.add(offset);
+            }
+        }
+        return List.copyOf(offsets);
     }
 
     private static WritingRubricCriterion.EvidenceScope explicitEvidenceScope(JsonNode node) {
@@ -601,16 +1235,43 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     }
 
     private static List<WritingDiagnosticGroup> diagnosticGroups(
-            List<ResolvedDiagnostic> diagnostics
+            List<ResolvedDiagnostic> diagnostics,
+            WritingTaskResult task,
+            List<WritingBlankAnswerView> structuredBlankAnswers
     ) {
+        Map<String, Integer> scopedCounts = new LinkedHashMap<>();
+        List<ResolvedDiagnostic> scopedDiagnostics = diagnostics.stream()
+                .sorted(Comparator
+                        .comparingInt((ResolvedDiagnostic row) ->
+                                row.definition().feature().category().stableOrder())
+                        .thenComparingInt(row ->
+                                row.definition().stableOrder())
+                        .thenComparing(row -> row.finding().startOffset(),
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(row -> row.finding().findingId()))
+                .map(row -> {
+                    String key = row.definition().id()
+                            + ":" + row.finding().polarity().name();
+                    int number = scopedCounts.merge(key, 1, Integer::sum);
+                    return new ResolvedDiagnostic(
+                            row.definition(),
+                            row.finding().withDisplayNumber(number));
+                })
+                .toList();
+        List<CatalogChip> catalog = writingChipCatalog(
+                task, structuredBlankAnswers);
         List<WritingDiagnosticGroup> groups = new ArrayList<>();
         for (WritingDiagnosticDescriptorRegistry.CategoryDescriptor category
                 : WritingDiagnosticDescriptorRegistry.categories()) {
-            List<ResolvedDiagnostic> categoryDiagnostics = diagnostics.stream()
+            List<ResolvedDiagnostic> categoryDiagnostics = scopedDiagnostics.stream()
                     .filter(value -> value.definition().feature().category().code()
                             .equals(category.code()))
                     .toList();
-            if (categoryDiagnostics.isEmpty()) {
+            List<CatalogChip> categoryCatalog = catalog.stream()
+                    .filter(value -> value.definition().feature().category().code()
+                            .equals(category.code()))
+                    .toList();
+            if (categoryDiagnostics.isEmpty() && categoryCatalog.isEmpty()) {
                 continue;
             }
             List<WritingDiagnosticFinding> strengths = categoryDiagnostics.stream()
@@ -623,7 +1284,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     .filter(finding ->
                             finding.polarity() == ResultDetailPolarity.NEEDS_IMPROVEMENT)
                     .toList();
-            List<WritingDiagnosticChip> categoryChips = chips(categoryDiagnostics);
+            List<WritingDiagnosticChip> categoryChips = chips(
+                    categoryDiagnostics, categoryCatalog);
             groups.add(new WritingDiagnosticGroup(
                     category.code(),
                     category.labelVi(),
@@ -645,9 +1307,16 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     }
 
     private static List<WritingDiagnosticChip> chips(
-            List<ResolvedDiagnostic> diagnostics
+            List<ResolvedDiagnostic> diagnostics,
+            List<CatalogChip> catalog
     ) {
         Map<String, ChipCount> counts = new LinkedHashMap<>();
+        for (CatalogChip entry : catalog) {
+            String key = entry.definition().id()
+                    + ":" + entry.polarity().name();
+            counts.put(key, new ChipCount(
+                    entry.definition(), entry.polarity(), 0, "NO_FINDING"));
+        }
         for (ResolvedDiagnostic resolved : diagnostics) {
             String key = resolved.definition().id()
                     + ":" + resolved.finding().polarity().name();
@@ -661,7 +1330,9 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                             : current.incremented(resolved.finding().evidenceAvailability()));
         }
         return counts.values().stream()
-                .sorted(Comparator.comparingInt(value -> value.definition().stableOrder()))
+                .sorted(Comparator
+                        .comparingInt((ChipCount value) -> value.count() == 0 ? 1 : 0)
+                        .thenComparingInt(value -> value.definition().stableOrder()))
                 .map(value -> new WritingDiagnosticChip(
                         value.definition().id(),
                         value.definition().feature().labelVi(),
@@ -677,6 +1348,43 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 .toList();
     }
 
+    private static List<CatalogChip> writingChipCatalog(
+            WritingTaskResult task,
+            List<WritingBlankAnswerView> structuredBlankAnswers
+    ) {
+        if (task == null) {
+            return List.of();
+        }
+        List<WritingDiagnosticDescriptorRegistry.AuthoritativeTarget> targets;
+        if (task.clozeTask()) {
+            targets = structuredBlankAnswers == null
+                    ? List.of()
+                    : structuredBlankAnswers.stream()
+                    .map(blank -> WritingDiagnosticDescriptorRegistry.blankTarget(
+                            blank.blankId(), blank.ordinal()))
+                    .toList();
+        } else {
+            targets = List.of(
+                    WritingDiagnosticDescriptorRegistry.wholeAnswerTarget());
+        }
+        List<CatalogChip> result = new ArrayList<>();
+        for (WritingRubricCriterion criterion
+                : WritingRubricCriterion.activeForTask(task.taskType())) {
+            ResultDetailPolarity polarity = ResultDetailPolarity.valueOf(
+                    criterion.polarity().name());
+            for (WritingDiagnosticDescriptorRegistry.AuthoritativeTarget target
+                    : targets) {
+                WritingDiagnosticDescriptorRegistry.Resolution definition =
+                        WritingDiagnosticDescriptorRegistry.resolve(
+                                criterion, task.taskType(), polarity, target);
+                if (definition != null) {
+                    result.add(new CatalogChip(definition, polarity));
+                }
+            }
+        }
+        return List.copyOf(result);
+    }
+
     private WritingUpgradeView writingUpgrade(
             WritingTaskResult task,
             JsonNode feedbackNode
@@ -690,10 +1398,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         List<WritingSentenceRewriteView> rewrites = feedback == null
                 ? List.of()
                 : feedback.sentenceRewrites().stream()
-                        .filter(rewrite -> rewrite.original() != null
-                                && !rewrite.original().isBlank()
-                                && task.learnerAnswer() != null
-                                && task.learnerAnswer().contains(rewrite.original())
+                        .filter(rewrite -> validRewriteProvenance(
+                                feedbackNode, task, rewrite)
                                 && rewrite.upgraded() != null
                                 && !rewrite.upgraded().isBlank()
                                 && rewrite.reason() != null
@@ -711,7 +1417,73 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         null,
                         "NOT_PROVIDED_BY_CURRENT_EVALUATOR",
                         "Bộ đánh giá hiện tại không tạo bài mẫu độc lập",
-                        "현재 평가기는 독립 모범 답안을 생성하지 않음"));
+                "현재 평가기는 독립 모범 답안을 생성하지 않음"));
+    }
+
+    private static boolean validRewriteProvenance(
+            JsonNode feedbackNode,
+            WritingTaskResult task,
+            WritingSentenceRewriteView rewrite) {
+        if (feedbackNode == null || task == null || rewrite == null
+                || rewrite.evidenceId() == null
+                || rewrite.evidenceId().isBlank()
+                || rewrite.findingIds().isEmpty()
+                || rewrite.original() == null
+                || rewrite.original().isBlank()) {
+            return false;
+        }
+        JsonNode evidence = findById(
+                feedbackNode.path("evidence_ledger"),
+                "evidenceId",
+                rewrite.evidenceId());
+        if (evidence == null
+                || !rewrite.original().equals(
+                evidence.path("exactText").asText(null))) {
+            return false;
+        }
+        String source = Normalizer.normalize(
+                task.learnerAnswer() == null ? "" : task.learnerAnswer(),
+                Normalizer.Form.NFC);
+        Integer start = nullableInteger(evidence.get("startOffset"));
+        Integer end = nullableInteger(evidence.get("endOffset"));
+        if (start == null || end == null
+                || start < 0 || end <= start || end > source.length()
+                || !source.startsWith(rewrite.original(), start)
+                || end != start + rewrite.original().length()) {
+            return false;
+        }
+        for (String findingId : rewrite.findingIds()) {
+            JsonNode finding = findById(
+                    feedbackNode.path("needs_improvement"),
+                    "findingId",
+                    findingId);
+            if (finding == null
+                    || !rewrite.evidenceId().equals(
+                    finding.path("evidenceId").asText(null))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static JsonNode findById(
+            JsonNode rows,
+            String field,
+            String id) {
+        if (rows == null || !rows.isArray()
+                || id == null || id.isBlank()) {
+            return null;
+        }
+        JsonNode found = null;
+        for (JsonNode row : rows) {
+            if (id.equals(row.path(field).asText(null))) {
+                if (found != null) {
+                    return null;
+                }
+                found = row;
+            }
+        }
+        return found;
     }
 
     private static WritingAnswerArtifact answerArtifact(
@@ -775,7 +1547,9 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 summary,
                 List.of(),
                 List.of(),
-                false);
+                false,
+                questionLanguageTag(question),
+                ResultPerformanceLevel.unavailableView());
     }
 
     private AssessmentScoreResult scoreObjective(
@@ -823,7 +1597,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 compatibilityReader.parseStoredEntry(usableFeedbackNode);
         WritingEvaluationResult evaluation = contract.value();
         boolean scoreContractReady = currentScoreContractMatches(
-                taskType, usableFeedbackNode, evaluation);
+                taskType, learnerAnswer, usableFeedbackNode, evaluation);
         List<ResultRubricCriterion> parsedCriteria = criteria(
                 rubric, usableFeedbackNode, scoreContractReady);
         ResultScoreSummary score = taskScore(
@@ -864,7 +1638,23 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                         : null,
                 visibleCriteria,
                 lenses,
-                "ESSAY".equals(question.getQuestionType()));
+                "ESSAY".equals(question.getQuestionType()),
+                questionLanguageTag(question),
+                taskPerformanceLevel(score, availability));
+    }
+
+    private String questionLanguageTag(PracticeQuestionVersion question) {
+        try {
+            CanonicalQuestionType type = typeResolver.resolve(question.getQuestionType());
+            QuestionContent content = blank(question.getQuestionContentJson())
+                    ? contractCodec.adaptLegacyContent(
+                            question.getOptionsJson(), question.getQuestionType())
+                    : contractCodec.readQuestionContent(
+                            question.getQuestionContentJson(), type);
+            return content.languageTag() == null ? "ko" : content.languageTag();
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return "ko";
+        }
     }
 
     private List<ResultRubricCriterion> criteria(
@@ -888,14 +1678,80 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             if (score != null && (score.signum() < 0 || score.compareTo(expectedMaxScore) > 0)) {
                 score = null;
             }
+            WritingScoreAnchorPolicy.ScoreAnchor anchor = score == null
+                    ? null
+                    : WritingScoreAnchorPolicy.requireAnchor(
+                            expected, score.intValueExact());
+            String providerOrStoredLevel = text(stored, "performanceLevel");
+            if (anchor != null
+                    && providerOrStoredLevel != null
+                    && !anchor.performanceLevel().name()
+                    .equals(providerOrStoredLevel)) {
+                // The backend score anchor remains final authority. A stored
+                // provider level that contradicts it invalidates this score
+                // instead of being silently rendered or repaired.
+                score = null;
+                anchor = null;
+            }
+            String criterionFeedback = verifiedCriterionFeedback(
+                    feedbackNode, stored, expected.criterionId());
+            if ((criterionFeedback == null || criterionFeedback.isBlank())
+                    && anchor != null) {
+                criterionFeedback = anchor.labelVi();
+            }
             result.add(new ResultRubricCriterion(
                     expected.criterionId(),
                     expected.displayName(),
                     score,
                     expectedMaxScore,
-                    text(stored, "feedback")));
+                    criterionFeedback,
+                    anchor == null
+                            ? null : anchor.performanceLevel().name(),
+                    anchor == null
+                            ? null : anchor.performanceLevel().labelVi(),
+                    anchor == null
+                            ? null : anchor.performanceLevel().labelKo()));
         }
         return List.copyOf(result);
+    }
+
+    private static String verifiedCriterionFeedback(
+            JsonNode feedbackNode,
+            JsonNode rubricRow,
+            String criterionId) {
+        if (feedbackNode == null || rubricRow == null
+                || !rubricRow.path("findingIds").isArray()) {
+            return null;
+        }
+        LinkedHashSet<String> findingIds = new LinkedHashSet<>();
+        rubricRow.path("findingIds").forEach(node -> {
+            if (node.isTextual() && !node.asText().isBlank()) {
+                findingIds.add(node.asText());
+            }
+        });
+        if (findingIds.isEmpty()) {
+            return null;
+        }
+        LinkedHashSet<String> verifiedFeedback = new LinkedHashSet<>();
+        for (String collection : List.of(
+                "strengths", "needs_improvement")) {
+            JsonNode findings = feedbackNode.path(collection);
+            if (!findings.isArray()) {
+                continue;
+            }
+            for (JsonNode finding : findings) {
+                if (findingIds.contains(text(finding, "findingId"))
+                        && criterionId.equals(
+                        text(finding, "scoringCriterionId"))) {
+                    String explanation = text(finding, "explanationVi");
+                    if (explanation != null && !explanation.isBlank()) {
+                        verifiedFeedback.add(explanation);
+                    }
+                }
+            }
+        }
+        return verifiedFeedback.isEmpty()
+                ? null : String.join(" ", verifiedFeedback);
     }
 
     private static ResultScoreSummary taskScore(
@@ -925,6 +1781,53 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 "POINTS",
                 "Thang điểm " + rubric.totalMaxScore(),
                 null);
+    }
+
+    private static ResultPerformanceLevel resultPerformanceLevel(
+            ResultRubricCriterion criterion) {
+        if (criterion == null
+                || criterion.score() == null
+                || criterion.maxScore() == null) {
+            return ResultPerformanceLevel.unavailableView();
+        }
+        try {
+            WritingScoreAnchorPolicy.PerformanceLevel level =
+                    WritingScoreAnchorPolicy.requirePerformanceLevel(
+                            criterion.score().intValueExact(),
+                            criterion.maxScore().intValueExact());
+            return resultPerformanceLevel(level);
+        } catch (ArithmeticException | IllegalArgumentException exception) {
+            return ResultPerformanceLevel.unavailableView();
+        }
+    }
+
+    private static ResultPerformanceLevel taskPerformanceLevel(
+            ResultScoreSummary score,
+            ResultFeedbackAvailability availability) {
+        if (availability == null
+                || !availability.ready()
+                || score == null
+                || score.earnedPoints() == null
+                || score.possiblePoints() == null) {
+            return ResultPerformanceLevel.unavailableView();
+        }
+        try {
+            WritingScoreAnchorPolicy.PerformanceLevel level =
+                    WritingScoreAnchorPolicy.requirePerformanceLevel(
+                            score.earnedPoints().intValueExact(),
+                            score.possiblePoints().intValueExact());
+            return resultPerformanceLevel(level);
+        } catch (ArithmeticException | IllegalArgumentException exception) {
+            return ResultPerformanceLevel.unavailableView();
+        }
+    }
+
+    private static ResultPerformanceLevel resultPerformanceLevel(
+            WritingScoreAnchorPolicy.PerformanceLevel level) {
+        return new ResultPerformanceLevel(
+                level.name(),
+                level.labelVi(),
+                level.labelKo());
     }
 
     private static List<WritingAnalysisLens> longFormLenses(
@@ -1232,11 +2135,13 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         WritingFeedbackCompatibilityReader.EntryResult contract =
                 compatibilityReader.parseStoredEntry(feedbackNode);
         return currentScoreContractMatches(
-                task.taskType(), feedbackNode, contract.value());
+                task.taskType(), task.learnerAnswer(),
+                feedbackNode, contract.value());
     }
 
     private static boolean currentScoreContractMatches(
             String taskType,
+            String learnerAnswer,
             JsonNode feedbackNode,
             WritingEvaluationResult evaluation
     ) {
@@ -1257,6 +2162,19 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 && WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
                         evaluation.policyBundleId())
                 && CURRENT_EVALUATION_ENGINE.equals(evaluation.engine())
+                && WritingEvidenceLedgerVerifier.CONTRACT_VERSION.equals(
+                text(feedbackNode, "ledger_contract_version"))
+                && WritingScoreAnchorPolicy.VERSION.equals(
+                text(feedbackNode, "score_anchor_version"))
+                && WritingTaskRequirementPolicy.VERSION.equals(
+                text(feedbackNode, "task_requirement_version"))
+                && WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION.equals(
+                text(feedbackNode, "source_normalization"))
+                && WritingEvidenceLedgerVerifier.sha256(
+                Normalizer.normalize(
+                        learnerAnswer == null ? "" : learnerAnswer,
+                        Normalizer.Form.NFC)).equals(
+                text(feedbackNode, "source_hash"))
                 && WritingAssessmentPolicyBundle
                         .hasExactCurrentScoreProvenance(evaluation)
                 && evaluation.rawScore() != null
@@ -1278,6 +2196,15 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 && feedbackNode.path("task_type").isTextual()
                 && feedbackNode.path("scoring_contract").isTextual()
                 && feedbackNode.path("policy_bundle_id").isTextual()
+                && feedbackNode.path("ledger_contract_version").isTextual()
+                && feedbackNode.path("score_anchor_version").isTextual()
+                && feedbackNode.path("task_requirement_version").isTextual()
+                && feedbackNode.path("source_normalization").isTextual()
+                && feedbackNode.path("source_hash").isTextual()
+                && feedbackNode.path("source_hash").asText().length() == 64
+                && feedbackNode.path("task_coverage").isArray()
+                && feedbackNode.path("evidence_ledger").isArray()
+                && feedbackNode.path("annotations").isArray()
                 && feedbackNode.path("engine").isTextual()
                 && feedbackNode.path("evaluation_status").isTextual()
                 && feedbackNode.path("evaluation_source").isTextual()
@@ -1390,12 +2317,34 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             int start,
             int end,
             String annotationId,
+            int displayNumber,
+            String evidenceId,
             ResultDetailPolarity polarity,
             String categoryCode,
             String criterionId,
             String explanationVi,
             String correctionKo,
             String featureId
+    ) {
+    }
+
+    private record BlankAnnotationCandidate(
+            int start,
+            int end,
+            WritingDiagnosticFinding finding
+    ) {
+    }
+
+    private record FindingAnnotationCandidate(
+            int start,
+            int end,
+            WritingDiagnosticFinding finding
+    ) {
+    }
+
+    private record CatalogChip(
+            WritingDiagnosticDescriptorRegistry.Resolution definition,
+            ResultDetailPolarity polarity
     ) {
     }
 
@@ -1406,7 +2355,9 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             String evidenceAvailability
     ) {
         private ChipCount incremented(String nextEvidenceAvailability) {
-            String merged = evidenceAvailability.equals(nextEvidenceAvailability)
+            String merged = count == 0
+                    ? nextEvidenceAvailability
+                    : evidenceAvailability.equals(nextEvidenceAvailability)
                     ? evidenceAvailability
                     : "MIXED_EVIDENCE_AVAILABLE";
             return new ChipCount(definition, polarity, count + 1, merged);

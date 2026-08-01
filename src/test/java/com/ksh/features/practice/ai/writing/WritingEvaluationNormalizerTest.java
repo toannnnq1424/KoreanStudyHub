@@ -2,249 +2,349 @@ package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 
+import static com.ksh.features.practice.ai.writing.WritingContractTestFixtures.addEvidence;
+import static com.ksh.features.practice.ai.writing.WritingContractTestFixtures.addFinding;
+import static com.ksh.features.practice.ai.writing.WritingContractTestFixtures.applyRawScore;
+import static com.ksh.features.practice.ai.writing.WritingContractTestFixtures.coverage;
+import static com.ksh.features.practice.ai.writing.WritingContractTestFixtures.replaceIds;
+import static com.ksh.features.practice.ai.writing.WritingContractTestFixtures.rubric;
+import static com.ksh.features.practice.ai.writing.WritingContractTestFixtures.zeroEnvelope;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class WritingEvaluationNormalizerTest {
+
+    private static final String Q53_ANSWER =
+            "승용차 이용률은 45%에서 35%로 감소했고, 대중교통은 10%에서 5%로 줄었다. "
+                    + "자전거는 20%에서 35%로 크게 증가했으며, 반면 도보는 25%로 같았다. "
+                    + "이는 건강에 관심이 높아졌기 때문이라고 볼 수 있다.";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final WritingEvaluationNormalizer normalizer =
             new WritingEvaluationNormalizer(objectMapper);
 
     @Test
-    void normalizesTaskNativeScoreAndStrictKoreanDiagnostics() throws Exception {
-        String answer = "한국어를 공부합니다. 글의 흐름이 자연스럽습니다.";
-        ObjectNode provider = providerPayload("Q53");
-        provider.put("sample_answer", "평가기 생성 모범 답안");
-        provider.withArray("strengths").add(finding(
-                "W_LOGICAL_ORGANIZATION",
-                "LOGICAL_RELATION",
-                "W_ORGANIZATION_COHERENCE",
-                "WHOLE_ANSWER",
-                "",
-                "Bố cục và quan hệ ý rõ ràng.",
-                "",
-                "MODERATE",
-                1,
-                0.92,
-                "INFERRED_BOUNDED"));
-        provider.withArray("needs_improvement").add(finding(
-                "W_PARTICLE_ERRORS",
-                "MORPHOLOGY_PARTICLES",
-                "W_LANGUAGE_EXPRESSION",
-                "TEXT_SPAN",
-                "한국어를",
-                "Cần kiểm tra tiểu từ theo ngữ cảnh.",
-                "한국어를",
-                "MINOR",
-                1,
-                0.98,
-                "DIRECT"));
+    void q53ProducesAnchoredScoreCoverageAndAtomicOneToOneLedger()
+            throws Exception {
+        ObjectNode provider = q53AtomicEnvelope();
 
-        JsonNode root = normalize(provider, "Q53", answer);
+        JsonNode root = normalize(provider, "Q53", Q53_ANSWER);
 
         assertThat(root.path("evaluation_status").asText())
                 .isEqualTo("EVALUATED");
-        assertThat(root.path("score_available").asBoolean()).isTrue();
-        assertThat(root.path("raw_score_max").asDouble()).isEqualTo(30.0);
-        assertThat(root.path("scoring_contract").asText())
-                .isEqualTo(WritingScoringPolicy.SCORING_CONTRACT);
-        assertThat(root.path("policy_bundle_id").asText())
-                .isEqualTo(WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
-        assertThat(root.path("sample_answer").asText()).isEmpty();
-        JsonNode finding = root.path("needs_improvement").get(0);
-        assertThat(finding.path("subtype").asText())
-                .isEqualTo("MORPHOLOGY_PARTICLES");
-        assertThat(finding.path("scoringCriterionId").asText())
-                .isEqualTo("W_LANGUAGE_EXPRESSION");
-        assertThat(finding.path("impact").asText()).isEqualTo("MINOR");
-        assertThat(finding.path("frequency").asInt()).isEqualTo(1);
-        assertThat(finding.path("confidence").decimalValue())
-                .isEqualByComparingTo("0.98");
-        assertThat(finding.path("observability").asText())
-                .isEqualTo("DIRECT");
+        assertThat(root.path("engine").asText())
+                .isEqualTo("KSH_WRITING_EVALUATOR_V3");
+        assertThat(root.path("raw_score").asInt()).isEqualTo(28);
+        assertThat(root.path("raw_score_max").asInt()).isEqualTo(30);
+        assertThat(root.path("task_coverage")).hasSize(6);
+        assertThat(root.path("evidence_ledger")).hasSize(6);
+        assertThat(root.path("annotations")).hasSize(6);
+        assertThat(root.path("summary_vi").asText())
+                .contains("5/6 yêu cầu", "5 điểm mạnh",
+                        "1 điểm cần cải thiện");
+
+        JsonNode improvement = root.path("needs_improvement").get(0);
+        assertThat(improvement.path("findingId").asText())
+                .isEqualTo("F_Q53_WALKING");
+        assertThat(improvement.path("evidence").asText())
+                .isEqualTo("도보는 25%로 같았다");
+        assertThat(improvement.path("startOffset").asInt()).isEqualTo(76);
+        assertThat(improvement.path("endOffset").asInt()).isEqualTo(88);
+        assertThat(improvement.path("correction").asText())
+                .isEqualTo("도보 이용률은 25%로 동일하게 유지되었다");
+        assertThat(root.path("annotations").get(4).path("id").asText())
+                .isEqualTo("F_Q53_WALKING");
+        assertThat(root.path("sentence_rewrites").get(0)
+                .path("findingIds").get(0).asText())
+                .isEqualTo("F_Q53_WALKING");
     }
 
     @Test
-    void rejectsUnknownSubtypeCrossParentAndUnverifiableEvidence() throws Exception {
-        ObjectNode provider = providerPayload("Q53");
-        ArrayNode needs = provider.withArray("needs_improvement");
-        needs.add(finding(
-                "W_PARTICLE_ERRORS", "UNKNOWN_SUBTYPE",
-                "W_LANGUAGE_EXPRESSION", "TEXT_SPAN", "한국어를",
-                "Sai subtype.", "한국어를", "MINOR", 1, 0.9, "DIRECT"));
-        needs.add(finding(
-                "W_PARTICLE_ERRORS", "MORPHOLOGY_PARTICLES",
-                "W_CONTENT_TASK_ACHIEVEMENT", "TEXT_SPAN", "한국어를",
-                "Sai parent.", "한국어를", "MINOR", 1, 0.9, "DIRECT"));
-        needs.add(finding(
-                "W_PARTICLE_ERRORS", "MORPHOLOGY_PARTICLES",
-                "W_LANGUAGE_EXPRESSION", "TEXT_SPAN", "không tồn tại",
-                "Sai evidence.", "수정", "MINOR", 1, 0.9, "DIRECT"));
-        needs.add(finding(
-                "W_PARTICLE_ERRORS", "MORPHOLOGY_PARTICLES",
-                "W_LANGUAGE_EXPRESSION", "TEXT_SPAN", "한국어를",
-                "Có bằng chứng.", "한국어를", "MINOR", 2, 0.9, "DIRECT"));
-
-        JsonNode root = normalize(provider, "Q53", "한국어를 공부합니다.");
-
-        assertThat(root.path("needs_improvement")).hasSize(1);
-        assertThat(root.path("needs_improvement").get(0)
-                .path("frequency").asInt()).isEqualTo(2);
-    }
-
-    @Test
-    void q51FindingRequiresExplicitNullParentUntilBlankIdentityExists()
+    void exactQ53ReferencePhrasesRemainSeparateAtomicFindings()
             throws Exception {
-        ObjectNode provider = providerPayload("Q51");
-        ObjectNode valid = finding(
-                "W_CLOZE_CONTEXT_FIT", "REQUIREMENT_COVERAGE",
-                null, "TEXT_SPAN", "있다",
-                "Phù hợp ngữ cảnh chỗ trống.", "",
-                "MODERATE", 1, 0.95, "DIRECT");
-        provider.withArray("strengths").add(valid);
+        JsonNode root = normalize(
+                q53AtomicEnvelope(), "Q53", Q53_ANSWER);
 
-        JsonNode accepted = normalize(provider, "Q51", "있다");
-        assertThat(accepted.path("strengths")).hasSize(1);
-        assertThat(accepted.path("strengths").get(0)
-                .path("scoringCriterionId").isNull()).isTrue();
-
-        valid.put("scoringCriterionId", "W_CLOZE_BLANK_1_CONTEXT");
-        JsonNode rejected = normalize(provider, "Q51", "있다");
-        assertThat(rejected.path("strengths")).isEmpty();
+        assertThat(root.path("strengths"))
+                .extracting(row -> row.path("evidence").asText())
+                .containsExactly(
+                        "45%에서 35%로 감소했고",
+                        "10%에서 5%로 줄었다",
+                        "20%에서 35%로 크게 증가했으며",
+                        "반면",
+                        "때문이라고 볼 수 있다");
     }
 
     @Test
-    void legacyNameOnlyRubricIsRejectedWithoutNumericFallback() throws Exception {
-        String legacy = """
-                {
-                  "summary":"legacy",
-                  "rubric_scores":[
-                    {"name":"Nội dung","score":7,"feedback":""},
-                    {"name":"Cấu trúc","score":7,"feedback":""},
-                    {"name":"Ngôn ngữ","score":7,"feedback":""}
-                  ],
-                  "strengths":[],
-                  "needs_improvement":[]
-                }
-                """;
-
-        JsonNode root = objectMapper.readTree(
-                normalizer.normalize(legacy, "Q53", "한국어 답안", null));
-
-        assertThat(root.path("evaluation_status").asText())
-                .isEqualTo("EVALUATION_CONTRACT_FAILED");
-        assertThat(root.path("score_available").asBoolean()).isFalse();
-        assertThat(root.has("score")).isFalse();
-        assertThat(root.has("raw_score")).isFalse();
-    }
-
-    @Test
-    void deterministicInvalidAnswerUsesCurrentTaskNativeZeroWithoutBand()
+    void repeatedOccurrenceIsAcceptedOnlyWithExactProviderIdentity()
             throws Exception {
-        JsonNode root = objectMapper.readTree(
-                normalizer.spamResponse("Q54", ""));
+        String answer = "같았다. 같았다.";
+        ObjectNode provider = zeroEnvelope(
+                objectMapper, "Q53", answer);
+        addEvidence(provider, "EV_SECOND", answer, "같았다", 5);
+        addFinding(provider, "F_SECOND", "IMPROVEMENT", "REPLACE",
+                "W_AWKWARD_UNNATURAL_EXPRESSIONS", "NATURALNESS",
+                "W_LANGUAGE_EXPRESSION", "EV_SECOND", List.of(),
+                "Lần xuất hiện thứ hai cần diễn đạt rõ hơn.",
+                "동일하게 유지되었다", "MINOR");
+        ObjectNode language = rubric(
+                provider, "W_LANGUAGE_EXPRESSION");
+        language.put("score", 8);
+        replaceIds(language, "evidenceIds", "EV_SECOND");
+        replaceIds(language, "findingIds", "F_SECOND");
 
-        assertThat(root.path("evaluation_status").asText())
-                .isEqualTo("INVALID_LEARNER_RESPONSE");
-        assertThat(root.path("evaluation_source").asText())
-                .isEqualTo("BACKEND_RULE");
-        assertThat(root.path("raw_score").asDouble()).isZero();
-        assertThat(root.path("raw_score_max").asDouble()).isEqualTo(50.0);
-        assertThat(root.path("policy_bundle_id").asText())
-                .isEqualTo(WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
-        assertThat(root.has("band_label")).isFalse();
+        JsonNode accepted = normalize(provider, "Q53", answer);
+        assertThat(accepted.path("evaluation_status").asText())
+                .isEqualTo("EVALUATED");
+        assertThat(accepted.path("annotations").get(0)
+                .path("occurrenceIndex").asInt()).isEqualTo(2);
+
+        provider.withArray("evidenceLedger").get(0)
+                .path("occurrenceIndex");
+        ((ObjectNode) provider.withArray("evidenceLedger").get(0))
+                .put("occurrenceIndex", 1);
+        assertContractFailed(normalize(provider, "Q53", answer));
     }
 
     @Test
-    void malformedUnavailableAndExplicitFallbackRemainNonScoreBearing()
+    void exactOffsetsFailClosedInsteadOfGuessingEvidencePosition()
             throws Exception {
-        JsonNode malformed = objectMapper.readTree(normalizer.normalize(
-                "{malformed", "Q54", "한국어", null));
-        JsonNode unavailable = objectMapper.readTree(
-                normalizer.providerUnavailable(
-                        "MISSING_API_KEY", "Q54", "한국어", false));
-        JsonNode fallback = objectMapper.readTree(
-                normalizer.fallback("Vui lòng chấm lại.", "Q54"));
+        ObjectNode provider = q53AtomicEnvelope();
+        ((ObjectNode) provider.withArray("evidenceLedger").get(0))
+                .put("startOffset", 10);
 
-        for (JsonNode root : List.of(malformed, unavailable, fallback)) {
-            assertThat(root.path("score_available").asBoolean()).isFalse();
-            assertThat(root.has("score")).isFalse();
-            assertThat(root.has("raw_score")).isFalse();
-            assertThat(root.path("policy_bundle_id").asText())
-                    .isEqualTo(
-                            WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        assertContractFailed(normalize(provider, "Q53", Q53_ANSWER));
+    }
+
+    @Test
+    void maximumCriterionScoreRejectsConfirmedNegativeFinding()
+            throws Exception {
+        ObjectNode provider = q53AtomicEnvelope();
+        rubric(provider, "W_LANGUAGE_EXPRESSION").put("score", 9);
+
+        assertContractFailed(normalize(provider, "Q53", Q53_ANSWER));
+    }
+
+    @Test
+    void clozePartialScoreRequiresOneAuthoritativeBlankRequirement()
+            throws Exception {
+        String answer = "문맥은 맞지만 어색합니다.";
+        ObjectNode provider = zeroEnvelope(
+                objectMapper, "Q51", answer);
+        addEvidence(provider, "EV_Q51_BLANK_1", answer, "어색", 8);
+        addFinding(
+                provider,
+                "F_Q51_BLANK_1_GRAMMAR",
+                "IMPROVEMENT",
+                "REPLACE",
+                "W_CLOZE_GRAMMAR_COMPATIBILITY",
+                "ENDINGS_CONJUGATION",
+                "W_CLOZE_BLANK_1_GRAMMAR",
+                "EV_Q51_BLANK_1",
+                List.of("CLOZE_BLANK_1_CONTEXT"),
+                "Ô thứ nhất dùng dạng kết thúc chưa tương thích.",
+                "자연스럽습니다",
+                "MODERATE");
+        ObjectNode grammar = rubric(
+                provider, "W_CLOZE_BLANK_1_GRAMMAR");
+        grammar.put("score", 1);
+        replaceIds(grammar, "evidenceIds", "EV_Q51_BLANK_1");
+        replaceIds(
+                grammar,
+                "findingIds",
+                "F_Q51_BLANK_1_GRAMMAR");
+
+        JsonNode accepted = normalize(provider, "Q51", answer);
+        assertThat(accepted.path("evaluation_status").asText())
+                .isEqualTo("EVALUATED");
+        assertThat(accepted.path("raw_score").asInt()).isEqualTo(1);
+        assertThat(accepted.path("needs_improvement").get(0)
+                .path("scoringCriterionId").asText())
+                .isEqualTo("W_CLOZE_BLANK_1_GRAMMAR");
+
+        ObjectNode noBlankAuthority = provider.deepCopy();
+        replaceIds(
+                (ObjectNode) noBlankAuthority.withArray("findings").get(0),
+                "requirementIds");
+        assertContractFailed(
+                normalize(noBlankAuthority, "Q51", answer));
+
+        ObjectNode ambiguousBlankAuthority = provider.deepCopy();
+        replaceIds(
+                (ObjectNode) ambiguousBlankAuthority.withArray("findings")
+                        .get(0),
+                "requirementIds",
+                "CLOZE_BLANK_1_CONTEXT",
+                "CLOZE_BLANK_2_CONTEXT");
+        assertContractFailed(
+                normalize(ambiguousBlankAuthority, "Q51", answer));
+    }
+
+    @Test
+    void boundedWholeAnswerStrengthsSurviveTheProductionLedger()
+            throws Exception {
+        String answer = WritingContractTestFixtures
+                .scoreBearingLearnerAnswer("Q54", 50);
+        ObjectNode provider = zeroEnvelope(
+                objectMapper, "Q54", answer);
+        applyRawScore(provider, "Q54", answer, 50);
+        addFinding(
+                provider,
+                "F_Q54_THESIS",
+                "STRENGTH",
+                "KEEP",
+                "W_CLEAR_THESIS_OR_MAIN_IDEA",
+                "THESIS_MAIN_IDEA",
+                "W_CONTENT_TASK_ACHIEVEMENT",
+                null,
+                List.of("Q54_POSITION"),
+                "Toàn bài duy trì một luận điểm rõ ràng.",
+                "",
+                "MODERATE");
+        addFinding(
+                provider,
+                "F_Q54_LENGTH",
+                "STRENGTH",
+                "KEEP",
+                "W_LENGTH_REQUIREMENT_MET",
+                "TASK_LENGTH",
+                null,
+                null,
+                List.of("Q54_LENGTH_600_700"),
+                "Toàn bài đáp ứng dung lượng có thẩm quyền.",
+                "",
+                "MODERATE");
+        replaceIds(
+                rubric(provider, "W_CONTENT_TASK_ACHIEVEMENT"),
+                "findingIds",
+                "F_Q54_THESIS");
+
+        JsonNode accepted = normalize(provider, "Q54", answer);
+
+        assertThat(accepted.path("evaluation_status").asText())
+                .isEqualTo("EVALUATED");
+        assertThat(accepted.path("strengths"))
+                .extracting(row -> row.path("criterionId").asText())
+                .containsExactly(
+                        "W_CLEAR_THESIS_OR_MAIN_IDEA",
+                        "W_LENGTH_REQUIREMENT_MET");
+        assertThat(accepted.path("strengths"))
+                .allSatisfy(row -> {
+                    assertThat(row.path("evidenceScope").asText())
+                            .isEqualTo("WHOLE_ANSWER");
+                    assertThat(row.path("evidence").asText()).isEmpty();
+                    assertThat(row.path("startOffset").isNull()).isTrue();
+                    assertThat(row.path("endOffset").isNull()).isTrue();
+                });
+    }
+
+    @Test
+    void missingOrUnknownRootFieldsFailClosed() throws Exception {
+        ObjectNode missing = q53AtomicEnvelope();
+        missing.remove("taskCoverage");
+        assertContractFailed(normalize(missing, "Q53", Q53_ANSWER));
+
+        ObjectNode extra = q53AtomicEnvelope();
+        extra.put("summary", "Lời khen không có bằng chứng");
+        assertContractFailed(normalize(extra, "Q53", Q53_ANSWER));
+    }
+
+    @Test
+    void scoreAnchorsCoverEveryIntegerLevelForQ53AndQ54() {
+        for (String taskType : List.of("Q53", "Q54")) {
+            for (WritingScoringCriterion criterion
+                    : WritingScoringPolicy.rubricFor(taskType).criteria()) {
+                assertThat(WritingScoreAnchorPolicy.anchors(criterion))
+                        .extracting(
+                                WritingScoreAnchorPolicy.ScoreAnchor::score)
+                        .containsExactlyElementsOf(
+                                java.util.stream.IntStream.rangeClosed(
+                                                0, criterion.maxScore())
+                                        .boxed()
+                                        .toList());
+                assertThat(WritingScoreAnchorPolicy.anchors(criterion))
+                        .extracting(anchor ->
+                                anchor.performanceLevel().name())
+                        .contains(
+                                "LIMITED", "MODEST", "GOOD", "EXCELLENT");
+            }
         }
     }
 
     @Test
-    void cacheReuseRequiresExactCurrentBundleAndRevalidatesTextEvidence()
-            throws Exception {
-        ObjectNode provider = providerPayload("Q53");
-        provider.withArray("strengths").add(finding(
-                "W_ADVANCED_GRAMMAR_STRUCTURES",
-                "ENDINGS_CONJUGATION",
-                "W_LANGUAGE_EXPRESSION",
-                "TEXT_SPAN",
-                "공부합니다",
-                "Đuôi câu văn viết chính xác.",
-                "",
-                "MODERATE",
-                1,
-                0.94,
-                "DIRECT"));
-        String normalized = normalizer.normalize(
-                objectMapper.writeValueAsString(provider),
+    void legacyFreeTextEnvelopeHasNoScoreAuthority() throws Exception {
+        JsonNode root = objectMapper.readTree(normalizer.normalize(
+                """
+                {"summary":"legacy","rubric_scores":[
+                  {"name":"Nội dung","score":9},
+                  {"name":"Cấu trúc","score":9},
+                  {"name":"Ngôn ngữ","score":9}
+                ]}
+                """,
                 "Q53",
-                "한국어를 공부합니다",
+                "한국어 답안",
+                null));
+
+        assertContractFailed(root);
+        assertThat(root.has("raw_score")).isFalse();
+    }
+
+    @Test
+    void cacheRequiresExactBundleAndSourceHash() throws Exception {
+        String normalized = normalizer.normalize(
+                objectMapper.writeValueAsString(q53AtomicEnvelope()),
+                "Q53",
+                Q53_ANSWER,
                 null);
         String cached = normalizer.sanitizeForCache(normalized);
 
         JsonNode hydrated = objectMapper.readTree(
                 normalizer.rehydrateCachedResult(
-                        cached, "한국어를 공부합니다", "Q53"));
+                        cached, Q53_ANSWER, "Q53"));
         assertThat(hydrated.path("evaluation_source").asText())
                 .isEqualTo("CACHE");
-        assertThat(hydrated.path("strengths")).hasSize(1);
 
-        ObjectNode wrongBundle = (ObjectNode) objectMapper.readTree(cached);
-        wrongBundle.put("policy_bundle_id", "STALE_BUNDLE");
         assertThatThrownBy(() -> normalizer.rehydrateCachedResult(
-                objectMapper.writeValueAsString(wrongBundle),
-                "한국어를 공부합니다",
-                "Q53"))
+                cached, "다른 답안입니다", "Q53"))
                 .isInstanceOf(IllegalArgumentException.class);
-
-        JsonNode differentAnswer = objectMapper.readTree(
-                normalizer.rehydrateCachedResult(
-                        cached, "다른 답안입니다", "Q53"));
-        assertThat(differentAnswer.path("strengths")).isEmpty();
     }
 
     @Test
-    void scoreDoesNotDependOnDiagnosticCount() throws Exception {
-        ObjectNode withoutFindings = providerPayload("Q53");
-        ObjectNode withFinding = withoutFindings.deepCopy();
-        withFinding.withArray("strengths").add(finding(
-                "W_LOGICAL_ORGANIZATION", "COHESION",
-                "W_ORGANIZATION_COHERENCE", "WHOLE_ANSWER", "",
-                "Mạch lạc.", "", "MODERATE", 1, 0.9,
-                "INFERRED_BOUNDED"));
+    void deterministicInvalidAndUnavailableRemainProviderFreeTruth()
+            throws Exception {
+        JsonNode invalid = objectMapper.readTree(
+                normalizer.spamResponse("Q54", ""));
+        JsonNode unavailable = objectMapper.readTree(
+                normalizer.providerUnavailable(
+                        "MISSING_API_KEY", "Q54", "한국어", false));
 
-        JsonNode first = normalize(
-                withoutFindings, "Q53", "한국어를 공부합니다.");
-        JsonNode second = normalize(
-                withFinding, "Q53", "한국어를 공부합니다.");
-
-        assertThat(second.path("score").decimalValue())
-                .isEqualByComparingTo(first.path("score").decimalValue());
+        assertThat(invalid.path("raw_score").asInt()).isZero();
+        assertThat(invalid.path("raw_score_max").asInt()).isEqualTo(50);
+        assertThat(invalid.path("engine").asText())
+                .isEqualTo("KSH_WRITING_EVALUATOR_V3");
+        assertThat(invalid.path("ledger_contract_version").asText())
+                .isEqualTo(WritingEvidenceLedgerVerifier.CONTRACT_VERSION);
+        assertThat(invalid.path("score_anchor_version").asText())
+                .isEqualTo(WritingScoreAnchorPolicy.VERSION);
+        assertThat(invalid.path("task_requirement_version").asText())
+                .isEqualTo(WritingTaskRequirementPolicy.VERSION);
+        assertThat(invalid.path("source_normalization").asText())
+                .isEqualTo(WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION);
+        assertThat(invalid.path("source_hash").asText())
+                .matches("[0-9a-f]{64}");
+        invalid.path("rubric_scores").forEach(row ->
+                assertThat(row.path("performanceLevel").asText())
+                        .isEqualTo("LIMITED"));
+        assertThat(invalid.path("evidence_ledger")).isEmpty();
+        assertThat(invalid.path("task_coverage").isArray()).isTrue();
+        assertThat(unavailable.path("score_available").asBoolean()).isFalse();
+        assertThat(unavailable.has("raw_score")).isFalse();
     }
 
     @Test
@@ -254,17 +354,116 @@ class WritingEvaluationNormalizerTest {
                 Map.of("score", 8.0, "maxScore", 9.0),
                 Map.of("score", 6.0, "maxScore", 9.0));
 
-        assertThat(WritingEvaluationNormalizer.deriveScoreFromRubrics(rubrics))
-                .isEqualTo(70.0);
-        assertThat(WritingEvaluationNormalizer.deriveScoreFromRubrics(List.of()))
-                .isZero();
+        assertThat(WritingEvaluationNormalizer
+                .deriveScoreFromRubrics(rubrics)).isEqualTo(70.0);
+        assertThat(WritingEvaluationNormalizer
+                .deriveScoreFromRubrics(List.of())).isZero();
+    }
+
+    private ObjectNode q53AtomicEnvelope() {
+        ObjectNode root = zeroEnvelope(
+                objectMapper, "Q53", Q53_ANSWER);
+        addEvidence(root, "EV_CAR", Q53_ANSWER,
+                "45%에서 35%로 감소했고", 9);
+        addEvidence(root, "EV_TRANSIT", Q53_ANSWER,
+                "10%에서 5%로 줄었다", 32);
+        addEvidence(root, "EV_BIKE", Q53_ANSWER,
+                "20%에서 35%로 크게 증가했으며", 52);
+        addEvidence(root, "EV_CONTRAST", Q53_ANSWER, "반면", 73);
+        addEvidence(root, "EV_WALKING", Q53_ANSWER,
+                "도보는 25%로 같았다", 76);
+        addEvidence(root, "EV_CAUSE", Q53_ANSWER,
+                "때문이라고 볼 수 있다", 106);
+
+        addFinding(root, "F_CAR", "STRENGTH", "KEEP",
+                "W_ACCURATE_DATA_DESCRIPTION", "DATA_ACCURACY",
+                "W_CONTENT_TASK_ACHIEVEMENT", "EV_CAR",
+                List.of("Q53_DATA_2024"),
+                "Mô tả rõ xu hướng giảm của ô tô.", "", "MODERATE");
+        addFinding(root, "F_TRANSIT", "STRENGTH", "KEEP",
+                "W_ACCURATE_DATA_DESCRIPTION", "DATA_ACCURACY",
+                "W_CONTENT_TASK_ACHIEVEMENT", "EV_TRANSIT",
+                List.of("Q53_DATA_2026"),
+                "Mô tả rõ xu hướng giảm của giao thông công cộng.",
+                "", "MODERATE");
+        addFinding(root, "F_BIKE", "STRENGTH", "KEEP",
+                "W_ACCURATE_DATA_DESCRIPTION", "DATA_ACCURACY",
+                "W_CONTENT_TASK_ACHIEVEMENT", "EV_BIKE",
+                List.of("Q53_MAIN_CHANGES"),
+                "Mô tả chính xác mức tăng của xe đạp.", "", "MODERATE");
+        addFinding(root, "F_CONTRAST", "STRENGTH", "KEEP",
+                "W_EFFECTIVE_TRANSITIONS", "TRANSITION_USE",
+                "W_ORGANIZATION_COHERENCE", "EV_CONTRAST", List.of(),
+                "Dùng dấu hiệu chuyển ý tương phản đúng chỗ.", "", "MINOR");
+        addFinding(root, "F_Q53_WALKING", "IMPROVEMENT", "REPLACE",
+                "W_AWKWARD_UNNATURAL_EXPRESSIONS", "NATURALNESS",
+                "W_LANGUAGE_EXPRESSION", "EV_WALKING", List.of(),
+                "Cụm này diễn đạt trạng thái không đổi chưa tự nhiên.",
+                "도보 이용률은 25%로 동일하게 유지되었다", "MINOR");
+        addFinding(root, "F_CAUSE", "STRENGTH", "KEEP",
+                "W_NATURAL_KOREAN_EXPRESSIONS", "NATURALNESS",
+                "W_LANGUAGE_EXPRESSION", "EV_CAUSE",
+                List.of("Q53_PLAUSIBLE_CAUSE"),
+                "Cấu trúc nêu nguyên nhân khả dĩ phù hợp.", "", "MODERATE");
+
+        for (String requirement : List.of(
+                "Q53_FOUR_TRANSPORT_MODES",
+                "Q53_DATA_2024",
+                "Q53_DATA_2026",
+                "Q53_MAIN_CHANGES",
+                "Q53_PLAUSIBLE_CAUSE")) {
+            ObjectNode row = coverage(root, requirement);
+            row.put("status", "MET");
+            replaceIds(row, "evidenceIds",
+                    switch (requirement) {
+                        case "Q53_DATA_2024" -> "EV_CAR";
+                        case "Q53_DATA_2026" -> "EV_TRANSIT";
+                        case "Q53_MAIN_CHANGES" -> "EV_BIKE";
+                        case "Q53_PLAUSIBLE_CAUSE" -> "EV_CAUSE";
+                        default -> "EV_CAR";
+                    });
+        }
+
+        ObjectNode content = rubric(
+                root, "W_CONTENT_TASK_ACHIEVEMENT");
+        content.put("score", 11);
+        replaceIds(content, "evidenceIds",
+                "EV_CAR", "EV_TRANSIT", "EV_BIKE", "EV_CAUSE");
+        replaceIds(content, "findingIds",
+                "F_CAR", "F_TRANSIT", "F_BIKE");
+
+        ObjectNode organization = rubric(
+                root, "W_ORGANIZATION_COHERENCE");
+        organization.put("score", 9);
+        replaceIds(organization, "evidenceIds", "EV_CONTRAST");
+        replaceIds(organization, "findingIds", "F_CONTRAST");
+
+        ObjectNode language = rubric(
+                root, "W_LANGUAGE_EXPRESSION");
+        language.put("score", 8);
+        replaceIds(language, "evidenceIds",
+                "EV_WALKING", "EV_CAUSE");
+        replaceIds(language, "findingIds",
+                "F_Q53_WALKING", "F_CAUSE");
+
+        ObjectNode upgrade = (ObjectNode) root.path("upgradedAnswer");
+        upgrade.put("content", Q53_ANSWER.replace(
+                "도보는 25%로 같았다",
+                "도보 이용률은 25%로 동일하게 유지되었다"));
+        ObjectNode rewrite = upgrade.withArray("rewrites").addObject();
+        replaceIds(rewrite, "findingIds", "F_Q53_WALKING");
+        rewrite.put("evidenceId", "EV_WALKING");
+        rewrite.put("replacementKo",
+                "도보 이용률은 25%로 동일하게 유지되었다");
+        rewrite.put("reasonVi",
+                "Diễn đạt chính xác trạng thái tỷ lệ không đổi.");
+        return root;
     }
 
     private JsonNode normalize(
             ObjectNode provider,
             String taskType,
-            String answer
-    ) throws Exception {
+            String answer) throws Exception {
         return objectMapper.readTree(normalizer.normalize(
                 objectMapper.writeValueAsString(provider),
                 taskType,
@@ -272,56 +471,9 @@ class WritingEvaluationNormalizerTest {
                 null));
     }
 
-    private ObjectNode providerPayload(String taskType) {
-        ObjectNode root = objectMapper.createObjectNode();
-        root.put("summary", "Đánh giá có bằng chứng.");
-        ArrayNode scores = root.putArray("rubric_scores");
-        for (WritingScoringCriterion criterion :
-                WritingScoringPolicy.rubricFor(taskType).criteria()) {
-            ObjectNode row = scores.addObject();
-            row.put("criterionId", criterion.criterionId());
-            row.put("name", criterion.displayName());
-            row.put("score", criterion.maxScore() * 0.8);
-            row.put("maxScore", criterion.maxScore());
-            row.put("feedback", "Nhận xét theo tiêu chí.");
-        }
-        root.putArray("strengths");
-        root.putArray("needs_improvement");
-        root.put("upgraded_answer", "");
-        root.put("upgraded_answer_annotated", "");
-        root.putArray("sentence_rewrites");
-        return root;
-    }
-
-    private ObjectNode finding(
-            String criterionId,
-            String subtype,
-            String scoringCriterionId,
-            String evidenceScope,
-            String evidence,
-            String explanationVi,
-            String correction,
-            String impact,
-            int frequency,
-            double confidence,
-            String observability
-    ) {
-        ObjectNode finding = objectMapper.createObjectNode();
-        finding.put("criterionId", criterionId);
-        finding.put("subtype", subtype);
-        if (scoringCriterionId == null) {
-            finding.putNull("scoringCriterionId");
-        } else {
-            finding.put("scoringCriterionId", scoringCriterionId);
-        }
-        finding.put("evidenceScope", evidenceScope);
-        finding.put("evidence", evidence);
-        finding.put("explanationVi", explanationVi);
-        finding.put("correction", correction);
-        finding.put("impact", impact);
-        finding.put("frequency", frequency);
-        finding.put("confidence", confidence);
-        finding.put("observability", observability);
-        return finding;
+    private static void assertContractFailed(JsonNode root) {
+        assertThat(root.path("evaluation_status").asText())
+                .isEqualTo("EVALUATION_CONTRACT_FAILED");
+        assertThat(root.path("score_available").asBoolean()).isFalse();
     }
 }

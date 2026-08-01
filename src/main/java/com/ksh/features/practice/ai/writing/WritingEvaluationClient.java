@@ -86,7 +86,7 @@ public class WritingEvaluationClient {
     public String evaluationContractIdentity() {
         return String.join(
                 "|",
-                "ksh-writing-evaluation-v2",
+                "ksh-writing-evaluation-v3",
                 transportIdentity(),
                 evaluatorModel(),
                 properties.connectTimeout().toString(),
@@ -389,7 +389,17 @@ public class WritingEvaluationClient {
         payload.put("policy_bundle_id", WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
         payload.put("policy_bundle_components", WritingAssessmentPolicyBundle.components());
         payload.put("prompt", prompt);
-        payload.put("learner_answer", learnerAnswer == null ? "" : learnerAnswer);
+        String learnerAnswerNfc = Normalizer.normalize(
+                learnerAnswer == null ? "" : learnerAnswer,
+                Normalizer.Form.NFC);
+        payload.put("learner_answer", learnerAnswerNfc);
+        payload.put("learner_answer_source", Map.of(
+                "sourceRole", WritingEvidenceLedgerVerifier.SOURCE_ROLE,
+                "normalization",
+                WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION,
+                "sourceHash",
+                WritingEvidenceLedgerVerifier.sha256(learnerAnswerNfc),
+                "offsetUnit", "UTF16_CODE_UNIT"));
         payload.put("task_type", ruleAnalysis.taskType());
         payload.put("character_count", ruleAnalysis.characterCount());
         payload.put("char_count_warning", ruleAnalysis.charCountWarning());
@@ -408,6 +418,14 @@ public class WritingEvaluationClient {
         payload.put("allowed_rubric", Map.of(
                 "scoring_criteria", scoringCriteria(ruleAnalysis.taskType()),
                 "finding_criteria", allowedRubric(ruleAnalysis.taskType())));
+        payload.put("task_requirements",
+                taskRequirements(ruleAnalysis.taskType()));
+        payload.put("output_contract", Map.of(
+                "ledgerContractVersion",
+                WritingEvidenceLedgerVerifier.CONTRACT_VERSION,
+                "scoreAnchorVersion", WritingScoreAnchorPolicy.VERSION,
+                "taskRequirementVersion",
+                WritingTaskRequirementPolicy.VERSION));
         return payload;
     }
 
@@ -447,6 +465,9 @@ public class WritingEvaluationClient {
     static List<Map<String, Object>> allowedRubric(String taskType) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (WritingRubricCriterion criterion : WritingRubricCriterion.activeForTask(taskType)) {
+            if (!WritingDiagnosticContract.ledgerEligible(criterion)) {
+                continue;
+            }
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("criterionId", criterion.id());
             row.put("vietnameseLabel", criterion.vietnameseLabel());
@@ -458,6 +479,9 @@ public class WritingEvaluationClient {
             row.put("exactScoringCriterionId",
                     WritingDiagnosticContract.expectedParentCriterionId(
                             criterion, taskType));
+            row.put("allowedScoringCriterionIds",
+                    WritingDiagnosticContract.allowedParentCriterionIds(
+                            criterion, taskType));
             row.put("evidenceScopes",
                     criterion.evidenceScopes().stream().map(Enum::name).sorted().toList());
             row.put("rule", criterion.rule());
@@ -468,11 +492,43 @@ public class WritingEvaluationClient {
 
     static List<Map<String, Object>> scoringCriteria(String taskType) {
         return WritingPromptRules.scoringCriteriaForTask(taskType).stream()
-                .map(row -> Map.<String, Object>of(
-                        "criterionId", row.criterionId(),
-                        "displayName", row.displayName(),
-                        "max_score", row.maxScore(),
-                        "order", row.order()))
+                .map(row -> {
+                    WritingScoringCriterion criterion =
+                            new WritingScoringCriterion(
+                                    row.criterionId(),
+                                    row.displayName(),
+                                    row.maxScore(),
+                                    row.order());
+                    return Map.<String, Object>of(
+                            "criterionId", row.criterionId(),
+                            "displayName", row.displayName(),
+                            "maxScore", row.maxScore(),
+                            "order", row.order(),
+                            "scoreAnchors",
+                            WritingScoreAnchorPolicy.anchors(criterion).stream()
+                                    .map(anchor -> Map.of(
+                                            "score", anchor.score(),
+                                            "labelVi", anchor.labelVi(),
+                                            "descriptionVi",
+                                            anchor.descriptionVi()))
+                                    .toList());
+                })
+                .toList();
+    }
+
+    static List<Map<String, Object>> taskRequirements(String taskType) {
+        return WritingTaskRequirementPolicy.requirementsFor(taskType).stream()
+                .map(row -> {
+                    Map<String, Object> requirement = new LinkedHashMap<>();
+                    requirement.put("requirementId", row.requirementId());
+                    requirement.put("labelVi", row.labelVi());
+                    requirement.put("scoringCriterionId",
+                            row.scoringCriterionId());
+                    requirement.put("required", row.required());
+                    requirement.put("evidenceRequired",
+                            row.evidenceRequired());
+                    return java.util.Collections.unmodifiableMap(requirement);
+                })
                 .toList();
     }
 
@@ -484,41 +540,106 @@ public class WritingEvaluationClient {
 
     private Map<String, Object> unifiedSchema() {
         Map<String, Object> schema = baseObject(list(
-                "summary", "rubric_scores", "strengths", "needs_improvement",
-                "upgraded_answer", "upgraded_answer_annotated", "sentence_rewrites"));
+                "schemaVersion", "promptVersion", "scoreAnchorVersion",
+                "taskRequirementVersion",
+                "rubricScores", "taskCoverage", "evidenceLedger",
+                "findings", "upgradedAnswer"));
         schema.put("properties", prop(
-                "summary", typed("string"),
-                "rubric_scores", arrayOf(objectSchema(
-                        list("criterionId", "name", "score", "maxScore", "feedback"),
-                        prop("criterionId", typed("string"), "name", typed("string"), "score", typed("number"),
-                                "maxScore", typed("number"), "feedback", typed("string")))),
-                "strengths", arrayOf(findingSchema()),
-                "needs_improvement", arrayOf(findingSchema()),
-                "upgraded_answer", typed("string"),
-                "upgraded_answer_annotated", typed("string"),
-                "sentence_rewrites", arrayOf(objectSchema(
-                        list("original", "upgraded", "reason"),
-                        prop("original", typed("string"), "upgraded", typed("string"), "reason", typed("string"))))));
+                "schemaVersion", enumSchema(
+                        WritingPromptRules.EVALUATION_SCHEMA_VERSION),
+                "promptVersion", enumSchema(
+                        WritingPromptRules.PROMPT_VERSION),
+                "scoreAnchorVersion", enumSchema(
+                        WritingScoreAnchorPolicy.VERSION),
+                "taskRequirementVersion", enumSchema(
+                        WritingTaskRequirementPolicy.VERSION),
+                "rubricScores", arrayOf(rubricJudgmentSchema()),
+                "taskCoverage", arrayOf(taskCoverageSchema()),
+                "evidenceLedger", arrayOf(evidenceSchema()),
+                "findings", arrayOf(findingSchema()),
+                "upgradedAnswer", upgradedAnswerSchema()));
         return schema;
+    }
+
+    private Map<String, Object> rubricJudgmentSchema() {
+        return objectSchema(
+                list("criterionId", "score", "maxScore", "evidenceIds",
+                        "findingIds", "requirementIds"),
+                prop("criterionId", typed("string"),
+                        "score", integerSchema(0),
+                        "maxScore", integerSchema(0),
+                        "evidenceIds", stringArray(),
+                        "findingIds", stringArray(),
+                        "requirementIds", stringArray()));
+    }
+
+    private Map<String, Object> taskCoverageSchema() {
+        return objectSchema(
+                list("requirementId", "status", "evidenceIds"),
+                prop("requirementId", typed("string"),
+                        "status", enumSchema(
+                                "MET", "PARTIAL", "NOT_MET",
+                                "NOT_APPLICABLE"),
+                        "evidenceIds", stringArray()));
+    }
+
+    private Map<String, Object> evidenceSchema() {
+        return objectSchema(
+                list("evidenceId", "sourceRole", "exactText",
+                        "startOffset", "endOffset", "occurrenceIndex",
+                        "occurrenceCount", "normalization", "sourceHash"),
+                prop("evidenceId", typed("string"),
+                        "sourceRole", enumSchema(
+                                WritingEvidenceLedgerVerifier.SOURCE_ROLE),
+                        "exactText", typed("string"),
+                        "startOffset", integerSchema(0),
+                        "endOffset", integerSchema(1),
+                        "occurrenceIndex", integerSchema(1),
+                        "occurrenceCount", integerSchema(1),
+                        "normalization", enumSchema(
+                                WritingEvidenceLedgerVerifier
+                                        .SOURCE_NORMALIZATION),
+                        "sourceHash", typed("string")));
     }
 
     private Map<String, Object> findingSchema() {
         return objectSchema(
-                list("criterionId", "subtype", "scoringCriterionId",
-                        "evidenceScope", "evidence", "explanationVi", "correction",
+                list("findingId", "polarity", "operation",
+                        "criterionId", "subtype", "scoringCriterionId",
+                        "errorCategory", "evidenceIds", "requirementIds",
+                        "explanationVi", "replacementKo",
                         "impact", "frequency", "confidence", "observability"),
-                prop("criterionId", typed("string"),
+                prop("findingId", typed("string"),
+                        "polarity", enumSchema(
+                                "STRENGTH", "IMPROVEMENT"),
+                        "operation", enumSchema(
+                                "KEEP", "MISSING", "REPLACE", "REDUNDANT"),
+                        "criterionId", typed("string"),
                         "subtype", typed("string"),
                         "scoringCriterionId", nullableString(),
-                        "evidenceScope", enumSchema("TEXT_SPAN", "WHOLE_ANSWER"),
-                        "evidence", typed("string"),
+                        "errorCategory", typed("string"),
+                        "evidenceIds", stringArray(),
+                        "requirementIds", stringArray(),
                         "explanationVi", typed("string"),
-                        "correction", typed("string"),
+                        "replacementKo", typed("string"),
                         "impact", enumSchema("MINOR", "MODERATE", "MAJOR", "BLOCKING"),
                         "frequency", integerSchema(1),
                         "confidence", boundedNumberSchema(0.0, 1.0),
                         "observability", enumSchema(
                                 "DIRECT", "INFERRED_BOUNDED")));
+    }
+
+    private Map<String, Object> upgradedAnswerSchema() {
+        return objectSchema(
+                list("content", "rewrites"),
+                prop("content", typed("string"),
+                        "rewrites", arrayOf(objectSchema(
+                                list("findingIds", "evidenceId",
+                                        "replacementKo", "reasonVi"),
+                                prop("findingIds", stringArray(),
+                                        "evidenceId", typed("string"),
+                                        "replacementKo", typed("string"),
+                                        "reasonVi", typed("string"))))));
     }
 
     // ---- Schema helpers ----
@@ -627,6 +748,10 @@ public class WritingEvaluationClient {
         node.put("type", "array");
         node.put("items", itemSchema);
         return node;
+    }
+
+    private static Map<String, Object> stringArray() {
+        return arrayOf(typed("string"));
     }
 
     private static Map<String, Object> baseObject(List<String> required) {
