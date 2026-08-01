@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
 import com.ksh.features.practice.ai.transport.PracticeAiCapability;
@@ -28,8 +29,10 @@ import java.util.Set;
 public class ReadingListeningExplanationClient {
 
     private static final Logger log = LoggerFactory.getLogger(ReadingListeningExplanationClient.class);
-    public static final String EXPLANATION_PROMPT_VERSION = "v8-objective-type-native";
-    public static final String EXPLANATION_SCHEMA_VERSION = "v3";
+    public static final String EXPLANATION_PROMPT_VERSION =
+            "v9-objective-lecturer-strategy";
+    public static final String EXPLANATION_SCHEMA_VERSION = "v4";
+    public static final String PREVIOUS_EXPLANATION_SCHEMA_VERSION = "v3";
     public static final String LEGACY_EXPLANATION_SCHEMA_VERSION = "v2";
     public static final String EXPLANATION_LANGUAGE = "vi";
 
@@ -96,9 +99,21 @@ public class ReadingListeningExplanationClient {
             List<ExplanationImageEvidence> images) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
-            requireFields(root, Set.of("schemaVersion", "questionType", "explanation"));
+            requireFields(root, Set.of(
+                    "schemaVersion",
+                    "strategyRegistryVersion",
+                    "strategyCode",
+                    "strategyVersion",
+                    "questionType",
+                    "explanation"));
             if (!EXPLANATION_SCHEMA_VERSION.equals(text(root, "schemaVersion"))
-                    || !context.questionType().name().equals(text(root, "questionType"))) {
+                    || !context.questionType().name().equals(text(root, "questionType"))
+                    || !context.explanationStrategy().registryVersion().equals(
+                            text(root, "strategyRegistryVersion"))
+                    || !context.explanationStrategy().strategyCode().equals(
+                            text(root, "strategyCode"))
+                    || !context.explanationStrategy().strategyVersion().equals(
+                            text(root, "strategyVersion"))) {
                 return null;
             }
             JsonNode explanation = object(root, "explanation");
@@ -135,16 +150,21 @@ public class ReadingListeningExplanationClient {
         payload.put("contextSchemaVersion", context.schemaVersion());
         payload.put("skill", context.skill().name());
         payload.put("questionType", context.questionType().name());
+        payload.put(
+                "strategyRegistryVersion",
+                context.explanationStrategy().registryVersion());
+        payload.put(
+                "strategyCode",
+                context.explanationStrategy().strategyCode());
+        payload.put(
+                "strategyVersion",
+                context.explanationStrategy().strategyVersion());
         payload.put("prompt", context.prompt());
         payload.put("instruction", context.instruction());
         payload.put("questionContent", context.questionContent());
         payload.put("answerSpec", context.answerSpec());
         payload.put("evidenceText", context.stimulus().evidenceText());
-        payload.put("evidenceSourceRole",
-                context.stimulus().type()
-                        == com.ksh.features.practice.assessment.AssessmentStimulus.StimulusType.READING_PASSAGE
-                        ? "PASSAGE"
-                        : "TRANSCRIPT");
+        payload.put("evidenceSourceRole", evidenceSourceRole(context));
         payload.put("transcriptEvidenceScope",
                 context.stimulus().type()
                         == com.ksh.features.practice.assessment.AssessmentStimulus.StimulusType.LISTENING_AUDIO
@@ -210,11 +230,13 @@ public class ReadingListeningExplanationClient {
                         new PracticeAiAuthoritySnapshot(
                                 EXPLANATION_SCHEMA_VERSION,
                                 EXPLANATION_PROMPT_VERSION,
-                                "TYPE_NATIVE_" + context.questionType().name(),
-                                EXPLANATION_SCHEMA_VERSION,
+                                context.explanationStrategy().strategyCode(),
+                                context.explanationStrategy().strategyVersion(),
                                 authorityIdentity),
                         PracticeModelCapabilityProfile.openAiAssessmentV1(),
-                        systemPrompt(context.questionType()),
+                        systemPrompt(
+                                context.questionType(),
+                                context.explanationStrategy().code()),
                         "",
                         userPayloadObject(context, images),
                         "rl_answer_explanation_"
@@ -238,16 +260,33 @@ public class ReadingListeningExplanationClient {
         return cleaned;
     }
 
-    private static String systemPrompt(CanonicalQuestionType questionType) {
+    private static String systemPrompt(
+            CanonicalQuestionType questionType,
+            ObjectiveExplanationStrategyRegistry.Code strategyCode) {
         String typeRule = switch (questionType) {
-            case SINGLE_CHOICE ->
-                    "optionRationales phải có đúng một dòng cho mọi stable option ID, gồm cả đáp án đúng và từng phương án bị loại.";
+            case SINGLE_CHOICE, MULTIPLE_ANSWER -> switch (strategyCode.generationFamily()) {
+                case EVIDENCE ->
+                        "strategyBlock chỉ có evidenceClaims, mỗi claim phải dẫn evidenceIds.";
+                case OPTION_ELIMINATION ->
+                        "strategyBlock chỉ có optionRationales và phải phủ đúng mọi stable option ID.";
+                case FULL_CONTEXT ->
+                        "strategyBlock chỉ có contextClaims và answerClaim, tất cả phải dẫn evidenceIds.";
+                case EVIDENCE_AND_ELIMINATION ->
+                        "strategyBlock có contextClaims, answerClaim và optionRationales, tất cả phải dẫn evidenceIds.";
+                case TFNG_RELATION, FILL_CONSTRAINTS ->
+                        throw new IllegalArgumentException(
+                        "Option strategy is incompatible: " + strategyCode);
+            };
+            case MATCHING ->
+                    "strategyBlock chỉ có targetExplanations, phủ đúng mọi stable target ID và dùng đúng candidateOptionId chính thức; mỗi dòng phải dẫn evidenceIds.";
             case TRUE_FALSE_NOT_GIVEN ->
-                    "Không trả lại relation/official key. Giải thích bằng whyTrueVi/whyFalseVi/whyNotGivenVi; NOT_GIVEN phải nêu thông tin còn thiếu.";
+                    "strategyBlock phải là CLAIM_EVIDENCE_RELATION với claim, relationClaims và missingInformationVi; không thay đổi official key.";
             case FILL_BLANK ->
-                    "blankExplanations phải có đúng một dòng cho mọi stable blank ID; không trả lại hoặc đề xuất acceptedValues/alias mới.";
-            case ESSAY, SPEAKING -> throw new IllegalArgumentException(
-                    "Reading/Listening explanation does not support subjective type " + questionType);
+                    "strategyBlock phải là CONSTRAINTS_AND_EVIDENCE với blankExplanations phủ đúng mọi stable blank ID.";
+            case ESSAY, SPEAKING ->
+                    throw new IllegalArgumentException(
+                            "Reading/Listening provider generation is not available for type "
+                                    + questionType);
         };
         return """
                 Bạn là giáo viên giải thích đáp án Reading/Listening cho học viên Việt Nam học tiếng Hàn.
@@ -260,7 +299,8 @@ public class ReadingListeningExplanationClient {
                 Chuỗi "[IMAGE]" không phải bằng chứng hình ảnh hợp lệ.
                 relevantTranslations là danh sách theo từng evidenceId; mỗi mục chỉ dịch evidence đã liên kết và ngữ cảnh tối thiểu.
                 Không thay đổi, nhắc lại hay đề xuất answerSpec. Không tạo construct/taxonomy/chip.
-                Trả JSON schema v3 đúng discriminator, lời giải hướng đến học viên bằng tiếng Việt.
+                Mọi nhận định tiếng Việt phải nằm trong typed claim và dẫn ít nhất một evidenceId.
+                Trả JSON schema v4 đúng strategy discriminator do giảng viên đã chọn; không tự đổi strategy.
                 Quy tắc theo loại câu hỏi: %s
                 """.formatted(typeRule);
     }
@@ -282,24 +322,48 @@ public class ReadingListeningExplanationClient {
             ExplanationContext context,
             List<ExplanationImageEvidence> images) {
         Map<String, Object> explanationSchema = switch (context.questionType()) {
-            case SINGLE_CHOICE -> singleChoiceExplanationSchema(context, images);
+            case SINGLE_CHOICE, MULTIPLE_ANSWER ->
+                    singleChoiceExplanationSchema(context, images);
+            case MATCHING -> matchingExplanationSchema(context, images);
             case FILL_BLANK -> fillBlankExplanationSchema(context, images);
             case TRUE_FALSE_NOT_GIVEN -> tfngExplanationSchema(context, images);
-            case ESSAY, SPEAKING -> throw new IllegalArgumentException(
-                    "subjective type is not supported");
+            case ESSAY, SPEAKING ->
+                    throw new IllegalArgumentException(
+                            "provider generation is not supported for this type");
         };
-        return responseVariant(context.questionType().name(), explanationSchema);
+        return responseVariant(context, explanationSchema);
     }
 
     private static Map<String, Object> responseVariant(
-            String questionType,
+            ExplanationContext context,
             Map<String, Object> explanationSchema) {
         return objectSchema(
-                List.of("schemaVersion", "questionType", "explanation"),
+                List.of(
+                        "schemaVersion",
+                        "strategyRegistryVersion",
+                        "strategyCode",
+                        "strategyVersion",
+                        "questionType",
+                        "explanation"),
                 Map.of(
                         "schemaVersion", Map.of(
                                 "type", "string", "const", EXPLANATION_SCHEMA_VERSION),
-                        "questionType", Map.of("type", "string", "const", questionType),
+                        "strategyRegistryVersion", Map.of(
+                                "type", "string",
+                                "const",
+                                context.explanationStrategy().registryVersion()),
+                        "strategyCode", Map.of(
+                                "type", "string",
+                                "const",
+                                context.explanationStrategy().strategyCode()),
+                        "strategyVersion", Map.of(
+                                "type", "string",
+                                "const",
+                                context.explanationStrategy().strategyVersion()),
+                        "questionType", Map.of(
+                                "type", "string",
+                                "const",
+                                context.questionType().name()),
                         "explanation", explanationSchema));
     }
 
@@ -309,14 +373,48 @@ public class ReadingListeningExplanationClient {
         List<String> optionIds = context.questionContent().options().stream()
                 .map(QuestionContent.Option::id)
                 .toList();
-        Map<String, Object> rationale = objectSchema(
-                List.of("optionId", "reasonVi", "evidenceIds"),
+        Map<String, Object> optionRationale = objectSchema(
+                List.of("claimId", "optionId", "reasonVi", "evidenceIds"),
                 Map.of(
+                        "claimId", Map.of("type", "string"),
                         "optionId", Map.of("type", "string", "enum", optionIds),
                         "reasonVi", Map.of("type", "string"),
                         "evidenceIds", stringArraySchema()));
         Map<String, Object> properties = commonExplanationProperties(context, images);
-        properties.put("optionRationales", Map.of("type", "array", "items", rationale));
+        Map<String, Object> strategyBlock = switch (
+                context.explanationStrategy().generationFamily()) {
+            case EVIDENCE -> objectSchema(
+                    List.of("evidenceClaims"),
+                    Map.of("evidenceClaims", claimArraySchema()));
+            case OPTION_ELIMINATION -> objectSchema(
+                    List.of("optionRationales"),
+                    Map.of(
+                            "optionRationales",
+                            Map.of(
+                                    "type", "array",
+                                    "items", optionRationale)));
+            case FULL_CONTEXT -> objectSchema(
+                    List.of("contextClaims", "answerClaim"),
+                    Map.of(
+                            "contextClaims", claimArraySchema(),
+                            "answerClaim", claimSchema()));
+            case EVIDENCE_AND_ELIMINATION -> objectSchema(
+                    List.of(
+                            "contextClaims",
+                            "answerClaim",
+                            "optionRationales"),
+                    Map.of(
+                            "contextClaims", claimArraySchema(),
+                            "answerClaim", claimSchema(),
+                            "optionRationales",
+                            Map.of(
+                                    "type", "array",
+                                    "items", optionRationale)));
+            case TFNG_RELATION, FILL_CONSTRAINTS ->
+                    throw new IllegalArgumentException(
+                    "Invalid single-choice explanation strategy");
+        };
+        properties.put("strategyBlock", strategyBlock);
         return objectSchema(new ArrayList<>(properties.keySet()), properties);
     }
 
@@ -328,9 +426,11 @@ public class ReadingListeningExplanationClient {
                 .toList();
         Map<String, Object> blank = objectSchema(
                 List.of(
-                        "blankId", "contextExplanationVi", "semanticConstraintVi",
+                        "claimId", "blankId", "contextExplanationVi",
+                        "semanticConstraintVi",
                         "grammarConstraintVi", "registerConstraintVi", "evidenceIds"),
                 Map.of(
+                        "claimId", Map.of("type", "string"),
                         "blankId", Map.of("type", "string", "enum", blankIds),
                         "contextExplanationVi", Map.of("type", "string"),
                         "semanticConstraintVi", Map.of("type", "string"),
@@ -338,7 +438,44 @@ public class ReadingListeningExplanationClient {
                         "registerConstraintVi", Map.of("type", "string"),
                         "evidenceIds", stringArraySchema()));
         Map<String, Object> properties = commonExplanationProperties(context, images);
-        properties.put("blankExplanations", Map.of("type", "array", "items", blank));
+        properties.put(
+                "strategyBlock",
+                objectSchema(
+                        List.of("blankExplanations"),
+                        Map.of(
+                                "blankExplanations",
+                                Map.of("type", "array", "items", blank))));
+        return objectSchema(new ArrayList<>(properties.keySet()), properties);
+    }
+
+    private static Map<String, Object> matchingExplanationSchema(
+            ExplanationContext context,
+            List<ExplanationImageEvidence> images) {
+        List<String> targetIds = context.questionContent().blanks().stream()
+                .map(QuestionContent.Blank::id)
+                .toList();
+        List<String> candidateIds = context.questionContent().options().stream()
+                .map(QuestionContent.Option::id)
+                .toList();
+        Map<String, Object> target = objectSchema(
+                List.of(
+                        "claimId", "targetId", "candidateOptionId",
+                        "reasonVi", "evidenceIds"),
+                Map.of(
+                        "claimId", Map.of("type", "string"),
+                        "targetId", Map.of("type", "string", "enum", targetIds),
+                        "candidateOptionId", Map.of(
+                                "type", "string", "enum", candidateIds),
+                        "reasonVi", Map.of("type", "string"),
+                        "evidenceIds", stringArraySchema()));
+        Map<String, Object> properties = commonExplanationProperties(context, images);
+        properties.put(
+                "strategyBlock",
+                objectSchema(
+                        List.of("targetExplanations"),
+                        Map.of(
+                                "targetExplanations",
+                                Map.of("type", "array", "items", target))));
         return objectSchema(new ArrayList<>(properties.keySet()), properties);
     }
 
@@ -346,11 +483,21 @@ public class ReadingListeningExplanationClient {
             ExplanationContext context,
             List<ExplanationImageEvidence> images) {
         Map<String, Object> properties = commonExplanationProperties(context, images);
-        properties.put("relationExplanationVi", Map.of("type", "string"));
-        properties.put("whyTrueVi", Map.of("type", "string"));
-        properties.put("whyFalseVi", Map.of("type", "string"));
-        properties.put("whyNotGivenVi", Map.of("type", "string"));
-        properties.put("missingInformationVi", Map.of("type", "string"));
+        properties.put(
+                "strategyBlock",
+                objectSchema(
+                        List.of(
+                                "claim",
+                                "whyTrue",
+                                "whyFalse",
+                                "whyNotGiven",
+                                "missingInformation"),
+                        Map.of(
+                                "claim", claimSchema(),
+                                "whyTrue", claimSchema(),
+                                "whyFalse", claimSchema(),
+                                "whyNotGiven", claimSchema(),
+                                "missingInformation", claimSchema())));
         return objectSchema(new ArrayList<>(properties.keySet()), properties);
     }
 
@@ -358,8 +505,6 @@ public class ReadingListeningExplanationClient {
             ExplanationContext context,
             List<ExplanationImageEvidence> images) {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("meaningVi", Map.of("type", "string"));
-        properties.put("correctReasonVi", Map.of("type", "string"));
         Map<String, Object> textArray = new LinkedHashMap<>();
         textArray.put("type", "array");
         textArray.put("items", textEvidenceSchema(context));
@@ -384,10 +529,26 @@ public class ReadingListeningExplanationClient {
         return properties;
     }
 
+    private static Map<String, Object> claimSchema() {
+        return objectSchema(
+                List.of("claimId", "textVi", "evidenceIds"),
+                Map.of(
+                        "claimId", Map.of("type", "string"),
+                        "textVi", Map.of("type", "string"),
+                        "evidenceIds", stringArraySchema()));
+    }
+
+    private static Map<String, Object> claimArraySchema() {
+        return Map.of(
+                "type", "array",
+                "minItems", 1,
+                "items", claimSchema());
+    }
+
     private static Map<String, Object> textEvidenceSchema(
             ExplanationContext context) {
-        boolean reading = context.stimulus().type()
-                == com.ksh.features.practice.assessment.AssessmentStimulus.StimulusType.READING_PASSAGE;
+        String evidenceKind = evidenceKind(context);
+        String evidenceRole = evidenceSourceRole(context);
         return objectSchema(
                 List.of(
                         "evidenceId", "kind", "purpose", "sourceRole",
@@ -396,7 +557,7 @@ public class ReadingListeningExplanationClient {
                         "evidenceId", Map.of("type", "string"),
                         "kind", Map.of(
                                 "type", "string",
-                                "const", reading ? "TEXT_SPAN" : "TRANSCRIPT_SPAN"),
+                                "const", evidenceKind),
                         "purpose", Map.of(
                                 "type", "string",
                                 "enum", List.of(
@@ -408,7 +569,7 @@ public class ReadingListeningExplanationClient {
                                         "MISSING_INFORMATION")),
                         "sourceRole", Map.of(
                                 "type", "string",
-                                "const", reading ? "PASSAGE" : "TRANSCRIPT"),
+                                "const", evidenceRole),
                         "exactQuoteKo", Map.of("type", "string"),
                         "startOffset", Map.of("type", "integer", "minimum", 0),
                         "endOffset", Map.of("type", "integer", "minimum", 1)));
@@ -454,6 +615,7 @@ public class ReadingListeningExplanationClient {
     private static Map<String, Object> stringArraySchema() {
         return Map.of(
                 "type", "array",
+                "minItems", 1,
                 "items", Map.of("type", "string"));
     }
 
@@ -473,57 +635,114 @@ public class ReadingListeningExplanationClient {
             ExplanationContext context,
             List<ExplanationImageEvidence> images) {
         Set<String> common = Set.of(
-                "meaningVi", "correctReasonVi", "textEvidenceRefs",
-                "imageEvidenceRefs", "relevantTranslations");
+                "strategyBlock",
+                "textEvidenceRefs",
+                "imageEvidenceRefs",
+                "relevantTranslations");
         Set<String> expected = new LinkedHashSet<>(common);
-        switch (context.questionType()) {
-            case SINGLE_CHOICE -> expected.add("optionRationales");
-            case FILL_BLANK -> expected.add("blankExplanations");
-            case TRUE_FALSE_NOT_GIVEN -> expected.addAll(List.of(
-                    "relationExplanationVi", "whyTrueVi", "whyFalseVi",
-                    "whyNotGivenVi", "missingInformationVi"));
-            case ESSAY, SPEAKING -> throw new IllegalArgumentException(
-                    "subjective type is not supported");
-        }
         requireFields(explanation, expected);
-        text(explanation, "meaningVi");
-        text(explanation, "correctReasonVi");
         Set<String> evidenceIds = validateEvidence(
                 array(explanation, "textEvidenceRefs"),
                 array(explanation, "imageEvidenceRefs"),
                 context,
                 images);
-        if ((context.questionType() == CanonicalQuestionType.SINGLE_CHOICE
-                || context.questionType() == CanonicalQuestionType.FILL_BLANK)
-                && evidenceIds.isEmpty()) {
+        if (evidenceIds.isEmpty()) {
             throw new IllegalArgumentException(
                     "objective explanation requires approved evidence");
         }
         validateRelevantTranslations(
                 array(explanation, "relevantTranslations"), evidenceIds);
 
+        JsonNode strategyBlock = object(explanation, "strategyBlock");
         switch (context.questionType()) {
-            case SINGLE_CHOICE ->
-                    validateOptionRationales(explanation, context, evidenceIds);
-            case FILL_BLANK ->
-                    validateBlankExplanations(explanation, context, evidenceIds);
+            case SINGLE_CHOICE, MULTIPLE_ANSWER -> validateSingleChoiceStrategy(
+                    strategyBlock, context, evidenceIds);
+            case MATCHING -> validateMatchingExplanations(
+                    strategyBlock, context, evidenceIds);
+            case FILL_BLANK -> validateBlankExplanations(
+                    strategyBlock, context, evidenceIds);
             case TRUE_FALSE_NOT_GIVEN ->
-                    validateTfngExplanation(explanation, context, evidenceIds);
+                    validateTfngExplanation(
+                            strategyBlock, context, evidenceIds);
             case ESSAY, SPEAKING -> throw new IllegalArgumentException(
                     "subjective type is not supported");
         }
     }
 
-    private static void validateOptionRationales(
-            JsonNode explanation,
+    private static void validateSingleChoiceStrategy(
+            JsonNode strategyBlock,
             ExplanationContext context,
             Set<String> evidenceIds) {
+        Set<String> claimIds = new LinkedHashSet<>();
+        switch (context.explanationStrategy().generationFamily()) {
+            case EVIDENCE -> {
+                requireFields(strategyBlock, Set.of("evidenceClaims"));
+                validateClaims(
+                        array(strategyBlock, "evidenceClaims"),
+                        evidenceIds,
+                        claimIds);
+            }
+            case OPTION_ELIMINATION -> {
+                requireFields(strategyBlock, Set.of("optionRationales"));
+                validateOptionRationales(
+                        strategyBlock,
+                        context,
+                        evidenceIds,
+                        claimIds);
+            }
+            case FULL_CONTEXT -> {
+                requireFields(
+                        strategyBlock,
+                        Set.of("contextClaims", "answerClaim"));
+                validateClaims(
+                        array(strategyBlock, "contextClaims"),
+                        evidenceIds,
+                        claimIds);
+                validateClaim(
+                        object(strategyBlock, "answerClaim"),
+                        evidenceIds,
+                        claimIds);
+            }
+            case EVIDENCE_AND_ELIMINATION -> {
+                requireFields(
+                        strategyBlock,
+                        Set.of(
+                                "contextClaims",
+                                "answerClaim",
+                                "optionRationales"));
+                validateClaims(
+                        array(strategyBlock, "contextClaims"),
+                        evidenceIds,
+                        claimIds);
+                validateClaim(
+                        object(strategyBlock, "answerClaim"),
+                        evidenceIds,
+                        claimIds);
+                validateOptionRationales(
+                        strategyBlock,
+                        context,
+                        evidenceIds,
+                        claimIds);
+            }
+            case TFNG_RELATION, FILL_CONSTRAINTS ->
+                    throw new IllegalArgumentException(
+                            "Single-choice strategy is incompatible");
+        }
+    }
+
+    private static void validateOptionRationales(
+            JsonNode strategyBlock,
+            ExplanationContext context,
+            Set<String> evidenceIds,
+            Set<String> claimIds) {
         Set<String> expected = context.questionContent().options().stream()
                 .map(QuestionContent.Option::id)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         Set<String> seen = new LinkedHashSet<>();
-        for (JsonNode node : array(explanation, "optionRationales")) {
-            requireFields(node, Set.of("optionId", "reasonVi", "evidenceIds"));
+        for (JsonNode node : array(strategyBlock, "optionRationales")) {
+            requireFields(node, Set.of(
+                    "claimId", "optionId", "reasonVi", "evidenceIds"));
+            requireUniqueClaimId(node, claimIds);
             String optionId = text(node, "optionId");
             if (!expected.contains(optionId) || !seen.add(optionId)) {
                 throw new IllegalArgumentException(
@@ -539,17 +758,21 @@ public class ReadingListeningExplanationClient {
     }
 
     private static void validateBlankExplanations(
-            JsonNode explanation,
+            JsonNode strategyBlock,
             ExplanationContext context,
             Set<String> evidenceIds) {
+        requireFields(strategyBlock, Set.of("blankExplanations"));
         Set<String> expected = context.questionContent().blanks().stream()
                 .map(QuestionContent.Blank::id)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         Set<String> seen = new LinkedHashSet<>();
-        for (JsonNode node : array(explanation, "blankExplanations")) {
+        Set<String> claimIds = new LinkedHashSet<>();
+        for (JsonNode node : array(strategyBlock, "blankExplanations")) {
             requireFields(node, Set.of(
-                    "blankId", "contextExplanationVi", "semanticConstraintVi",
+                    "claimId", "blankId", "contextExplanationVi",
+                    "semanticConstraintVi",
                     "grammarConstraintVi", "registerConstraintVi", "evidenceIds"));
+            requireUniqueClaimId(node, claimIds);
             String blankId = text(node, "blankId");
             if (!expected.contains(blankId) || !seen.add(blankId)) {
                 throw new IllegalArgumentException(
@@ -567,15 +790,74 @@ public class ReadingListeningExplanationClient {
         }
     }
 
-    private static void validateTfngExplanation(
-            JsonNode explanation,
+    private static void validateMatchingExplanations(
+            JsonNode strategyBlock,
             ExplanationContext context,
             Set<String> evidenceIds) {
-        text(explanation, "relationExplanationVi");
-        text(explanation, "whyTrueVi");
-        text(explanation, "whyFalseVi");
-        text(explanation, "whyNotGivenVi");
-        String missing = textAllowBlank(explanation, "missingInformationVi");
+        requireFields(strategyBlock, Set.of("targetExplanations"));
+        Map<String, String> officialByTarget = context.answerSpec().blanks().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        com.ksh.features.practice.assessment.AnswerSpec.BlankAnswer::blankId,
+                        answer -> answer.acceptedValues().size() == 1
+                                ? answer.acceptedValues().get(0)
+                                : ""));
+        Set<String> expectedTargets = context.questionContent().blanks().stream()
+                .map(QuestionContent.Blank::id)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<String> candidates = context.questionContent().options().stream()
+                .map(QuestionContent.Option::id)
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> seen = new LinkedHashSet<>();
+        Set<String> claimIds = new LinkedHashSet<>();
+        for (JsonNode node : array(strategyBlock, "targetExplanations")) {
+            requireFields(node, Set.of(
+                    "claimId", "targetId", "candidateOptionId",
+                    "reasonVi", "evidenceIds"));
+            requireUniqueClaimId(node, claimIds);
+            String targetId = text(node, "targetId");
+            String candidateId = text(node, "candidateOptionId");
+            if (!expectedTargets.contains(targetId)
+                    || !seen.add(targetId)
+                    || !candidates.contains(candidateId)
+                    || !candidateId.equals(officialByTarget.get(targetId))) {
+                throw new IllegalArgumentException(
+                        "matching explanation contradicts canonical target authority");
+            }
+            text(node, "reasonVi");
+            requireEvidenceReferences(
+                    stringList(node, "evidenceIds"), evidenceIds);
+        }
+        if (!seen.equals(expectedTargets)) {
+            throw new IllegalArgumentException(
+                    "matching explanation coverage is incomplete");
+        }
+    }
+
+    private static void validateTfngExplanation(
+            JsonNode strategyBlock,
+            ExplanationContext context,
+            Set<String> evidenceIds) {
+        requireFields(
+                strategyBlock,
+                Set.of(
+                        "claim",
+                        "whyTrue",
+                        "whyFalse",
+                        "whyNotGiven",
+                        "missingInformation"));
+        Set<String> claimIds = new LinkedHashSet<>();
+        validateClaim(
+                object(strategyBlock, "claim"),
+                evidenceIds,
+                claimIds);
+        validateClaim(object(strategyBlock, "whyTrue"), evidenceIds, claimIds);
+        validateClaim(object(strategyBlock, "whyFalse"), evidenceIds, claimIds);
+        validateClaim(
+                object(strategyBlock, "whyNotGiven"), evidenceIds, claimIds);
+        JsonNode missingInformation = object(
+                strategyBlock, "missingInformation");
+        validateClaim(missingInformation, evidenceIds, claimIds);
+        String missing = text(missingInformation, "textVi");
         String official = context.answerSpec().correctValue() == null
                 ? ""
                 : context.answerSpec().correctValue().trim()
@@ -589,6 +871,39 @@ public class ReadingListeningExplanationClient {
         if (!"NOT_GIVEN".equals(official) && evidenceIds.isEmpty()) {
             throw new IllegalArgumentException(
                     "TRUE/FALSE requires supporting or contrasting evidence");
+        }
+    }
+
+    private static void validateClaims(
+            JsonNode claims,
+            Set<String> evidenceIds,
+            Set<String> claimIds) {
+        if (claims.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "strategy claim list must not be empty");
+        }
+        for (JsonNode claim : claims) {
+            validateClaim(claim, evidenceIds, claimIds);
+        }
+    }
+
+    private static void validateClaim(
+            JsonNode claim,
+            Set<String> evidenceIds,
+            Set<String> claimIds) {
+        requireFields(claim, Set.of("claimId", "textVi", "evidenceIds"));
+        requireUniqueClaimId(claim, claimIds);
+        text(claim, "textVi");
+        requireEvidenceReferences(
+                stringList(claim, "evidenceIds"), evidenceIds);
+    }
+
+    private static void requireUniqueClaimId(
+            JsonNode claim,
+            Set<String> claimIds) {
+        if (!claimIds.add(text(claim, "claimId"))) {
+            throw new IllegalArgumentException(
+                    "strategy claim IDs must be unique");
         }
     }
 
@@ -646,13 +961,8 @@ public class ReadingListeningExplanationClient {
                 "exactQuoteKo", "startOffset", "endOffset"));
         String kind = text(node, "kind");
         String role = text(node, "sourceRole");
-        String expectedKind = context.stimulus().type()
-                == com.ksh.features.practice.assessment.AssessmentStimulus.StimulusType.READING_PASSAGE
-                ? "TEXT_SPAN"
-                : "TRANSCRIPT_SPAN";
-        String expectedRole = "TEXT_SPAN".equals(expectedKind)
-                ? "PASSAGE"
-                : "TRANSCRIPT";
+        String expectedKind = evidenceKind(context);
+        String expectedRole = evidenceSourceRole(context);
         if (!expectedKind.equals(kind) || !expectedRole.equals(role)
                 || !context.stimulus().hasUsableEvidence()) {
             throw new IllegalArgumentException(
@@ -669,6 +979,23 @@ public class ReadingListeningExplanationClient {
                     "text evidence is not an exact approved source span");
         }
         requireEvidencePurpose(text(node, "purpose"));
+    }
+
+    private static String evidenceKind(ExplanationContext context) {
+        return context.stimulus().type()
+                == com.ksh.features.practice.assessment.AssessmentStimulus
+                        .StimulusType.LISTENING_AUDIO
+                ? "TRANSCRIPT_SPAN"
+                : "TEXT_SPAN";
+    }
+
+    private static String evidenceSourceRole(
+            ExplanationContext context) {
+        return switch (context.stimulus().type()) {
+            case READING_PASSAGE -> "PASSAGE";
+            case LISTENING_AUDIO -> "TRANSCRIPT";
+            case STANDALONE_PROMPT -> "QUESTION_PROMPT";
+        };
     }
 
     private static void validateImageEvidence(
@@ -711,7 +1038,8 @@ public class ReadingListeningExplanationClient {
     private static void requireEvidenceReferences(
             List<String> references,
             Set<String> evidenceIds) {
-        if (!evidenceIds.containsAll(references)
+        if (references.isEmpty()
+                || !evidenceIds.containsAll(references)
                 || new LinkedHashSet<>(references).size() != references.size()) {
             throw new IllegalArgumentException(
                     "explanation references foreign evidence");

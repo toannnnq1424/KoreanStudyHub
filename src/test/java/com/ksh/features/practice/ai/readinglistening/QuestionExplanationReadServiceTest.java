@@ -246,7 +246,8 @@ class QuestionExplanationReadServiceTest {
                     {"evidenceId":"e1","translationVi":"Đoạn văn chính"}]}}
                 """);
         ReflectionTestUtils.setField(exact, "responseSchemaVersion", "v3");
-        ReflectionTestUtils.setField(exact, "inputContractJson", singleChoiceInput());
+        ReflectionTestUtils.setField(
+                exact, "inputContractJson", singleChoiceV3Input());
         when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(116L, "vi"))
                 .thenReturn(Optional.of(binding(116L, 216L)));
         when(artifactRepository.findById(216L)).thenReturn(Optional.of(exact));
@@ -266,6 +267,356 @@ class QuestionExplanationReadServiceTest {
             assertThat(translation.evidenceId()).isEqualTo("e1");
             assertThat(translation.translationVi()).isEqualTo("Đoạn văn chính");
         });
+    }
+
+    @Test
+    void objectiveReadAcceptsOnlyStrategyMatchedEvidenceLinkedV4Claims() {
+        QuestionExplanationArtifact exact = artifact(
+                218L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {
+                  "schemaVersion":"v4",
+                  "strategyRegistryVersion":"rl-explanation-strategy-registry-v1",
+                  "strategyCode":"EVIDENCE_ONLY",
+                  "strategyVersion":"v1",
+                  "questionType":"SINGLE_CHOICE",
+                  "explanation":{
+                    "textEvidenceRefs":[{
+                      "evidenceId":"e1","kind":"TEXT_SPAN",
+                      "purpose":"ANSWER_RATIONALE","sourceRole":"PASSAGE",
+                      "exactQuoteKo":"본문","startOffset":0,"endOffset":2
+                    }],
+                    "imageEvidenceRefs":[],
+                    "relevantTranslations":[{
+                      "evidenceId":"e1","translationVi":"Đoạn chính"
+                    }],
+                    "strategyBlock":{"evidenceClaims":[{
+                      "claimId":"claim-1",
+                      "textVi":"Nguồn xác nhận đáp án.",
+                      "evidenceIds":["e1"]
+                    }]}
+                  }
+                }
+                """);
+        ReflectionTestUtils.setField(exact, "responseSchemaVersion", "v4");
+        ReflectionTestUtils.setField(
+                exact, "inputContractJson", singleChoiceV3Input());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(
+                118L, "vi"))
+                .thenReturn(Optional.of(binding(118L, 218L)));
+        when(artifactRepository.findById(218L))
+                .thenReturn(Optional.of(exact));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact result =
+                service.readObjective(
+                        118L, CanonicalQuestionType.SINGLE_CHOICE)
+                        .orElseThrow();
+
+        assertThat(result.schemaVersion()).isEqualTo("v4");
+        assertThat(result.strategyCode()).isEqualTo("EVIDENCE_ONLY");
+        assertThat(result.claims()).singleElement().satisfies(claim -> {
+            assertThat(claim.claimId()).isEqualTo("claim-1");
+            assertThat(claim.evidenceIds()).containsExactly("e1");
+        });
+    }
+
+    @Test
+    void objectiveReadKeepsCurrentGenericStrategyWithTypeNativeV4Shape() {
+        QuestionExplanationArtifact fill = artifact(
+                221L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {
+                  "schemaVersion":"v4",
+                  "strategyRegistryVersion":"rl-explanation-strategy-registry-v2",
+                  "strategyCode":"KEYWORD_PARAPHRASE_BRIDGE",
+                  "strategyVersion":"v1",
+                  "questionType":"FILL_BLANK",
+                  "explanation":{
+                    "textEvidenceRefs":[{
+                      "evidenceId":"fill-evidence","kind":"TEXT_SPAN",
+                      "purpose":"BLANK_CONSTRAINT","sourceRole":"PASSAGE",
+                      "exactQuoteKo":"본문","startOffset":0,"endOffset":2
+                    }],
+                    "imageEvidenceRefs":[],
+                    "relevantTranslations":[],
+                    "strategyBlock":{"blankExplanations":[{
+                      "claimId":"fill-claim","blankId":"blank_1",
+                      "contextExplanationVi":"Nguồn khóa vị trí cần điền.",
+                      "semanticConstraintVi":"Danh từ",
+                      "grammarConstraintVi":"Vị trí danh từ",
+                      "registerConstraintVi":"Trung tính",
+                      "evidenceIds":["fill-evidence"]
+                    }]}
+                  }
+                }
+                """);
+        ReflectionTestUtils.setField(
+                fill, "questionType", "FILL_BLANK");
+        ReflectionTestUtils.setField(fill, "responseSchemaVersion", "v4");
+        ReflectionTestUtils.setField(
+                fill, "inputContractJson", currentFillBlankV3Input());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(
+                121L, "vi"))
+                .thenReturn(Optional.of(binding(121L, 221L)));
+        when(artifactRepository.findById(221L))
+                .thenReturn(Optional.of(fill));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact
+                fillResult = service.readObjective(
+                        121L, CanonicalQuestionType.FILL_BLANK)
+                .orElseThrow();
+
+        assertThat(fillResult.strategyCode())
+                .isEqualTo("KEYWORD_PARAPHRASE_BRIDGE");
+        assertThat(fillResult.typeExplanation())
+                .isInstanceOf(
+                        QuestionExplanationReadService
+                                .FillBlankExplanation.class);
+
+        QuestionExplanationArtifact tfng = artifact(
+                222L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {
+                  "schemaVersion":"v4",
+                  "strategyRegistryVersion":"rl-explanation-strategy-registry-v2",
+                  "strategyCode":"FULL_SOURCE_INLINE_HIGHLIGHT",
+                  "strategyVersion":"v1",
+                  "questionType":"TRUE_FALSE_NOT_GIVEN",
+                  "explanation":{
+                    "textEvidenceRefs":[{
+                      "evidenceId":"tfng-evidence","kind":"TEXT_SPAN",
+                      "purpose":"ANSWER_RATIONALE","sourceRole":"PASSAGE",
+                      "exactQuoteKo":"본문","startOffset":0,"endOffset":2
+                    }],
+                    "imageEvidenceRefs":[],
+                    "relevantTranslations":[],
+                    "strategyBlock":{
+                      "claim":{"claimId":"claim","textVi":"Đối chiếu mệnh đề.","evidenceIds":["tfng-evidence"]},
+                      "whyTrue":{"claimId":"true","textVi":"Nguồn xác nhận.","evidenceIds":["tfng-evidence"]},
+                      "whyFalse":{"claimId":"false","textVi":"Nguồn không phủ định.","evidenceIds":["tfng-evidence"]},
+                      "whyNotGiven":{"claimId":"ng","textVi":"Nguồn có thông tin.","evidenceIds":["tfng-evidence"]},
+                      "missingInformation":{"claimId":"missing","textVi":"Không thiếu dữ kiện.","evidenceIds":["tfng-evidence"]}
+                    }
+                  }
+                }
+                """);
+        ReflectionTestUtils.setField(
+                tfng, "questionType", "TRUE_FALSE_NOT_GIVEN");
+        ReflectionTestUtils.setField(tfng, "responseSchemaVersion", "v4");
+        ReflectionTestUtils.setField(
+                tfng, "inputContractJson", currentTfngV3Input());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(
+                122L, "vi"))
+                .thenReturn(Optional.of(binding(122L, 222L)));
+        when(artifactRepository.findById(222L))
+                .thenReturn(Optional.of(tfng));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact
+                tfngResult = service.readObjective(
+                        122L, CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN)
+                .orElseThrow();
+
+        assertThat(tfngResult.strategyCode())
+                .isEqualTo("FULL_SOURCE_INLINE_HIGHLIGHT");
+        assertThat(tfngResult.typeExplanation())
+                .isInstanceOf(
+                        QuestionExplanationReadService.TfngExplanation.class);
+    }
+
+    @Test
+    void objectiveReadAcceptsGroundedMultipleAnswerAndMatchingV4Artifacts() {
+        QuestionExplanationArtifact multiple = artifact(
+                223L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {
+                  "schemaVersion":"v4",
+                  "strategyRegistryVersion":"rl-explanation-strategy-registry-v2",
+                  "strategyCode":"EVIDENCE_AND_ELIMINATION",
+                  "strategyVersion":"v1",
+                  "questionType":"MULTIPLE_ANSWER",
+                  "explanation":{
+                    "textEvidenceRefs":[{
+                      "evidenceId":"multi-evidence","kind":"TEXT_SPAN",
+                      "purpose":"ANSWER_RATIONALE","sourceRole":"PASSAGE",
+                      "exactQuoteKo":"본문","startOffset":0,"endOffset":2
+                    }],
+                    "imageEvidenceRefs":[],
+                    "relevantTranslations":[{
+                      "evidenceId":"multi-evidence","translationVi":"Đoạn chính"
+                    }],
+                    "strategyBlock":{
+                      "contextClaims":[{
+                        "claimId":"multi-context","textVi":"Đối chiếu nguồn.",
+                        "evidenceIds":["multi-evidence"]
+                      }],
+                      "answerClaim":{
+                        "claimId":"multi-answer","textVi":"A và C đúng.",
+                        "evidenceIds":["multi-evidence"]
+                      },
+                      "optionRationales":[
+                        {"claimId":"multi-a","optionId":"option_1","reasonVi":"A được nguồn xác nhận.","evidenceIds":["multi-evidence"]},
+                        {"claimId":"multi-b","optionId":"option_2","reasonVi":"B trái nguồn.","evidenceIds":["multi-evidence"]},
+                        {"claimId":"multi-c","optionId":"option_3","reasonVi":"C được nguồn xác nhận.","evidenceIds":["multi-evidence"]}
+                      ]
+                    }
+                  }
+                }
+                """);
+        ReflectionTestUtils.setField(multiple, "questionType", "MULTIPLE_ANSWER");
+        ReflectionTestUtils.setField(multiple, "responseSchemaVersion", "v4");
+        ReflectionTestUtils.setField(multiple, "inputContractJson", multipleAnswerV3Input());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(123L, "vi"))
+                .thenReturn(Optional.of(binding(123L, 223L)));
+        when(artifactRepository.findById(223L)).thenReturn(Optional.of(multiple));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact multipleResult =
+                service.readObjective(123L, CanonicalQuestionType.MULTIPLE_ANSWER)
+                        .orElseThrow();
+        assertThat(multipleResult.typeExplanation())
+                .isInstanceOf(QuestionExplanationReadService.MultipleAnswerExplanation.class);
+        QuestionExplanationReadService.MultipleAnswerExplanation multipleTyped =
+                (QuestionExplanationReadService.MultipleAnswerExplanation)
+                        multipleResult.typeExplanation();
+        assertThat(multipleTyped.correctOptionIds())
+                .containsExactly("option_1", "option_3");
+        assertThat(multipleTyped.optionRationales()).hasSize(3);
+
+        QuestionExplanationArtifact matching = artifact(
+                224L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {
+                  "schemaVersion":"v4",
+                  "strategyRegistryVersion":"rl-explanation-strategy-registry-v2",
+                  "strategyCode":"MATCHING_MATRIX",
+                  "strategyVersion":"v1",
+                  "questionType":"MATCHING",
+                  "explanation":{
+                    "textEvidenceRefs":[{
+                      "evidenceId":"match-evidence","kind":"TEXT_SPAN",
+                      "purpose":"ANSWER_RATIONALE","sourceRole":"PASSAGE",
+                      "exactQuoteKo":"본문","startOffset":0,"endOffset":2
+                    }],
+                    "imageEvidenceRefs":[],
+                    "relevantTranslations":[],
+                    "strategyBlock":{"targetExplanations":[
+                      {"claimId":"match-1","targetId":"blank_1","candidateOptionId":"option_1","reasonVi":"Thủ đô là Seoul.","evidenceIds":["match-evidence"]},
+                      {"claimId":"match-2","targetId":"blank_2","candidateOptionId":"option_3","reasonVi":"Hòn đảo là Jeju.","evidenceIds":["match-evidence"]}
+                    ]}
+                  }
+                }
+                """);
+        ReflectionTestUtils.setField(matching, "questionType", "MATCHING");
+        ReflectionTestUtils.setField(matching, "responseSchemaVersion", "v4");
+        ReflectionTestUtils.setField(matching, "inputContractJson", matchingV3Input());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(124L, "vi"))
+                .thenReturn(Optional.of(binding(124L, 224L)));
+        when(artifactRepository.findById(224L)).thenReturn(Optional.of(matching));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact matchingResult =
+                service.readObjective(124L, CanonicalQuestionType.MATCHING)
+                        .orElseThrow();
+        assertThat(matchingResult.typeExplanation())
+                .isInstanceOf(QuestionExplanationReadService.MatchingExplanation.class);
+        QuestionExplanationReadService.MatchingExplanation matchingTyped =
+                (QuestionExplanationReadService.MatchingExplanation)
+                        matchingResult.typeExplanation();
+        assertThat(matchingTyped.targets())
+                .extracting(QuestionExplanationReadService.MatchingRationale::candidateOptionId)
+                .containsExactly("option_1", "option_3");
+    }
+
+    @Test
+    void objectiveReadAcceptsExactStandalonePromptEvidenceAndRejectsRoleDrift() {
+        String explanation = """
+                {
+                  "schemaVersion":"v4",
+                  "strategyRegistryVersion":"rl-explanation-strategy-registry-v1",
+                  "strategyCode":"EVIDENCE_ONLY",
+                  "strategyVersion":"v1",
+                  "questionType":"SINGLE_CHOICE",
+                  "explanation":{
+                    "textEvidenceRefs":[{
+                      "evidenceId":"e1","kind":"TEXT_SPAN",
+                      "purpose":"ANSWER_RATIONALE",
+                      "sourceRole":"QUESTION_PROMPT",
+                      "exactQuoteKo":"정답","startOffset":0,"endOffset":2
+                    }],
+                    "imageEvidenceRefs":[],
+                    "relevantTranslations":[],
+                    "strategyBlock":{"evidenceClaims":[{
+                      "claimId":"claim-standalone",
+                      "textVi":"Đề bài xác định đáp án.",
+                      "evidenceIds":["e1"]
+                    }]}
+                  }
+                }
+                """;
+        QuestionExplanationArtifact exact = artifact(
+                220L,
+                QuestionExplanationArtifact.STATUS_READY,
+                explanation);
+        ReflectionTestUtils.setField(exact, "responseSchemaVersion", "v4");
+        ReflectionTestUtils.setField(
+                exact, "inputContractJson", standaloneSingleChoiceV3Input());
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(
+                120L, "vi"))
+                .thenReturn(Optional.of(binding(120L, 220L)));
+        when(artifactRepository.findById(220L))
+                .thenReturn(Optional.of(exact));
+
+        QuestionExplanationReadService.ObjectiveExplanationArtifact result =
+                service.readObjective(
+                        120L, CanonicalQuestionType.SINGLE_CHOICE)
+                        .orElseThrow();
+
+        assertThat(result.evidence()).singleElement().satisfies(value -> {
+            QuestionExplanationReadService.TextEvidence text =
+                    (QuestionExplanationReadService.TextEvidence) value;
+            assertThat(text.sourceRole()).isEqualTo("QUESTION_PROMPT");
+            assertThat(text.exactQuoteKo()).isEqualTo("정답");
+        });
+
+        ReflectionTestUtils.setField(
+                exact,
+                "explanationJson",
+                explanation.replace(
+                        "\"sourceRole\":\"QUESTION_PROMPT\"",
+                        "\"sourceRole\":\"PASSAGE\""));
+        assertThat(service.readObjective(
+                120L, CanonicalQuestionType.SINGLE_CHOICE)).isEmpty();
+    }
+
+    @Test
+    void v2ReaderRejectsRepeatedQuoteInsteadOfGuessingOccurrence() {
+        QuestionExplanationArtifact repeated = artifact(
+                219L,
+                QuestionExplanationArtifact.STATUS_READY,
+                """
+                {"meaningVi":"Nghĩa","evidenceQuote":"본문",
+                 "evidenceKind":"TEXT","correctReasonVi":"Lý do",
+                 "relatedTranslationVi":"",
+                 "eliminatedOptions":[
+                   {"optionKey":"option_2","reasonVi":"Sai"}]}
+                """);
+        ReflectionTestUtils.setField(
+                repeated,
+                "inputContractJson",
+                singleChoiceInput().replace(
+                        "\"passageText\":\"본문 근거\"",
+                        "\"passageText\":\"본문 그리고 본문\""));
+        when(bindingRepository.findByQuestionVersionIdAndExplanationLanguage(
+                119L, "vi"))
+                .thenReturn(Optional.of(binding(119L, 219L)));
+        when(artifactRepository.findById(219L))
+                .thenReturn(Optional.of(repeated));
+
+        assertThat(service.readObjective(
+                119L, CanonicalQuestionType.SINGLE_CHOICE)).isEmpty();
     }
 
     @Test
@@ -358,6 +709,154 @@ class QuestionExplanationReadServiceTest {
                  "stimulus":{"passageText":"","transcriptText":null,"approved":true},
                  "media":[{"role":"question.image","kind":"IMAGE",
                    "sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
+                """;
+    }
+
+    private static String singleChoiceV3Input() {
+        return """
+                {
+                  "schemaVersion":"rl-explanation-input-v3",
+                  "questionType":"SINGLE_CHOICE",
+                  "explanationStrategy":{
+                    "registryVersion":"rl-explanation-strategy-registry-v1",
+                    "strategyCode":"EVIDENCE_ONLY",
+                    "strategyVersion":"v1"
+                  },
+                  "questionContent":{
+                    "options":[{"id":"option_1"},{"id":"option_2"}]
+                  },
+                  "answerSpec":{"correctOptionIds":["option_1"]},
+                  "stimulus":{
+                    "type":"READING_PASSAGE",
+                    "passageText":"본문 근거",
+                    "transcriptText":null,
+                    "approved":true
+                  },
+                  "media":[]
+                }
+                """;
+    }
+
+    private static String standaloneSingleChoiceV3Input() {
+        return """
+                {
+                  "schemaVersion":"rl-explanation-input-v3",
+                  "questionType":"SINGLE_CHOICE",
+                  "prompt":"정답을 고르세요.",
+                  "explanationStrategy":{
+                    "registryVersion":"rl-explanation-strategy-registry-v1",
+                    "strategyCode":"EVIDENCE_ONLY",
+                    "strategyVersion":"v1"
+                  },
+                  "questionContent":{
+                    "options":[{"id":"option_1"},{"id":"option_2"}]
+                  },
+                  "answerSpec":{"correctOptionIds":["option_1"]},
+                  "stimulus":{
+                    "type":"STANDALONE_PROMPT",
+                    "passageText":"정답을 고르세요.",
+                    "transcriptText":null,
+                    "approved":true
+                  },
+                  "media":[]
+                }
+                """;
+    }
+
+    private static String currentFillBlankV3Input() {
+        return """
+                {
+                  "schemaVersion":"rl-explanation-input-v3",
+                  "questionType":"FILL_BLANK",
+                  "explanationStrategy":{
+                    "registryVersion":"rl-explanation-strategy-registry-v2",
+                    "strategyCode":"KEYWORD_PARAPHRASE_BRIDGE",
+                    "strategyVersion":"v1"
+                  },
+                  "questionContent":{
+                    "blanks":[{"id":"blank_1"}]
+                  },
+                  "answerSpec":{
+                    "blanks":[{
+                      "blankId":"blank_1",
+                      "acceptedValues":["값"]
+                    }]
+                  },
+                  "stimulus":{
+                    "type":"READING_PASSAGE",
+                    "passageText":"본문 근거",
+                    "transcriptText":null,
+                    "approved":true
+                  },
+                  "media":[]
+                }
+                """;
+    }
+
+    private static String currentTfngV3Input() {
+        return """
+                {
+                  "schemaVersion":"rl-explanation-input-v3",
+                  "questionType":"TRUE_FALSE_NOT_GIVEN",
+                  "explanationStrategy":{
+                    "registryVersion":"rl-explanation-strategy-registry-v2",
+                    "strategyCode":"FULL_SOURCE_INLINE_HIGHLIGHT",
+                    "strategyVersion":"v1"
+                  },
+                  "questionContent":{"options":[],"blanks":[]},
+                  "answerSpec":{"correctValue":"TRUE"},
+                  "stimulus":{
+                    "type":"READING_PASSAGE",
+                    "passageText":"본문 근거",
+                    "transcriptText":null,
+                    "approved":true
+                  },
+                  "media":[]
+                }
+                """;
+    }
+
+    private static String multipleAnswerV3Input() {
+        return """
+                {
+                  "schemaVersion":"rl-explanation-input-v3",
+                  "questionType":"MULTIPLE_ANSWER",
+                  "explanationStrategy":{
+                    "registryVersion":"rl-explanation-strategy-registry-v2",
+                    "strategyCode":"EVIDENCE_AND_ELIMINATION",
+                    "strategyVersion":"v1"
+                  },
+                  "questionContent":{"options":[
+                    {"id":"option_1"},{"id":"option_2"},{"id":"option_3"}
+                  ],"blanks":[]},
+                  "answerSpec":{"correctOptionIds":["option_1","option_3"]},
+                  "stimulus":{"type":"READING_PASSAGE","passageText":"본문 근거","transcriptText":null,"approved":true},
+                  "media":[]
+                }
+                """;
+    }
+
+    private static String matchingV3Input() {
+        return """
+                {
+                  "schemaVersion":"rl-explanation-input-v3",
+                  "questionType":"MATCHING",
+                  "explanationStrategy":{
+                    "registryVersion":"rl-explanation-strategy-registry-v2",
+                    "strategyCode":"MATCHING_MATRIX",
+                    "strategyVersion":"v1"
+                  },
+                  "questionContent":{
+                    "options":[{"id":"option_1"},{"id":"option_2"},{"id":"option_3"}],
+                    "blanks":[{"id":"blank_1"},{"id":"blank_2"}]
+                  },
+                  "answerSpec":{"blanks":[
+                    {"blankId":"blank_1","acceptedValues":["option_1"]},
+                    {"blankId":"blank_2","acceptedValues":["option_3"]}
+                  ]},
+                  "stimulus":{"type":"READING_PASSAGE","passageText":"본문 근거","transcriptText":null,"approved":true},
+                  "media":[]
+                }
                 """;
     }
 

@@ -15,9 +15,10 @@ public record ExplanationContext(
         AssessmentStimulus stimulus,
         String teacherExplanation,
         String explanationLanguage,
-        String optionLabelMode
+        String optionLabelMode,
+        ObjectiveExplanationStrategyRegistry.Selection explanationStrategy
 ) {
-    public static final String SCHEMA_VERSION = "explanation-context-v2";
+    public static final String SCHEMA_VERSION = "explanation-context-v3";
 
     public ExplanationContext {
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
@@ -38,5 +39,11 @@ public record ExplanationContext(
         optionLabelMode = optionLabelMode == null || optionLabelMode.isBlank()
                 ? "NUMERIC"
                 : optionLabelMode;
+        ObjectiveExplanationStrategyRegistry.requireAllowed(
+                questionType,
+                explanationStrategy,
+                stimulus,
+                questionContent,
+                answerSpec);
     }
 }
