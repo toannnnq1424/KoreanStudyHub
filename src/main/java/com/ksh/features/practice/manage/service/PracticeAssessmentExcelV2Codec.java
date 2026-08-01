@@ -3,12 +3,16 @@ package com.ksh.features.practice.manage.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
+import com.ksh.features.practice.assessment
+        .ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
+import com.ksh.features.practice.assessment.WritingBlankContract;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -54,20 +58,23 @@ final class PracticeAssessmentExcelV2Codec {
             "option_E_text", "option_E_image_ref", "option_F_text", "option_F_image_ref",
             "option_G_text", "option_G_image_ref", "option_H_text", "option_H_image_ref",
             "writing_task", "teacher_note", "speaking_prompt_play_limit",
-            "speaking_preparation_seconds", "speaking_response_seconds"
+            "speaking_preparation_seconds", "speaking_response_seconds",
+            "explanation_strategy_code"
     };
     private static final String[] HEADER_NOTES = {
             "Số test: 1, 2...", "L1/R1/W1/S1, L2/R2...", "R1.1, L1.17...",
             "Số câu trong phần; không đếm xuyên kỹ năng", "Số câu trong nhóm",
             "Hướng dẫn chung tiếng Hàn", "Bài đọc hoặc transcript dùng chung", "Mã ảnh nhóm trong 02_TAI_NGUYEN",
             "Mã audio nhóm trong 02_TAI_NGUYEN", "Đề bài/câu hỏi tiếng Hàn", "Mã ảnh riêng của câu",
-            "Mã audio riêng của câu", "Loại câu hỏi", "Đáp án đúng; single dùng A; blank dùng B1=từ/từ",
+            "Mã audio riêng của câu", "Loại câu hỏi",
+            "Đáp án đúng; single dùng A; blank dùng B1=từ/từ; Q51/Q52 dùng B1=từ/từ;B2=từ/từ",
             "Giải thích tiếng Việt của giáo viên", "Điểm tối đa", "Chính sách chấm",
             "Nội dung A", "Ảnh A", "Nội dung B", "Ảnh B", "Nội dung C", "Ảnh C", "Nội dung D", "Ảnh D",
             "Nội dung E", "Ảnh E", "Nội dung F", "Ảnh F", "Nội dung G", "Ảnh G", "Nội dung H", "Ảnh H",
             "Chỉ dùng Q51/Q52/Q53/Q54 cho Writing", "Ghi chú giáo viên",
             "Số lần tự phát audio đề bài Speaking", "Số giây chuẩn bị Speaking",
-            "Số giây ghi âm câu trả lời Speaking"
+            "Số giây ghi âm câu trả lời Speaking",
+            "Reading/Listening: strategy code thuộc allowlist theo question_type"
     };
 
     private final PracticeDraftContractService draftContractService;
@@ -247,7 +254,7 @@ final class PracticeAssessmentExcelV2Codec {
         values[6] = sampleSharedText(type, questionNo);
         values[9] = samplePrompt(type, questionNo);
         values[12] = type.name();
-        values[13] = sampleAnswer(type);
+        values[13] = sampleAnswer(type, questionNo);
         values[14] = "Giải thích mẫu bằng tiếng Việt cho câu " + questionNo + ".";
         AssessmentAuthoringCatalogService.WritingTaskAuthoringPolicy writingTaskPolicy =
                 type == CanonicalQuestionType.ESSAY
@@ -257,7 +264,10 @@ final class PracticeAssessmentExcelV2Codec {
                 ? skillPolicy.defaultPoints()
                 : writingTaskPolicy.points();
         values[16] = sampleScoring(type);
-        if (type == CanonicalQuestionType.SINGLE_CHOICE) {
+        if (Set.of(
+                CanonicalQuestionType.SINGLE_CHOICE,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                CanonicalQuestionType.MATCHING).contains(type)) {
             int min = questionPolicy == null ? 2 : questionPolicy.minOptions();
             int max = questionPolicy == null ? 8 : questionPolicy.maxOptions();
             int optionCount = Math.min(max, Math.max(min, 4));
@@ -276,12 +286,28 @@ final class PracticeAssessmentExcelV2Codec {
             values[36] = 30;
             values[37] = 60;
         }
+        values[38] = sampleExplanationStrategy(type);
         return values;
+    }
+
+    private static String sampleExplanationStrategy(
+            CanonicalQuestionType type) {
+        return switch (type) {
+            case SINGLE_CHOICE -> "EVIDENCE_ONLY";
+            case MULTIPLE_ANSWER -> "EVIDENCE_AND_ELIMINATION";
+            case MATCHING -> "MATCHING_MATRIX";
+            case TRUE_FALSE_NOT_GIVEN ->
+                    "CLAIM_EVIDENCE_RELATION";
+            case FILL_BLANK -> "CONSTRAINTS_AND_EVIDENCE";
+            case ESSAY, SPEAKING -> "";
+        };
     }
 
     private static String sampleInstruction(CanonicalQuestionType type) {
         return switch (type) {
             case SINGLE_CHOICE -> "다음을 읽거나 듣고 알맞은 것을 고르십시오.";
+            case MULTIPLE_ANSWER -> "다음을 읽거나 듣고 알맞은 것을 모두 고르십시오.";
+            case MATCHING -> "각 설명에 알맞은 항목 A–H를 연결하십시오.";
             case TRUE_FALSE_NOT_GIVEN -> "내용과 같으면 TRUE, 다르면 FALSE, 알 수 없으면 NOT_GIVEN을 고르십시오.";
             case FILL_BLANK -> "빈칸에 들어갈 알맞은 말을 쓰십시오.";
             case ESSAY -> "다음 주제에 대해 쓰십시오.";
@@ -299,19 +325,34 @@ final class PracticeAssessmentExcelV2Codec {
     private static String samplePrompt(CanonicalQuestionType type, int number) {
         return switch (type) {
             case SINGLE_CHOICE -> "민수는 아침에 무엇을 합니까?";
+            case MULTIPLE_ANSWER -> "민수가 아침에 하는 일을 모두 고르십시오.";
+            case MATCHING -> "M1과 M2에 알맞은 항목을 연결하십시오.";
             case TRUE_FALSE_NOT_GIVEN -> "민수는 아침에 한국어를 공부합니다.";
             case FILL_BLANK -> "빈칸 B1에 들어갈 말을 쓰십시오.";
-            case ESSAY -> "한국어를 배우는 이유에 대해 쓰십시오. (" + number + ")";
+            case ESSAY -> switch (number) {
+                case 51 -> "문맥에 맞게 {{blank:q51-b1}}과 {{blank:q51-b2}}을 완성하십시오.";
+                case 52 -> "문맥에 맞게 {{blank:q52-b1}}과 {{blank:q52-b2}}을 완성하십시오.";
+                default -> "한국어를 배우는 이유에 대해 쓰십시오. (" + number + ")";
+            };
             case SPEAKING -> "자기소개를 해 보십시오. (" + number + ")";
         };
     }
 
-    private static String sampleAnswer(CanonicalQuestionType type) {
+    private static String sampleAnswer(
+            CanonicalQuestionType type,
+            int questionNo) {
         return switch (type) {
             case SINGLE_CHOICE -> "A";
+            case MULTIPLE_ANSWER -> "A/C";
+            case MATCHING -> "M1=A;M2=C";
             case TRUE_FALSE_NOT_GIVEN -> "TRUE";
             case FILL_BLANK -> "B1=한국어/한국말";
-            case ESSAY, SPEAKING -> "NO_OBJECTIVE_KEY";
+            case ESSAY -> switch (questionNo) {
+                case 51 -> "B1=참석합니다;B2=알려 주시기 바랍니다";
+                case 52 -> "B1=방문했습니다;B2=감사드립니다";
+                default -> "NO_OBJECTIVE_KEY";
+            };
+            case SPEAKING -> "NO_OBJECTIVE_KEY";
         };
     }
 
@@ -520,6 +561,8 @@ final class PracticeAssessmentExcelV2Codec {
         String prompt = reader.value(row, "question_prompt_ko");
         String correctAnswer = reader.value(row, "correct_answer");
         String explanation = reader.value(row, "teacher_explanation_vi");
+        String explanationStrategyCode = reader.value(
+                row, "explanation_strategy_code");
         BigDecimal points = positiveDecimal(reader.value(row, "points"));
 
         if (testNo <= 0) {
@@ -584,11 +627,58 @@ final class PracticeAssessmentExcelV2Codec {
 
         List<V2Option> options = readOptions(reader, row, materials, issues, rowKey, excelRow);
         validateOptionCount(sheetType, options, questionPolicy, issues, sheet, excelRow, rowKey);
+        String writingTask = reader.value(row, "writing_task")
+                .toUpperCase(Locale.ROOT);
         AnswerData answer = parseAnswer(
-                sheetType, correctAnswer, options, issues, sheet, excelRow, rowKey);
+                sheetType,
+                correctAnswer,
+                options,
+                writingTask,
+                issues,
+                sheet,
+                excelRow,
+                rowKey);
         if (explanation.isBlank() && ("READING".equals(skill) || "LISTENING".equals(skill))) {
             rowWarning(issues, "TEACHER_EXPLANATION_MISSING", sheet, excelRow, "teacher_explanation_vi",
                     "Nên bổ sung giải thích tiếng Việt để AI có ngữ cảnh tốt hơn.", rowKey);
+        }
+        if (Set.of(
+                CanonicalQuestionType.SINGLE_CHOICE,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                CanonicalQuestionType.MATCHING,
+                CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
+                CanonicalQuestionType.FILL_BLANK).contains(sheetType)
+                && ("READING".equals(skill)
+                || "LISTENING".equals(skill))) {
+            if (explanationStrategyCode.isBlank()) {
+                rowWarning(
+                        issues,
+                        "EXPLANATION_STRATEGY_SELECTION_REQUIRED",
+                        sheet,
+                        excelRow,
+                        "explanation_strategy_code",
+                        "Cần chọn strategy trước khi xuất bản.",
+                        rowKey);
+            } else {
+                try {
+                    ObjectiveExplanationStrategyRegistry.requireSelection(
+                            sheetType,
+                            explanationStrategyRegistryVersion(
+                                    explanationStrategyCode),
+                            explanationStrategyCode,
+                            ObjectiveExplanationStrategyRegistry
+                                    .STRATEGY_VERSION);
+                } catch (IllegalArgumentException exception) {
+                    rowBlocking(
+                            issues,
+                            "EXPLANATION_STRATEGY_INVALID",
+                            sheet,
+                            excelRow,
+                            "explanation_strategy_code",
+                            "Strategy không thuộc allowlist của dạng câu hỏi.",
+                            rowKey);
+                }
+            }
         }
 
         String groupInstruction = reader.value(row, "group_instruction_ko");
@@ -630,7 +720,6 @@ final class PracticeAssessmentExcelV2Codec {
                     "Các dòng cùng group_code có nội dung dùng chung khác nhau; hệ thống giữ dòng đầu.", rowKey);
         }
 
-        String writingTask = reader.value(row, "writing_task").toUpperCase(Locale.ROOT);
         if (sheetType == CanonicalQuestionType.ESSAY
                 && !Set.of("Q51", "Q52", "Q53", "Q54").contains(writingTask)) {
             rowBlocking(issues, "WRITING_TASK_INVALID", sheet, excelRow, "writing_task",
@@ -669,7 +758,8 @@ final class PracticeAssessmentExcelV2Codec {
                 answer.blanks(),
                 answer.correctOptionLetters(), answer.correctValue(),
                 writingTask, reader.value(row, "teacher_note"),
-                promptPlayLimit, preparationSeconds, responseSeconds);
+                promptPlayLimit, preparationSeconds, responseSeconds,
+                explanationStrategyCode);
     }
 
     private List<V2Option> readOptions(
@@ -698,7 +788,10 @@ final class PracticeAssessmentExcelV2Codec {
             String sheet,
             int row,
             String rowKey) {
-        if (type != CanonicalQuestionType.SINGLE_CHOICE) return;
+        if (!Set.of(
+                CanonicalQuestionType.SINGLE_CHOICE,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                CanonicalQuestionType.MATCHING).contains(type)) return;
         int min = policy == null ? 2 : policy.minOptions();
         int max = policy == null ? 8 : policy.maxOptions();
         if (options.size() < min || options.size() > max) {
@@ -712,6 +805,7 @@ final class PracticeAssessmentExcelV2Codec {
             CanonicalQuestionType type,
             String raw,
             List<V2Option> options,
+            String writingTask,
             List<PracticeAssessmentExcelService.ImportIssue> issues,
             String sheet,
             int row,
@@ -727,6 +821,44 @@ final class PracticeAssessmentExcelV2Codec {
                     yield AnswerData.empty();
                 }
                 yield new AnswerData(List.of(selected), null, List.of());
+            }
+            case MULTIPLE_ANSWER -> {
+                List<String> selected = Pattern.compile("[,;/]")
+                        .splitAsStream(raw.toUpperCase(Locale.ROOT))
+                        .map(String::trim)
+                        .filter(value -> !value.isBlank())
+                        .distinct()
+                        .toList();
+                if (selected.size() < 2 || !availableOptions.containsAll(selected)) {
+                    rowBlocking(issues, "MULTIPLE_ANSWER_INVALID", sheet, row, "correct_answer",
+                            "Nhiều đáp án phải có ít nhất hai chữ cái hiện có, ví dụ A/C.", rowKey);
+                    yield AnswerData.empty();
+                }
+                yield new AnswerData(selected, null, List.of());
+            }
+            case MATCHING -> {
+                List<V2Blank> matches = new ArrayList<>();
+                Set<String> targetIds = new LinkedHashSet<>();
+                for (String token : split(raw, ";")) {
+                    int separator = token.indexOf('=');
+                    String targetId = separator < 1 ? "" : token.substring(0, separator).trim();
+                    String candidate = separator < 1
+                            ? "" : token.substring(separator + 1).trim().toUpperCase(Locale.ROOT);
+                    if (!targetId.matches("[A-Za-z][A-Za-z0-9_]*")
+                            || !targetIds.add(targetId)
+                            || !availableOptions.contains(candidate)) {
+                        rowBlocking(issues, "MATCHING_ANSWER_INVALID", sheet, row, "correct_answer",
+                                "Ghép nhãn phải theo dạng M1=A;M2=C với target không trùng và nhãn A–H hiện có.", rowKey);
+                        matches.clear();
+                        break;
+                    }
+                    matches.add(new V2Blank(targetId, List.of(candidate)));
+                }
+                if (matches.isEmpty()) {
+                    rowBlockingOnce(issues, "MATCHING_ANSWER_INVALID", sheet, row, "correct_answer",
+                            "Câu ghép nhãn phải có ít nhất một target authoritative.", rowKey);
+                }
+                yield new AnswerData(List.of(), null, List.copyOf(matches));
             }
             case TRUE_FALSE_NOT_GIVEN -> {
                 String value = raw.trim().toUpperCase(Locale.ROOT).replace(' ', '_');
@@ -766,8 +898,75 @@ final class PracticeAssessmentExcelV2Codec {
                 }
                 yield new AnswerData(List.of(), null, List.copyOf(blanks));
             }
-            case ESSAY, SPEAKING -> new AnswerData(List.of(), null, List.of());
+            case ESSAY -> Set.of("Q51", "Q52").contains(writingTask)
+                    ? parseWritingBlankAnswer(
+                    raw, writingTask, issues, sheet, row, rowKey)
+                    : AnswerData.empty();
+            case SPEAKING -> AnswerData.empty();
         };
+    }
+
+    private AnswerData parseWritingBlankAnswer(
+            String raw,
+            String writingTask,
+            List<PracticeAssessmentExcelService.ImportIssue> issues,
+            String sheet,
+            int row,
+            String rowKey) {
+        List<String> tokens = split(raw, ";");
+        if (tokens.size() != 2) {
+            rowBlockingOnce(
+                    issues,
+                    "WRITING_STRUCTURED_BLANK_ANSWER_INVALID",
+                    sheet,
+                    row,
+                    "correct_answer",
+                    writingTask
+                            + " phải khai báo đúng hai ô theo dạng "
+                            + "B1=đáp án/đáp án tương đương;B2=đáp án/đáp án tương đương.",
+                    rowKey);
+            return AnswerData.empty();
+        }
+        List<V2Blank> blanks = new ArrayList<>();
+        for (int index = 0; index < tokens.size(); index++) {
+            String token = tokens.get(index);
+            int separator = token.indexOf('=');
+            String expectedSourceId = "B" + (index + 1);
+            if (separator <= 0
+                    || !expectedSourceId.equalsIgnoreCase(
+                    token.substring(0, separator).trim())) {
+                rowBlockingOnce(
+                        issues,
+                        "WRITING_STRUCTURED_BLANK_ANSWER_INVALID",
+                        sheet,
+                        row,
+                        "correct_answer",
+                        writingTask
+                                + " phải khai báo B1 rồi B2, không được suy luận "
+                                + "từ đề bài hoặc một chuỗi đáp án chung.",
+                        rowKey);
+                return AnswerData.empty();
+            }
+            List<String> accepted = split(
+                    token.substring(separator + 1).trim(), "/");
+            if (accepted.isEmpty()) {
+                rowBlockingOnce(
+                        issues,
+                        "WRITING_STRUCTURED_BLANK_ANSWER_INVALID",
+                        sheet,
+                        row,
+                        "correct_answer",
+                        "Mỗi ô " + writingTask
+                                + " phải có ít nhất một đáp án được chấp nhận.",
+                        rowKey);
+                return AnswerData.empty();
+            }
+            blanks.add(new V2Blank(
+                    writingTask.toLowerCase(Locale.ROOT)
+                            + "-b" + (index + 1),
+                    accepted));
+        }
+        return new AnswerData(List.of(), null, List.copyOf(blanks));
     }
 
     private ObjectNode buildDraft(
@@ -873,6 +1072,27 @@ final class PracticeAssessmentExcelV2Codec {
         question.put("explanationVi", row.explanation());
         question.put("importSource", "EXCEL");
         question.put("reviewRequired", false);
+        if (!row.explanationStrategyCode().isBlank()
+                && Set.of(
+                CanonicalQuestionType.SINGLE_CHOICE,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                CanonicalQuestionType.MATCHING,
+                CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
+                CanonicalQuestionType.FILL_BLANK).contains(row.type())) {
+            ObjectNode strategy =
+                    question.putObject("explanationStrategy");
+            strategy.put(
+                    "registryVersion",
+                    explanationStrategyRegistryVersion(
+                            row.explanationStrategyCode()));
+            strategy.put(
+                    "strategyCode",
+                    row.explanationStrategyCode());
+            strategy.put(
+                    "strategyVersion",
+                    ObjectiveExplanationStrategyRegistry
+                            .STRATEGY_VERSION);
+        }
         nullable(question, "imageUrl", row.questionImage());
         nullable(question, "audioUrl", row.questionAudio());
         nullable(question, "teacherNote", row.teacherNote());
@@ -880,9 +1100,20 @@ final class PracticeAssessmentExcelV2Codec {
         List<QuestionContent.Option> contentOptions = row.options().stream()
                 .map(option -> new QuestionContent.Option("opt_" + option.letter(), option.text(), option.imageReference()))
                 .toList();
-        List<QuestionContent.Blank> contentBlanks = row.blanks().stream()
-                .map(blank -> new QuestionContent.Blank(blank.id(), blank.id()))
-                .toList();
+        WritingTaskType structuredWritingTask =
+                structuredWritingTask(row.writingTask());
+        List<QuestionContent.Blank> contentBlanks =
+                structuredWritingTask == null
+                        ? row.blanks().stream()
+                        .map(blank -> new QuestionContent.Blank(
+                                blank.id(), blank.id()))
+                        .toList()
+                        : List.of();
+        WritingBlankContract.QuestionResponse writingResponse =
+                structuredWritingTask == null
+                        ? null
+                        : structuredWritingResponse(
+                        row, structuredWritingTask);
 
         QuestionContent.SpeakingDelivery speakingDelivery = row.type() == CanonicalQuestionType.SPEAKING
                 ? new QuestionContent.SpeakingDelivery(
@@ -902,14 +1133,29 @@ final class PracticeAssessmentExcelV2Codec {
                 contentBlanks,
                 row.questionImage(),
                 row.questionAudio(),
-                speakingDelivery);
+                speakingDelivery,
+                writingResponse);
+        WritingBlankContract.AnswerAuthority writingAuthority =
+                structuredWritingTask == null
+                        ? null
+                        : structuredWritingAuthority(
+                        row, structuredWritingTask);
         AnswerSpec answerSpec = new AnswerSpec(
                 AnswerSpec.SCHEMA_VERSION,
                 row.type(),
                 row.correctOptionLetters().stream().map(letter -> "opt_" + letter).toList(),
                 row.correctValue(),
-                row.blanks().stream().map(blank -> new AnswerSpec.BlankAnswer(blank.id(), blank.acceptedValues())).toList(),
-                row.scoringPolicy());
+                structuredWritingTask == null
+                        ? row.blanks().stream()
+                        .map(blank -> new AnswerSpec.BlankAnswer(
+                                blank.id(), row.type() == CanonicalQuestionType.MATCHING
+                                        ? blank.acceptedValues().stream()
+                                        .map(value -> "opt_" + value).toList()
+                                        : blank.acceptedValues()))
+                        .toList()
+                        : List.of(),
+                row.scoringPolicy(),
+                writingAuthority);
         try {
             question.set("questionContent", objectMapper.readTree(contractCodec.writeQuestionContent(content, row.type())));
             question.set("answerSpec", objectMapper.readTree(contractCodec.writeAnswerSpec(answerSpec, content)));
@@ -932,12 +1178,16 @@ final class PracticeAssessmentExcelV2Codec {
         }
         ObjectNode answer = question.putObject("answer");
         answer.put("type", legacyAnswerType(row.type()));
-        String legacyAnswer = legacyAnswer(row);
+        String legacyAnswer = structuredWritingTask == null
+                ? legacyAnswer(row)
+                : WritingBlankContract.RESPONSE_MODE;
         answer.put("value", legacyAnswer);
         question.put("answerKey", legacyAnswer);
         question.put("scoringPolicyCode", row.scoringPolicy().name());
 
-        if (!row.blanks().isEmpty()) {
+        if (Set.of(CanonicalQuestionType.FILL_BLANK, CanonicalQuestionType.MATCHING)
+                .contains(row.type())
+                && !row.blanks().isEmpty()) {
             ArrayNode blanks = question.putArray("fillBlanks");
             for (V2Blank blank : row.blanks()) {
                 ObjectNode value = blanks.addObject();
@@ -951,6 +1201,78 @@ final class PracticeAssessmentExcelV2Codec {
             question.put("essayTaskType", row.writingTask());
         }
         return question;
+    }
+
+    private static String explanationStrategyRegistryVersion(String code) {
+        return Set.of(
+                "EVIDENCE_ONLY",
+                "ELIMINATE_ALL_INCORRECT",
+                "FULL_CONTEXT_THEN_ANSWER",
+                "HYBRID",
+                "CLAIM_EVIDENCE_RELATION",
+                "CONSTRAINTS_AND_EVIDENCE")
+                .contains(code == null ? "" : code.trim().toUpperCase(Locale.ROOT))
+                ? ObjectiveExplanationStrategyRegistry.LEGACY_REGISTRY_VERSION
+                : ObjectiveExplanationStrategyRegistry.CURRENT_REGISTRY_VERSION;
+    }
+
+    private static WritingTaskType structuredWritingTask(
+            String writingTask) {
+        return switch (writingTask) {
+            case "Q51" -> WritingTaskType.Q51;
+            case "Q52" -> WritingTaskType.Q52;
+            default -> null;
+        };
+    }
+
+    private static WritingBlankContract.QuestionResponse
+    structuredWritingResponse(
+            V2QuestionRow row,
+            WritingTaskType taskType) {
+        return new WritingBlankContract.QuestionResponse(
+                WritingBlankContract.RESPONSE_SCHEMA_VERSION,
+                WritingBlankContract.RESPONSE_MODE,
+                taskType,
+                List.of(
+                        new WritingBlankContract.BlankDefinition(
+                                row.blanks().get(0).id(),
+                                1,
+                                taskType.name() + " 빈칸 1"),
+                        new WritingBlankContract.BlankDefinition(
+                                row.blanks().get(1).id(),
+                                2,
+                                taskType.name() + " 빈칸 2")));
+    }
+
+    private static WritingBlankContract.AnswerAuthority
+    structuredWritingAuthority(
+            V2QuestionRow row,
+            WritingTaskType taskType) {
+        return new WritingBlankContract.AnswerAuthority(
+                WritingBlankContract.AUTHORITY_SCHEMA_VERSION,
+                taskType,
+                WritingBlankContract.NORMALIZATION,
+                WritingBlankContract.WHITESPACE_POLICY,
+                List.of(
+                        writingBlankAuthority(row.blanks().get(0), 1),
+                        writingBlankAuthority(row.blanks().get(1), 2)));
+    }
+
+    private static WritingBlankContract.BlankAuthority
+    writingBlankAuthority(
+            V2Blank blank,
+            int ordinal) {
+        return new WritingBlankContract.BlankAuthority(
+                blank.id(),
+                ordinal,
+                blank.acceptedValues().stream()
+                        .map(text ->
+                                new WritingBlankContract.AcceptedAnswer(
+                                        text,
+                                        WritingBlankContract.Equivalence.EXACT,
+                                        null,
+                                        List.of()))
+                        .toList());
     }
 
     private static String canonicalPrompt(V2QuestionRow row) {
@@ -1073,7 +1395,7 @@ final class PracticeAssessmentExcelV2Codec {
 
     private static ScoringPolicyCode scoringPolicy(CanonicalQuestionType type, String raw) {
         return switch (type) {
-            case FILL_BLANK -> ScoringPolicyCode.NORMALIZED_EXACT;
+            case FILL_BLANK, MATCHING -> ScoringPolicyCode.NORMALIZED_EXACT;
             case ESSAY, SPEAKING -> ScoringPolicyCode.PROFILE_BASED;
             default -> ScoringPolicyCode.ALL_OR_NOTHING;
         };
@@ -1084,7 +1406,8 @@ final class PracticeAssessmentExcelV2Codec {
         if (row.type() == CanonicalQuestionType.FILL_BLANK) {
             return row.blanks().isEmpty() ? "" : row.blanks().get(0).acceptedValues().get(0);
         }
-        if (row.type() == CanonicalQuestionType.SINGLE_CHOICE) {
+        if (row.type() == CanonicalQuestionType.SINGLE_CHOICE
+                || row.type() == CanonicalQuestionType.MULTIPLE_ANSWER) {
             List<String> indexes = new ArrayList<>();
             for (String letter : row.correctOptionLetters()) {
                 for (int index = 0; index < row.options().size(); index++) {
@@ -1100,6 +1423,8 @@ final class PracticeAssessmentExcelV2Codec {
         return switch (type) {
             case TRUE_FALSE_NOT_GIVEN -> "TFNG";
             case FILL_BLANK -> "FILL_BLANK";
+            case MULTIPLE_ANSWER -> "MULTIPLE";
+            case MATCHING -> "MATCHING";
             case ESSAY, SPEAKING -> "PROFILE";
             default -> "SINGLE";
         };
@@ -1378,6 +1703,8 @@ final class PracticeAssessmentExcelV2Codec {
         sheets.put("05_FILL_BLANK", CanonicalQuestionType.FILL_BLANK);
         sheets.put("06_ESSAY", CanonicalQuestionType.ESSAY);
         sheets.put("07_SPEAKING", CanonicalQuestionType.SPEAKING);
+        sheets.put("08_MULTIPLE_ANSWER", CanonicalQuestionType.MULTIPLE_ANSWER);
+        sheets.put("09_MATCHING", CanonicalQuestionType.MATCHING);
         return java.util.Collections.unmodifiableMap(sheets);
     }
 
@@ -1443,7 +1770,8 @@ final class PracticeAssessmentExcelV2Codec {
             String teacherNote,
             Integer promptPlayLimit,
             Integer preparationSeconds,
-            Integer responseSeconds) {
+            Integer responseSeconds,
+            String explanationStrategyCode) {
     }
 
     private static final class SheetReader {

@@ -374,6 +374,8 @@ public class PracticePublishedVersionService {
             groupNode.put("groupCode", group.getGroupLabel());
             groupNode.put("instruction", group.getInstruction());
             groupNode.put("stimulusType", group.getStimulusType());
+            groupNode.put("stimulusLanguageTag", group.getStimulusLanguageTag());
+            groupNode.put("instructionLanguageTag", group.getInstructionLanguageTag());
             groupNode.put("passageText", group.getPassageText());
             groupNode.put("transcriptText", group.getTranscriptText());
             groupNode.put("imageUrl", group.getImageUrl());
@@ -381,6 +383,8 @@ public class PracticePublishedVersionService {
             Map<String, Object> stimulus = new LinkedHashMap<>();
             stimulus.put("schemaVersion", "practice-stimulus-v1");
             stimulus.put("type", group.getStimulusType());
+            stimulus.put("languageTag", group.getStimulusLanguageTag());
+            stimulus.put("instructionLanguageTag", group.getInstructionLanguageTag());
             stimulus.put("instruction", group.getInstruction());
             stimulus.put("passageText", group.getPassageText());
             stimulus.put("transcriptText", group.getTranscriptText());

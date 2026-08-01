@@ -15,6 +15,17 @@ public final class PracticeFormFields {
         return ANSWER_PREFIX + questionId;
     }
 
+    public static String writingBlankAnswerKey(
+            Long questionId, String blankId) {
+        if (questionId == null || questionId <= 0
+                || blankId == null
+                || !blankId.matches("q5[12]-b[12]")) {
+            throw new IllegalArgumentException(
+                    "Invalid Writing blank form identity");
+        }
+        return ANSWER_PREFIX + questionId + "__blank_" + blankId;
+    }
+
     public static boolean isAnswerField(String key) {
         return key != null && key.startsWith(ANSWER_PREFIX);
     }

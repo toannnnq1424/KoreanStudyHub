@@ -10,9 +10,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributesModelMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,5 +54,33 @@ class PracticeDraftControllerUploadSecurityTest {
 
         assertEquals(400, response.getStatusCode().value());
         assertFalse(String.valueOf(response.getBody()).contains("payload.html"));
+    }
+
+    @Test
+    void publishReturnsExactSafeTypedExplanationPreflightReason() {
+        PracticePublisherService publisher =
+                mock(PracticePublisherService.class);
+        PracticeDraftController publishController =
+                new PracticeDraftController(
+                        draftService,
+                        publisher,
+                        mock(PracticeDraftValidator.class));
+        when(publisher.publish(10L, 7L)).thenThrow(
+                new IllegalStateException(
+                        "Câu 1 (Đọc) chưa có lời giải typed đã duyệt."));
+        RedirectAttributesModelMap redirect =
+                new RedirectAttributesModelMap();
+
+        String destination = publishController.publishDraft(
+                10L, user, redirect);
+
+        assertEquals("redirect:/practice/manage/drafts/10", destination);
+        assertEquals(
+                "Câu 1 (Đọc) chưa có lời giải typed đã duyệt.",
+                redirect.getFlashAttributes().get("error"));
+        assertFalse(String.valueOf(
+                redirect.getFlashAttributes().get("error"))
+                .contains("clientId"));
+        assertTrue(redirect.getFlashAttributes().containsKey("error"));
     }
 }

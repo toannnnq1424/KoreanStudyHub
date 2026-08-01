@@ -134,10 +134,10 @@ public class PracticeDraftPreviewService {
         } catch (IllegalArgumentException exception) {
             JsonNode typedContent = question.path("questionContent");
             if (typedContent.isObject()
-                    && QuestionContent.SCHEMA_VERSION_V2.equals(
+                    && QuestionContent.supportsTypedSpeakingDelivery(
                     typedContent.path("schemaVersion").asText())) {
                 throw new IllegalArgumentException(
-                        "Không thể xem trước câu Speaking v2 có hợp đồng giao đề không hợp lệ.",
+                        "Không thể xem trước câu Speaking v2/v3 có hợp đồng giao đề không hợp lệ.",
                         exception);
             }
             content = QuestionContent.empty();
@@ -165,7 +165,9 @@ public class PracticeDraftPreviewService {
                 content.blanks(),
                 imageReference,
                 audioReference,
-                content.speakingDelivery());
+                content.speakingDelivery(),
+                content.writingResponse(),
+                content.languageTag());
     }
 
     private static QuestionContent safeDeliveryContent(QuestionContent content) {
@@ -189,7 +191,9 @@ public class PracticeDraftPreviewService {
                 content.blanks(),
                 safeMediaReference(content.imageReference()),
                 safeMediaReference(content.audioReference()),
-                speakingDelivery
+                speakingDelivery,
+                content.writingResponse(),
+                content.languageTag()
         );
     }
 

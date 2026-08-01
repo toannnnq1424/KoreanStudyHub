@@ -17,7 +17,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 
@@ -98,6 +100,70 @@ public class PracticeDraftServiceTest {
         JsonNode root = objectMapper.readTree(draft.getDraftJson());
         JsonNode qNode = root.path("sections").get(0).path("groups").get(0).path("questions").get(0);
         assertEquals("Q54", qNode.path("essayTaskType").asText());
+    }
+
+    @Test
+    void historicalQ51WithoutTypedAuthorityIsMarkedLegacyReadOnly()
+            throws Exception {
+        PracticeSection section = new PracticeSection(
+                10L, "Writing", "WRITING", "DEFAULT",
+                "", 50, BigDecimal.TEN, 0);
+        PracticeQuestion question = new PracticeQuestion(
+                10L, 51, "ESSAY", "Prompt",
+                null, "값/표현;그대로", "Explanation",
+                BigDecimal.TEN, 0);
+        question.setWritingTaskType(WritingTaskType.Q51);
+
+        Map<String, Object> mapped = publishedQuestionMap(
+                service, question, section);
+
+        assertEquals(
+                "LEGACY_ESSAY_READ_ONLY",
+                mapped.get("writingCompatibilityMode"));
+        assertEquals("값/표현;그대로", mapped.get("answerKey"));
+    }
+
+    @Test
+    void historicalQ51WithTypedAuthorityIsMarkedStructured()
+            throws Exception {
+        PracticeSection section = new PracticeSection(
+                10L, "Writing", "WRITING", "DEFAULT",
+                "", 50, BigDecimal.TEN, 0);
+        PracticeQuestion question = new PracticeQuestion(
+                10L, 51, "ESSAY", "Prompt",
+                null, "", "Explanation", BigDecimal.TEN, 0);
+        question.setWritingTaskType(WritingTaskType.Q51);
+        question.setQuestionContentJson("""
+                {"schemaVersion":"question-content-v3","options":[],
+                 "blanks":[],"languageTag":"ko",
+                 "writingResponse":{"responseSchemaVersion":"writing-blanks.v1",
+                 "responseMode":"STRUCTURED_BLANKS","taskType":"Q51",
+                 "blanks":[
+                   {"blankId":"q51-b1","ordinal":1,"context":"첫 문맥"},
+                   {"blankId":"q51-b2","ordinal":2,"context":"둘째 문맥"}]}}
+                """);
+        question.setAnswerSpecJson("""
+                {"schemaVersion":"answer-spec-v1","questionType":"ESSAY",
+                 "correctOptionIds":[],"blanks":[],
+                 "scoringPolicyCode":"PROFILE_BASED",
+                 "writingBlankAuthority":{
+                   "contractVersion":"writing-blank-authority.v1",
+                   "taskType":"Q51","normalization":"NFC",
+                   "whitespacePolicy":"TRIM_COLLAPSE","blanks":[
+                     {"blankId":"q51-b1","ordinal":1,
+                      "acceptedAnswers":[{"text":"답/1;값",
+                      "equivalence":"EXACT","evidenceIds":[]}]},
+                     {"blankId":"q51-b2","ordinal":2,
+                      "acceptedAnswers":[{"text":"답2",
+                      "equivalence":"EXACT","evidenceIds":[]}]}]}}
+                """);
+
+        Map<String, Object> mapped = publishedQuestionMap(
+                service, question, section);
+
+        assertEquals(
+                "STRUCTURED_BLANKS",
+                mapped.get("writingCompatibilityMode"));
     }
 
     @Test
@@ -202,5 +268,20 @@ public class PracticeDraftServiceTest {
         Field field = entity.getClass().getDeclaredField("id");
         field.setAccessible(true);
         field.set(entity, id);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> publishedQuestionMap(
+            PracticeDraftService target,
+            PracticeQuestion question,
+            PracticeSection section
+    ) throws Exception {
+        Method method = PracticeDraftService.class.getDeclaredMethod(
+                "publishedQuestionToDraftMap",
+                PracticeQuestion.class,
+                PracticeSection.class);
+        method.setAccessible(true);
+        return (Map<String, Object>) method.invoke(
+                target, question, section);
     }
 }

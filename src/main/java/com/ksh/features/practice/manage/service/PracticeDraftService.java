@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.*;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.assessment.WritingBlankContract;
 import com.ksh.features.practice.manage.speaking.SpeakingPromptAutosaveAuthorityMerger;
 import com.ksh.features.practice.manage.speaking.SpeakingPromptLifecycleService;
 import com.ksh.features.practice.repository.*;
@@ -343,6 +344,8 @@ public class PracticeDraftService {
                         grpMap.put("groupCode", grp.getGroupLabel());
                         grpMap.put("instruction", grp.getInstruction());
                         grpMap.put("stimulusType", grp.getStimulusType());
+                        grpMap.put("stimulusLanguageTag", grp.getStimulusLanguageTag());
+                        grpMap.put("instructionLanguageTag", grp.getInstructionLanguageTag());
                         grpMap.put("passageText", grp.getPassageText());
                         grpMap.put("transcriptText", grp.getTranscriptText());
                         grpMap.put("imageUrl", grp.getImageUrl());
@@ -351,6 +354,8 @@ public class PracticeDraftService {
                         java.util.Map<String, Object> stimulus = new java.util.LinkedHashMap<>();
                         stimulus.put("schemaVersion", PracticeDraftContractService.STIMULUS_SCHEMA_VERSION);
                         stimulus.put("type", grp.getStimulusType() == null ? "NONE" : grp.getStimulusType());
+                        stimulus.put("languageTag", grp.getStimulusLanguageTag());
+                        stimulus.put("instructionLanguageTag", grp.getInstructionLanguageTag());
                         stimulus.put("instruction", grp.getInstruction());
                         stimulus.put("passageText", grp.getPassageText());
                         stimulus.put("transcriptText", grp.getTranscriptText());
@@ -435,6 +440,26 @@ public class PracticeDraftService {
                 && PracticeQuestion.TYPE_ESSAY.equals(question.getQuestionType())
                 && question.getWritingTaskType() != null) {
             questionMap.put("essayTaskType", question.getWritingTaskType().name());
+            if (question.getWritingTaskType() == WritingTaskType.Q51
+                    || question.getWritingTaskType() == WritingTaskType.Q52) {
+                JsonNode content = question.getQuestionContentJson() == null
+                        ? null
+                        : objectMapper.readTree(
+                        question.getQuestionContentJson());
+                JsonNode spec = question.getAnswerSpecJson() == null
+                        ? null
+                        : objectMapper.readTree(question.getAnswerSpecJson());
+                boolean structured = content != null
+                        && content.path("writingResponse").isObject()
+                        && spec != null
+                        && spec.path("writingBlankAuthority").isObject();
+                questionMap.put(
+                        "writingCompatibilityMode",
+                        structured
+                                ? WritingBlankContract.RESPONSE_MODE
+                                : WritingBlankContract
+                                .AUTHORING_MODE_LEGACY_READ_ONLY);
+            }
         }
         if (question.getOptionsJson() != null) {
             try {

@@ -3,6 +3,7 @@ package com.ksh.features.practice.dto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.ksh.features.practice.assessment.WritingBlankContract;
 
 public final class PracticeDtos {
     private PracticeDtos() {
@@ -184,7 +186,42 @@ public final class PracticeDtos {
                                       String imageReference,
                                       String audioReference,
                                       List<PracticeQuestionOptionRow> optionRows,
-                                      List<PracticeQuestionBlankRow> blankRows) {
+                                      List<PracticeQuestionBlankRow> blankRows,
+                                      WritingBlankContract.QuestionResponse
+                                              writingResponse,
+                                      String languageTag) {
+        public PracticeQuestionRow(Long id, Integer questionNo,
+                                   String questionType, String prompt,
+                                   List<String> options,
+                                   String answerKey,
+                                   String explanation,
+                                   String groupLabel,
+                                   String imageReference,
+                                   String audioReference,
+                                   List<PracticeQuestionOptionRow> optionRows,
+                                   List<PracticeQuestionBlankRow> blankRows,
+                                   WritingBlankContract.QuestionResponse
+                                           writingResponse) {
+            this(id, questionNo, questionType, prompt, options, answerKey,
+                    explanation, groupLabel, imageReference, audioReference,
+                    optionRows, blankRows, writingResponse, "ko");
+        }
+
+        public PracticeQuestionRow(Long id, Integer questionNo,
+                                   String questionType, String prompt,
+                                   List<String> options,
+                                   String answerKey,
+                                   String explanation,
+                                   String groupLabel,
+                                   String imageReference,
+                                   String audioReference,
+                                   List<PracticeQuestionOptionRow> optionRows,
+                                   List<PracticeQuestionBlankRow> blankRows) {
+            this(id, questionNo, questionType, prompt, options, answerKey,
+                    explanation, groupLabel, imageReference, audioReference,
+                    optionRows, blankRows, null, "ko");
+        }
+
         public PracticeQuestionRow(Long id, Integer questionNo,
                                    String questionType, String prompt,
                                    List<String> options,
@@ -195,7 +232,8 @@ public final class PracticeDtos {
                                    String audioReference,
                                    List<PracticeQuestionOptionRow> optionRows) {
             this(id, questionNo, questionType, prompt, options, answerKey, explanation,
-                    groupLabel, imageReference, audioReference, optionRows, null);
+                    groupLabel, imageReference, audioReference, optionRows,
+                    null, null, "ko");
         }
 
         public PracticeQuestionRow(Long id, Integer questionNo,
@@ -205,7 +243,7 @@ public final class PracticeDtos {
                                    String explanation,
                                    String groupLabel) {
             this(id, questionNo, questionType, prompt, options, answerKey, explanation,
-                    groupLabel, null, null, null, null);
+                    groupLabel, null, null, null, null, null, "ko");
         }
 
         public PracticeQuestionRow {
@@ -214,6 +252,9 @@ public final class PracticeDtos {
                     ? fallbackOptionRows(options)
                     : List.copyOf(optionRows);
             blankRows = blankRows == null ? List.of() : List.copyOf(blankRows);
+            languageTag = "ko".equals(languageTag) || "vi".equals(languageTag)
+                    ? languageTag
+                    : "ko";
         }
 
         private static List<PracticeQuestionOptionRow> fallbackOptionRows(List<String> options) {
@@ -242,8 +283,61 @@ public final class PracticeDtos {
         String stimulusProvenanceJson,
         String audioUrl,
         ExampleBox exampleBox,
-        List<PracticeQuestionRow> questions
+        List<PracticeQuestionRow> questions,
+        String stimulusLanguageTag,
+        String instructionLanguageTag
     ) {
+        public PracticeQuestionGroupRow {
+            stimulusLanguageTag = "ko".equals(stimulusLanguageTag)
+                    || "vi".equals(stimulusLanguageTag)
+                    ? stimulusLanguageTag
+                    : "ko";
+            instructionLanguageTag = "ko".equals(instructionLanguageTag)
+                    || "vi".equals(instructionLanguageTag)
+                    ? instructionLanguageTag
+                    : "vi";
+        }
+
+        public PracticeQuestionGroupRow(Long id,
+                                        Long sectionId,
+                                        String groupLabel,
+                                        Integer questionFrom,
+                                        Integer questionTo,
+                                        String instruction,
+                                        String stimulusType,
+                                        String passageText,
+                                        String transcriptText,
+                                        String imageUrl,
+                                        String stimulusProvenanceJson,
+                                        String audioUrl,
+                                        ExampleBox exampleBox,
+                                        List<PracticeQuestionRow> questions,
+                                        String stimulusLanguageTag) {
+            this(id, sectionId, groupLabel, questionFrom, questionTo, instruction,
+                    stimulusType, passageText, transcriptText, imageUrl,
+                    stimulusProvenanceJson, audioUrl, exampleBox, questions,
+                    stimulusLanguageTag, "vi");
+        }
+
+        public PracticeQuestionGroupRow(Long id,
+                                        Long sectionId,
+                                        String groupLabel,
+                                        Integer questionFrom,
+                                        Integer questionTo,
+                                        String instruction,
+                                        String stimulusType,
+                                        String passageText,
+                                        String transcriptText,
+                                        String imageUrl,
+                                        String stimulusProvenanceJson,
+                                        String audioUrl,
+                                        ExampleBox exampleBox,
+                                        List<PracticeQuestionRow> questions) {
+            this(id, sectionId, groupLabel, questionFrom, questionTo, instruction,
+                    stimulusType, passageText, transcriptText, imageUrl,
+                    stimulusProvenanceJson, audioUrl, exampleBox, questions, "ko", "vi");
+        }
+
         public PracticeQuestionGroupRow(Long id,
                                         Long sectionId,
                                         String groupLabel,
@@ -254,7 +348,7 @@ public final class PracticeDtos {
                                         ExampleBox exampleBox,
                                         List<PracticeQuestionRow> questions) {
             this(id, sectionId, groupLabel, questionFrom, questionTo, instruction,
-                    null, null, null, null, null, audioUrl, exampleBox, questions);
+                    null, null, null, null, null, audioUrl, exampleBox, questions, "ko", "vi");
         }
     }
 
@@ -611,11 +705,39 @@ public final class PracticeDtos {
     public record SpeakingActionPlanView(
             String criterionId,
             String subcriterionId,
+            String findingId,
+            String evidenceId,
             String titleVi,
             String instructionVi,
             String reasonVi,
             String priority
     ) {
+        public SpeakingActionPlanView(
+                String criterionId,
+                String subcriterionId,
+                String titleVi,
+                String instructionVi,
+                String reasonVi,
+                String priority
+        ) {
+            this(
+                    criterionId,
+                    subcriterionId,
+                    null,
+                    null,
+                    titleVi,
+                    instructionVi,
+                    reasonVi,
+                    priority);
+        }
+
+        public SpeakingActionPlanView {
+            if ((findingId == null) != (evidenceId == null)) {
+                throw new IllegalArgumentException(
+                        "Speaking action plan linkage is incomplete");
+            }
+        }
+
         public String criterionLabel() {
             return switch (criterionId == null ? "" : criterionId) {
                 case "S_CONTENT_TASK_FULFILLMENT" -> "Nội dung và hoàn thành yêu cầu";
@@ -627,7 +749,55 @@ public final class PracticeDtos {
         }
     }
 
+    public record SpeakingOverviewFindingView(
+            Long questionId,
+            String findingId,
+            String evidenceId,
+            String criterionId,
+            String subcriterionId,
+            String polarity,
+            String exactText,
+            Integer startOffset,
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String normalization,
+            String sourceHash,
+            String explanationVi,
+            String correctionKo
+    ) {
+        public SpeakingOverviewFindingView {
+            if (questionId == null
+                    || findingId == null || findingId.isBlank()
+                    || evidenceId == null || evidenceId.isBlank()
+                    || criterionId == null || criterionId.isBlank()
+                    || subcriterionId == null || subcriterionId.isBlank()
+                    || !Set.of(
+                            "STRENGTH",
+                            "NEEDS_IMPROVEMENT").contains(polarity)
+                    || exactText == null || exactText.isBlank()
+                    || startOffset == null || startOffset < 0
+                    || endOffset == null || endOffset <= startOffset
+                    || occurrenceIndex == null || occurrenceIndex < 1
+                    || occurrenceCount == null
+                    || occurrenceCount < occurrenceIndex
+                    || normalization == null || normalization.isBlank()
+                    || sourceHash == null || sourceHash.isBlank()
+                    || explanationVi == null || explanationVi.isBlank()
+                    || ("STRENGTH".equals(polarity)
+                    && correctionKo != null
+                    && !correctionKo.isBlank())
+                    || ("NEEDS_IMPROVEMENT".equals(polarity)
+                    && (correctionKo == null || correctionKo.isBlank()))) {
+                throw new IllegalArgumentException(
+                        "Speaking overview finding is incomplete");
+            }
+        }
+    }
+
     public record SpeakingTranscriptAnnotationView(
+            String findingId,
+            String evidenceId,
             String criterionId,
             String subcriterionId,
             String evidenceScope,
@@ -637,6 +807,11 @@ public final class PracticeDtos {
             Integer endOffset,
             Integer start,
             Integer end,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String normalization,
+            String sourceHash,
+            String operation,
             String annotationType,
             String kind,
             String category,
@@ -647,16 +822,28 @@ public final class PracticeDtos {
     ) {}
 
     public record SpeakingFindingView(
+            String findingId,
+            String evidenceId,
             String criterionId,
             String subcriterionId,
             String evidenceScope,
             String evidence,
             String evidenceSource,
+            Integer startOffset,
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String normalization,
+            String sourceHash,
+            String operation,
+            String category,
             String explanationVi,
             String correction
     ) {
         public SpeakingFindingView(String criterionId, String explanationVi, String correction) {
-            this(criterionId, null, null, null, null, explanationVi, correction);
+            this(null, null, criterionId, null, null, null, null,
+                    null, null, null, null, null, null, null, null,
+                    explanationVi, correction);
         }
     }
 
@@ -721,11 +908,17 @@ public final class PracticeDtos {
 
     public record WritingAnnotationView(
             String id,
+            String findingId,
+            String evidenceId,
             String kind,
             String criterionId,
             String category,
             Integer start,
             Integer end,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String sourceHash,
+            String operation,
             String severity,
             String displayType,
             Integer index,
@@ -735,10 +928,18 @@ public final class PracticeDtos {
     ) {}
 
     public record WritingSentenceRewriteView(
+            List<String> findingIds,
+            String evidenceId,
             String original,
             String upgraded,
             String reason
-    ) {}
+    ) {
+        public WritingSentenceRewriteView {
+            findingIds = findingIds == null
+                    ? List.of()
+                    : List.copyOf(findingIds);
+        }
+    }
 
 
     public record PracticeResultSummary(Long id, String title, String skill,
@@ -1230,6 +1431,7 @@ public final class PracticeDtos {
             ResultFeedbackAvailability feedback,
             ObjectiveResultPayload summary,
             List<ObjectiveResultGroup> groups,
+            List<ObjectiveDetailCapability> capabilities,
             String constructRegistryState,
             String constructRegistryNote
     ) implements ResultDetailPayload {
@@ -1243,6 +1445,19 @@ public final class PracticeDtos {
             if (groups.isEmpty()) {
                 throw new IllegalArgumentException(
                         "Objective Result Detail requires immutable group ownership");
+            }
+            capabilities = immutableResultList(capabilities);
+            Set<ObjectiveDetailCapabilityCode> capabilityCodes = capabilities.stream()
+                    .map(ObjectiveDetailCapability::code)
+                    .collect(java.util.stream.Collectors.toCollection(
+                            () -> java.util.EnumSet.noneOf(
+                                    ObjectiveDetailCapabilityCode.class)));
+            if (capabilities.size() != ObjectiveDetailCapabilityCode.values().length
+                    || capabilityCodes.size() != capabilities.size()
+                    || !capabilityCodes.equals(java.util.EnumSet.allOf(
+                            ObjectiveDetailCapabilityCode.class))) {
+                throw new IllegalArgumentException(
+                        "Objective Result Detail capability catalogue must be exhaustive");
             }
             Set<String> sourceIds = new LinkedHashSet<>();
             Set<Long> groupVersionIds = new LinkedHashSet<>();
@@ -1318,8 +1533,66 @@ public final class PracticeDtos {
 
     public enum ObjectiveQuestionType {
         SINGLE_CHOICE,
+        MULTIPLE_ANSWER,
+        MATCHING,
         FILL_BLANK,
         TRUE_FALSE_NOT_GIVEN
+    }
+
+    public enum ObjectiveDetailCapabilityCode {
+        MULTIPLE_ANSWER,
+        MATCHING,
+        PINNED_SHARED_MATERIAL,
+        LOCAL_HELPER_DRAWER
+    }
+
+    public enum ObjectiveDetailCapabilityState {
+        AVAILABLE,
+        NOT_AVAILABLE
+    }
+
+    public record ObjectiveDetailCapability(
+            ObjectiveDetailCapabilityCode code,
+            ObjectiveDetailCapabilityState state,
+            String reasonVi
+    ) {
+        public ObjectiveDetailCapability {
+            if (code == null || state == null) {
+                throw new IllegalArgumentException(
+                        "Objective Result Detail capability identity is incomplete");
+            }
+            reasonVi = blankResultText(reasonVi);
+            if (state == ObjectiveDetailCapabilityState.NOT_AVAILABLE
+                    && reasonVi.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Unavailable Objective Result Detail capability requires a reason");
+            }
+        }
+
+        public static List<ObjectiveDetailCapability> availableCatalogue() {
+            return List.of(
+                    available(
+                            ObjectiveDetailCapabilityCode.MULTIPLE_ANSWER,
+                            ""),
+                    available(
+                            ObjectiveDetailCapabilityCode.MATCHING,
+                            ""),
+                    available(
+                            ObjectiveDetailCapabilityCode.PINNED_SHARED_MATERIAL,
+                            ""),
+                    available(
+                            ObjectiveDetailCapabilityCode.LOCAL_HELPER_DRAWER,
+                            ""));
+        }
+
+        private static ObjectiveDetailCapability available(
+                ObjectiveDetailCapabilityCode code,
+                String reasonVi) {
+            return new ObjectiveDetailCapability(
+                    code,
+                    ObjectiveDetailCapabilityState.AVAILABLE,
+                    reasonVi);
+        }
     }
 
     public enum ObjectiveEvidenceKind {
@@ -1387,7 +1660,9 @@ public final class PracticeDtos {
             String audioUrl,
             String provenance,
             String transcriptEvidenceScope,
-            List<Long> questionVersionIds
+            List<Long> questionVersionIds,
+            String languageTag,
+            String instructionLanguageTag
     ) {
         public ObjectiveSourceGroup {
             if (sourceId == null || sourceId.isBlank()
@@ -1403,6 +1678,13 @@ public final class PracticeDtos {
             transcriptText = blankResultText(transcriptText);
             imageUrl = blankResultText(imageUrl);
             audioUrl = blankResultText(audioUrl);
+            languageTag = "ko".equals(languageTag) || "vi".equals(languageTag)
+                    ? languageTag
+                    : "ko";
+            instructionLanguageTag = "ko".equals(instructionLanguageTag)
+                    || "vi".equals(instructionLanguageTag)
+                    ? instructionLanguageTag
+                    : "vi";
             questionVersionIds = immutableResultList(questionVersionIds);
             if (questionVersionIds.isEmpty()
                     || new LinkedHashSet<>(questionVersionIds).size() != questionVersionIds.size()
@@ -1464,7 +1746,8 @@ public final class PracticeDtos {
             String learnerAnswerProvenance,
             String officialKeyProvenance,
             String teacherExplanation,
-            String teacherExplanationProvenance
+            String teacherExplanationProvenance,
+            String languageTag
     ) {
         public ObjectiveQuestionCore {
             if (questionVersionId == null || questionId == null || questionNo == null
@@ -1483,6 +1766,9 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException("Objective question identity is incomplete");
             }
             teacherExplanation = blankResultText(teacherExplanation);
+            languageTag = "ko".equals(languageTag) || "vi".equals(languageTag)
+                    ? languageTag
+                    : "ko";
         }
 
         public String pointsDisplay() {
@@ -1493,10 +1779,101 @@ public final class PracticeDtos {
     }
 
     public sealed interface ObjectiveQuestionDetail
-            permits ObjectiveSingleChoiceDetail, ObjectiveFillBlankDetail, ObjectiveTfngDetail {
+            permits ObjectiveSingleChoiceDetail, ObjectiveMultipleAnswerDetail,
+            ObjectiveMatchingDetail, ObjectiveFillBlankDetail, ObjectiveTfngDetail {
         ObjectiveQuestionType questionType();
         ObjectiveQuestionCore core();
         ObjectiveExplanation explanation();
+    }
+
+    public record ObjectiveMultipleAnswerDetail(
+            ObjectiveQuestionCore core,
+            List<ObjectiveOptionResult> options,
+            ObjectiveExplanation explanation
+    ) implements ObjectiveQuestionDetail {
+        public ObjectiveMultipleAnswerDetail {
+            if (core == null || explanation == null) {
+                throw new IllegalArgumentException("Multiple-answer detail is incomplete");
+            }
+            options = immutableResultList(options);
+            if (options.isEmpty()
+                    || options.stream().filter(ObjectiveOptionResult::correct).count() < 2
+                    || new LinkedHashSet<>(options.stream()
+                    .map(ObjectiveOptionResult::optionId).toList()).size() != options.size()) {
+                throw new IllegalArgumentException(
+                        "Multiple-answer detail does not match immutable option authority");
+            }
+        }
+
+        @Override
+        public ObjectiveQuestionType questionType() {
+            return ObjectiveQuestionType.MULTIPLE_ANSWER;
+        }
+
+        public boolean answered() {
+            return options.stream().anyMatch(ObjectiveOptionResult::learnerSelected);
+        }
+
+        public boolean unanswered() {
+            return !answered();
+        }
+    }
+
+    public record ObjectiveMatchingDetail(
+            ObjectiveQuestionCore core,
+            List<ObjectiveMatchingResult> matches,
+            ObjectiveExplanation explanation
+    ) implements ObjectiveQuestionDetail {
+        public ObjectiveMatchingDetail {
+            if (core == null || explanation == null) {
+                throw new IllegalArgumentException("Matching detail is incomplete");
+            }
+            matches = immutableResultList(matches);
+            if (matches.isEmpty()
+                    || new LinkedHashSet<>(matches.stream()
+                    .map(ObjectiveMatchingResult::targetId).toList()).size() != matches.size()) {
+                throw new IllegalArgumentException(
+                        "Matching detail does not match immutable target authority");
+            }
+        }
+
+        @Override
+        public ObjectiveQuestionType questionType() {
+            return ObjectiveQuestionType.MATCHING;
+        }
+    }
+
+    public record ObjectiveMatchingResult(
+            String targetId,
+            String targetKo,
+            String learnerCandidateId,
+            String learnerCandidateLabel,
+            String learnerCandidateText,
+            String officialCandidateId,
+            String officialCandidateLabel,
+            String officialCandidateText,
+            boolean correct,
+            String reasonVi,
+            List<String> evidenceIds
+    ) {
+        public ObjectiveMatchingResult {
+            if (targetId == null || targetId.isBlank()
+                    || officialCandidateId == null || officialCandidateId.isBlank()
+                    || officialCandidateLabel == null || officialCandidateLabel.isBlank()) {
+                throw new IllegalArgumentException("Matching result authority is incomplete");
+            }
+            targetKo = blankResultText(targetKo);
+            learnerCandidateId = blankResultText(learnerCandidateId);
+            learnerCandidateLabel = blankResultText(learnerCandidateLabel);
+            learnerCandidateText = blankResultText(learnerCandidateText);
+            officialCandidateText = blankResultText(officialCandidateText);
+            reasonVi = blankResultText(reasonVi);
+            evidenceIds = immutableResultList(evidenceIds);
+        }
+
+        public boolean answered() {
+            return !learnerCandidateId.isBlank();
+        }
     }
 
     public record ObjectiveSingleChoiceDetail(
@@ -1530,6 +1907,14 @@ public final class PracticeDtos {
         @Override
         public ObjectiveQuestionType questionType() {
             return ObjectiveQuestionType.SINGLE_CHOICE;
+        }
+
+        public boolean answered() {
+            return options.stream().anyMatch(ObjectiveOptionResult::learnerSelected);
+        }
+
+        public boolean unanswered() {
+            return !answered();
         }
     }
 
@@ -1780,9 +2165,17 @@ public final class PracticeDtos {
             String state,
             String stateLabel,
             String artifactSchemaVersion,
+            String strategyRegistryVersion,
+            String strategyCode,
+            String strategyVersion,
+            String strategyCategoryVi,
+            String strategyLabelVi,
+            String strategyDescriptionVi,
+            String strategyRendererCode,
             String aiMeaningVi,
             String correctReasonVi,
             String aiArtifactProvenance,
+            List<ObjectiveExplanationClaim> claims,
             List<ObjectiveEvidenceRef> evidenceRefs,
             List<ObjectiveEvidenceTranslation> evidenceTranslations,
             List<ObjectiveConstructDescriptor> constructDescriptors,
@@ -1796,8 +2189,17 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException("Objective explanation state is incomplete");
             }
             artifactSchemaVersion = blankResultText(artifactSchemaVersion);
+            strategyRegistryVersion =
+                    blankResultText(strategyRegistryVersion);
+            strategyCode = blankResultText(strategyCode);
+            strategyVersion = blankResultText(strategyVersion);
+            strategyCategoryVi = blankResultText(strategyCategoryVi);
+            strategyLabelVi = blankResultText(strategyLabelVi);
+            strategyDescriptionVi = blankResultText(strategyDescriptionVi);
+            strategyRendererCode = blankResultText(strategyRendererCode);
             aiMeaningVi = blankResultText(aiMeaningVi);
             correctReasonVi = blankResultText(correctReasonVi);
+            claims = immutableResultList(claims);
             evidenceRefs = immutableResultList(evidenceRefs);
             evidenceTranslations = immutableResultList(evidenceTranslations);
             constructDescriptors = immutableResultList(constructDescriptors);
@@ -1816,8 +2218,30 @@ public final class PracticeDtos {
                             "Evidence translation references foreign or duplicate evidence");
                 }
             }
+            Set<String> claimIds = new LinkedHashSet<>();
+            for (ObjectiveExplanationClaim claim : claims) {
+                if (!claimIds.add(claim.claimId())
+                        || !evidenceIds.containsAll(claim.evidenceIds())) {
+                    throw new IllegalArgumentException(
+                            "Objective explanation claim references foreign evidence");
+                }
+            }
+            if ("v4".equals(artifactSchemaVersion)
+                    && ("READY".equals(state)
+                    && (strategyRegistryVersion.isBlank()
+                    || strategyCode.isBlank()
+                    || strategyVersion.isBlank()
+                    || strategyCategoryVi.isBlank()
+                    || strategyLabelVi.isBlank()
+                    || strategyDescriptionVi.isBlank()
+                    || strategyRendererCode.isBlank()
+                    || claims.isEmpty()))) {
+                throw new IllegalArgumentException(
+                        "v4 objective explanation requires strategy-linked claims");
+            }
             if (!"READY".equals(state)
-                    && (!evidenceRefs.isEmpty()
+                    && (!claims.isEmpty()
+                            || !evidenceRefs.isEmpty()
                             || !evidenceTranslations.isEmpty()
                             || !constructDescriptors.isEmpty())) {
                 throw new IllegalArgumentException(
@@ -1827,6 +2251,25 @@ public final class PracticeDtos {
 
         public boolean ready() {
             return "READY".equals(state);
+        }
+    }
+
+    public record ObjectiveExplanationClaim(
+            String claimId,
+            String textVi,
+            List<String> evidenceIds
+    ) {
+        public ObjectiveExplanationClaim {
+            if (claimId == null || claimId.isBlank()
+                    || textVi == null || textVi.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Objective explanation claim is incomplete");
+            }
+            evidenceIds = immutableResultList(evidenceIds);
+            if (evidenceIds.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Objective explanation claim must reference evidence");
+            }
         }
     }
 
@@ -1934,18 +2377,69 @@ public final class PracticeDtos {
         }
     }
 
+    /**
+     * Stable backend-owned membership between one exact source span and one
+     * diagnostic chip.  The UI may renumber an occurrence only by consuming
+     * {@code scopedDisplayNumber}; it must never rediscover the span from text.
+     */
+    public record ResultDetailSpanMembership(
+            String findingId,
+            String evidenceId,
+            String descriptorId,
+            String featureId,
+            ResultDetailPolarity polarity,
+            Integer startOffset,
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String operation,
+            int scopedDisplayNumber,
+            String evidence,
+            String explanationVi,
+            String correctionKo
+    ) {
+        public ResultDetailSpanMembership {
+            if (findingId == null || findingId.isBlank()
+                    || evidenceId == null || evidenceId.isBlank()
+                    || descriptorId == null || descriptorId.isBlank()
+                    || featureId == null || featureId.isBlank()
+                    || polarity == null
+                    || startOffset == null || startOffset < 0
+                    || endOffset == null || endOffset <= startOffset
+                    || occurrenceIndex == null || occurrenceIndex < 1
+                    || occurrenceCount == null
+                    || occurrenceCount < occurrenceIndex
+                    || operation == null
+                    || !Set.of("KEEP", "MISSING", "REPLACE", "REDUNDANT")
+                    .contains(operation)
+                    || scopedDisplayNumber < 1
+                    || evidence == null || evidence.isBlank()
+                    || explanationVi == null || explanationVi.isBlank()
+                    || (polarity == ResultDetailPolarity.STRENGTH
+                    && !"KEEP".equals(operation))
+                    || (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                    && "KEEP".equals(operation))) {
+                throw new IllegalArgumentException(
+                        "Result Detail span membership is incomplete");
+            }
+        }
+    }
+
     public record WritingTextSegment(
             String text,
             boolean annotated,
             String annotationId,
+            int annotationNumber,
             String kind,
             String categoryCode,
             String criterionId,
             String explanationVi,
             String correctionKo,
-            String featureId
+            String featureId,
+            List<ResultDetailSpanMembership> memberships
     ) {
         public WritingTextSegment {
+            memberships = memberships == null ? List.of() : List.copyOf(memberships);
             if (text == null) {
                 throw new IllegalArgumentException(
                         "Writing learner-answer segment text is required");
@@ -1953,25 +2447,63 @@ public final class PracticeDtos {
             if (annotated) {
                 if (text.isEmpty()
                         || annotationId == null || annotationId.isBlank()
+                        || annotationNumber < 1
                         || kind == null
                         || !Set.of("STRENGTH", "NEEDS_IMPROVEMENT").contains(kind)
                         || categoryCode == null || categoryCode.isBlank()
                         || criterionId == null || criterionId.isBlank()
                         || explanationVi == null || explanationVi.isBlank()
-                        || featureId == null || featureId.isBlank()) {
+                        || featureId == null || featureId.isBlank()
+                        || memberships.isEmpty()
+                        || memberships.stream().noneMatch(membership ->
+                        annotationId.equals(membership.findingId())
+                                && featureId.equals(membership.descriptorId()))) {
                     throw new IllegalArgumentException(
                             "Annotated Writing learner-answer segment is incomplete");
                 }
             } else if (annotationId != null
+                    || annotationNumber != 0
                     || kind != null
                     || categoryCode != null
                     || criterionId != null
                     || explanationVi != null
                     || correctionKo != null
-                    || featureId != null) {
+                    || featureId != null
+                    || !memberships.isEmpty()) {
                 throw new IllegalArgumentException(
                         "Plain Writing learner-answer segment cannot carry annotation metadata");
             }
+        }
+
+        public WritingTextSegment(
+                String text,
+                boolean annotated,
+                String annotationId,
+                int annotationNumber,
+                String kind,
+                String categoryCode,
+                String criterionId,
+                String explanationVi,
+                String correctionKo,
+                String featureId
+        ) {
+            this(text, annotated, annotationId, annotationNumber, kind,
+                    categoryCode, criterionId, explanationVi, correctionKo,
+                    featureId, List.of());
+        }
+
+        public String featureIds() {
+            return memberships.stream()
+                    .map(ResultDetailSpanMembership::descriptorId)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.joining(" "));
+        }
+
+        public String findingIds() {
+            return memberships.stream()
+                    .map(ResultDetailSpanMembership::findingId)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.joining(" "));
         }
 
         public static WritingTextSegment plain(String text) {
@@ -1979,12 +2511,77 @@ public final class PracticeDtos {
                     text == null ? "" : text,
                     false,
                     null,
+                    0,
                     null,
                     null,
                     null,
                     null,
                     null,
-                    null);
+                    null,
+                    List.of());
+        }
+    }
+
+    public record WritingBlankAnswerView(
+            String blankId,
+            int ordinal,
+            String text,
+            List<WritingTextSegment> segments
+    ) {
+        public WritingBlankAnswerView {
+            if (blankId == null || blankId.isBlank()
+                    || ordinal < 1 || text == null) {
+                throw new IllegalArgumentException(
+                        "Writing structured blank answer is incomplete");
+            }
+            segments = immutableResultList(segments);
+            if (segments.isEmpty()
+                    || !text.equals(segments.stream()
+                    .map(WritingTextSegment::text)
+                    .collect(java.util.stream.Collectors.joining()))) {
+                throw new IllegalArgumentException(
+                        "Writing structured blank segments must preserve the answer");
+            }
+        }
+    }
+
+    public record WritingTeacherSampleView(
+            String content,
+            String availability,
+            String source,
+            String authorRole,
+            String fixtureId
+    ) {
+        public WritingTeacherSampleView {
+            content = content == null ? "" : content;
+            if (!Set.of("AVAILABLE", "UNAVAILABLE").contains(availability)) {
+                throw new IllegalArgumentException(
+                        "Writing teacher sample availability is invalid");
+            }
+            if ("AVAILABLE".equals(availability)) {
+                if (content.isBlank()
+                        || !"TEACHER_AUTHORED".equals(source)
+                        || !"LECTURER".equals(authorRole)
+                        || fixtureId == null || fixtureId.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "Available Writing teacher sample requires authored provenance");
+                }
+            } else if (!content.isEmpty()
+                    || !"NOT_AVAILABLE".equals(source)
+                    || authorRole != null
+                    || fixtureId != null) {
+                throw new IllegalArgumentException(
+                        "Unavailable Writing teacher sample cannot expose content or authorship");
+            }
+        }
+
+        public boolean available() {
+            return "AVAILABLE".equals(availability);
+        }
+
+        public static WritingTeacherSampleView unavailable() {
+            return new WritingTeacherSampleView(
+                    "", "UNAVAILABLE", "NOT_AVAILABLE", null, null);
         }
     }
 
@@ -1994,7 +2591,8 @@ public final class PracticeDtos {
             Long activeQuestionId,
             List<WritingTextSegment> learnerAnswerSegments,
             List<ResultDetailScoreCriterion> scoreCriteria,
-            String scoreProfileId,
+            List<WritingTaskCoverageView> taskCoverage,
+            @JsonIgnore String scoreProfileId,
             String diagnosticSeamId,
             String diagnosticSeamState,
             String diagnosticScopeNoteVi,
@@ -2003,7 +2601,9 @@ public final class PracticeDtos {
             String diagnosticAvailabilityNoteVi,
             String diagnosticAvailabilityNoteKo,
             List<WritingDiagnosticGroup> diagnosticGroups,
-            WritingUpgradeView upgrade
+            WritingUpgradeView upgrade,
+            List<WritingBlankAnswerView> structuredBlankAnswers,
+            WritingTeacherSampleView teacherSample
     ) implements ResultDetailPayload {
         public WritingDetailPayload {
             if (feedback == null
@@ -2028,7 +2628,14 @@ public final class PracticeDtos {
             tasks = immutableResultList(tasks);
             learnerAnswerSegments = immutableResultList(learnerAnswerSegments);
             scoreCriteria = immutableResultList(scoreCriteria);
+            taskCoverage = immutableResultList(taskCoverage);
             diagnosticGroups = immutableResultList(diagnosticGroups);
+            structuredBlankAnswers =
+                    immutableResultList(structuredBlankAnswers);
+            if (teacherSample == null) {
+                throw new IllegalArgumentException(
+                        "Writing teacher sample state is required");
+            }
             List<WritingTaskResult> immutableTasks = tasks;
             if (activeQuestionId != null && immutableTasks.stream().noneMatch(task ->
                     activeQuestionId.equals(task.questionId()) && task.detailAvailable())) {
@@ -2036,7 +2643,8 @@ public final class PracticeDtos {
                         "Writing Result Detail question selection is outside the immutable attempt");
             }
             if (activeQuestionId == null) {
-                if (!learnerAnswerSegments.isEmpty()) {
+                if (!learnerAnswerSegments.isEmpty()
+                        || !structuredBlankAnswers.isEmpty()) {
                     throw new IllegalArgumentException(
                             "Writing learner-answer segments require a selected task");
                 }
@@ -2045,9 +2653,11 @@ public final class PracticeDtos {
                         .filter(task -> activeQuestionId.equals(task.questionId()))
                         .findFirst()
                         .orElseThrow();
-                String learnerAnswer = selected.learnerAnswer() == null
-                        ? ""
-                        : selected.learnerAnswer();
+                String learnerAnswer = Normalizer.normalize(
+                        selected.learnerAnswer() == null
+                                ? ""
+                                : selected.learnerAnswer(),
+                        Normalizer.Form.NFC);
                 String reconstructedAnswer = learnerAnswerSegments.stream()
                         .map(WritingTextSegment::text)
                         .collect(java.util.stream.Collectors.joining());
@@ -2063,6 +2673,21 @@ public final class PracticeDtos {
                     throw new IllegalArgumentException(
                             "Writing learner-answer segments must exactly preserve the selected answer");
                 }
+                Set<String> structuredBlankIds = new LinkedHashSet<>();
+                Set<Integer> structuredBlankOrdinals =
+                        new LinkedHashSet<>();
+                if (!structuredBlankAnswers.isEmpty()
+                        && (!selected.clozeTask()
+                        || structuredBlankAnswers.size() != 2
+                        || structuredBlankAnswers.stream().anyMatch(blank ->
+                        !structuredBlankIds.add(blank.blankId())
+                                || !structuredBlankOrdinals.add(
+                                blank.ordinal()))
+                        || !structuredBlankOrdinals.equals(
+                        Set.of(1, 2)))) {
+                    throw new IllegalArgumentException(
+                            "Writing structured blanks must preserve two authoritative identities");
+                }
             }
             if (scoreCriteria.stream().anyMatch(criterion ->
                     criterion.questionId() == null || immutableTasks.stream().noneMatch(task ->
@@ -2070,6 +2695,15 @@ public final class PracticeDtos {
                                     && task.detailAvailable()))) {
                 throw new IllegalArgumentException(
                         "Writing score criteria must belong to a detail-capable immutable task");
+            }
+            Set<String> coverageRequirementIds = new LinkedHashSet<>();
+            if (taskCoverage.stream().anyMatch(row ->
+                    activeQuestionId == null
+                            || row.questionId() == null
+                            || !activeQuestionId.equals(row.questionId())
+                            || !coverageRequirementIds.add(row.requirementId()))) {
+                throw new IllegalArgumentException(
+                        "Writing task coverage must belong only to the selected immutable task");
             }
             if (diagnosticGroups.stream()
                     .flatMap(group -> java.util.stream.Stream.concat(
@@ -2096,9 +2730,11 @@ public final class PracticeDtos {
                         .filter(task -> activeQuestionId.equals(task.questionId()))
                         .findFirst()
                         .orElseThrow();
-                String learnerAnswer = selected.learnerAnswer() == null
-                        ? ""
-                        : selected.learnerAnswer();
+                String learnerAnswer = Normalizer.normalize(
+                        selected.learnerAnswer() == null
+                                ? ""
+                                : selected.learnerAnswer(),
+                        Normalizer.Form.NFC);
                 if (upgrade.significantRewrites().stream().anyMatch(rewrite ->
                         rewrite.original() == null
                                 || rewrite.original().isBlank()
@@ -2107,6 +2743,45 @@ public final class PracticeDtos {
                             "Writing rewrites must preserve an exact selected learner span");
                 }
             }
+        }
+
+        public WritingDetailPayload(
+                ResultFeedbackAvailability feedback,
+                List<WritingTaskResult> tasks,
+                Long activeQuestionId,
+                List<WritingTextSegment> learnerAnswerSegments,
+                List<ResultDetailScoreCriterion> scoreCriteria,
+                List<WritingTaskCoverageView> taskCoverage,
+                String scoreProfileId,
+                String diagnosticSeamId,
+                String diagnosticSeamState,
+                String diagnosticScopeNoteVi,
+                String diagnosticScopeNoteKo,
+                String diagnosticAvailability,
+                String diagnosticAvailabilityNoteVi,
+                String diagnosticAvailabilityNoteKo,
+                List<WritingDiagnosticGroup> diagnosticGroups,
+                WritingUpgradeView upgrade
+        ) {
+            this(
+                    feedback,
+                    tasks,
+                    activeQuestionId,
+                    learnerAnswerSegments,
+                    scoreCriteria,
+                    taskCoverage,
+                    scoreProfileId,
+                    diagnosticSeamId,
+                    diagnosticSeamState,
+                    diagnosticScopeNoteVi,
+                    diagnosticScopeNoteKo,
+                    diagnosticAvailability,
+                    diagnosticAvailabilityNoteVi,
+                    diagnosticAvailabilityNoteKo,
+                    diagnosticGroups,
+                    upgrade,
+                    List.of(),
+                    WritingTeacherSampleView.unavailable());
         }
 
         public List<WritingDiagnosticFinding> diagnosticFindings() {
@@ -2141,8 +2816,58 @@ public final class PracticeDtos {
         }
     }
 
+    public record WritingTaskCoverageView(
+            Long questionId,
+            String requirementId,
+            String labelVi,
+            String status,
+            List<String> evidenceIds
+    ) {
+        public WritingTaskCoverageView {
+            if (questionId == null
+                    || requirementId == null || requirementId.isBlank()
+                    || labelVi == null || labelVi.isBlank()
+                    || status == null
+                    || !Set.of(
+                            "MET", "PARTIAL",
+                            "NOT_MET", "NOT_APPLICABLE").contains(status)) {
+                throw new IllegalArgumentException(
+                        "Writing task coverage view is incomplete");
+            }
+            evidenceIds = immutableResultList(evidenceIds);
+            if (evidenceIds.stream().anyMatch(
+                    id -> id == null || id.isBlank())) {
+                throw new IllegalArgumentException(
+                        "Writing task coverage evidence ID is invalid");
+            }
+        }
+
+        public String statusLabelVi() {
+            return switch (status) {
+                case "MET" -> "Đã đáp ứng";
+                case "PARTIAL" -> "Đáp ứng một phần";
+                case "NOT_MET" -> "Chưa đáp ứng";
+                case "NOT_APPLICABLE" -> "Không áp dụng";
+                default -> throw new IllegalStateException(
+                        "Unknown Writing coverage status");
+            };
+        }
+
+        public String stateCssClass() {
+            return switch (status) {
+                case "MET" -> "is-met";
+                case "PARTIAL" -> "is-partial";
+                case "NOT_MET" -> "is-not-met";
+                case "NOT_APPLICABLE" -> "is-not-applicable";
+                default -> throw new IllegalStateException(
+                        "Unknown Writing coverage status");
+            };
+        }
+    }
+
     public enum WritingDiagnosticTargetKind {
         WHOLE_ANSWER,
+        TEXT_SPAN,
         BLANK
     }
 
@@ -2155,10 +2880,11 @@ public final class PracticeDtos {
             if (kind == null) {
                 throw new IllegalArgumentException("Writing diagnostic target kind is required");
             }
-            if (kind == WritingDiagnosticTargetKind.WHOLE_ANSWER
+            if ((kind == WritingDiagnosticTargetKind.WHOLE_ANSWER
+                    || kind == WritingDiagnosticTargetKind.TEXT_SPAN)
                     && (blankId != null || blankIndex != null)) {
                 throw new IllegalArgumentException(
-                        "Whole-answer diagnostics cannot fabricate a blank target");
+                        "Non-blank diagnostics cannot fabricate a blank target");
             }
             if (kind == WritingDiagnosticTargetKind.BLANK
                     && (blankId == null || blankId.isBlank()
@@ -2172,6 +2898,15 @@ public final class PracticeDtos {
     public record WritingDiagnosticFinding(
             Long questionId,
             String findingId,
+            int displayNumber,
+            String evidenceId,
+            Integer startOffset,
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String operation,
+            String errorCategory,
+            List<String> requirementIds,
             String categoryCode,
             String categoryLabelVi,
             String categoryLabelKo,
@@ -2199,6 +2934,12 @@ public final class PracticeDtos {
         public WritingDiagnosticFinding {
             if (questionId == null
                     || findingId == null || findingId.isBlank()
+                    || displayNumber < 1
+                    || operation == null
+                    || !Set.of(
+                            "KEEP", "MISSING",
+                            "REPLACE", "REDUNDANT").contains(operation)
+                    || errorCategory == null || errorCategory.isBlank()
                     || categoryCode == null
                     || !Set.of(
                             "TASK_CONTENT",
@@ -2241,6 +2982,9 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException(
                         "Writing diagnostic finding is incomplete");
             }
+            requirementIds = requirementIds == null
+                    ? List.of()
+                    : List.copyOf(requirementIds);
             if ("PARENT_LINKED".equals(scoreEffect)
                     && (parentCriterionId == null || parentCriterionId.isBlank())) {
                 throw new IllegalArgumentException(
@@ -2257,12 +3001,23 @@ public final class PracticeDtos {
                         "Unknown Writing diagnostic score effect");
             }
             if ("TEXT_SPAN".equals(evidenceScope)
-                    && (evidence == null || evidence.isBlank())) {
+                    && (evidence == null || evidence.isBlank()
+                    || evidenceId == null || evidenceId.isBlank()
+                    || startOffset == null || startOffset < 0
+                    || endOffset == null || endOffset <= startOffset
+                    || occurrenceIndex == null || occurrenceIndex < 1
+                    || occurrenceCount == null
+                    || occurrenceCount < occurrenceIndex)) {
                 throw new IllegalArgumentException(
                         "Text-span Writing diagnostics require exact evidence");
             }
             if ("WHOLE_ANSWER".equals(evidenceScope)
-                    && evidence != null && !evidence.isEmpty()) {
+                    && (evidence != null && !evidence.isEmpty()
+                    || evidenceId != null
+                    || startOffset != null
+                    || endOffset != null
+                    || occurrenceIndex != null
+                    || occurrenceCount != null)) {
                 throw new IllegalArgumentException(
                         "Whole-answer Writing diagnostics cannot fake a highlight");
             }
@@ -2290,6 +3045,30 @@ public final class PracticeDtos {
             }
             return id;
         }
+
+        public WritingDiagnosticFinding withDisplayNumber(int number) {
+            return new WritingDiagnosticFinding(
+                    questionId, findingId, number, evidenceId, startOffset,
+                    endOffset, occurrenceIndex, occurrenceCount, operation,
+                    errorCategory, requirementIds, categoryCode,
+                    categoryLabelVi, categoryLabelKo, categoryOrder,
+                    featureCode, subtype, featureLabelVi, featureLabelKo,
+                    featureOrder, polarity, parentCriterionId, scoreEffect,
+                    applicability, target, evidenceAvailability, evidenceScope,
+                    evidence, explanationVi, correctionKo, impact, frequency,
+                    confidence, observability);
+        }
+
+        public ResultDetailSpanMembership spanMembership() {
+            if (!"TEXT_SPAN".equals(evidenceScope)) {
+                return null;
+            }
+            return new ResultDetailSpanMembership(
+                    findingId, evidenceId, descriptorId(), featureCode, polarity,
+                    startOffset, endOffset, occurrenceIndex, occurrenceCount,
+                    operation, displayNumber, evidence, explanationVi,
+                    correctionKo);
+        }
     }
 
     public record WritingDiagnosticChip(
@@ -2312,7 +3091,7 @@ public final class PracticeDtos {
                     || polarity == null
                     || scoreEffect == null || scoreEffect.isBlank()
                     || applicability == null || applicability.isBlank()
-                    || stableOrder <= 0 || count <= 0
+                    || stableOrder <= 0 || count < 0
                     || evidenceAvailability == null || evidenceAvailability.isBlank()) {
                 throw new IllegalArgumentException(
                         "Writing diagnostic chip is incomplete");
@@ -2330,7 +3109,8 @@ public final class PracticeDtos {
                     || !Set.of(
                     "EXACT_TEXT_AVAILABLE",
                     "WHOLE_ANSWER_AVAILABLE",
-                    "MIXED_EVIDENCE_AVAILABLE").contains(evidenceAvailability)) {
+                    "MIXED_EVIDENCE_AVAILABLE",
+                    "NO_FINDING").contains(evidenceAvailability)) {
                 throw new IllegalArgumentException(
                         "Unknown Writing diagnostic chip evidence availability");
             }
@@ -2465,12 +3245,15 @@ public final class PracticeDtos {
             String text,
             boolean annotated,
             String kind,
+            String findingId,
             String descriptorId,
             String featureId,
             String explanationVi,
-            String correctionKo
+            String correctionKo,
+            List<ResultDetailSpanMembership> memberships
     ) {
         public SpeakingTextSegment {
+            memberships = memberships == null ? List.of() : List.copyOf(memberships);
             if (text == null) {
                 throw new IllegalArgumentException(
                         "Speaking transcript segment text is required");
@@ -2479,9 +3262,14 @@ public final class PracticeDtos {
                 if (text.isEmpty()
                         || kind == null
                         || !Set.of("STRENGTH", "NEEDS_IMPROVEMENT").contains(kind)
+                        || findingId == null || findingId.isBlank()
                         || descriptorId == null || descriptorId.isBlank()
                         || featureId == null || featureId.isBlank()
                         || explanationVi == null || explanationVi.isBlank()
+                        || memberships.isEmpty()
+                        || memberships.stream().noneMatch(membership ->
+                        findingId.equals(membership.findingId())
+                                && descriptorId.equals(membership.descriptorId()))
                         || ("STRENGTH".equals(kind) && correctionKo != null)
                         || ("NEEDS_IMPROVEMENT".equals(kind)
                         && (correctionKo == null || correctionKo.isBlank()))) {
@@ -2489,13 +3277,43 @@ public final class PracticeDtos {
                             "Annotated Speaking transcript segment is incomplete");
                 }
             } else if (kind != null
+                    || findingId != null
                     || descriptorId != null
                     || featureId != null
                     || explanationVi != null
-                    || correctionKo != null) {
+                    || correctionKo != null
+                    || !memberships.isEmpty()) {
                 throw new IllegalArgumentException(
                         "Plain Speaking transcript segment cannot carry annotation metadata");
             }
+        }
+
+        public SpeakingTextSegment(
+                String text,
+                boolean annotated,
+                String kind,
+                String findingId,
+                String descriptorId,
+                String featureId,
+                String explanationVi,
+                String correctionKo
+        ) {
+            this(text, annotated, kind, findingId, descriptorId, featureId,
+                    explanationVi, correctionKo, List.of());
+        }
+
+        public String featureIds() {
+            return memberships.stream()
+                    .map(ResultDetailSpanMembership::descriptorId)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.joining(" "));
+        }
+
+        public String findingIds() {
+            return memberships.stream()
+                    .map(ResultDetailSpanMembership::findingId)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.joining(" "));
         }
 
         public static SpeakingTextSegment plain(String text) {
@@ -2506,7 +3324,49 @@ public final class PracticeDtos {
                     null,
                     null,
                     null,
-                    null);
+                    null,
+                    null,
+                    List.of());
+        }
+    }
+
+    public record SpeakingTeacherSampleView(
+            String content,
+            String availability,
+            String source,
+            String authorRole,
+            String fixtureId
+    ) {
+        public SpeakingTeacherSampleView {
+            content = content == null ? "" : content;
+            if (!Set.of("AVAILABLE", "UNAVAILABLE").contains(availability)) {
+                throw new IllegalArgumentException(
+                        "Speaking teacher sample availability is invalid");
+            }
+            if ("AVAILABLE".equals(availability)) {
+                if (content.isBlank()
+                        || !"TEACHER_AUTHORED".equals(source)
+                        || !"LECTURER".equals(authorRole)
+                        || fixtureId == null || fixtureId.isBlank()) {
+                    throw new IllegalArgumentException(
+                            "Available Speaking teacher sample requires authored provenance");
+                }
+            } else if (!content.isEmpty()
+                    || !"NOT_AVAILABLE".equals(source)
+                    || authorRole != null
+                    || fixtureId != null) {
+                throw new IllegalArgumentException(
+                        "Unavailable Speaking teacher sample cannot expose content or authorship");
+            }
+        }
+
+        public boolean available() {
+            return "AVAILABLE".equals(availability);
+        }
+
+        public static SpeakingTeacherSampleView unavailable() {
+            return new SpeakingTeacherSampleView(
+                    "", "UNAVAILABLE", "NOT_AVAILABLE", null, null);
         }
     }
 
@@ -2529,7 +3389,8 @@ public final class PracticeDtos {
             String diagnosticAvailabilityNoteVi,
             String diagnosticAvailabilityNoteKo,
             List<SpeakingDiagnosticGroup> diagnosticGroups,
-            SpeakingUpgradeView upgrade
+            SpeakingUpgradeView upgrade,
+            SpeakingTeacherSampleView teacherSample
     ) implements ResultDetailPayload {
         public SpeakingDetailPayload {
             if (feedback == null
@@ -2553,6 +3414,10 @@ public final class PracticeDtos {
             scoreCriteria = immutableResultList(scoreCriteria);
             transcriptSegments = immutableResultList(transcriptSegments);
             diagnosticGroups = immutableResultList(diagnosticGroups);
+            if (teacherSample == null) {
+                throw new IllegalArgumentException(
+                        "Speaking teacher sample state is required");
+            }
             List<ResultDetailDiagnosticFinding> allDiagnosticFindings =
                     diagnosticGroups.stream()
                             .flatMap(group -> java.util.stream.Stream.concat(
@@ -2704,6 +3569,50 @@ public final class PracticeDtos {
             }
         }
 
+        public SpeakingDetailPayload(
+                ResultFeedbackAvailability feedback,
+                List<SpeakingTaskDetail> tasks,
+                Long activeQuestionId,
+                String scoreProfileId,
+                String profileState,
+                String evidenceMode,
+                String evaluatorCapability,
+                String evidenceNote,
+                String taskScoreState,
+                List<ResultDetailScoreCriterion> scoreCriteria,
+                SpeakingEvidenceView evidence,
+                List<SpeakingTextSegment> transcriptSegments,
+                String diagnosticAvailability,
+                String diagnosticScopeNoteVi,
+                String diagnosticScopeNoteKo,
+                String diagnosticAvailabilityNoteVi,
+                String diagnosticAvailabilityNoteKo,
+                List<SpeakingDiagnosticGroup> diagnosticGroups,
+                SpeakingUpgradeView upgrade
+        ) {
+            this(
+                    feedback,
+                    tasks,
+                    activeQuestionId,
+                    scoreProfileId,
+                    profileState,
+                    evidenceMode,
+                    evaluatorCapability,
+                    evidenceNote,
+                    taskScoreState,
+                    scoreCriteria,
+                    evidence,
+                    transcriptSegments,
+                    diagnosticAvailability,
+                    diagnosticScopeNoteVi,
+                    diagnosticScopeNoteKo,
+                    diagnosticAvailabilityNoteVi,
+                    diagnosticAvailabilityNoteKo,
+                    diagnosticGroups,
+                    upgrade,
+                    SpeakingTeacherSampleView.unavailable());
+        }
+
         public List<ResultDetailDiagnosticFinding> diagnosticFindings() {
             return diagnosticGroups.stream()
                     .flatMap(group -> java.util.stream.Stream.concat(
@@ -2822,11 +3731,15 @@ public final class PracticeDtos {
             String learnerSubmissionText,
             String submissionState,
             String evaluationState,
-            String summary
+            String summary,
+            String languageTag
     ) {
         public SpeakingTaskDetail {
             learnerSubmissionText = blankResultText(learnerSubmissionText);
             summary = blankResultText(summary);
+            languageTag = "ko".equals(languageTag) || "vi".equals(languageTag)
+                    ? languageTag
+                    : "ko";
             if (questionId == null || questionVersionId == null || questionNo == null
                     || questionType == null
                     || !Set.of("SPEAKING", "ESSAY").contains(questionType)
@@ -2846,6 +3759,23 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException(
                         "Speaking task compatibility mode does not match immutable type");
             }
+        }
+
+        public SpeakingTaskDetail(
+                Long questionId,
+                Long questionVersionId,
+                Integer questionNo,
+                String questionType,
+                String compatibilityMode,
+                String prompt,
+                String learnerSubmissionText,
+                String submissionState,
+                String evaluationState,
+                String summary
+        ) {
+            this(questionId, questionVersionId, questionNo, questionType,
+                    compatibilityMode, prompt, learnerSubmissionText,
+                    submissionState, evaluationState, summary, "ko");
         }
 
         public boolean detailAvailable() {
@@ -2933,6 +3863,60 @@ public final class PracticeDtos {
         }
     }
 
+    public record SpeakingAudioTokenAlignmentView(
+            String tokenId,
+            String evidenceId,
+            String exactText,
+            Integer startOffset,
+            Integer endOffset,
+            Long audioStartMs,
+            Long audioEndMs,
+            String learnerClipPath,
+            String referenceClipPath,
+            String phonemeEvidence,
+            String stressEvidence
+    ) {
+        public SpeakingAudioTokenAlignmentView {
+            if (tokenId == null || tokenId.isBlank()
+                    || evidenceId == null || evidenceId.isBlank()
+                    || exactText == null || exactText.isBlank()
+                    || startOffset == null || startOffset < 0
+                    || endOffset == null || endOffset <= startOffset
+                    || audioStartMs == null || audioStartMs < 0
+                    || audioEndMs == null || audioEndMs <= audioStartMs
+                    || learnerClipPath == null || learnerClipPath.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Speaking token alignment is incomplete");
+            }
+        }
+    }
+
+    public record SpeakingAudioAlignmentView(
+            String availability,
+            String reasonCode,
+            List<SpeakingAudioTokenAlignmentView> tokens
+    ) {
+        public SpeakingAudioAlignmentView {
+            tokens = tokens == null ? List.of() : List.copyOf(tokens);
+            if (!Set.of("AVAILABLE", "NOT_AVAILABLE").contains(availability)
+                    || reasonCode == null || reasonCode.isBlank()
+                    || ("AVAILABLE".equals(availability) && tokens.isEmpty())
+                    || ("NOT_AVAILABLE".equals(availability) && !tokens.isEmpty())) {
+                throw new IllegalArgumentException(
+                        "Speaking audio alignment availability is inconsistent");
+            }
+        }
+
+        public static SpeakingAudioAlignmentView unavailable(String reasonCode) {
+            return new SpeakingAudioAlignmentView(
+                    "NOT_AVAILABLE", reasonCode, List.of());
+        }
+
+        public boolean available() {
+            return "AVAILABLE".equals(availability);
+        }
+    }
+
     public record SpeakingEvidenceView(
             Long questionId,
             String transcriptText,
@@ -2946,7 +3930,8 @@ public final class PracticeDtos {
             String mimeType,
             String playbackPath,
             boolean playbackAvailable,
-            String acousticEvidenceAvailability
+            String acousticEvidenceAvailability,
+            SpeakingAudioAlignmentView audioAlignment
     ) {
         public SpeakingEvidenceView {
             transcriptText = blankResultText(transcriptText);
@@ -2975,6 +3960,7 @@ public final class PracticeDtos {
                     "NOT_SCORABLE",
                     "AVAILABLE_GOVERNED_DIRECT_AUDIO").contains(
                     acousticEvidenceAvailability)
+                    || audioAlignment == null
                     || "AUDIO_SUBMITTED".equalsIgnoreCase(transcriptText.trim())) {
                 throw new IllegalArgumentException(
                         "Speaking evidence provenance is incomplete");
@@ -3008,6 +3994,35 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException(
                         "Disabled Speaking playback cannot expose a media path");
             }
+            if (!"AVAILABLE_GOVERNED_DIRECT_AUDIO".equals(
+                    acousticEvidenceAvailability)
+                    && audioAlignment.available()) {
+                throw new IllegalArgumentException(
+                        "Speaking audio alignment requires governed direct audio");
+            }
+        }
+
+        public SpeakingEvidenceView(
+                Long questionId,
+                String transcriptText,
+                String transcriptAvailability,
+                String transcriptSource,
+                String transcriptMediaBinding,
+                String recordingState,
+                Long mediaId,
+                Long durationMs,
+                Long byteSize,
+                String mimeType,
+                String playbackPath,
+                boolean playbackAvailable,
+                String acousticEvidenceAvailability
+        ) {
+            this(questionId, transcriptText, transcriptAvailability,
+                    transcriptSource, transcriptMediaBinding, recordingState,
+                    mediaId, durationMs, byteSize, mimeType, playbackPath,
+                    playbackAvailable, acousticEvidenceAvailability,
+                    SpeakingAudioAlignmentView.unavailable(
+                            "AUTHORITATIVE_TOKEN_ALIGNMENT_UNAVAILABLE"));
         }
 
         public boolean transcriptAvailable() {
@@ -3168,11 +4183,12 @@ public final class PracticeDtos {
                             java.util.stream.Collectors.counting()));
             if (new LinkedHashSet<>(chips.stream()
                     .map(ResultDetailFilterChip::id).toList()).size() != chips.size()
-                    || !expectedCounts.keySet().equals(chips.stream()
+                    || !chips.stream()
                     .map(ResultDetailFilterChip::id)
-                    .collect(java.util.stream.Collectors.toSet()))
+                    .collect(java.util.stream.Collectors.toSet())
+                    .containsAll(expectedCounts.keySet())
                     || chips.stream().anyMatch(chip ->
-                    expectedCounts.getOrDefault(chip.id(), 0L) != chip.count()
+                            expectedCounts.getOrDefault(chip.id(), 0L) != chip.count()
                             || findings.stream()
                             .filter(finding ->
                                     chip.id().equals(finding.descriptorId()))
@@ -3257,7 +4273,8 @@ public final class PracticeDtos {
             BigDecimal score,
             BigDecimal maxScore,
             String availability,
-            int stableOrder
+            int stableOrder,
+            ResultPerformanceLevel performanceLevel
     ) {
         public ResultDetailScoreCriterion {
             if (criterionId == null || criterionId.isBlank()
@@ -3269,7 +4286,28 @@ public final class PracticeDtos {
             if (!"SCORED".equals(availability)) {
                 score = null;
                 maxScore = null;
+                performanceLevel = "NOT_SCORABLE".equals(availability)
+                        ? ResultPerformanceLevel.notScorableView()
+                        : ResultPerformanceLevel.unavailableView();
+            } else if (performanceLevel != null
+                    && !performanceLevel.scored()) {
+                throw new IllegalArgumentException(
+                        "A scored Result Detail criterion requires a scored performance level");
             }
+        }
+
+        public ResultDetailScoreCriterion(
+                Long questionId,
+                String criterionId,
+                String labelVi,
+                String labelKo,
+                BigDecimal score,
+                BigDecimal maxScore,
+                String availability,
+                int stableOrder
+        ) {
+            this(questionId, criterionId, labelVi, labelKo, score, maxScore,
+                    availability, stableOrder, null);
         }
 
         public String scoreDisplay() {
@@ -3282,24 +4320,91 @@ public final class PracticeDtos {
     public record ResultDetailDiagnosticFinding(
             Long questionId,
             String findingId,
+            String evidenceId,
             String descriptorId,
+            String featureId,
             ResultDetailPolarity polarity,
             String parentCriterionId,
             String applicability,
             String evidenceAvailability,
             String evidenceScope,
             String evidence,
+            Integer startOffset,
+            Integer endOffset,
+            Integer occurrenceIndex,
+            Integer occurrenceCount,
+            String normalization,
+            String sourceHash,
+            String operation,
+            int scopedDisplayNumber,
             String explanationVi,
             String correctionKo
     ) {
         public ResultDetailDiagnosticFinding {
+            correctionKo = correctionKo == null || correctionKo.isBlank()
+                    ? null : correctionKo;
             if (findingId == null || findingId.isBlank()
-                    || descriptorId == null || descriptorId.isBlank() || polarity == null
+                    || descriptorId == null || descriptorId.isBlank()
+                    || featureId == null || featureId.isBlank() || polarity == null
                     || parentCriterionId == null || parentCriterionId.isBlank()
                     || applicability == null || applicability.isBlank()
-                    || evidenceAvailability == null || evidenceAvailability.isBlank()) {
+                    || evidenceAvailability == null || evidenceAvailability.isBlank()
+                    || evidenceScope == null || evidenceScope.isBlank()
+                    || operation == null
+                    || !Set.of("KEEP", "MISSING", "REPLACE", "REDUNDANT")
+                    .contains(operation)
+                    || scopedDisplayNumber < 1
+                    || explanationVi == null || explanationVi.isBlank()) {
                 throw new IllegalArgumentException("Result Detail diagnostic finding is incomplete");
             }
+            if ((polarity == ResultDetailPolarity.STRENGTH
+                    && !"KEEP".equals(operation))
+                    || (polarity == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                    && "KEEP".equals(operation))) {
+                throw new IllegalArgumentException(
+                        "Result Detail diagnostic operation/polarity is inconsistent");
+            }
+            if ("TEXT_SPAN".equals(evidenceScope)
+                    && (evidenceId == null || evidenceId.isBlank()
+                    || evidence == null || evidence.isBlank()
+                    || startOffset == null || startOffset < 0
+                    || endOffset == null || endOffset <= startOffset
+                    || occurrenceIndex == null || occurrenceIndex < 1
+                    || occurrenceCount == null
+                    || occurrenceCount < occurrenceIndex
+                    || normalization == null || normalization.isBlank()
+                    || sourceHash == null || sourceHash.isBlank())) {
+                throw new IllegalArgumentException(
+                        "Result Detail text-span finding requires exact authority");
+            }
+            if ("WHOLE_ANSWER".equals(evidenceScope)
+                    && (evidenceId != null || evidence != null
+                    || startOffset != null || endOffset != null
+                    || occurrenceIndex != null || occurrenceCount != null
+                    || normalization != null || sourceHash != null)) {
+                throw new IllegalArgumentException(
+                        "Result Detail whole-answer finding cannot fabricate a span");
+            }
+        }
+
+        public ResultDetailDiagnosticFinding withScopedDisplayNumber(int number) {
+            return new ResultDetailDiagnosticFinding(
+                    questionId, findingId, evidenceId, descriptorId, featureId, polarity,
+                    parentCriterionId, applicability, evidenceAvailability,
+                    evidenceScope, evidence, startOffset, endOffset,
+                    occurrenceIndex, occurrenceCount, normalization, sourceHash,
+                    operation, number, explanationVi, correctionKo);
+        }
+
+        public ResultDetailSpanMembership spanMembership() {
+            if (!"TEXT_SPAN".equals(evidenceScope)) {
+                return null;
+            }
+            return new ResultDetailSpanMembership(
+                    findingId, evidenceId, descriptorId, featureId, polarity,
+                    startOffset, endOffset, occurrenceIndex, occurrenceCount,
+                    operation, scopedDisplayNumber, evidence, explanationVi,
+                    correctionKo);
         }
     }
 
@@ -3319,7 +4424,7 @@ public final class PracticeDtos {
             if (id == null || id.isBlank() || labelVi == null || labelVi.isBlank()
                     || polarity == null || parentCriterionId == null || parentCriterionId.isBlank()
                     || applicability == null || applicability.isBlank()
-                    || stableOrder <= 0 || count <= 0
+                    || stableOrder <= 0 || count < 0
                     || evidenceAvailability == null || evidenceAvailability.isBlank()) {
                 throw new IllegalArgumentException("Result Detail filter chip is incomplete");
             }
@@ -3380,6 +4485,53 @@ public final class PracticeDtos {
     }
 
     public record ResultState(String code, String label) {
+    }
+
+    /**
+     * Backend-authoritative localized performance projection.
+     *
+     * <p>Scored levels are derived from accepted Writing score anchors.
+     * Evidence availability states remain explicit and are never collapsed
+     * into the lowest scored level.</p>
+     */
+    public record ResultPerformanceLevel(
+            String code,
+            String labelVi,
+            String labelKo
+    ) {
+        private static final Set<String> SCORED_CODES = Set.of(
+                "LIMITED", "MODEST", "GOOD", "EXCELLENT");
+        private static final Set<String> AVAILABILITY_CODES = Set.of(
+                "NOT_SCORABLE", "UNAVAILABLE");
+
+        public ResultPerformanceLevel {
+            if (code == null
+                    || (!SCORED_CODES.contains(code)
+                    && !AVAILABILITY_CODES.contains(code))
+                    || labelVi == null || labelVi.isBlank()
+                    || labelKo == null || labelKo.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Result performance level is incomplete");
+            }
+        }
+
+        public boolean scored() {
+            return SCORED_CODES.contains(code);
+        }
+
+        public boolean unavailable() {
+            return AVAILABILITY_CODES.contains(code);
+        }
+
+        public static ResultPerformanceLevel unavailableView() {
+            return new ResultPerformanceLevel(
+                    "UNAVAILABLE", "Chưa khả dụng", "평가 불가");
+        }
+
+        public static ResultPerformanceLevel notScorableView() {
+            return new ResultPerformanceLevel(
+                    "NOT_SCORABLE", "Chưa thể chấm", "채점 불가");
+        }
     }
 
     public record ResultScoreSummary(
@@ -3477,15 +4629,59 @@ public final class PracticeDtos {
 
     public record ObjectiveResultPayload(
             String kind,
-            List<ObjectiveResultTypeBreakdown> breakdown
+            List<ObjectiveResultTypeBreakdown> breakdown,
+            List<ObjectiveOverviewGroup> groups
     ) implements ResultSkillPayload {
         public ObjectiveResultPayload {
             kind = "OBJECTIVE";
             breakdown = immutableResultList(breakdown);
+            groups = immutableResultList(groups);
         }
 
         public ObjectiveResultPayload(List<ObjectiveResultTypeBreakdown> breakdown) {
-            this("OBJECTIVE", breakdown);
+            this("OBJECTIVE", breakdown, List.of());
+        }
+
+        public ObjectiveResultPayload(
+                List<ObjectiveResultTypeBreakdown> breakdown,
+                List<ObjectiveOverviewGroup> groups
+        ) {
+            this("OBJECTIVE", breakdown, groups);
+        }
+    }
+
+    public record ObjectiveOverviewGroup(
+            String displayLabel,
+            String sourceLabel,
+            Long firstQuestionId,
+            List<String> questionTypeLabels,
+            ResultAnswerDistribution answers,
+            BigDecimal earnedPoints,
+            BigDecimal possiblePoints,
+            BigDecimal scoreRatePercentage
+    ) {
+        public ObjectiveOverviewGroup {
+            if (displayLabel == null || displayLabel.isBlank()
+                    || sourceLabel == null || sourceLabel.isBlank()
+                    || firstQuestionId == null || answers == null) {
+                throw new IllegalArgumentException(
+                        "Objective Overview group is incomplete");
+            }
+            questionTypeLabels = immutableResultList(questionTypeLabels);
+        }
+
+        public String pointsDisplay() {
+            if (earnedPoints == null || possiblePoints == null) {
+                return null;
+            }
+            return compactResultNumber(earnedPoints) + "/"
+                    + compactResultNumber(possiblePoints);
+        }
+
+        public String scoreRateDisplay() {
+            return scoreRatePercentage == null
+                    ? null
+                    : compactResultNumber(scoreRatePercentage) + "%";
         }
     }
 
@@ -3538,11 +4734,57 @@ public final class PracticeDtos {
             String summary,
             List<ResultRubricCriterion> officialCriteria,
             List<WritingAnalysisLens> analysisLenses,
-            boolean detailAvailable
+            boolean detailAvailable,
+            String languageTag,
+            ResultPerformanceLevel performanceLevel
     ) {
         public WritingTaskResult {
             officialCriteria = immutableResultList(officialCriteria);
             analysisLenses = immutableResultList(analysisLenses);
+            languageTag = "ko".equals(languageTag) || "vi".equals(languageTag)
+                    ? languageTag
+                    : "ko";
+        }
+
+        public WritingTaskResult(
+                Long questionId,
+                Long questionVersionId,
+                Integer questionNo,
+                String taskType,
+                String taskLabel,
+                String prompt,
+                String learnerAnswer,
+                ResultScoreSummary score,
+                ResultFeedbackAvailability feedback,
+                String summary,
+                List<ResultRubricCriterion> officialCriteria,
+                List<WritingAnalysisLens> analysisLenses,
+                boolean detailAvailable
+        ) {
+            this(questionId, questionVersionId, questionNo, taskType, taskLabel,
+                    prompt, learnerAnswer, score, feedback, summary, officialCriteria,
+                    analysisLenses, detailAvailable, "ko", null);
+        }
+
+        public WritingTaskResult(
+                Long questionId,
+                Long questionVersionId,
+                Integer questionNo,
+                String taskType,
+                String taskLabel,
+                String prompt,
+                String learnerAnswer,
+                ResultScoreSummary score,
+                ResultFeedbackAvailability feedback,
+                String summary,
+                List<ResultRubricCriterion> officialCriteria,
+                List<WritingAnalysisLens> analysisLenses,
+                boolean detailAvailable,
+                String languageTag
+        ) {
+            this(questionId, questionVersionId, questionNo, taskType, taskLabel,
+                    prompt, learnerAnswer, score, feedback, summary, officialCriteria,
+                    analysisLenses, detailAvailable, languageTag, null);
         }
 
         public boolean answered() {
@@ -3555,6 +4797,37 @@ public final class PracticeDtos {
 
         public boolean clozeTask() {
             return "Q51".equals(taskType) || "Q52".equals(taskType);
+        }
+
+        public List<WritingCriterionGroup> criterionGroups() {
+            if (!clozeTask()) {
+                return officialCriteria.stream()
+                        .map(criterion -> new WritingCriterionGroup(
+                                criterion.criterionId(),
+                                criterion.label(),
+                                List.of(criterion)))
+                        .toList();
+            }
+            return List.of(
+                    clozeGroup("CONTEXT", "Nội dung và ngữ cảnh"),
+                    clozeGroup("GRAMMAR", "Ngữ pháp và cấu trúc"),
+                    clozeGroup("EXPRESSION", "Biểu đạt và độ tự nhiên"))
+                    .stream()
+                    .filter(group -> !group.criteria().isEmpty())
+                    .toList();
+        }
+
+        private WritingCriterionGroup clozeGroup(
+                String code,
+                String label) {
+            return new WritingCriterionGroup(
+                    code,
+                    label,
+                    officialCriteria.stream()
+                            .filter(criterion -> criterion.criterionId() != null
+                                    && criterion.criterionId()
+                                    .endsWith("_" + code))
+                            .toList());
         }
     }
 
@@ -3569,6 +4842,172 @@ public final class PracticeDtos {
         }
     }
 
+    public enum ResultOverviewCapabilityAvailability {
+        AVAILABLE,
+        NOT_SCORABLE,
+        UNAVAILABLE,
+        UNSUPPORTED
+    }
+
+    public record ResultOverviewCapability(
+            String code,
+            ResultOverviewCapabilityAvailability availability,
+            String reasonVi
+    ) {
+        public ResultOverviewCapability {
+            if (code == null || code.isBlank()
+                    || availability == null
+                    || reasonVi == null || reasonVi.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Result Overview capability is incomplete");
+            }
+        }
+
+        public boolean available() {
+            return availability == ResultOverviewCapabilityAvailability.AVAILABLE;
+        }
+    }
+
+    public record SpeakingRadarAxis(
+            String criterionId,
+            String label,
+            BigDecimal earned,
+            BigDecimal possible,
+            BigDecimal percentage,
+            ResultPerformanceLevel performanceLevel,
+            String availability
+    ) {
+        public SpeakingRadarAxis {
+            if (criterionId == null || criterionId.isBlank()
+                    || label == null || label.isBlank()
+                    || availability == null
+                    || !Set.of("SCORED", "NOT_SCORABLE", "UNAVAILABLE")
+                    .contains(availability)) {
+                throw new IllegalArgumentException(
+                        "Speaking radar axis is incomplete");
+            }
+            if ("SCORED".equals(availability)) {
+                if (earned == null || possible == null
+                        || possible.signum() <= 0
+                        || percentage == null
+                        || percentage.compareTo(BigDecimal.ZERO) < 0
+                        || percentage.compareTo(BigDecimal.valueOf(100)) > 0
+                        || performanceLevel == null
+                        || !performanceLevel.scored()) {
+                    throw new IllegalArgumentException(
+                            "Scored Speaking radar axis requires an anchored score");
+                }
+            } else if (earned != null || possible != null || percentage != null
+                    || performanceLevel == null
+                    || !performanceLevel.unavailable()) {
+                throw new IllegalArgumentException(
+                        "Unavailable Speaking radar axis cannot carry a score");
+            }
+        }
+
+        public boolean scored() {
+            return "SCORED".equals(availability);
+        }
+
+        public String scoreDisplay() {
+            return scored()
+                    ? compactResultNumber(earned) + "/" + compactResultNumber(possible)
+                    : "—";
+        }
+
+        public String levelCssClass() {
+            return "is-" + performanceLevel.code()
+                    .toLowerCase(java.util.Locale.ROOT)
+                    .replace('_', '-');
+        }
+    }
+
+    public record SpeakingSubmetricPerformance(
+            String subcriterionId,
+            String labelVi,
+            String parentCriterionId,
+            String parentCriterionLabelVi,
+            ResultPerformanceLevel anchorLevel,
+            int strengthFindings,
+            int improvementFindings,
+            List<Long> questionIds
+    ) {
+        public SpeakingSubmetricPerformance {
+            questionIds = immutableResultList(questionIds);
+            if (subcriterionId == null || subcriterionId.isBlank()
+                    || labelVi == null || labelVi.isBlank()
+                    || parentCriterionId == null || parentCriterionId.isBlank()
+                    || parentCriterionLabelVi == null
+                    || parentCriterionLabelVi.isBlank()
+                    || anchorLevel == null
+                    || !anchorLevel.scored()
+                    || strengthFindings < 0 || improvementFindings < 0
+                    || strengthFindings + improvementFindings < 1
+                    || questionIds.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Speaking submetric performance is incomplete");
+            }
+        }
+
+        public int findingCount() {
+            return strengthFindings + improvementFindings;
+        }
+
+        public String levelCssClass() {
+            return "is-" + anchorLevel.code()
+                    .toLowerCase(java.util.Locale.ROOT)
+                    .replace('_', '-');
+        }
+    }
+
+    public record SpeakingQuestionPerformance(
+            Long questionId,
+            Integer questionNo,
+            String questionLabel,
+            String groupLabel,
+            String availability,
+            List<SpeakingCriterionResult> criteria
+    ) {
+        public SpeakingQuestionPerformance {
+            criteria = immutableResultList(criteria);
+            if (questionId == null || questionNo == null
+                    || questionLabel == null || questionLabel.isBlank()
+                    || groupLabel == null || groupLabel.isBlank()
+                    || availability == null
+                    || !Set.of("READY", "LOW_CONFIDENCE", "NOT_ANSWERED",
+                    "LEGACY_UNVERIFIED", "UNAVAILABLE").contains(availability)
+                    || criteria.size() != 6) {
+                throw new IllegalArgumentException(
+                        "Speaking question performance is incomplete");
+            }
+        }
+
+        public List<SpeakingCriterionResult> languageCriteria() {
+            return criteria.stream()
+                    .filter(criterion -> !criterion.requiresDirectAudioEvidence())
+                    .toList();
+        }
+
+        public boolean ready() {
+            return "READY".equals(availability);
+        }
+
+        public String availabilityLabel() {
+            return switch (availability) {
+                case "READY" -> "Đã chấm";
+                case "LOW_CONFIDENCE" -> "Bản chép lời chưa đủ tin cậy";
+                case "NOT_ANSWERED" -> "Chưa trả lời";
+                case "LEGACY_UNVERIFIED" -> "Kết quả cũ chưa xác minh";
+                default -> "Chưa khả dụng";
+            };
+        }
+
+        public String stateCssClass() {
+            return "is-" + availability.toLowerCase(java.util.Locale.ROOT)
+                    .replace('_', '-');
+        }
+    }
+
     public record SpeakingResultPayload(
             String kind,
             ResultScoreSummary holisticScore,
@@ -3578,10 +5017,12 @@ public final class PracticeDtos {
             String evidenceMode,
             String evidenceNote,
             List<String> overallSummaries,
-            List<String> strengths,
-            List<String> needsImprovement,
+            List<SpeakingOverviewFindingView> strengths,
+            List<SpeakingOverviewFindingView> needsImprovement,
             List<SpeakingActionPlanView> actionPlan,
             List<SpeakingCriterionResult> criteria,
+            List<SpeakingSubmetricPerformance> submetricPerformance,
+            List<SpeakingQuestionPerformance> questionPerformance,
             String evaluatorCapability,
             String evidenceContractVersion,
             String policyBundleId,
@@ -3597,6 +5038,8 @@ public final class PracticeDtos {
             needsImprovement = immutableResultList(needsImprovement);
             actionPlan = immutableResultList(actionPlan);
             criteria = immutableResultList(criteria);
+            submetricPerformance = immutableResultList(submetricPerformance);
+            questionPerformance = immutableResultList(questionPerformance);
             profileState = switch (profileState == null ? "" : profileState) {
                 case "READY", "PARTIAL", "PENDING", "FAILED", "UNAVAILABLE",
                         "LOW_CONFIDENCE", "LEGACY_UNVERIFIED" -> profileState;
@@ -3642,6 +5085,12 @@ public final class PracticeDtos {
                 criteria = criteria.stream()
                         .map(criterion -> criterion.unavailableView(unavailableCriterionState))
                         .toList();
+                submetricPerformance = List.of();
+                // A per-question performance row is still a score-bearing
+                // projection. If the aggregate contract is not current and
+                // verified, omit that projection instead of serializing
+                // legacy identifiers with unavailable-looking values.
+                questionPerformance = List.of();
                 if (legacyUnverifiedSegments > 0) {
                     profileState = "LEGACY_UNVERIFIED";
                 } else if (!"PENDING".equals(profileState)
@@ -3653,6 +5102,12 @@ public final class PracticeDtos {
                 // The current transcript capability cannot produce an overall
                 // Speaking score, even if a stale caller supplies one.
                 holisticScoreAvailable = false;
+                actionPlan = actionPlan.stream()
+                        .filter(item -> item.findingId() != null
+                                && !item.findingId().isBlank()
+                                && item.evidenceId() != null
+                                && !item.evidenceId().isBlank())
+                        .toList();
             }
             if (!holisticScoreAvailable && holisticScore != null) {
                 holisticScore = holisticScore.unavailableView();
@@ -3666,13 +5121,14 @@ public final class PracticeDtos {
                 String evidenceMode,
                 String evidenceNote,
                 List<String> overallSummaries,
-                List<String> strengths,
-                List<String> needsImprovement,
+                List<SpeakingOverviewFindingView> strengths,
+                List<SpeakingOverviewFindingView> needsImprovement,
                 List<SpeakingActionPlanView> actionPlan,
                 List<SpeakingCriterionResult> criteria) {
             this("SPEAKING", holisticScore, coveredSegments, totalSegments,
                     defaultSpeakingProfileState(coveredSegments, totalSegments), evidenceMode,
                     evidenceNote, overallSummaries, strengths, needsImprovement, actionPlan, criteria,
+                    List.of(), List.of(),
                     "LEGACY_UNKNOWN", null, null, null,
                     "LEGACY_UNVERIFIED", false, 0);
         }
@@ -3685,10 +5141,12 @@ public final class PracticeDtos {
                 String evidenceMode,
                 String evidenceNote,
                 List<String> overallSummaries,
-                List<String> strengths,
-                List<String> needsImprovement,
+                List<SpeakingOverviewFindingView> strengths,
+                List<SpeakingOverviewFindingView> needsImprovement,
                 List<SpeakingActionPlanView> actionPlan,
                 List<SpeakingCriterionResult> criteria,
+                List<SpeakingSubmetricPerformance> submetricPerformance,
+                List<SpeakingQuestionPerformance> questionPerformance,
                 String evaluatorCapability,
                 String evidenceContractVersion,
                 String policyBundleId,
@@ -3698,6 +5156,7 @@ public final class PracticeDtos {
                 int legacyUnverifiedSegments) {
             this("SPEAKING", holisticScore, coveredSegments, totalSegments, profileState, evidenceMode,
                     evidenceNote, overallSummaries, strengths, needsImprovement, actionPlan, criteria,
+                    submetricPerformance, questionPerformance,
                     evaluatorCapability, evidenceContractVersion,
                     policyBundleId, policyBundleFingerprint,
                     contractTrust,
@@ -3708,11 +5167,38 @@ public final class PracticeDtos {
                 ResultScoreSummary holisticScore,
                 int coveredSegments,
                 int totalSegments,
+                String profileState,
                 String evidenceMode,
                 String evidenceNote,
                 List<String> overallSummaries,
-                List<String> strengths,
-                List<String> needsImprovement,
+                List<SpeakingOverviewFindingView> strengths,
+                List<SpeakingOverviewFindingView> needsImprovement,
+                List<SpeakingActionPlanView> actionPlan,
+                List<SpeakingCriterionResult> criteria,
+                String evaluatorCapability,
+                String evidenceContractVersion,
+                String policyBundleId,
+                String policyBundleFingerprint,
+                String contractTrust,
+                boolean holisticScoreAvailable,
+                int legacyUnverifiedSegments) {
+            this(holisticScore, coveredSegments, totalSegments, profileState,
+                    evidenceMode, evidenceNote, overallSummaries, strengths,
+                    needsImprovement, actionPlan, criteria, List.of(), List.of(),
+                    evaluatorCapability, evidenceContractVersion, policyBundleId,
+                    policyBundleFingerprint, contractTrust,
+                    holisticScoreAvailable, legacyUnverifiedSegments);
+        }
+
+        public SpeakingResultPayload(
+                ResultScoreSummary holisticScore,
+                int coveredSegments,
+                int totalSegments,
+                String evidenceMode,
+                String evidenceNote,
+                List<String> overallSummaries,
+                List<SpeakingOverviewFindingView> strengths,
+                List<SpeakingOverviewFindingView> needsImprovement,
                 List<SpeakingActionPlanView> actionPlan,
                 List<SpeakingCriterionResult> criteria,
                 String evaluatorCapability,
@@ -3727,7 +5213,8 @@ public final class PracticeDtos {
                             ? "LEGACY_UNVERIFIED"
                             : defaultSpeakingProfileState(coveredSegments, totalSegments),
                     evidenceMode, evidenceNote, overallSummaries, strengths, needsImprovement,
-                    actionPlan, criteria, evaluatorCapability, evidenceContractVersion,
+                    actionPlan, criteria, List.of(), List.of(), evaluatorCapability,
+                    evidenceContractVersion,
                     policyBundleId, policyBundleFingerprint,
                     contractTrust, holisticScoreAvailable, legacyUnverifiedSegments);
         }
@@ -3743,6 +5230,126 @@ public final class PracticeDtos {
                     && com.ksh.features.practice.ai.speaking
                             .SpeakingAssessmentPolicyBundle.fingerprint()
                             .equals(policyBundleFingerprint);
+        }
+
+        /**
+         * Typed, fail-closed authority for PREP-like aggregate visuals.  These
+         * states are intentionally separate from CSS and the seed route: a
+         * client may only render a numeric aggregate when its capability is
+         * AVAILABLE. Values are normalized and anchored on the backend; the
+         * browser never invents a missing axis, level or question aggregate.
+         */
+        public List<ResultOverviewCapability> overviewCapabilities() {
+            ResultOverviewCapabilityAvailability holisticAvailability =
+                    holisticScoreAvailable
+                            && holisticScore != null
+                            && holisticScore.available()
+                            ? ResultOverviewCapabilityAvailability.AVAILABLE
+                            : transcriptGroundedProfile()
+                            ? ResultOverviewCapabilityAvailability.NOT_SCORABLE
+                            : ResultOverviewCapabilityAvailability.UNAVAILABLE;
+            boolean completeLanguageProfile = radarAxes().size() >= 3;
+            ResultOverviewCapabilityAvailability radarAvailability =
+                    completeLanguageProfile
+                            ? ResultOverviewCapabilityAvailability.AVAILABLE
+                            : ResultOverviewCapabilityAvailability.UNAVAILABLE;
+            return List.of(
+                    new ResultOverviewCapability(
+                            "HOLISTIC_SCORE",
+                            holisticAvailability,
+                            holisticAvailability
+                                    == ResultOverviewCapabilityAvailability.AVAILABLE
+                                    ? "Điểm Nói tổng hợp có authority đã xác minh."
+                                    : holisticAvailability
+                                    == ResultOverviewCapabilityAvailability.NOT_SCORABLE
+                                    ? "Bản chép lời không đủ authority để tạo điểm Nói tổng hợp."
+                                    : "Chưa có hồ sơ đủ điều kiện cho điểm Nói tổng hợp."),
+                    new ResultOverviewCapability(
+                            "CRITERION_RADAR",
+                            radarAvailability,
+                            radarAvailability
+                                    == ResultOverviewCapabilityAvailability.AVAILABLE
+                                    ? "Các trục ngôn ngữ được chuẩn hóa độc lập từ điểm đạt được trên điểm tối đa."
+                                    : "Chưa có đủ tiêu chí ngôn ngữ đã chấm để dựng hồ sơ radar."),
+                    new ResultOverviewCapability(
+                            "PART_PERFORMANCE",
+                            questionPerformance.stream().anyMatch(
+                                    SpeakingQuestionPerformance::ready)
+                                    ? ResultOverviewCapabilityAvailability.AVAILABLE
+                                    : ResultOverviewCapabilityAvailability.UNAVAILABLE,
+                            questionPerformance.stream().anyMatch(
+                                    SpeakingQuestionPerformance::ready)
+                                    ? "Hiệu suất theo câu và nhóm đã publish có authority."
+                                    : "Chưa có câu đã đánh giá để hiển thị hiệu suất theo nhóm."),
+                    new ResultOverviewCapability(
+                            "NAMED_CRITERION_SUBMETRICS",
+                            submetricPerformance.isEmpty()
+                                    ? ResultOverviewCapabilityAvailability.UNAVAILABLE
+                                    : ResultOverviewCapabilityAvailability.AVAILABLE,
+                            submetricPerformance.isEmpty()
+                                    ? "Chưa có submetric với bằng chứng đã xác minh."
+                                    : "Submetric dùng level anchor KSH của tiêu chí mẹ và bằng chứng đã xác minh."));
+        }
+
+        public List<SpeakingRadarAxis> radarAxes() {
+            return criteria.stream()
+                    .filter(criterion -> !criterion.requiresDirectAudioEvidence())
+                    .filter(SpeakingCriterionResult::scored)
+                    .map(criterion -> new SpeakingRadarAxis(
+                            criterion.criterionId(), criterion.label(),
+                            criterion.score(), criterion.weight(),
+                            criterion.percentage(), criterion.performanceLevel(),
+                            criterion.availability()))
+                    .toList();
+        }
+
+        public List<SpeakingRadarAxis> unavailableAcousticAxes() {
+            return criteria.stream()
+                    .filter(SpeakingCriterionResult::requiresDirectAudioEvidence)
+                    .map(criterion -> new SpeakingRadarAxis(
+                            criterion.criterionId(), criterion.label(),
+                            null, null, null, criterion.performanceLevel(),
+                            criterion.notScorable() ? "NOT_SCORABLE" : "UNAVAILABLE"))
+                    .toList();
+        }
+
+        public List<SpeakingSubmetricPerformance> submetricsFor(
+                String criterionId) {
+            if (criterionId == null || criterionId.isBlank()) {
+                return List.of();
+            }
+            return submetricPerformance.stream()
+                    .filter(metric -> criterionId.equals(
+                            metric.parentCriterionId()))
+                    .toList();
+        }
+
+        public String radarPolygonPoints() {
+            List<SpeakingRadarAxis> axes = radarAxes();
+            if (axes.size() != 4) {
+                return null;
+            }
+            double[][] units = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+            List<String> points = new java.util.ArrayList<>();
+            for (int index = 0; index < axes.size(); index++) {
+                double ratio = axes.get(index).percentage()
+                        .divide(BigDecimal.valueOf(100), 6,
+                                java.math.RoundingMode.HALF_UP)
+                        .doubleValue();
+                double x = 100 + units[index][0] * 78 * ratio;
+                double y = 100 + units[index][1] * 78 * ratio;
+                points.add(String.format(java.util.Locale.ROOT,
+                        "%.2f,%.2f", x, y));
+            }
+            return String.join(" ", points);
+        }
+
+        public ResultOverviewCapability overviewCapability(String code) {
+            return overviewCapabilities().stream()
+                    .filter(capability -> capability.code().equals(code))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Unknown Result Overview capability: " + code));
         }
 
         public String profileTitle() {
@@ -3942,6 +5549,43 @@ public final class PracticeDtos {
             };
         }
 
+        public String performanceCssClass() {
+            return scored() ? band.cssClass() : "unavailable";
+        }
+
+        public String performanceLabel() {
+            return scored() ? band.label() : availabilityLabel();
+        }
+
+        public ResultPerformanceLevel performanceLevel() {
+            if (notScorable()) {
+                return ResultPerformanceLevel.notScorableView();
+            }
+            if (!scored() || percentage == null) {
+                return ResultPerformanceLevel.unavailableView();
+            }
+            if (percentage.compareTo(BigDecimal.valueOf(40)) < 0) {
+                return new ResultPerformanceLevel(
+                        "LIMITED", "Hạn chế", "제한적");
+            }
+            if (percentage.compareTo(BigDecimal.valueOf(60)) < 0) {
+                return new ResultPerformanceLevel(
+                        "MODEST", "Khiêm tốn", "보통");
+            }
+            if (percentage.compareTo(BigDecimal.valueOf(80)) < 0) {
+                return new ResultPerformanceLevel(
+                        "GOOD", "Tốt", "우수");
+            }
+            return new ResultPerformanceLevel(
+                    "EXCELLENT", "Xuất sắc", "탁월");
+        }
+
+        public String performanceLevelCssClass() {
+            return "is-" + performanceLevel().code()
+                    .toLowerCase(java.util.Locale.ROOT)
+                    .replace('_', '-');
+        }
+
         public SpeakingCriterionResult unavailableView(String unavailableState) {
             return new SpeakingCriterionResult(
                     criterionId, label, null, null, null, coveredSegments, totalSegments,
@@ -3955,13 +5599,62 @@ public final class PracticeDtos {
             String label,
             BigDecimal score,
             BigDecimal maxScore,
-            String feedback
+            String feedback,
+            String performanceLevel,
+            String performanceLabel,
+            String performanceLabelKo
     ) {
+        public ResultRubricCriterion(
+                String criterionId,
+                String label,
+                BigDecimal score,
+                BigDecimal maxScore,
+                String feedback,
+                String performanceLevel,
+                String performanceLabel
+        ) {
+            this(criterionId, label, score, maxScore, feedback,
+                    performanceLevel, performanceLabel, null);
+        }
+
         public String scoreDisplay() {
             if (score == null || maxScore == null) {
                 return null;
             }
             return compactResultNumber(score) + "/" + compactResultNumber(maxScore);
+        }
+
+        public String performanceCssClass() {
+            return switch (performanceLevel == null ? "" : performanceLevel) {
+                case "LIMITED" -> "is-limited";
+                case "MODEST" -> "is-modest";
+                case "GOOD" -> "is-good";
+                case "EXCELLENT" -> "is-excellent";
+                default -> "is-unavailable";
+            };
+        }
+
+        public String clozeItemLabel() {
+            if (criterionId == null) {
+                return null;
+            }
+            if (criterionId.contains("_BLANK_1_")) {
+                return "Ô 1";
+            }
+            if (criterionId.contains("_BLANK_2_")) {
+                return "Ô 2";
+            }
+            return null;
+        }
+    }
+
+    public record WritingCriterionGroup(
+            String code,
+            String label,
+            List<ResultRubricCriterion> criteria
+    ) {
+        public WritingCriterionGroup {
+            criteria = immutableResultList(criteria);
         }
     }
 

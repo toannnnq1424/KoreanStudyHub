@@ -10,6 +10,21 @@ public class PracticeDraftValidatorTest {
     private final PracticeDraftValidator validator = new PracticeDraftValidator(mapper);
 
     @Test
+    void publishValidationRejectsNotGivenStrategyForFalseAnswer() {
+        PracticeDraftValidator.ValidationResult falseResult =
+                validator.validate(tfngStrategyDraft("FALSE"));
+        assertTrue(falseResult.messages().stream().anyMatch(message ->
+                "EXPLANATION_STRATEGY_ANSWER_AUTHORITY_INVALID"
+                        .equals(message.code())));
+
+        PracticeDraftValidator.ValidationResult notGivenResult =
+                validator.validate(tfngStrategyDraft("NOT_GIVEN"));
+        assertFalse(notGivenResult.messages().stream().anyMatch(message ->
+                "EXPLANATION_STRATEGY_ANSWER_AUTHORITY_INVALID"
+                        .equals(message.code())));
+    }
+
+    @Test
     public void testValidDraft() {
         String draftJson = """
         {
@@ -39,6 +54,11 @@ public class PracticeDraftValidatorTest {
                       "prompt": "Câu hỏi số 1",
                       "options": ["A", "B", "C", "D"],
                       "answer": { "value": "1" },
+                      "explanationStrategy": {
+                        "registryVersion": "rl-explanation-strategy-registry-v1",
+                        "strategyCode": "EVIDENCE_ONLY",
+                        "strategyVersion": "v1"
+                      },
                       "explanationVi": "Vì A đúng"
                     }
                   ]
@@ -229,6 +249,42 @@ public class PracticeDraftValidatorTest {
                 completeWritingDraft());
 
         assertFalse(result.hasBlocking());
+    }
+
+    @Test
+    void legacyEssayShapedQ51RequiresExplicitStructuredConversion() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                writingDraftWithTask("\"Q51\""));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "WRITING_STRUCTURED_BLANKS_CONVERSION_REQUIRED"
+                        .equals(message.code())));
+    }
+
+    @Test
+    void validQ51StructuredBlankAuthorityPassesAuthoringGate() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                writingDraft(structuredWritingQuestion(
+                        "Q51", 51, 10, "값/표현;그대로", "둘째 답")));
+
+        assertFalse(result.messages().stream().anyMatch(message ->
+                message.code() != null
+                        && message.code().startsWith(
+                        "WRITING_STRUCTURED_BLANKS")));
+    }
+
+    @Test
+    void mismatchedQ51AuthorityFailsClosed() {
+        PracticeDraftValidator.ValidationResult result = validator.validate(
+                writingDraft(structuredWritingQuestion(
+                        "Q51", 51, 10, "첫째 답", "둘째 답")
+                        .replace(
+                                "\"taskType\":\"Q51\"",
+                                "\"taskType\":\"Q52\"")));
+
+        assertTrue(result.messages().stream().anyMatch(message ->
+                "WRITING_STRUCTURED_BLANKS_INVALID"
+                        .equals(message.code())));
     }
 
     @Test
@@ -478,11 +534,88 @@ public class PracticeDraftValidatorTest {
 
     private String completeWritingDraft() {
         return writingDraft("""
-                    {"questionNo":51,"questionType":"ESSAY","prompt":"Q51","points":10,"essayTaskType":"Q51"},
-                    {"questionNo":52,"questionType":"ESSAY","prompt":"Q52","points":10,"essayTaskType":"Q52"},
+                    %s,
+                    %s,
                     {"questionNo":53,"questionType":"ESSAY","prompt":"Q53","points":30,"essayTaskType":"Q53"},
                     {"questionNo":54,"questionType":"ESSAY","prompt":"Q54","points":50,"essayTaskType":"Q54"}
-                """);
+                """.formatted(
+                structuredWritingQuestion(
+                        "Q51", 51, 10, "첫째 답", "둘째 답"),
+                structuredWritingQuestion(
+                        "Q52", 52, 10, "첫째 답", "둘째 답")));
+    }
+
+    private static String structuredWritingQuestion(
+            String taskType,
+            int questionNo,
+            int points,
+            String firstAnswer,
+            String secondAnswer
+    ) {
+        String prefix = taskType.toLowerCase();
+        return """
+                {
+                  "questionNo":%d,
+                  "questionType":"ESSAY",
+                  "prompt":"%s",
+                  "points":%d,
+                  "essayTaskType":"%s",
+                  "questionContent":{
+                    "schemaVersion":"question-content-v3",
+                    "options":[],
+                    "blanks":[],
+                    "writingResponse":{
+                      "responseSchemaVersion":"writing-blanks.v1",
+                      "responseMode":"STRUCTURED_BLANKS",
+                      "taskType":"%s",
+                      "blanks":[
+                        {"blankId":"%s-b1","ordinal":1,
+                         "context":"첫 번째 문맥"},
+                        {"blankId":"%s-b2","ordinal":2,
+                         "context":"두 번째 문맥"}
+                      ]
+                    },
+                    "languageTag":"ko"
+                  },
+                  "answerSpec":{
+                    "schemaVersion":"answer-spec-v1",
+                    "questionType":"ESSAY",
+                    "correctOptionIds":[],
+                    "blanks":[],
+                    "scoringPolicyCode":"PROFILE_BASED",
+                    "writingBlankAuthority":{
+                      "contractVersion":"writing-blank-authority.v1",
+                      "taskType":"%s",
+                      "normalization":"NFC",
+                      "whitespacePolicy":"TRIM_COLLAPSE",
+                      "blanks":[
+                        {"blankId":"%s-b1","ordinal":1,
+                         "acceptedAnswers":[
+                           {"text":"%s","equivalence":"EXACT",
+                            "evidenceIds":[]}
+                         ]},
+                        {"blankId":"%s-b2","ordinal":2,
+                         "acceptedAnswers":[
+                           {"text":"%s","equivalence":"EXACT",
+                            "evidenceIds":[]}
+                         ]}
+                      ]
+                    }
+                  }
+                }
+                """.formatted(
+                questionNo,
+                taskType,
+                points,
+                taskType,
+                taskType,
+                prefix,
+                prefix,
+                taskType,
+                prefix,
+                firstAnswer,
+                prefix,
+                secondAnswer);
     }
 
     private String speakingDraft(String questionType) {
@@ -555,12 +688,58 @@ public class PracticeDraftValidatorTest {
                 """.formatted(prompt));
     }
 
+    private static String tfngStrategyDraft(String correctValue) {
+        return """
+                {
+                  "tests":[
+                    {"clientId":"test-1","testNo":1,"title":"Test 1"}
+                  ],
+                  "sections":[{
+                    "title":"Đọc",
+                    "skill":"READING",
+                    "testNo":1,
+                    "testClientId":"test-1",
+                    "lessonCode":"R1",
+                    "groups":[{
+                      "label":"1",
+                      "groupCode":"R1.1",
+                      "questions":[{
+                        "questionNo":1,
+                        "questionType":"TRUE_FALSE_NOT_GIVEN",
+                        "prompt":"민수는 매일 공부합니까?",
+                        "points":1,
+                        "questionContent":{
+                          "schemaVersion":"question-content-v1",
+                          "options":[],
+                          "blanks":[]
+                        },
+                        "answerSpec":{
+                          "schemaVersion":"answer-spec-v1",
+                          "questionType":"TRUE_FALSE_NOT_GIVEN",
+                          "correctOptionIds":[],
+                          "correctValue":"%s",
+                          "blanks":[],
+                          "scoringPolicyCode":"ALL_OR_NOTHING"
+                        },
+                        "explanationStrategy":{
+                          "registryVersion":
+                            "rl-explanation-strategy-registry-v2",
+                          "strategyCode":"NOT_GIVEN_BOUNDARY",
+                          "strategyVersion":"v1"
+                        }
+                      }]
+                    }]
+                  }]
+                }
+                """.formatted(correctValue);
+    }
+
     private String writingDraft(String questionJson) {
         return draft("WRITING", questionJson);
     }
 
     private String draft(String skill, String questionJson) {
-        return """
+        String raw = """
         {
           "document": {
             "detectedCategory": "TOPIK_II"
@@ -584,6 +763,45 @@ public class PracticeDraftValidatorTest {
           ]
         }
         """.formatted(skill, lessonCode(skill), lessonCode(skill), questionJson);
+        if (!"READING".equals(skill) && !"LISTENING".equals(skill)) {
+            return raw;
+        }
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode root =
+                    (com.fasterxml.jackson.databind.node.ObjectNode)
+                            mapper.readTree(raw);
+            for (com.fasterxml.jackson.databind.JsonNode section :
+                    root.path("sections")) {
+                for (com.fasterxml.jackson.databind.JsonNode group :
+                        section.path("groups")) {
+                    for (com.fasterxml.jackson.databind.JsonNode node :
+                            group.path("questions")) {
+                        com.fasterxml.jackson.databind.node.ObjectNode question =
+                                (com.fasterxml.jackson.databind.node.ObjectNode)
+                                        node;
+                        String type = question.path("questionType").asText();
+                        String strategyCode = switch (type) {
+                            case "FILL_BLANK", "GAP_FILL" ->
+                                    "CONSTRAINTS_AND_EVIDENCE";
+                            case "TRUE_FALSE_NOT_GIVEN", "TFNG" ->
+                                    "CLAIM_EVIDENCE_RELATION";
+                            default -> "EVIDENCE_ONLY";
+                        };
+                        com.fasterxml.jackson.databind.node.ObjectNode strategy =
+                                question.putObject("explanationStrategy");
+                        strategy.put(
+                                "registryVersion",
+                                "rl-explanation-strategy-registry-v1");
+                        strategy.put("strategyCode", strategyCode);
+                        strategy.put("strategyVersion", "v1");
+                    }
+                }
+            }
+            return mapper.writeValueAsString(root);
+        } catch (Exception exception) {
+            throw new IllegalStateException(
+                    "Không thể tạo fixture strategy R/L.", exception);
+        }
     }
 
     private static String lessonCode(String skill) {

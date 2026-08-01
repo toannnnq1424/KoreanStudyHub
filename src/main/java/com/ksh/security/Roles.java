@@ -33,6 +33,13 @@ public final class Roles {
     /** Exact student role for learner-only practice progress and attempt pages. */
     public static final String PREAUTH_STUDENT = "hasRole('STUDENT')";
 
+    /** Student and lecturer accounts may own a Practice display preference. */
+    public static final String STUDENT_OR_LECTURER = "'STUDENT','LECTURER'";
+
+    /** Full SpEL for account-scoped Practice display preferences. */
+    public static final String PREAUTH_STUDENT_OR_LECTURER =
+            "hasAnyRole(" + STUDENT_OR_LECTURER + ")";
+
     /** Comma-separated list usable for governance and reviewer-only routes. */
     public static final String LEADER_OR_ADMIN = "'LEADER','ADMIN'";
 
