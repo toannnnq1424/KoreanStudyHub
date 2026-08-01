@@ -25,6 +25,10 @@ class PracticeResultWordingTest {
         assertFalse(html.contains(">Overall Score<"));
         assertTrue(html.contains("result.score().primaryDisplay()"));
         assertTrue(html.contains("result.score().pointsDisplay()"));
+        assertTrue(html.contains("pr-summary-writing-breakdown"));
+        assertTrue(html.contains("pr-notebook-divider"));
+        assertTrue(html.contains("Phạm vi điểm"));
+        assertTrue(html.contains("không phải điểm hoặc chứng chỉ TOPIK chính thức"));
         assertTrue(html.contains("result.identity().skill() != 'SPEAKING'"));
         assertTrue(html.contains("result.identity().skill() == 'SPEAKING'"));
         assertTrue(html.contains("Phạm vi hồ sơ"));
@@ -40,19 +44,25 @@ class PracticeResultWordingTest {
 
         assertTrue(fragment.contains("task.score().pointsDisplay()"));
         assertTrue(fragment.contains("criterion.scoreDisplay()"));
-        assertTrue(fragment.contains("Đánh giá luyện tập KSH"));
-        assertTrue(fragment.contains("không phải điểm hoặc chứng chỉ TOPIK chính thức"));
+        assertFalse(fragment.contains("Đánh giá luyện tập KSH"));
+        assertFalse(fragment.contains("không phải điểm hoặc chứng chỉ TOPIK chính thức"));
         assertTrue(fragment.contains("questionId=${task.questionId()}"));
         assertTrue(fragment.contains("Không có điểm hoặc mức chất lượng nào được suy đoán"));
+        assertTrue(fragment.contains("th:hidden=\"${!taskStatus.first}\""));
         assertFalse(fragment.contains("Chẩn đoán để luyện tiếp"));
         assertFalse(fragment.contains("criterion.band()"));
         assertFalse(fragment.contains("lens.band()"));
-        assertFalse(fragment.contains("th:hidden"));
+        assertFalse(fragment.contains("stripTrailingZeros().toPlainString()"));
+        assertFalse(fragment.contains("pr-task-prompt-toggle"));
+        assertFalse(fragment.contains("Xem toàn bộ đề bài"));
+        assertFalse(fragment.contains("<details class=\"pr-task-prompt\""));
+        assertFalse(fragment.contains("<span class=\"pr-task-type\""));
+        assertFalse(fragment.contains("<h3 th:text=\"${task.taskLabel()}\""));
         assertFalse(fragment.contains("matchedScore * 10"));
     }
 
     @Test
-    void speakingOverviewUsesTranscriptProfileWordingWithoutGenericBands() throws IOException {
+    void speakingOverviewUsesTranscriptProfileWordingWithKshCriterionLevels() throws IOException {
         String fragment = readResource("templates/practice/result/speaking.html");
         String css = readResource("static/css/practice-result.css");
 
@@ -63,8 +73,11 @@ class PracticeResultWordingTest {
         assertTrue(fragment.contains("Không có điểm số"));
         assertTrue(fragment.contains("Bản chép lời, độ tin cậy nhận dạng và thông tin tệp"));
         assertFalse(fragment.contains("IELTS"));
-        assertFalse(fragment.contains("criterion.band()"));
+        assertTrue(fragment.contains("criterion.band().label()"));
+        assertTrue(fragment.contains("data-result-tabs=\"speaking-overview-criteria\""));
+        assertTrue(fragment.contains("Bộ đánh giá chưa nhận âm thanh trực tiếp"));
         assertFalse(fragment.contains("criterion.percentage()"));
+        assertFalse(fragment.contains("Band descriptors"));
         assertFalse(fragment.contains("pr-scale"));
         assertFalse(fragment.toLowerCase().contains("radar"));
         assertFalse(css.contains(".pr-band-chip"));
@@ -82,7 +95,7 @@ class PracticeResultWordingTest {
                 "result.feedback().state() == 'FAILED' or result.feedback().state() == 'UNAVAILABLE'"));
         assertTrue(fragment.contains(
                 "Lần nộp này được lưu bất biến và không thể đánh giá lại"));
-        assertTrue(fragment.contains(
+        assertFalse(fragment.contains(
                 "제출한 시도는 변경되지 않으며 다시 평가할 수 없습니다"));
         assertTrue(fragment.contains(
                 "“Luyện lại” mở bước chuẩn bị cho một lượt khác"));
@@ -98,7 +111,8 @@ class PracticeResultWordingTest {
                 "setId=${result.identity().setId()}"));
         assertTrue(fragment.contains(
                 "testId=${result.identity().testId()}"));
-        assertTrue(fragment.contains("Luyện lại · 다시 연습"));
+        assertTrue(fragment.contains("Luyện lại"));
+        assertFalse(fragment.contains("Luyện lại · 다시 연습"));
         assertFalse(fragment.contains("<form"));
         assertFalse(fragment.contains("/re-evaluate"));
         assertFalse(fragment.contains("reuse"));

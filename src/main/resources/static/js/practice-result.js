@@ -4,34 +4,131 @@
     '(prefers-reduced-motion: reduce)'
   );
 
+  function runResultCelebration() {
+    const page = document.body;
+    const celebration = document.querySelector('[data-result-celebration]');
+    if (!celebration
+        || page.dataset.resultCelebrationEligible !== 'true') return;
+
+    const stateKey = page.dataset.resultCelebrationKey;
+    if (!stateKey || celebration.dataset.played === 'true') return;
+    // One celebration per rendered document. A real navigation or F5 creates
+    // a new document and intentionally replays the short welcome animation.
+    celebration.dataset.played = 'true';
+
+    const deterministicMotionOff =
+      window.__KSH_DISABLE_RESULT_MOTION__ === true
+      || document.documentElement.dataset.practiceMotion === 'off';
+    if (reducedMotion.matches || deterministicMotionOff) return;
+
+    const pieces = [
+      ['dot', 10, 70, -10, -52, -25, 0],
+      ['star', 17, 62, -18, -76, 32, 45],
+      ['dash', 25, 74, -12, -46, 65, 90],
+      ['dot', 34, 66, -5, -68, -35, 120],
+      ['star', 43, 76, -4, -54, 24, 165],
+      ['dash', 53, 70, 4, -78, -62, 30],
+      ['dot', 62, 76, 8, -58, 30, 105],
+      ['star', 71, 63, 13, -72, 55, 145],
+      ['dash', 80, 72, 18, -48, -40, 70],
+      ['dot', 89, 65, 11, -62, 28, 190],
+      ['star', 21, 82, -8, -44, -52, 215],
+      ['dot', 76, 84, 7, -50, 40, 235],
+      ['star', 7, 48, -18, -64, -72, 125],
+      ['dash', 14, 86, -20, -42, 85, 255],
+      ['dot', 28, 54, -8, -82, 20, 310],
+      ['star', 38, 88, -5, -58, -42, 345],
+      ['dash', 48, 58, 2, -86, 76, 205],
+      ['dot', 58, 88, 5, -52, -28, 365],
+      ['star', 67, 50, 12, -84, 68, 285],
+      ['dash', 75, 91, 16, -46, -74, 395],
+      ['dot', 84, 51, 18, -78, 42, 330],
+      ['star', 94, 80, 20, -56, -58, 420],
+      ['dash', 31, 91, -9, -38, 95, 455],
+      ['star', 69, 92, 10, -40, -90, 485]
+    ];
+    const colors = ['#ffd23f', '#ff6b6b', '#4d7cff', '#35b86b'];
+
+    pieces.forEach(([shape, x, y, dx, dy, rotation, delay], index) => {
+      const piece = document.createElement('i');
+      piece.className = `pr-result-celebration-piece is-${shape}`;
+      piece.style.setProperty('--celebration-x', `${x}%`);
+      piece.style.setProperty('--celebration-y', `${y}%`);
+      piece.style.setProperty('--celebration-dx', `${dx}px`);
+      piece.style.setProperty('--celebration-dy', `${dy}px`);
+      piece.style.setProperty('--celebration-rotation', `${rotation}deg`);
+      piece.style.setProperty('--celebration-dx-mid', `${dx * 0.45}px`);
+      piece.style.setProperty('--celebration-dy-mid', `${dy * 0.58}px`);
+      piece.style.setProperty('--celebration-rotation-mid', `${rotation * 0.55}deg`);
+      piece.style.setProperty('--celebration-dx-late', `${dx * 0.75}px`);
+      piece.style.setProperty('--celebration-dy-late', `${dy * 0.86}px`);
+      piece.style.setProperty('--celebration-rotation-late', `${rotation * 0.82}deg`);
+      piece.style.setProperty('--celebration-delay', `${delay}ms`);
+      piece.style.setProperty('--celebration-color', colors[index % colors.length]);
+      celebration.append(piece);
+    });
+
+    celebration.hidden = false;
+    window.requestAnimationFrame(() => celebration.classList.add('is-active'));
+    window.setTimeout(() => {
+      celebration.classList.remove('is-active');
+      celebration.replaceChildren();
+      celebration.hidden = true;
+    }, 2850);
+  }
+
+  runResultCelebration();
+
   const tabLists = document.querySelectorAll('[data-result-tabs]');
+  const hasToken = (value, token) => String(value || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .includes(token);
 
   function resetDiagnosticState(review) {
     if (!review) return;
 
     review.querySelectorAll(
-      '[data-writing-diagnostic-filter], [data-speaking-diagnostic-filter]'
+      '[data-writing-diagnostic-filter], [data-writing-upgrade-filter], '
+      + '[data-speaking-diagnostic-filter], [data-speaking-upgrade-filter]'
     ).forEach((filter) => filter.setAttribute('aria-pressed', 'false'));
 
     review.querySelectorAll(
       '[data-writing-feature], [data-speaking-feature]'
     ).forEach((item) => {
       if (!item.hasAttribute('data-writing-diagnostic-filter')
+          && !item.hasAttribute('data-writing-upgrade-filter')
           && !item.hasAttribute('data-speaking-diagnostic-filter')) {
         item.hidden = false;
       }
     });
 
     review.querySelectorAll(
+      '[data-writing-occurrence-trigger], [data-speaking-occurrence-trigger]'
+    ).forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
+    review.querySelectorAll('.prd-occurrence-detail').forEach((detail) => {
+      detail.hidden = true;
+    });
+    review.querySelectorAll(
+      '[data-writing-zero-chip-empty], [data-speaking-zero-chip-empty]'
+    ).forEach((empty) => { empty.hidden = true; });
+    review.querySelectorAll(
+      '[data-writing-number-feature], [data-speaking-number-feature]'
+    ).forEach((number) => { number.hidden = false; });
+
+    review.querySelectorAll(
       '.prd-writing-inline-annotation, .prd-speaking-inline-annotation'
     ).forEach((annotation) => {
-      annotation.classList.remove('is-selected', 'is-muted');
+      annotation.classList.remove(
+        'is-selected', 'is-muted', 'is-upgrade', 'is-occurrence-selected'
+      );
     });
 
     review.querySelectorAll(
-      '[data-writing-filter-status], [data-speaking-filter-status]'
+      '[data-writing-filter-status], [data-writing-upgrade-filter-status], '
+      + '[data-speaking-filter-status], [data-speaking-upgrade-filter-status]'
     ).forEach((status) => {
-      status.textContent = '';
+      status.textContent = 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
     });
   }
 
@@ -95,24 +192,36 @@
     });
   });
 
-  const writingFilters = document.querySelectorAll('[data-writing-diagnostic-filter]');
+  const writingFilters = document.querySelectorAll(
+    '[data-writing-diagnostic-filter], [data-writing-upgrade-filter]'
+  );
 
   writingFilters.forEach((filter) => {
     filter.addEventListener('click', () => {
       const panel = filter.closest('[role="tabpanel"]');
       if (!panel) return;
       const review = filter.closest('[data-writing-active-question]');
+      const upgradeFilter = filter.hasAttribute('data-writing-upgrade-filter');
+      panel.querySelectorAll('[data-writing-occurrence-trigger]')
+        .forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
+      panel.querySelectorAll('.prd-occurrence-detail')
+        .forEach((detail) => { detail.hidden = true; });
 
       const scopedFilters = Array.from(
-        panel.querySelectorAll('[data-writing-diagnostic-filter]')
+        panel.querySelectorAll(
+          '[data-writing-diagnostic-filter], [data-writing-upgrade-filter]'
+        )
       );
       const findings = Array.from(
         panel.querySelectorAll('[data-writing-feature]')
-      ).filter((item) => !item.hasAttribute('data-writing-diagnostic-filter'));
+      ).filter((item) =>
+        !item.hasAttribute('data-writing-diagnostic-filter')
+        && !item.hasAttribute('data-writing-upgrade-filter')
+      );
       const annotations = review
         ? Array.from(
           review.querySelectorAll(
-            '.prd-writing-inline-annotation[data-writing-feature]'
+            '.prd-writing-inline-annotation[data-writing-features]'
           )
         )
         : [];
@@ -126,14 +235,28 @@
       });
       annotations.forEach((annotation) => {
         const selected = activateFilter
-          && annotation.dataset.writingFeature === feature;
+          && hasToken(annotation.dataset.writingFeatures, feature);
         annotation.classList.toggle('is-selected', selected);
         annotation.classList.toggle('is-muted', activateFilter && !selected);
+        annotation.classList.toggle('is-upgrade', selected && upgradeFilter);
+      });
+      review?.querySelectorAll('[data-writing-number-feature]').forEach((number) => {
+        number.hidden = activateFilter
+          && number.dataset.writingNumberFeature !== feature;
       });
 
-      const status = panel.querySelector('[data-writing-filter-status]');
+      const zeroState = panel.querySelector('[data-writing-zero-chip-empty]');
+      if (zeroState) {
+        zeroState.hidden = !(activateFilter
+          && Number(filter.dataset.writingChipCount || 0) === 0);
+      }
+
+      const status = panel.querySelector(
+        '[data-writing-filter-status], [data-writing-upgrade-filter-status]'
+      );
       if (!activateFilter) {
-        if (status) status.textContent = '';
+        if (status) status.textContent =
+          'Đang hiển thị toàn bộ occurrence có bằng chứng.';
         return;
       }
 
@@ -142,32 +265,97 @@
         (finding) => finding.dataset.writingFeature === feature
       ).length;
       if (status) {
-        status.textContent =
-          `Đang hiển thị ${visibleCount} phản hồi phù hợp.`;
+        status.textContent = upgradeFilter
+          ? `Đang đánh dấu ${annotations.filter((annotation) =>
+            hasToken(annotation.dataset.writingFeatures, feature)).length} đoạn được nâng cấp.`
+          : `Đang hiển thị ${visibleCount} phản hồi phù hợp.`;
       }
     });
   });
 
+  document.querySelectorAll('[data-writing-splitter]').forEach((splitter) => {
+    const shell = splitter.closest('.prd-writing-shell');
+    if (!shell) return;
+
+    const min = Number(splitter.getAttribute('aria-valuemin')) || 35;
+    const max = Number(splitter.getAttribute('aria-valuemax')) || 65;
+    const clamp = (value) => Math.min(max, Math.max(min, value));
+    const setSplit = (value) => {
+      const next = Math.round(clamp(value) * 10) / 10;
+      shell.style.setProperty('--writing-split', `${next}%`);
+      splitter.setAttribute('aria-valuenow', String(Math.round(next)));
+    };
+    const setFromPointer = (clientX) => {
+      const bounds = shell.getBoundingClientRect();
+      if (!bounds.width) return;
+      setSplit(((clientX - bounds.left) / bounds.width) * 100);
+    };
+
+    splitter.addEventListener('pointerdown', (event) => {
+      splitter.classList.add('is-dragging');
+      splitter.setPointerCapture(event.pointerId);
+      setFromPointer(event.clientX);
+    });
+    splitter.addEventListener('pointermove', (event) => {
+      if (!splitter.classList.contains('is-dragging')) return;
+      setFromPointer(event.clientX);
+    });
+    splitter.addEventListener('pointerup', (event) => {
+      splitter.classList.remove('is-dragging');
+      if (splitter.hasPointerCapture(event.pointerId)) {
+        splitter.releasePointerCapture(event.pointerId);
+      }
+    });
+    splitter.addEventListener('pointercancel', () => {
+      splitter.classList.remove('is-dragging');
+    });
+    splitter.addEventListener('keydown', (event) => {
+      const current = Number(splitter.getAttribute('aria-valuenow')) || 52;
+      let next = null;
+      if (event.key === 'ArrowLeft') next = current - 2;
+      if (event.key === 'ArrowRight') next = current + 2;
+      if (event.key === 'Home') next = min;
+      if (event.key === 'End') next = max;
+      if (next == null) return;
+      event.preventDefault();
+      setSplit(next);
+    });
+  });
+
   const speakingFilters = document.querySelectorAll(
-    '[data-speaking-diagnostic-filter]'
+    '[data-speaking-diagnostic-filter], [data-speaking-upgrade-filter]'
   );
+
+  document.querySelectorAll('[data-speaking-filter-status]').forEach((status) => {
+    status.textContent = 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
+  });
 
   speakingFilters.forEach((filter) => {
     filter.addEventListener('click', () => {
       const panel = filter.closest('[role="tabpanel"]');
       if (!panel) return;
       const review = filter.closest('[data-speaking-active-question]');
+      const upgradeFilter = filter.hasAttribute('data-speaking-upgrade-filter');
+      panel.querySelectorAll('[data-speaking-occurrence-trigger]')
+        .forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
+      panel.querySelectorAll('.prd-occurrence-detail')
+        .forEach((detail) => { detail.hidden = true; });
 
       const scopedFilters = Array.from(
-        panel.querySelectorAll('[data-speaking-diagnostic-filter]')
+        panel.querySelectorAll(
+          '[data-speaking-diagnostic-filter], [data-speaking-upgrade-filter]'
+        )
       );
       const findings = Array.from(
         panel.querySelectorAll('[data-speaking-feature]')
-      ).filter((item) => !item.hasAttribute('data-speaking-diagnostic-filter'));
+      ).filter((item) =>
+        !item.hasAttribute('data-speaking-diagnostic-filter')
+        && !item.hasAttribute('data-speaking-upgrade-filter')
+      );
       const annotations = review
         ? Array.from(
           review.querySelectorAll(
-            '.prd-speaking-inline-annotation[data-speaking-feature]'
+            '.prd-speaking-inline-annotation[data-speaking-features]'
           )
         )
         : [];
@@ -181,14 +369,31 @@
       });
       annotations.forEach((annotation) => {
         const selected = activateFilter
-          && annotation.dataset.speakingFeature === feature;
+          && hasToken(annotation.dataset.speakingFeatures, feature);
         annotation.classList.toggle('is-selected', selected);
         annotation.classList.toggle('is-muted', activateFilter && !selected);
+        annotation.classList.toggle('is-upgrade', selected && upgradeFilter);
+      });
+      review?.querySelectorAll('[data-speaking-number-feature]').forEach((number) => {
+        number.hidden = activateFilter
+          && number.dataset.speakingNumberFeature !== feature;
       });
 
-      const status = panel.querySelector('[data-speaking-filter-status]');
+      const zeroState = panel.querySelector('[data-speaking-zero-chip-empty]');
+      if (zeroState) {
+        zeroState.hidden = !(activateFilter
+          && Number(filter.dataset.speakingChipCount || 0) === 0);
+      }
+
+      const status = panel.querySelector(
+        '[data-speaking-filter-status], [data-speaking-upgrade-filter-status]'
+      );
       if (!activateFilter) {
-        if (status) status.textContent = '';
+        if (status) {
+          status.textContent = upgradeFilter
+            ? ''
+            : 'Đang hiển thị toàn bộ occurrence có bằng chứng.';
+        }
         return;
       }
 
@@ -198,8 +403,135 @@
       ).length;
       if (status) {
         status.textContent =
-          `Đang hiển thị ${visibleCount} phản hồi phù hợp.`;
+          upgradeFilter
+            ? `Đang đánh dấu ${annotations.filter((annotation) =>
+              hasToken(annotation.dataset.speakingFeatures, feature)).length} đoạn được nâng cấp.`
+            : `Đang hiển thị ${visibleCount} phản hồi phù hợp.`;
       }
+    });
+  });
+
+  function activateOccurrence(trigger, kind) {
+    const panel = trigger.closest('[role="tabpanel"]');
+    if (!panel) return;
+    const card = trigger.closest(
+      kind === 'writing'
+        ? '[data-writing-occurrence]'
+        : '[data-speaking-occurrence]'
+    );
+    if (!card) return;
+    const identity = kind === 'writing'
+      ? card.dataset.writingOccurrence
+      : card.dataset.speakingOccurrence;
+    const expanded = trigger.getAttribute('aria-expanded') === 'true';
+
+    panel.querySelectorAll(
+      '[data-writing-occurrence-trigger], [data-speaking-occurrence-trigger]'
+    ).forEach((candidate) => candidate.setAttribute('aria-expanded', 'false'));
+    panel.querySelectorAll('.prd-occurrence-detail').forEach((detail) => {
+      detail.hidden = true;
+    });
+    const review = trigger.closest(
+      '[data-writing-active-question], [data-speaking-active-question]'
+    );
+    review?.querySelectorAll(
+      '.prd-writing-inline-annotation, .prd-speaking-inline-annotation'
+    ).forEach((annotation) => {
+      const ids = kind === 'writing'
+        ? annotation.dataset.writingFindingIds
+        : annotation.dataset.speakingFindingIds;
+      annotation.classList.toggle(
+        'is-occurrence-selected', !expanded && hasToken(ids, identity)
+      );
+    });
+    if (expanded) return;
+
+    trigger.setAttribute('aria-expanded', 'true');
+    const detailId = trigger.getAttribute('aria-controls');
+    const detail = detailId ? document.getElementById(detailId) : null;
+    if (detail) detail.hidden = false;
+  }
+
+  document.querySelectorAll('[data-writing-occurrence-trigger]').forEach((trigger) => {
+    trigger.addEventListener('click', () => activateOccurrence(trigger, 'writing'));
+  });
+  document.querySelectorAll('[data-speaking-occurrence-trigger]').forEach((trigger) => {
+    trigger.addEventListener('click', () => activateOccurrence(trigger, 'speaking'));
+  });
+
+  document.querySelectorAll(
+    '.prd-writing-inline-annotation[data-writing-finding-ids], '
+    + '.prd-speaking-inline-annotation[data-speaking-finding-ids]'
+  ).forEach((annotation) => {
+    annotation.addEventListener('click', () => {
+      const writing = annotation.classList.contains('prd-writing-inline-annotation');
+      const ids = String(writing
+        ? annotation.dataset.writingFindingIds
+        : annotation.dataset.speakingFindingIds).split(/\s+/).filter(Boolean);
+      const prefix = writing ? 'writing-finding-' : 'speaking-finding-';
+      const card = ids.map((id) => document.getElementById(`${prefix}${id}`))
+        .find(Boolean);
+      const trigger = card?.querySelector(
+        writing
+          ? '[data-writing-occurrence-trigger]'
+          : '[data-speaking-occurrence-trigger]'
+      );
+      if (!trigger) return;
+      card.hidden = false;
+      activateOccurrence(trigger, writing ? 'writing' : 'speaking');
+      card.scrollIntoView({
+        behavior: reducedMotion.matches ? 'auto' : 'smooth',
+        block: 'center'
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-speaking-splitter]').forEach((splitter) => {
+    const shell = splitter.closest('.prd-speaking-shell');
+    if (!shell) return;
+
+    const min = Number(splitter.getAttribute('aria-valuemin')) || 35;
+    const max = Number(splitter.getAttribute('aria-valuemax')) || 65;
+    const clamp = (value) => Math.min(max, Math.max(min, value));
+    const setSplit = (value) => {
+      const next = Math.round(clamp(value) * 10) / 10;
+      shell.style.setProperty('--speaking-split', `${next}%`);
+      splitter.setAttribute('aria-valuenow', String(Math.round(next)));
+    };
+    const setFromPointer = (clientX) => {
+      const bounds = shell.getBoundingClientRect();
+      if (!bounds.width) return;
+      setSplit(((clientX - bounds.left) / bounds.width) * 100);
+    };
+
+    splitter.addEventListener('pointerdown', (event) => {
+      splitter.classList.add('is-dragging');
+      splitter.setPointerCapture(event.pointerId);
+      setFromPointer(event.clientX);
+    });
+    splitter.addEventListener('pointermove', (event) => {
+      if (!splitter.classList.contains('is-dragging')) return;
+      setFromPointer(event.clientX);
+    });
+    splitter.addEventListener('pointerup', (event) => {
+      splitter.classList.remove('is-dragging');
+      if (splitter.hasPointerCapture(event.pointerId)) {
+        splitter.releasePointerCapture(event.pointerId);
+      }
+    });
+    splitter.addEventListener('pointercancel', () => {
+      splitter.classList.remove('is-dragging');
+    });
+    splitter.addEventListener('keydown', (event) => {
+      const current = Number(splitter.getAttribute('aria-valuenow')) || 52;
+      let next = null;
+      if (event.key === 'ArrowLeft') next = current - 2;
+      if (event.key === 'ArrowRight') next = current + 2;
+      if (event.key === 'Home') next = min;
+      if (event.key === 'End') next = max;
+      if (next == null) return;
+      event.preventDefault();
+      setSplit(next);
     });
   });
 
@@ -239,6 +571,10 @@
   }
 
   function showAnnotationTooltip(annotation) {
+    if (annotation.classList.contains('prd-speaking-inline-annotation')
+        && !annotation.classList.contains('is-selected')) {
+      return;
+    }
     const source = annotation.querySelector(
       '.prd-writing-inline-tooltip, .prd-speaking-inline-tooltip'
     );
@@ -296,9 +632,213 @@
     const groupNavItems = Array.from(
       objectiveShell.querySelectorAll('[data-objective-group-nav-item]')
     );
+    const materialPinButtons = Array.from(
+      objectiveShell.querySelectorAll('[data-objective-material-pin]')
+    );
+    const objectiveSplitters = Array.from(
+      objectiveShell.querySelectorAll('[data-objective-splitter]')
+    );
+    const objectiveAttemptId = objectiveShell.dataset.objectiveAttemptId || 'unknown';
+    const materialPinStorageKey =
+      `ksh:practice-result-detail:${objectiveAttemptId}:pinned-material-groups`;
+    const objectiveSplitStorageKey =
+      `ksh:practice-result-detail:${objectiveAttemptId}:split-ratio`;
+
+    function setObjectiveSplitRatio(rawRatio) {
+      const ratio = Math.max(32, Math.min(68, Number(rawRatio) || 50));
+      groupPanels.forEach((panel) => {
+        panel.style.setProperty('--prd-objective-split', `${ratio}%`);
+      });
+      objectiveSplitters.forEach((splitter) => {
+        splitter.setAttribute('aria-valuenow', String(Math.round(ratio)));
+      });
+      return ratio;
+    }
+
+    let objectiveSplitRatio = 50;
+    try {
+      objectiveSplitRatio = setObjectiveSplitRatio(
+        window.localStorage.getItem(objectiveSplitStorageKey) || 50
+      );
+    } catch (error) {
+      objectiveSplitRatio = setObjectiveSplitRatio(50);
+    }
+
+    function persistObjectiveSplitRatio() {
+      try {
+        window.localStorage.setItem(
+          objectiveSplitStorageKey,
+          String(Math.round(objectiveSplitRatio * 100) / 100)
+        );
+      } catch (error) {
+        // The splitter remains functional when browser storage is unavailable.
+      }
+    }
+
+    objectiveSplitters.forEach((splitter) => {
+      const panel = splitter.closest('[data-objective-group-panel]');
+      if (!panel) return;
+      const moveToPointer = (event) => {
+        const bounds = panel.getBoundingClientRect();
+        if (!bounds.width) return;
+        objectiveSplitRatio = setObjectiveSplitRatio(
+          ((event.clientX - bounds.left) / bounds.width) * 100
+        );
+      };
+      splitter.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        splitter.classList.add('is-dragging');
+        splitter.setPointerCapture(event.pointerId);
+        moveToPointer(event);
+      });
+      splitter.addEventListener('pointermove', (event) => {
+        if (!splitter.classList.contains('is-dragging')) return;
+        moveToPointer(event);
+      });
+      splitter.addEventListener('pointerup', (event) => {
+        splitter.classList.remove('is-dragging');
+        if (splitter.hasPointerCapture(event.pointerId)) {
+          splitter.releasePointerCapture(event.pointerId);
+        }
+        persistObjectiveSplitRatio();
+      });
+      splitter.addEventListener('pointercancel', () => {
+        splitter.classList.remove('is-dragging');
+      });
+      splitter.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        if (event.key === 'Home') objectiveSplitRatio = setObjectiveSplitRatio(32);
+        else if (event.key === 'End') objectiveSplitRatio = setObjectiveSplitRatio(68);
+        else objectiveSplitRatio = setObjectiveSplitRatio(
+          objectiveSplitRatio + (event.key === 'ArrowLeft' ? -2 : 2)
+        );
+        persistObjectiveSplitRatio();
+      });
+    });
+
+    let pinnedMaterialGroups = new Set();
+    try {
+      const stored = window.localStorage.getItem(materialPinStorageKey) || '';
+      pinnedMaterialGroups = new Set(stored.split('\n')
+        .filter(Boolean)
+        .map((value) => decodeURIComponent(value)));
+    } catch (error) {
+      pinnedMaterialGroups = new Set();
+    }
+
+    function persistMaterialPins() {
+      try {
+        window.localStorage.setItem(
+          materialPinStorageKey,
+          Array.from(pinnedMaterialGroups)
+            .map((value) => encodeURIComponent(value))
+            .join('\n')
+        );
+      } catch (error) {
+        // Result review stays functional when persistent browser storage is unavailable.
+      }
+    }
+
+    function paintMaterialPins() {
+      materialPinButtons.forEach((button) => {
+        const groupKey = String(button.dataset.objectiveGroupKey || '');
+        const pinned = pinnedMaterialGroups.has(groupKey);
+        button.setAttribute('aria-pressed', String(pinned));
+        button.title = pinned
+          ? 'Bỏ ghim học liệu dùng chung'
+          : 'Ghim học liệu dùng chung';
+        const label = button.querySelector('[data-objective-material-pin-label]');
+        if (label) label.textContent = pinned ? 'Bỏ ghim' : 'Ghim học liệu';
+      });
+      groupPanels.forEach((panel) => {
+        panel.classList.toggle(
+          'is-material-pinned',
+          pinnedMaterialGroups.has(String(panel.dataset.objectiveGroupKey || ''))
+        );
+      });
+    }
+
+    materialPinButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const groupKey = String(button.dataset.objectiveGroupKey || '');
+        if (pinnedMaterialGroups.has(groupKey)) pinnedMaterialGroups.delete(groupKey);
+        else pinnedMaterialGroups.add(groupKey);
+        persistMaterialPins();
+        paintMaterialPins();
+        button.focus();
+      });
+    });
+
+    const helper = document.querySelector('[data-objective-helper]');
+    const helperToggle = document.querySelector('[data-objective-helper-toggle]');
+    const helperClose = helper?.querySelector('[data-objective-helper-close]');
+    const helperBackdrop = document.querySelector('[data-objective-helper-backdrop]');
+    const helperPageRegions = [
+      document.querySelector('.prd-header'),
+      objectiveShell
+    ].filter(Boolean);
+    let helperReturnFocus = null;
+
+    function closeObjectiveHelper() {
+      if (!helper || helper.getAttribute('aria-hidden') === 'true') return;
+      helper.classList.remove('is-open');
+      helper.setAttribute('aria-hidden', 'true');
+      helper.setAttribute('inert', '');
+      if (helperBackdrop) helperBackdrop.hidden = true;
+      helperPageRegions.forEach((region) => region.removeAttribute('inert'));
+      if (helperToggle) helperToggle.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('is-objective-helper-open');
+      if (helperReturnFocus && typeof helperReturnFocus.focus === 'function') {
+        helperReturnFocus.focus();
+      }
+      helperReturnFocus = null;
+    }
+
+    function openObjectiveHelper() {
+      if (!helper || !helperToggle) return;
+      helperReturnFocus = document.activeElement;
+      helper.removeAttribute('inert');
+      helper.setAttribute('aria-hidden', 'false');
+      helper.classList.add('is-open');
+      if (helperBackdrop) helperBackdrop.hidden = false;
+      helperPageRegions.forEach((region) => region.setAttribute('inert', ''));
+      helperToggle.setAttribute('aria-expanded', 'true');
+      document.body.classList.add('is-objective-helper-open');
+      helperClose?.focus();
+    }
+
+    helperToggle?.addEventListener('click', openObjectiveHelper);
+    helperClose?.addEventListener('click', closeObjectiveHelper);
+    helperBackdrop?.addEventListener('click', closeObjectiveHelper);
+    helper?.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeObjectiveHelper();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(helper.querySelectorAll(
+        'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      ));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    paintMaterialPins();
 
     function activeQuestionFromHash() {
-      const anchor = window.location.hash.replace(/^#/, '');
+      const anchor = window.location.hash
+        .replace(/^#/, '')
+        .replace(/-explanation$/, '');
       return questionPanels.find(
         (panel) => panel.dataset.objectiveQuestionId === anchor
       ) || null;
@@ -325,7 +865,7 @@
 
       questionPanels.forEach((panel) => {
         const active = panel === questionPanel;
-        panel.hidden = !active;
+        panel.hidden = panel.dataset.objectiveGroupKey !== groupKey;
         panel.classList.toggle('is-active', active);
       });
 
@@ -361,6 +901,28 @@
           item.dataset.objectiveGroupKey === groupKey
         );
       });
+
+      const activeGroupNavItem = groupNavItems.find(
+        (item) => item.dataset.objectiveGroupKey === groupKey
+      );
+      if (activeGroupNavItem) {
+        activeGroupNavItem.scrollIntoView({
+          behavior: reducedMotion.matches ? 'auto' : 'smooth',
+          block: 'nearest',
+          inline: 'nearest'
+        });
+      }
+
+      const activeQuestionLink = questionLinks.find(
+        (link) => link.dataset.objectiveQuestionId === questionId
+      );
+      if (activeQuestionLink) {
+        activeQuestionLink.scrollIntoView({
+          behavior: reducedMotion.matches ? 'auto' : 'smooth',
+          block: 'nearest',
+          inline: 'center'
+        });
+      }
 
       objectiveShell.classList.toggle(
         'is-source-empty',
@@ -432,13 +994,14 @@
     window.addEventListener('hashchange', () => {
       setObjectiveQuestion(
         activeQuestionFromHash() || questionPanels[0],
-        false
+        true
       );
     });
 
+    const initialQuestion = activeQuestionFromHash() || questionPanels[0];
     setObjectiveQuestion(
-      activeQuestionFromHash() || questionPanels[0],
-      false
+      initialQuestion,
+      Boolean(window.location.hash)
     );
   }
 })();

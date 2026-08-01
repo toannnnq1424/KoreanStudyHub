@@ -6,8 +6,18 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/practice-result-prep.css}">
 </head>
 <body class="practice-result-page"
-      th:attr="data-result-skill=${result.identity().skill()}">
+      th:attr="data-result-skill=${result.identity().skill()},
+               data-result-celebration-eligible=${result.state().code() == 'GRADED' or result.state().code() == 'SUBMITTED'},
+               data-result-celebration-key=${'attempt-' + result.identity().attemptId() + '-' + result.state().code()}">
 <div class="pr-shell">
+  <div class="pr-sky-particles" aria-hidden="true">
+    <i class="is-dot"></i><i class="is-star"></i><i class="is-dot"></i>
+    <i class="is-star"></i><i class="is-dot"></i><i class="is-dot"></i>
+    <i class="is-star"></i><i class="is-dot"></i><i class="is-star"></i>
+    <i class="is-dot"></i><i class="is-dot"></i><i class="is-star"></i>
+    <i class="is-dot"></i><i class="is-star"></i><i class="is-dot"></i>
+    <i class="is-dot"></i><i class="is-star"></i><i class="is-dot"></i>
+  </div>
   <header class="pr-topbar">
     <a class="pr-back-link"
        th:href="@{/practice/sets/{setId}/tests/{testId}(setId=${result.identity().setId()},testId=${result.identity().testId()})}">
@@ -50,6 +60,10 @@
     <section class="pr-summary"
              th:classappend="${' is-' + #strings.toLowerCase(result.identity().skill())}"
              aria-labelledby="result-title">
+      <div class="pr-result-celebration"
+           data-result-celebration
+           aria-hidden="true"
+           hidden></div>
       <div class="pr-summary-layout">
         <div class="pr-summary-copy">
           <p class="pr-eyebrow">
@@ -68,19 +82,91 @@
           <div class="pr-result-focus" th:if="${result.score().available()}">
             <span class="pr-result-label">Kết quả chính</span>
             <div class="pr-score-line">
-              <strong th:if="${result.score().pointsDisplay() != null}"
-                      th:text="${result.score().pointsDisplay()}">38/40</strong>
-              <strong th:unless="${result.score().pointsDisplay() != null}"
-                      th:text="${result.score().primaryDisplay()}">80</strong>
-              <span th:if="${result.score().pointsDisplay() == null
-                           and result.score().unit() == 'PERCENTAGE'}">%</span>
-              <small th:text="${result.score().scaleLabel()}">Thang 100</small>
+              <strong th:text="${result.score().primaryDisplay()}">80</strong>
             </div>
           </div>
           <div class="pr-score-unavailable" th:unless="${result.score().available()}">
             Chưa có điểm số khả dụng
           </div>
         </div>
+        <section class="pr-summary-writing-breakdown"
+                 th:if="${result.payload().kind() == 'WRITING'}"
+                 aria-label="Điểm Câu 51 đến Câu 54">
+          <div class="pr-summary-writing-tasks">
+            <article th:each="task : ${result.payload().tasks()}">
+              <div>
+                <strong th:text="${task.taskLabel()}">Câu 53</strong>
+                <span th:text="${task.evaluated()
+                    ? #lists.size(task.officialCriteria()) + ' tiêu chí'
+                    : task.feedback().label()}">3 tiêu chí</span>
+                <progress th:if="${task.evaluated() and task.score().percentage() != null}"
+                          max="100"
+                          th:value="${task.score().percentage()}"
+                          th:attr="aria-label=${task.taskLabel() + ': ' + task.score().pointsDisplay()}">
+                  100%
+                </progress>
+              </div>
+              <b th:if="${task.evaluated()}"
+                 th:text="${task.score().pointsDisplay()}">30/30</b>
+              <b class="is-unavailable"
+                 th:unless="${task.evaluated()}">—</b>
+            </article>
+          </div>
+        </section>
+        <section class="pr-summary-speaking-breakdown"
+                 th:if="${result.payload().kind() == 'SPEAKING'}"
+                 aria-label="Mức độ theo tiêu chí Nói">
+          <div class="pr-summary-speaking-criteria">
+            <article th:each="criterion : ${result.payload().criteria()}"
+                     th:classappend="${' is-' + criterion.stateCssClass()
+                         + ' is-band-' + criterion.performanceCssClass()}">
+              <div>
+                <strong th:text="${criterion.label()}">Nội dung và hoàn thành yêu cầu</strong>
+                <span th:text="${criterion.scored()
+                    ? criterion.performanceLabel()
+                    : criterion.availabilityLabel()}">Tốt</span>
+                <span class="pr-summary-speaking-track"
+                      th:if="${criterion.scored()}"
+                      aria-hidden="true">
+                  <i></i><i></i><i></i><i></i>
+                </span>
+                <span class="pr-summary-speaking-track is-unavailable"
+                      th:unless="${criterion.scored()}"
+                      aria-hidden="true">
+                  <i></i><i></i><i></i><i></i>
+                </span>
+              </div>
+              <b th:if="${criterion.scored()}"
+                 th:text="${criterion.scoreDisplay()}">14/20</b>
+              <b class="is-unavailable"
+                 th:unless="${criterion.scored()}">—</b>
+            </article>
+          </div>
+          <section class="pr-summary-speaking-performance"
+                   th:unless="${result.payload().questionPerformance().isEmpty()}"
+                   aria-label="Hiệu suất theo phần và câu">
+            <div class="pr-summary-speaking-performance-heading">
+              <strong>Hiệu suất theo phần và câu</strong>
+              <span>4 tiêu chí ngôn ngữ</span>
+            </div>
+            <div class="pr-summary-speaking-performance-list">
+              <article th:each="question : ${result.payload().questionPerformance()}"
+                       th:classappend="${question.stateCssClass()}">
+                <div>
+                  <small th:text="${question.groupLabel()}">Phần Nói</small>
+                  <strong th:text="${question.questionLabel()}">Câu Nói 1</strong>
+                </div>
+                <span th:text="${question.availabilityLabel()}">Đã chấm</span>
+                <ul th:if="${question.ready()}">
+                  <li th:each="criterion : ${question.languageCriteria()}">
+                    <b th:text="${criterion.label()}">Tiêu chí</b>
+                    <em th:text="${criterion.performanceLevel().labelVi()}">Tốt</em>
+                  </li>
+                </ul>
+              </article>
+            </div>
+          </section>
+        </section>
         <span class="pr-baekho-celebration"
               aria-hidden="true"></span>
         <div class="pr-summary-answer-stats"
@@ -93,6 +179,10 @@
           <span class="is-incorrect">
             <strong th:text="${result.answers().incorrect()}">0</strong>
             <small>câu sai</small>
+          </span>
+          <span class="is-unanswered">
+            <strong th:text="${result.answers().notAnswered()}">0</strong>
+            <small>chưa trả lời</small>
           </span>
         </div>
       </div>
@@ -133,9 +223,24 @@
             <dt>Mức đánh giá</dt>
             <dd th:text="${result.score().levelLabel()}">Đang phát triển</dd>
           </div>
+          <div th:if="${result.identity().skill() == 'WRITING'}">
+            <dt>Phạm vi điểm</dt>
+            <dd>Điểm luyện tập theo từng nhiệm vụ, không phải điểm hoặc chứng chỉ TOPIK chính thức.</dd>
+          </div>
         </dl>
       </details>
     </section>
+
+    <a class="pr-overview-analysis-cta"
+       th:if="${result.payload().kind() == 'WRITING' or result.payload().kind() == 'SPEAKING'}"
+       href="#result-analysis"
+       th:text="${result.payload().kind() == 'WRITING'
+           ? 'Xem phân tích theo từng câu'
+           : 'Xem hồ sơ thể hiện chi tiết'}">
+      Xem phân tích
+    </a>
+
+    <div class="pr-notebook-divider" aria-hidden="true"></div>
 
     <th:block th:switch="${result.payload().kind()}">
       <th:block th:case="'OBJECTIVE'">
@@ -151,6 +256,6 @@
   </main>
 </div>
 
-<script th:src="@{/js/practice-result.js}"></script>
+<script th:src="@{/js/practice-result.js(v='pre14-a-delta-2')}"></script>
 </body>
 </html>

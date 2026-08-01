@@ -10,6 +10,25 @@ import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPolarity;
  */
 final class ResultDetailDescriptorRegistry {
 
+    private static final java.util.List<String> SPEAKING_SUBCRITERIA =
+            java.util.List.of(
+                    "S_CONTENT_RELEVANCE",
+                    "S_CONTENT_PROMPT_COVERAGE",
+                    "S_CONTENT_SPECIFICITY_EXAMPLES",
+                    "S_GRAMMAR_PARTICLES",
+                    "S_GRAMMAR_TENSE_ASPECT",
+                    "S_GRAMMAR_ENDINGS",
+                    "S_GRAMMAR_SENTENCE_STRUCTURE",
+                    "S_GRAMMAR_HONORIFIC_REGISTER",
+                    "S_GRAMMAR_CONNECTORS",
+                    "S_VOCAB_TOPIC_WORDS",
+                    "S_VOCAB_NATURAL_EXPRESSIONS",
+                    "S_VOCAB_REPETITION_CONTROL",
+                    "S_VOCAB_WORD_CHOICE",
+                    "S_COHERENCE_ORGANIZATION",
+                    "S_COHERENCE_LOGICAL_FLOW",
+                    "S_COHERENCE_DISCOURSE_MARKERS");
+
     private ResultDetailDescriptorRegistry() {
     }
 
@@ -104,6 +123,36 @@ final class ResultDetailDescriptorRegistry {
                     4);
         }
         return null;
+    }
+
+    static java.util.List<SpeakingCatalogEntry> speakingCatalog(
+            ResultDetailPolarity polarity
+    ) {
+        if (polarity == null) {
+            return java.util.List.of();
+        }
+        return SPEAKING_SUBCRITERIA.stream()
+                .map(ResultDetailDescriptorRegistry::speakingSubcriterion)
+                .map(subcriterion -> {
+                    Definition definition = speaking(
+                            subcriterion.parentCriterion(),
+                            subcriterionId(subcriterion),
+                            polarity);
+                    SpeakingFamily family = speakingFamily(
+                            subcriterionId(subcriterion));
+                    return definition == null || family == null
+                            ? null
+                            : new SpeakingCatalogEntry(family, definition, polarity);
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    private static String subcriterionId(SpeakingSubcriterion target) {
+        return SPEAKING_SUBCRITERIA.stream()
+                .filter(id -> target.equals(speakingSubcriterion(id)))
+                .findFirst()
+                .orElseThrow();
     }
 
     static String scoreLabelVi(String criterionId) {
@@ -261,6 +310,13 @@ final class ResultDetailDescriptorRegistry {
             String labelVi,
             String labelKo,
             int stableOrder
+    ) {
+    }
+
+    record SpeakingCatalogEntry(
+            SpeakingFamily family,
+            Definition definition,
+            ResultDetailPolarity polarity
     ) {
     }
 

@@ -10,20 +10,27 @@ import com.ksh.features.practice.assessment.AssessmentScoreStatus;
 import com.ksh.features.practice.assessment.AssessmentScoringEngine;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.LearnerAnswer;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveResultPayload;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailPayload;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailCapability;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveBlankResult;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveConstructDescriptor;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveEvidenceKind;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveEvidenceRef;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveEvidenceTranslation;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveExplanation;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveExplanationClaim;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveFillBlankDetail;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveImageEvidenceRef;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveMatchingDetail;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveMatchingResult;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveMultipleAnswerDetail;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveOptionResult;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveOptionState;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveOverviewGroup;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveQuestionCore;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveQuestionDetail;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveResultGroup;
@@ -41,6 +48,9 @@ import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadServ
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.ArtifactEvidence;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.BlankExplanation;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.FillBlankExplanation;
+import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.MultipleAnswerExplanation;
+import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.MatchingExplanation;
+import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.MatchingRationale;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.ImageEvidence;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.ObjectiveExplanationArtifact;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationReadService.OptionRationale;
@@ -58,6 +68,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -104,8 +115,33 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
     public Presentation present(PracticeResultContext context) {
         Map<String, TypeAccumulator> byType = new LinkedHashMap<>();
         StateAccumulator overall = new StateAccumulator();
+        Map<Long, GroupAccumulator> byGroup = context.snapshot().groups().stream()
+                .sorted(Comparator
+                        .comparing(
+                                PracticeQuestionGroupVersion::getDisplayOrder,
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(PracticeQuestionGroupVersion::getId))
+                .collect(Collectors.toMap(
+                        PracticeQuestionGroupVersion::getId,
+                        group -> new GroupAccumulator(
+                                blank(group.getGroupLabel())
+                                        ? "Nguồn câu hỏi đã khóa"
+                                        : group.getGroupLabel()),
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+        GroupAccumulator ungrouped = new GroupAccumulator(
+                "Câu độc lập không có nguồn chung");
 
         for (PracticeQuestionVersion question : context.snapshot().questions()) {
+            Long groupVersionId = question.getGroupVersionId();
+            GroupAccumulator group = groupVersionId == null || groupVersionId <= 0
+                    ? ungrouped
+                    : byGroup.get(groupVersionId);
+            if (group == null) {
+                throw new IllegalStateException(
+                        "Objective Result Overview immutable group ownership is missing.");
+            }
+            group.acceptQuestion(question.getQuestionId());
             CanonicalQuestionType canonicalType;
             try {
                 canonicalType = typeResolver.resolve(question.getQuestionType());
@@ -115,9 +151,11 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                                 ignored -> new TypeAccumulator(UNSCORABLE_TYPE))
                         .addUnscorable();
                 overall.unscorable++;
+                group.addUnscorable(questionTypeLabel(UNSCORABLE_TYPE));
                 continue;
             }
             String canonicalCode = canonicalType.name();
+            String canonicalLabel = questionTypeLabel(canonicalCode);
             TypeAccumulator type = byType.computeIfAbsent(
                     canonicalCode,
                     ignored -> new TypeAccumulator(canonicalCode));
@@ -126,9 +164,11 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                         context.answers().getOrDefault(String.valueOf(question.getQuestionId()), ""));
                 type.add(score);
                 overall.add(score.status());
+                group.add(score, canonicalLabel);
             } catch (IllegalArgumentException | IllegalStateException exception) {
                 type.unscorable++;
                 overall.unscorable++;
+                group.addUnscorable(canonicalLabel);
             }
         }
 
@@ -142,7 +182,19 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                         context.snapshot().questions().stream()
                                 .map(PracticeQuestionVersion::getId)
                                 .toList()));
-        return new Presentation(context.score(), distribution, feedback, new ObjectiveResultPayload(breakdown));
+        List<ObjectiveOverviewGroup> groups = new ArrayList<>();
+        List<GroupAccumulator> orderedGroups = new ArrayList<>(byGroup.values());
+        orderedGroups.add(ungrouped);
+        for (GroupAccumulator group : orderedGroups) {
+            if (group.questionCount() == 0) {
+                continue;
+            }
+            groups.add(group.toView(
+                    overviewGroupLabel(context.snapshot().sectionVersion().getSkill(),
+                            groups.size() + 1)));
+        }
+        return new Presentation(context.score(), distribution, feedback,
+                new ObjectiveResultPayload(breakdown, groups));
     }
 
     @Override
@@ -179,6 +231,7 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                 overview.feedback(),
                 objective,
                 groups,
+                ObjectiveDetailCapability.availableCatalogue(),
                 CONSTRUCT_REGISTRY_STATE,
                 CONSTRUCT_REGISTRY_NOTE);
     }
@@ -347,12 +400,20 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                 "Bài làm đã khóa của người học",
                 "Đáp án chính thức từ answer spec bất biến",
                 question.getExplanation(),
-                "Giải thích của giảng viên trong phiên bản câu hỏi bất biến");
+                "Giải thích của giảng viên trong phiên bản câu hỏi bất biến",
+                content.languageTag());
         ObjectiveExplanation explanation = explanation(artifact);
         return switch (type) {
             case SINGLE_CHOICE -> singleChoiceDetail(
                     core, content, answerSpec, learnerAnswer, artifact,
                     explanation, optionLabelMode);
+            case MULTIPLE_ANSWER -> multipleAnswerDetail(
+                    core, content, answerSpec, learnerAnswer, artifact, explanation,
+                    optionLabelMode);
+            case MATCHING -> matchingDetail(
+                    core, content, answerSpec, learnerAnswer, artifact,
+                    explanation,
+                    optionLabelMode);
             case FILL_BLANK -> fillBlankDetail(
                     core, content, answerSpec, learnerAnswer, artifact, explanation);
             case TRUE_FALSE_NOT_GIVEN -> tfngDetail(
@@ -360,6 +421,103 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
             case ESSAY, SPEAKING -> throw new IllegalStateException(
                     "Subjective question cannot use Objective Result Detail.");
         };
+    }
+
+    private ObjectiveMultipleAnswerDetail multipleAnswerDetail(
+            ObjectiveQuestionCore core,
+            QuestionContent content,
+            AnswerSpec answerSpec,
+            LearnerAnswer learnerAnswer,
+            Optional<ObjectiveExplanationArtifact> artifact,
+            ObjectiveExplanation explanation,
+            String optionLabelMode) {
+        Set<String> officialIds = Set.copyOf(answerSpec.correctOptionIds());
+        Set<String> learnerIds = Set.copyOf(learnerAnswer.selectedOptionIds());
+        Map<String, OptionRationale> rationales = artifact
+                .map(ObjectiveExplanationArtifact::typeExplanation)
+                .filter(MultipleAnswerExplanation.class::isInstance)
+                .map(MultipleAnswerExplanation.class::cast)
+                .map(value -> value.optionRationales().stream().collect(Collectors.toMap(
+                        OptionRationale::optionId,
+                        Function.identity())))
+                .orElse(Map.of());
+        List<ObjectiveOptionResult> options = new ArrayList<>();
+        for (int index = 0; index < content.options().size(); index++) {
+            QuestionContent.Option option = content.options().get(index);
+            boolean selected = learnerIds.contains(option.id());
+            boolean correct = officialIds.contains(option.id());
+            String canonicalId = "option_" + (index + 1);
+            OptionRationale rationale = rationales.get(canonicalId);
+            options.add(new ObjectiveOptionResult(
+                    option.id(),
+                    optionLabel(index, optionLabelMode),
+                    option.text(),
+                    option.imageReference(),
+                    selected,
+                    correct,
+                    optionState(selected, correct, true),
+                    rationale == null ? "" : rationale.reasonVi(),
+                    rationale == null ? UNAVAILABLE_PROVENANCE : AI_PROVENANCE,
+                    rationale == null ? List.of() : rationale.evidenceIds()));
+        }
+        return new ObjectiveMultipleAnswerDetail(core, options, explanation);
+    }
+
+    private ObjectiveMatchingDetail matchingDetail(
+            ObjectiveQuestionCore core,
+            QuestionContent content,
+            AnswerSpec answerSpec,
+            LearnerAnswer learnerAnswer,
+            Optional<ObjectiveExplanationArtifact> artifact,
+            ObjectiveExplanation explanation,
+            String optionLabelMode) {
+        Map<String, QuestionContent.Option> candidates = content.options().stream()
+                .collect(Collectors.toMap(QuestionContent.Option::id, Function.identity()));
+        Map<String, Integer> candidateIndexes = new LinkedHashMap<>();
+        for (int index = 0; index < content.options().size(); index++) {
+            candidateIndexes.put(content.options().get(index).id(), index);
+        }
+        Map<String, AnswerSpec.BlankAnswer> specs = answerSpec.blanks().stream()
+                .collect(Collectors.toMap(AnswerSpec.BlankAnswer::blankId, Function.identity()));
+        Map<String, MatchingRationale> rationales = artifact
+                .map(ObjectiveExplanationArtifact::typeExplanation)
+                .filter(MatchingExplanation.class::isInstance)
+                .map(MatchingExplanation.class::cast)
+                .map(value -> value.targets().stream().collect(Collectors.toMap(
+                        MatchingRationale::targetId,
+                        Function.identity())))
+                .orElse(Map.of());
+        List<ObjectiveMatchingResult> matches = new ArrayList<>();
+        for (QuestionContent.Blank target : content.blanks()) {
+            AnswerSpec.BlankAnswer spec = specs.get(target.id());
+            if (spec == null || spec.acceptedValues().size() != 1) {
+                throw new IllegalStateException(
+                        "Immutable matching answer authority is incomplete.");
+            }
+            String officialId = spec.acceptedValues().get(0);
+            QuestionContent.Option official = candidates.get(officialId);
+            if (official == null) {
+                throw new IllegalStateException(
+                        "Immutable matching candidate authority is incomplete.");
+            }
+            String learnerId = learnerAnswer.blankAnswers().getOrDefault(target.id(), "");
+            QuestionContent.Option learner = candidates.get(learnerId);
+            MatchingRationale rationale = rationales.get(target.id());
+            matches.add(new ObjectiveMatchingResult(
+                    target.id(),
+                    target.prompt(),
+                    learnerId,
+                    learner == null ? "" : optionLabel(
+                            candidateIndexes.get(learnerId), optionLabelMode),
+                    learner == null ? "" : learner.text(),
+                    officialId,
+                    optionLabel(candidateIndexes.get(officialId), optionLabelMode),
+                    official.text(),
+                    !learnerId.isBlank() && learnerId.equals(officialId),
+                    rationale == null ? "" : rationale.reasonVi(),
+                    rationale == null ? List.of() : rationale.evidenceIds()));
+        }
+        return new ObjectiveMatchingDetail(core, matches, explanation);
     }
 
     private ObjectiveSingleChoiceDetail singleChoiceDetail(
@@ -504,7 +662,15 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                     "",
                     "",
                     "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
                     UNAVAILABLE_PROVENANCE,
+                    List.of(),
                     List.of(),
                     List.of(),
                     List.of(),
@@ -522,17 +688,68 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                                 translation.translationVi(),
                                 AI_PROVENANCE))
                         .toList();
+        List<ObjectiveExplanationClaim> claims = value.claims().stream()
+                .map(claim -> new ObjectiveExplanationClaim(
+                        claim.claimId(),
+                        claim.textVi(),
+                        claim.evidenceIds()))
+                .toList();
+        StrategyPresentation strategy = strategyPresentation(value);
         return new ObjectiveExplanation(
                 "READY",
                 "Lời giải đã được kiểm chứng theo snapshot",
                 value.schemaVersion(),
+                value.strategyRegistryVersion(),
+                value.strategyCode(),
+                value.strategyVersion(),
+                strategy.categoryVi(),
+                strategy.labelVi(),
+                strategy.descriptionVi(),
+                strategy.rendererCode(),
                 value.meaningVi(),
                 value.correctReasonVi(),
                 AI_PROVENANCE,
+                claims,
                 evidence,
                 translations,
                 List.<ObjectiveConstructDescriptor>of(),
                 CONSTRUCT_REGISTRY_STATE);
+    }
+
+    private static StrategyPresentation strategyPresentation(
+            ObjectiveExplanationArtifact artifact) {
+        return ObjectiveExplanationStrategyRegistry.catalog().stream()
+                .filter(entry -> entry.code().name().equals(artifact.strategyCode()))
+                .filter(ObjectiveExplanationStrategyRegistry.CatalogEntry::selectable)
+                .findFirst()
+                .map(entry -> new StrategyPresentation(
+                        entry.categoryVi(),
+                        entry.labelVi(),
+                        entry.descriptionVi(),
+                        entry.rendererCode()))
+                .orElseGet(() -> legacyStrategyPresentation(artifact));
+    }
+
+    private static StrategyPresentation legacyStrategyPresentation(
+            ObjectiveExplanationArtifact artifact) {
+        if (ObjectiveExplanationStrategyRegistry.LEGACY_REGISTRY_VERSION
+                .equals(artifact.strategyRegistryVersion())) {
+            return new StrategyPresentation(
+                    "Dữ liệu tương thích",
+                    "Lời giải của phiên bản cũ",
+                    "Artifact cũ được giữ nguyên; chưa có bố cục typed của registry hiện hành.",
+                    "LEGACY_FLAT");
+        }
+        throw new IllegalArgumentException(
+                "Objective explanation strategy has no selectable renderer: "
+                        + artifact.strategyCode());
+    }
+
+    private record StrategyPresentation(
+            String categoryVi,
+            String labelVi,
+            String descriptionVi,
+            String rendererCode) {
     }
 
     private static ObjectiveEvidenceRef evidence(ArtifactEvidence evidence) {
@@ -596,7 +813,9 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                         : "Không có bản chép lời được phê duyệt.",
                 questions.stream()
                         .map(PracticeQuestionVersion::getId)
-                        .toList());
+                        .toList(),
+                group == null ? "ko" : group.getStimulusLanguageTag(),
+                group == null ? "vi" : group.getInstructionLanguageTag());
     }
 
     private String sourceProvenance(PracticeQuestionGroupVersion group) {
@@ -650,7 +869,10 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
             PracticeQuestionVersion question,
             QuestionContent content,
             String rawAnswer) {
-        return !blank(rawAnswer) && rawAnswer.trim().startsWith("{")
+        if (blank(rawAnswer)) {
+            return emptyLearnerAnswer(typeResolver.resolve(question.getQuestionType()));
+        }
+        return rawAnswer.trim().startsWith("{")
                 ? contractCodec.readLearnerAnswer(rawAnswer)
                 : contractCodec.adaptLegacyLearnerAnswer(
                         question.getQuestionType(), rawAnswer, content);
@@ -750,10 +972,26 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
         AnswerSpec answerSpec = blank(question.getAnswerSpecJson())
                 ? contractCodec.adaptLegacyAnswerSpec(question.getQuestionType(), question.getAnswerKey(), content)
                 : contractCodec.readAnswerSpec(question.getAnswerSpecJson(), content);
-        LearnerAnswer learnerAnswer = !blank(rawAnswer) && rawAnswer.trim().startsWith("{")
-                ? contractCodec.readLearnerAnswer(rawAnswer)
-                : contractCodec.adaptLegacyLearnerAnswer(question.getQuestionType(), rawAnswer, content);
+        LearnerAnswer learnerAnswer;
+        if (blank(rawAnswer)) {
+            learnerAnswer = emptyLearnerAnswer(type);
+        } else if (rawAnswer.trim().startsWith("{")) {
+            learnerAnswer = contractCodec.readLearnerAnswer(rawAnswer);
+        } else {
+            learnerAnswer = contractCodec.adaptLegacyLearnerAnswer(
+                    question.getQuestionType(), rawAnswer, content);
+        }
         return scoringEngine.score(answerSpec, learnerAnswer, question.getPoints());
+    }
+
+    private static LearnerAnswer emptyLearnerAnswer(CanonicalQuestionType type) {
+        return new LearnerAnswer(
+                LearnerAnswer.SCHEMA_VERSION,
+                type,
+                List.of(),
+                null,
+                Map.of(),
+                null);
     }
 
     private static String questionTypeLabel(String type) {
@@ -761,9 +999,17 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
             case "SINGLE_CHOICE" -> "Trắc nghiệm một đáp án";
             case "TRUE_FALSE_NOT_GIVEN" -> "Đúng, sai hoặc không có thông tin";
             case "FILL_BLANK" -> "Điền từ";
+            case "MULTIPLE_ANSWER" -> "Trắc nghiệm nhiều đáp án";
+            case "MATCHING" -> "Ghép thông tin A–H";
             case UNSCORABLE_TYPE -> "Loại câu hỏi không thể chấm";
             default -> "Loại câu hỏi không xác định";
         };
+    }
+
+    private static String overviewGroupLabel(String skill, int ordinal) {
+        return "LISTENING".equals(skill)
+                ? "Phần nghe " + ordinal
+                : "Bài đọc " + ordinal;
     }
 
     private static boolean blank(String value) {
@@ -848,6 +1094,58 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
             int denominator = correct + partial + incorrect + notAnswered;
             return new ResultAnswerDistribution(correct, partial, incorrect, notAnswered,
                     pending, unscorable, total, denominator);
+        }
+    }
+
+    private static final class GroupAccumulator {
+        private final String sourceLabel;
+        private final TypeAccumulator score = new TypeAccumulator("GROUP");
+        private final java.util.Set<String> questionTypeLabels =
+                new java.util.LinkedHashSet<>();
+        private Long firstQuestionId;
+
+        private GroupAccumulator(String sourceLabel) {
+            this.sourceLabel = sourceLabel;
+        }
+
+        private void acceptQuestion(Long questionId) {
+            if (firstQuestionId == null) {
+                firstQuestionId = questionId;
+            }
+        }
+
+        private void add(AssessmentScoreResult result, String questionTypeLabel) {
+            score.add(result);
+            questionTypeLabels.add(questionTypeLabel);
+        }
+
+        private void addUnscorable(String questionTypeLabel) {
+            score.addUnscorable();
+            questionTypeLabels.add(questionTypeLabel);
+        }
+
+        private int questionCount() {
+            return score.total + score.unscorable;
+        }
+
+        private ObjectiveOverviewGroup toView(String displayLabel) {
+            return new ObjectiveOverviewGroup(
+                    displayLabel,
+                    sourceLabel,
+                    firstQuestionId,
+                    List.copyOf(questionTypeLabels),
+                    new ResultAnswerDistribution(
+                            score.correct,
+                            score.partial,
+                            score.incorrect,
+                            score.notAnswered,
+                            score.pending,
+                            score.unscorable,
+                            questionCount(),
+                            score.scoredDenominator),
+                    score.earned,
+                    score.possible,
+                    percentage(score.earned, score.possible));
         }
     }
 }

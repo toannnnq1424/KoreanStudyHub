@@ -45,6 +45,67 @@
       </div>
     </div>
 
+    <section class="pr-objective-groups"
+             th:unless="${result.payload().groups().isEmpty()}"
+             aria-labelledby="objective-groups-title">
+      <div class="pr-objective-groups-heading">
+        <div>
+          <p class="pr-section-kicker"
+             th:text="${result.identity().skill() == 'LISTENING' ? 'Theo phần nghe' : 'Theo bài đọc'}">
+            Theo bài đọc
+          </p>
+          <h3 id="objective-groups-title">Kết quả theo nguồn câu hỏi</h3>
+        </div>
+        <span th:text="${#lists.size(result.payload().groups()) + ' nhóm'}">2 nhóm</span>
+      </div>
+      <div class="pr-objective-group-list">
+        <article class="pr-objective-group"
+                 th:each="group : ${result.payload().groups()}">
+          <div class="pr-objective-group-copy">
+            <span class="pr-objective-group-label" th:text="${group.displayLabel()}">Bài đọc 1</span>
+            <strong th:text="${group.sourceLabel()}">Nguồn bài đọc đã khóa</strong>
+            <span class="pr-objective-group-types"
+                  th:text="${#strings.listJoin(group.questionTypeLabels(), ' · ')}">
+              Trắc nghiệm một đáp án
+            </span>
+          </div>
+          <dl class="pr-objective-group-stats">
+            <div class="is-correct">
+              <dt>Đúng</dt>
+              <dd th:text="${group.answers().correct()}">3</dd>
+            </div>
+            <div class="is-incorrect">
+              <dt>Sai</dt>
+              <dd th:text="${group.answers().incorrect()}">1</dd>
+            </div>
+            <div class="is-unanswered">
+              <dt>Chưa trả lời</dt>
+              <dd th:text="${group.answers().notAnswered()}">0</dd>
+            </div>
+            <div>
+              <dt>Điểm</dt>
+              <dd th:text="${group.pointsDisplay() != null ? group.pointsDisplay() : '—'}">3/4</dd>
+            </div>
+          </dl>
+          <div class="pr-objective-group-progress">
+            <span class="pr-objective-group-track" aria-hidden="true">
+              <i th:style="${group.scoreRatePercentage() == null
+                  ? 'width:0'
+                  : 'width:' + group.scoreRatePercentage() + '%'}"></i>
+            </span>
+            <strong th:text="${group.scoreRateDisplay() != null ? group.scoreRateDisplay() : 'Chưa xác định'}">
+              75%
+            </strong>
+          </div>
+          <a class="pr-objective-group-link"
+             th:href="${'/practice/attempts/' + result.identity().attemptId()
+                 + '/result/detail#objective-question-' + group.firstQuestionId()}">
+            Xem câu trong nhóm
+          </a>
+        </article>
+      </div>
+    </section>
+
     <div class="pr-objective-breakdown" aria-labelledby="objective-breakdown-title">
       <h3 id="objective-breakdown-title">Điểm theo dạng câu hỏi</h3>
       <p>
@@ -64,6 +125,7 @@
           <th scope="col">Tổng</th>
           <th scope="col">Đúng</th>
           <th scope="col">Sai</th>
+          <th scope="col">Chưa trả lời</th>
           <th scope="col">Điểm đạt được</th>
           <th scope="col">Tỷ lệ điểm</th>
         </tr>
@@ -97,6 +159,9 @@
           </td>
           <td data-label="Sai" class="is-negative">
             <strong th:text="${row.answers().incorrect()}">2</strong>
+          </td>
+          <td data-label="Chưa trả lời" class="is-unanswered">
+            <strong th:text="${row.answers().notAnswered()}">0</strong>
           </td>
           <td data-label="Điểm đạt được">
             <span th:if="${row.pointsDisplay() != null}"
