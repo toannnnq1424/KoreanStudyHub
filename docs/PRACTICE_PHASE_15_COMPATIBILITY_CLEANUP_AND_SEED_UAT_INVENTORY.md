@@ -1,5 +1,17 @@
 # Practice Phase 15 Compatibility Cleanup And Seed UAT Inventory
 
+> Current AIM-0/AIM-1 overlay (`2026-08-02`): PR #55 merged
+> `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` into `origin/main` at
+> `3dfab18ae308005c018c9066256bb7c79b686e8e`; that gate is
+> `CLOSED_MERGED`. The mandatory successor is now
+> `POST_PRE14_AUTHORING_IMPORT_MODERNIZATION`, followed by its consolidated
+> epic gate. Only that accepted gate may hand off to
+> `PRE_PHASE_15_RELEASE_CLOSURE_GATE`. Any lower historical sentence that says
+> Pre-15 follows Pre-14 directly is superseded by this overlay. Contract and
+> task authority live in
+> `PRACTICE_POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_ROADMAP_AMENDMENT.md` and
+> `architecture/practice/PRACTICE_AUTHORING_IMPORT_MODERNIZATION_CONTRACT.md`.
+
 > Current-source overlay (`2026-07-28`): Phase 13C3 is
 > `CLOSED_VERIFIED_MERGED`. Both final independent audits accepted exact SHA
 > `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merged as
@@ -30,7 +42,8 @@
 >
 > Roadmap-order amendment: `2026-07-27`. Phase 14 keeps the stable `14A-14F`
 > contract but is `DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`. Current
-> execution order is Pre-14 -> Pre-15 -> Phase 15 Manual UAT/release -> deferred
+> execution order is Pre-14 -> post-Pre14 authoring/import modernization -> its
+> consolidated epic gate -> Pre-15 -> Phase 15 Manual UAT/release -> deferred
 > Phase 14. This amendment changes scheduling only: every Pre-14 and Pre-15 debt
 > below remains mandatory before Manual UAT. See
 > `PRACTICE_PHASE_14_POST_MANUAL_UAT_ROADMAP_AMENDMENT.md`.
@@ -67,19 +80,22 @@
 > product/package reconciliation and comprehensive `/practice`
 > audit/cleanup program is accepted/validated/committed/pushed, and after final
 > pre-14 schema contracts are frozen, before Pre-15 and Manual UAT;
-> `PRE_PHASE_15_RELEASE_CLOSURE_GATE` follows Pre-14 and owns canonical UAT
+> `PRE_PHASE_15_RELEASE_CLOSURE_GATE` follows the accepted authoring/import
+> modernization epic gate and owns canonical UAT
 > seed/release preparation before Phase 15 executes Manual UAT. Deferred Phase
 > 14 starts only after that initial release verdict.
 
 ## 1. Purpose and current Phase 13E boundary
 
-This document now has three future-facing jobs:
+This document now has four future-facing jobs:
 
 1. record compatibility paths, legacy test-data behavior, old routes, adapters,
    fixtures and documentation that must be resolved together;
 2. route target-stability and assessment correctness work into the mandatory
    pre-14 gate; and
-3. keep final academic, destructive/environment and seed preparation in the
+3. route the bounded authoring/import modernization epic and its consolidated
+   acceptance gate between closed Pre-14 and Pre-15; and
+4. keep final academic, destructive/environment and seed preparation in the
    Pre-15 gate, then execute Manual UAT in Phase 15 before deferred Phase 14.
 
 Phase 13E is `COMPLETE_FOCUSED_GATE_GREEN`; `13E-01..05` are implemented and
@@ -104,8 +120,8 @@ shape is being forced onto three different question constructs.
 
 The compatibility portion remains an inventory, not retroactive authorization
 to delete historical paths. Historical labels such as
-`FUTURE_PHASE_15_ENTRY_BLOCKER` are superseded by the authoritative two-gate
-routing in Section 4.1. No item becomes executable until its named gate's
+`FUTURE_PHASE_15_ENTRY_BLOCKER` are superseded by the authoritative routed-gate
+sequence in Section 4.1. No item becomes executable until its named gate's
 dependency window opens.
 
 The required order is:
@@ -142,14 +158,20 @@ The required order is:
    retained/deployed/shared/canonical/upgrade obligation exists;
 8. prove fresh Flyway/Hibernate validation and minimal technical R/L/W/S smoke
    identities;
-9. execute `PRE_PHASE_15_RELEASE_CLOSURE_GATE`: final SME/calibration and the
+9. execute `POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` as AIM-2 through AIM-8,
+   preserving the AIM-1 contract, advanced Excel compatibility, the canonical
+   editor/publisher and the separate Practice AI/storage data planes;
+10. pass the epic's single consolidated acceptance gate, including schema,
+   compatibility, idempotent-apply, fail-closed provider/storage and exact
+   learner-preview proof;
+11. execute `PRE_PHASE_15_RELEASE_CLOSURE_GATE`: final SME/calibration and the
    chosen disabled/direct-audio branch;
-10. confirm environment and retention obligations, then resolve
+12. confirm environment and retention obligations, then resolve
    destructive/remaining compatibility decisions;
-11. create the deterministic premium UAT seed only after cleanup is green; and
-12. run browser/device/provider/load/security/manual UAT and record the Phase
+13. create the deterministic premium UAT seed only after cleanup is green; and
+14. run browser/device/provider/load/security/manual UAT and record the Phase
    15 release verdict, explicitly excluding Report an Error; and
-13. only after that verdict, execute the unchanged canonical Phase 14A-14F
+15. only after that verdict, execute the unchanged canonical Phase 14A-14F
    “Report an Error & Content Review” loop under its own validation/14F gate.
 
 ## 2. Safety assumptions
@@ -205,9 +227,9 @@ contracts:
 The following work was designed before Phase 13E opened. The user has since
 promoted the bounded runtime/UI subset of `P15-PRE-03`, `P15-PRE-06` and
 `P15-PRE-14` into the approved Phase 13E program. The old rule that routed the
-entire register to one gate after Phase 14 is superseded. Pre-14 remains the
-correctness gate; Pre-15 now follows it directly and must close before Phase 15
-Manual UAT. Phase 14 is executed later.
+entire register to one gate after Phase 14 is superseded. Pre-14 is now closed;
+the authoring/import modernization epic and its consolidated gate follow it,
+then Pre-15 must close before Phase 15 Manual UAT. Phase 14 is executed later.
 
 #### `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE`
 
@@ -283,8 +305,9 @@ Phase 14 target; otherwise leave them for release cleanup.
 
 #### `PRE_PHASE_15_RELEASE_CLOSURE_GATE`
 
-Execution window: immediately after the accepted Pre-14 gate and before Phase
-15 Manual UAT. It does not wait for deferred Phase 14. It owns:
+Execution window: only after the accepted consolidated gate for
+`POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` and before Phase 15 Manual UAT. It
+does not wait for deferred Phase 14. It owns:
 
 - final `P15-PRE-07` Korean-SME sign-off and calibration;
 - `P15-PRE-01` branch A disable proof, or branch B direct-audio rollout only

@@ -4,6 +4,16 @@ Recorded: `2026-07-27`
 
 Status: `IMPLEMENTED_AND_VALIDATED_AWAITING_PUBLICATION`
 
+> Current roadmap overlay (`2026-08-02`): this phase is historical predecessor
+> evidence. PR #55 closed and merged the Pre-14 gate at
+> `3dfab18ae308005c018c9066256bb7c79b686e8e`. The authoritative successor
+> sequence is now closed Pre-14 ->
+> `POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` -> its consolidated epic gate ->
+> Pre-15 -> Phase 15 Manual UAT/release -> deferred Phase 14. The new epic
+> preserves the separation conclusion below: Admin may own explicit Practice
+> provider/storage configuration, while Practice keeps its own data-plane
+> ports, transports, adapters, contracts and lifecycle.
+
 > Current closure overlay (`2026-07-29`): the dedicated phase completed its
 > exact-main, multi-agent ownership audit and expanded modality/control-plane
 > comparison before implementation. The Admin/global AI plane supports
@@ -65,6 +75,8 @@ Phase 13C3 validation -> granular commits -> one push -> post-push audits
        -> granular commits -> one push
   -> comprehensive /practice dead/duplicate-surface cleanup
   -> PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_CONSOLIDATED_GATE
   -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 Manual UAT/release
   -> deferred Phase 14 Report an Error
