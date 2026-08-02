@@ -647,12 +647,6 @@
             <div id="speaking-prompt-audio-upload-status" class="sp-upload-status" aria-live="polite" hidden></div>
             <progress id="speaking-prompt-upload-progress" class="sp-upload-progress"
                       aria-label="Tiến độ tải tệp âm thanh đề bài" max="100" value="0" hidden></progress>
-            <div id="speaking-excel-staging-callout" class="sp-review-callout" hidden>
-              <p>Tệp âm thanh riêng tư từ Excel đã sẵn sàng. Excel chỉ nhập tệp đã tải lên; không tự gọi STT/TTS hoặc phát sinh chi phí AI.</p>
-              <button type="button" id="speaking-adopt-excel-audio" class="btn-action btn-sec">
-                Xác minh và dùng tệp âm thanh từ Excel
-              </button>
-            </div>
             <div id="speaking-prompt-audio-preview-container" class="sp-audio-preview" hidden></div>
             <p class="sp-required-copy">Học viên nghe tệp âm thanh gốc này. Bản chép lời chỉ giúp AI hiểu đề bài; KSH không tạo lại hoặc thay thế âm thanh của giảng viên.</p>
             <div class="sp-actions">
@@ -750,6 +744,22 @@
           <div id="question-image-preview-container" style="display:none; margin-top:12px; border:1px solid var(--pp-border); border-radius:8px; padding:10px; text-align:center; background:#f8fafc; position:relative;">
             <!-- Image preview rendered by JS -->
           </div>
+        </div>
+
+        <!-- Question-level audio (Listening only; distinct from group audio) -->
+        <div id="question-audio-area" style="margin-bottom:20px; display:none;">
+          <label class="form-label">Âm thanh riêng của câu hỏi</label>
+          <div class="audio-upload-box" id="question-audio-dropzone" role="button" tabindex="0"
+               aria-controls="question-audio-file-input"
+               onclick="if (event.target.id !== 'question-audio-file-input') document.getElementById('question-audio-file-input').click()"
+               onkeydown="activateUploadZone(event, 'question-audio-file-input')">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" style="margin-bottom:8px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <p style="margin:0; font-size:0.85rem; font-weight:600;">Nhấp hoặc kéo thả audio cho riêng câu này</p>
+            <span style="font-size:0.75rem; color:var(--pp-text-muted);">Dùng khi câu Nghe có audio riêng, không thay thế audio cấp nhóm</span>
+            <input type="file" id="question-audio-file-input" style="display:none;" accept="audio/*" onchange="handleQuestionAudioSelect(this)">
+          </div>
+          <div id="question-audio-upload-status" style="display:none; font-size:0.8rem; font-weight:600; margin-top:8px;"></div>
+          <div id="question-audio-preview-container" style="display:none; margin-top:12px; border:1px solid var(--pp-border); border-radius:8px; padding:10px; background:#f8fafc;"></div>
         </div>
 
         <!-- Translation & Explanations -->
@@ -1783,6 +1793,7 @@
           q.explanationVi = q.explanationVi || '';
           q.points = parseFloat(q.points) || 2.0;
           q.answerKey = q.answerKey || '';
+          q.audioUrl = q.audioUrl || q.questionContent?.audioReference || '';
           const canonicalOptions = q.questionContent && Array.isArray(q.questionContent.options)
             ? q.questionContent.options
             : null;
@@ -2586,6 +2597,12 @@
       // Image preview
       updateImagePreview(q.imageUrl || '', 'question');
       document.getElementById('question-image-upload-status').style.display = 'none';
+      const supportsQuestionAudio = DRAFT_DATA.sections[sIdx].skill === 'LISTENING'
+        && q.questionType !== 'SPEAKING';
+      document.getElementById('question-audio-area').style.display =
+        supportsQuestionAudio ? 'block' : 'none';
+      updateQuestionAudioPreview(supportsQuestionAudio ? (q.audioUrl || '') : '');
+      document.getElementById('question-audio-upload-status').style.display = 'none';
       
       // Load specific fields
       await handleQuestionTypeChange();
@@ -2677,6 +2694,11 @@
       setupDropzoneEvents(questionImgDropzone, (file) => uploadImageFile(file, 'question'));
     }
 
+    const questionAudioDropzone = document.getElementById('question-audio-dropzone');
+    if (questionAudioDropzone) {
+      setupDropzoneEvents(questionAudioDropzone, uploadQuestionAudioFile);
+    }
+
   }
 
   function setupDropzoneEvents(dropzone, uploadFn) {
@@ -2741,6 +2763,13 @@
   function handleAudioSelect(input) {
     if (input.files && input.files[0]) {
       uploadAudioFile(input.files[0]);
+    }
+  }
+
+  function handleQuestionAudioSelect(input) {
+    if (input.files && input.files[0]) {
+      uploadQuestionAudioFile(input.files[0]);
+      input.value = '';
     }
   }
 
@@ -2933,6 +2962,66 @@
         updateAudioPreview(data.url);
       }
     }, () => isCurrentEditorTarget('group', group));
+  }
+
+  function uploadQuestionAudioFile(file) {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const group = section && section.groups[currentNode.gIdx];
+    const question = group && group.questions[currentNode.qIdx];
+    if (!question || section.skill !== 'LISTENING'
+        || question.questionType === 'SPEAKING') {
+      showEditorToast('Audio cấp câu chỉ áp dụng cho câu hỏi phần Nghe.', 'warning');
+      return;
+    }
+    uploadDraftAudio(file, 'question-audio-upload-status', (data) => {
+      setQuestionAudioUrl(question, data.url);
+      if (isCurrentEditorTarget('question', question)) {
+        updateQuestionAudioPreview(data.url);
+      }
+    }, () => isCurrentEditorTarget('question', question));
+  }
+
+  function setQuestionAudioUrl(question, url) {
+    question.audioUrl = url || '';
+    if (!question.questionContent || typeof question.questionContent !== 'object') {
+      question.questionContent = {};
+    }
+    question.questionContent.audioReference = url || null;
+    window.PracticeAuthoringContract.syncQuestionContract(question);
+  }
+
+  function updateQuestionAudioPreview(url) {
+    const container = document.getElementById('question-audio-preview-container');
+    if (!container) return;
+    container.replaceChildren();
+    if (!isPrivatePracticeMaterialUrl(url)) {
+      container.style.display = 'none';
+      return;
+    }
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.preload = 'metadata';
+    audio.src = url;
+    audio.style.width = '100%';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn-action btn-sec';
+    remove.textContent = 'Gỡ audio câu hỏi';
+    remove.style.marginTop = '8px';
+    remove.addEventListener('click', removeQuestionAudio);
+    container.append(audio, remove);
+    container.style.display = 'block';
+  }
+
+  function removeQuestionAudio() {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const question = DRAFT_DATA.sections[currentNode.sIdx]
+      .groups[currentNode.gIdx].questions[currentNode.qIdx];
+    setQuestionAudioUrl(question, '');
+    updateQuestionAudioPreview('');
+    document.getElementById('question-audio-upload-status').style.display = 'none';
+    triggerAutosave();
   }
 
   function handleListeningCheckAudioSelect(input) {

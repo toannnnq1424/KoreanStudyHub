@@ -47,9 +47,6 @@ class SpeakingPromptAuthoringUiContractTest {
                 "Tạo âm thanh đề bài bằng AI",
                 "Câu hỏi chỉ sử dụng văn bản",
                 "Thử lại chuyển giọng nói",
-                "Tệp âm thanh riêng tư từ Excel đã sẵn sàng",
-                "Excel chỉ nhập tệp đã tải lên; không tự gọi STT/TTS hoặc phát sinh chi phí AI.",
-                "Xác minh và dùng tệp âm thanh từ Excel",
                 "Học viên nghe tệp âm thanh gốc này. Bản chép lời chỉ giúp AI hiểu đề bài; KSH không tạo lại hoặc thay thế âm thanh của giảng viên.",
                 "aria-label=\"Chọn tệp âm thanh đề bài\"",
                 "aria-label=\"Tiến độ tải tệp âm thanh đề bài\"",
@@ -63,7 +60,6 @@ class SpeakingPromptAuthoringUiContractTest {
                 "Audio do AI tạo",
                 "Bản cũ",
                 "endpointFor(clientId, '/tts')",
-                "endpointFor(clientId, '/audio/excel-staging')",
                 "endpointFor(clientId, '/transcription/retry')",
                 "loadedmetadata",
                 "draftVersion",
@@ -338,32 +334,19 @@ class SpeakingPromptAuthoringUiContractTest {
     }
 
     @Test
-    void excelAudioAdoptionIsExplicitIdFreeAndSourceLocked()
+    void listeningQuestionAudioHasDedicatedCanonicalPlacementControls()
             throws Exception {
-        String javascript = read(
-                "src/main/resources/static/js/practice/manage-speaking-prompt-authoring.js");
-        String adoption = between(
-                javascript,
-                "async function adoptExcelStaging()",
-                "async function retryTranscription()");
-
-        assertThat(adoption)
+        String editor = read(
+                "src/main/resources/templates/practice/manage/editor.html");
+        assertThat(editor)
                 .contains(
-                        "state.excelStagingAudioAvailable !== true",
-                        "await flush()",
-                        "beginSourceDestructiveMutation()",
-                        "endpointFor(clientId, '/audio/excel-staging')",
-                        "expectedSourceRevision: acceptedRevision(clientId)",
-                        "expectedDraftVersion: request.expectedDraftVersion",
-                        "endSourceDestructiveMutation()")
-                .doesNotContain(
-                        "assetId",
-                        "referenceId",
-                        "storageKey",
-                        "generateTts",
-                        "endpointFor(clientId, '/tts')");
-        assertThat(javascript).contains(
-                "'speaking-adopt-excel-audio'");
+                        "id=\"question-audio-area\"",
+                        "id=\"question-audio-file-input\"",
+                        "function uploadQuestionAudioFile(file)",
+                        "question.questionContent.audioReference = url || null",
+                        "section.skill !== 'LISTENING'",
+                        "function removeQuestionAudio()")
+                .doesNotContain("audio/excel-staging");
     }
 
     @Test

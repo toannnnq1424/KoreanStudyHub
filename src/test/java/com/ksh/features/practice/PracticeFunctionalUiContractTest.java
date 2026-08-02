@@ -1459,10 +1459,10 @@ class PracticeFunctionalUiContractTest {
                         "background:rgba(34,160,107,0.1); color:#22A06B;");
         assertThat(excel).contains(
                 "aria-live=\"assertive\" tabindex=\"-1\"",
-                "scope=\"col\"",
-                "ArrowLeft",
-                "aria-pressed",
-                "prefers-reduced-motion:reduce");
+                "aria-labelledby=\"excel-preview-title\"",
+                "@media(max-width:720px)",
+                "returnFocus.focus()",
+                "textContent = String(value)");
         assertThat(detailObjective).contains(
                 "data-option-state",
                 "aria-label=${'Phương án '",

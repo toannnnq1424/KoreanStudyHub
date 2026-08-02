@@ -192,28 +192,6 @@ public class SpeakingPromptAssetService {
         return AssetPresentation.from(asset, "AI_GENERATED", contentUrl);
     }
 
-    boolean hasExcelStaging(
-            Long draftId,
-            Long ownerId,
-            String questionClientId) {
-        return resolveExcelStagingAsset(
-                draftId, ownerId, questionClientId, false) != null;
-    }
-
-    VerifiedOriginalUpload verifyExcelStaging(
-            Long draftId,
-            Long ownerId,
-            String questionClientId) {
-        LecturerAsset asset = resolveExcelStagingAsset(
-                draftId, ownerId, questionClientId, true);
-        return new VerifiedOriginalUpload(
-                draftId,
-                questionClientId,
-                ownerId,
-                asset.getId(),
-                verifyOriginalBytes(asset, ownerId));
-    }
-
     MediaResource loadMedia(Long ownerId, Long assetId) {
         LecturerAsset asset = requireUsableOwnedAudio(ownerId, assetId);
         try {
@@ -251,54 +229,7 @@ public class SpeakingPromptAssetService {
             Long assetId,
             String questionClientId,
             SpeakingPromptAiContract.VerifiedAudio verifiedAudio) {
-        return bindVerifiedOriginalAsset(
-                draftId,
-                ownerId,
-                assetId,
-                questionClientId,
-                verifiedAudio,
-                false);
-    }
-
-    LecturerAsset bindVerifiedExcelStagingAsset(
-            Long draftId,
-            Long ownerId,
-            Long assetId,
-            String questionClientId,
-            SpeakingPromptAiContract.VerifiedAudio verifiedAudio) {
-        return bindVerifiedOriginalAsset(
-                draftId,
-                ownerId,
-                assetId,
-                questionClientId,
-                verifiedAudio,
-                true);
-    }
-
-    private LecturerAsset bindVerifiedOriginalAsset(
-            Long draftId,
-            Long ownerId,
-            Long assetId,
-            String questionClientId,
-            SpeakingPromptAiContract.VerifiedAudio verifiedAudio,
-            boolean requireExcelStaging) {
         LecturerAsset asset = requireStagedOrActiveOwnedAudio(ownerId, assetId);
-        if (requireExcelStaging) {
-            List<com.ksh.entities.PracticeMaterialReference> exact =
-                    referenceRepository
-                            .findDraftPlacementAndReferenceKeyForUpdate(
-                                    draftId,
-                                    PracticeMaterialPlacements
-                                            .SPEAKING_PROMPT_EXCEL_STAGING,
-                                    questionClientId);
-            if (exact.size() != 1
-                    || !Objects.equals(
-                            exact.get(0).getAssetId(), assetId)) {
-                throw new SpeakingPromptAuthoringConflictException(
-                        "Audio Excel chờ liên kết đã thay đổi. "
-                                + "Vui lòng tải lại bản nháp.");
-            }
-        }
         requireVerifiedOriginalIdentity(asset, verifiedAudio);
         asset.setStatus("ACTIVE");
         asset.setRetentionUntil(null);
@@ -314,11 +245,6 @@ public class SpeakingPromptAssetService {
                 questionClientId,
                 PracticeMaterialPlacements.SPEAKING_PROMPT_ORIGINAL,
                 assetId);
-        materialReferenceService.unlinkDraft(
-                draftId,
-                assetId,
-                PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING,
-                questionClientId);
         return asset;
     }
 
@@ -608,46 +534,6 @@ public class SpeakingPromptAssetService {
                 .findByIdAndOwnerLecturerId(assetId, ownerId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Không tìm thấy audio đề bài."));
-        requirePrivateVerifiedManualAudio(asset);
-        return asset;
-    }
-
-    private LecturerAsset resolveExcelStagingAsset(
-            Long draftId,
-            Long ownerId,
-            String questionClientId,
-            boolean required) {
-        if (draftId == null
-                || ownerId == null
-                || questionClientId == null
-                || questionClientId.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Định danh audio Excel chưa đầy đủ.");
-        }
-        List<com.ksh.entities.PracticeMaterialReference> exact =
-                referenceRepository
-                        .findByDraftIdAndPlacementAndReferenceKey(
-                                draftId,
-                                PracticeMaterialPlacements
-                                        .SPEAKING_PROMPT_EXCEL_STAGING,
-                                questionClientId);
-        if (exact.isEmpty()) {
-            if (!required) {
-                return null;
-            }
-            throw new EntityNotFoundException(
-                    "Không có audio Excel chờ liên kết cho câu hỏi này.");
-        }
-        if (exact.size() != 1) {
-            throw new SpeakingPromptAuthoringConflictException(
-                    "Audio Excel chờ liên kết không còn duy nhất. "
-                            + "Vui lòng tải lại bản nháp.");
-        }
-        LecturerAsset asset = assetRepository
-                .findByIdAndOwnerLecturerId(
-                        exact.get(0).getAssetId(), ownerId)
-                .orElseThrow(() -> new AccessDeniedException(
-                        "Audio Excel không thuộc chủ sở hữu bản nháp."));
         requirePrivateVerifiedManualAudio(asset);
         return asset;
     }

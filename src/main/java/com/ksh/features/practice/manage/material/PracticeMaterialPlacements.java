@@ -14,13 +14,9 @@ public final class PracticeMaterialPlacements {
             "SPEAKING_PROMPT_ORIGINAL";
     public static final String SPEAKING_PROMPT_TTS =
             "SPEAKING_PROMPT_TTS";
-    public static final String SPEAKING_PROMPT_EXCEL_STAGING =
-            "SPEAKING_PROMPT_EXCEL_STAGING";
-
     private static final Set<String> SPEAKING_PROMPT_PLACEMENTS = Set.of(
             SPEAKING_PROMPT_ORIGINAL,
-            SPEAKING_PROMPT_TTS,
-            SPEAKING_PROMPT_EXCEL_STAGING);
+            SPEAKING_PROMPT_TTS);
 
     private PracticeMaterialPlacements() {
     }

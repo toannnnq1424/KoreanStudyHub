@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -24,10 +23,6 @@ import java.util.Set;
  */
 @Service
 public class SpeakingPromptLifecycleService {
-
-    private static final java.util.regex.Pattern MANAGED_ASSET_REFERENCE =
-            java.util.regex.Pattern.compile(
-                    "^/practice/materials/(\\d+)/content$");
 
     private final SpeakingPromptSourceRepository sourceRepository;
     private final SpeakingPromptAiArtifactRepository artifactRepository;
@@ -70,7 +65,7 @@ public class SpeakingPromptLifecycleService {
                 draftId,
                 ownerId,
                 actorId,
-                new DraftSpeakingState(Set.of(), Map.of()));
+                new DraftSpeakingState(Set.of()));
     }
 
     private void teardown(
@@ -87,34 +82,9 @@ public class SpeakingPromptLifecycleService {
             }
         }
         Set<Long> cleanupCandidates = new LinkedHashSet<>();
-        for (com.ksh.entities.PracticeMaterialReference reference
-                : materialReferenceService.referencesForDraft(draftId)) {
-            if (PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING.equals(
-                        reference.getPlacement())
-                    && !Objects.equals(
-                            retained.stagingAssetIds().get(
-                                    reference.getReferenceKey()),
-                            reference.getAssetId())) {
-                cleanupCandidates.add(reference.getAssetId());
-                materialReferenceService.unlinkDraftReference(
-                        draftId, reference.getId());
-            }
-        }
         List<SpeakingPromptSource> removed = locked.stream()
-                .filter(source -> {
-                    String clientId = source.getQuestionClientId();
-                    if (!retained.clientIds().contains(clientId)) {
-                        return true;
-                    }
-                    Long exactManagedAsset =
-                            retained.stagingAssetIds().get(clientId);
-                    return exactManagedAsset != null
-                            && (!SpeakingPromptSource.INPUT_AUDIO_UPLOAD.equals(
-                                        source.getInputType())
-                                || !Objects.equals(
-                                        exactManagedAsset,
-                                        source.getOriginalAudioAssetId()));
-                })
+                .filter(source -> !retained.clientIds().contains(
+                        source.getQuestionClientId()))
                 .toList();
         if (removed.isEmpty()) {
             cleanupCandidates.forEach(
@@ -218,12 +188,10 @@ public class SpeakingPromptLifecycleService {
 
     private DraftSpeakingState speakingState(String json) {
         if (json == null || json.isBlank()) {
-            return new DraftSpeakingState(Set.of(), Map.of());
+            return new DraftSpeakingState(Set.of());
         }
         try {
             Set<String> result = new HashSet<>();
-            java.util.LinkedHashMap<String, Long> stagingAssets =
-                    new java.util.LinkedHashMap<>();
             JsonNode root = objectMapper.readTree(json);
             for (JsonNode section : root.path("sections")) {
                 for (JsonNode group : section.path("groups")) {
@@ -236,28 +204,11 @@ public class SpeakingPromptLifecycleService {
                                 question.path("clientId").asText("").trim();
                         if (!clientId.isBlank()) {
                             result.add(clientId);
-                            java.util.regex.Matcher matcher =
-                                    MANAGED_ASSET_REFERENCE.matcher(
-                                                    question.path(
-                                                            "questionContent")
-                                                            .path(
-                                                                    "speakingDelivery")
-                                                            .path(
-                                                                    "promptAudioReference")
-                                                            .asText("")
-                                                            .trim());
-                            if (matcher.matches()) {
-                                stagingAssets.put(
-                                        clientId,
-                                        Long.valueOf(matcher.group(1)));
-                            }
                         }
                     }
                 }
             }
-            return new DraftSpeakingState(
-                    Set.copyOf(result),
-                    Map.copyOf(stagingAssets));
+            return new DraftSpeakingState(Set.copyOf(result));
         } catch (Exception exception) {
             throw new IllegalArgumentException(
                     "Không thể đối chiếu vòng đời câu hỏi Speaking.",
@@ -265,9 +216,7 @@ public class SpeakingPromptLifecycleService {
         }
     }
 
-    private record DraftSpeakingState(
-            Set<String> clientIds,
-            Map<String, Long> stagingAssetIds) {
+    private record DraftSpeakingState(Set<String> clientIds) {
     }
 
 }

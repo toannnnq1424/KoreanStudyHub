@@ -47,8 +47,6 @@ class SpeakingPromptAuthoringStateServiceTest {
                 91L, "speaking-a")).thenReturn(Optional.empty());
         SpeakingPromptAssetService assets =
                 mock(SpeakingPromptAssetService.class);
-        when(assets.hasExcelStaging(91L, 81L, "speaking-a"))
-                .thenReturn(true);
         SpeakingPromptAuthoringStateService service =
                 new SpeakingPromptAuthoringStateService(
                         authority,
@@ -69,10 +67,9 @@ class SpeakingPromptAuthoringStateServiceTest {
         assertThat(state.inputType())
                 .isEqualTo(SpeakingPromptSource.INPUT_MANUAL_TEXT);
         assertThat(state.manualText()).isEqualTo("다음 질문에 답하세요.");
-        assertThat(state.excelStagingAudioAvailable()).isTrue();
         assertThat(state.toString()).doesNotContain("다음 질문에 답하세요.");
         assertThat(json)
-                .contains("\"excelStagingAudioAvailable\":true")
+                .doesNotContain("excelStagingAudioAvailable")
                 .doesNotContain(
                         "sourceId",
                         "artifactId",

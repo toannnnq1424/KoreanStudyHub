@@ -83,8 +83,6 @@ class PracticeAim8CompatibilityStaticContractTest {
                 + read("src/main/java/com/ksh/features/practice/manage/service/"
                 + "PracticeAssessmentExcelService.java")
                 + read("src/main/java/com/ksh/features/practice/manage/service/"
-                + "PracticeAssessmentExcelV2Codec.java")
-                + read("src/main/java/com/ksh/features/practice/manage/service/"
                 + "PracticeAssessmentQuickExcelCodec.java");
         assertThat(excel)
                 .contains("candidateService.createOrReuse", "reviewUrl")

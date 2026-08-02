@@ -250,8 +250,7 @@
       'speaking-prompt-audio-file-input',
       'speaking-prompt-audio-dropzone',
       'speaking-replace-audio',
-      'speaking-remove-audio',
-      'speaking-adopt-excel-audio'
+      'speaking-remove-audio'
     ].forEach(id => {
       const control = element(id);
       if (control) control.disabled = locked;
@@ -323,9 +322,6 @@
     }
     element('speaking-replace-audio')?.addEventListener('click', () => picker?.click());
     element('speaking-remove-audio')?.addEventListener('click', removeOriginal);
-    element('speaking-adopt-excel-audio')?.addEventListener(
-      'click',
-      adoptExcelStaging);
     element('speaking-retry-transcription')?.addEventListener('click', retryTranscription);
     element('speaking-save-transcript')?.addEventListener('click', saveTranscript);
     element('speaking-generate-tts')?.addEventListener('click', generateTts);
@@ -464,8 +460,6 @@
     if (replace) replace.textContent = 'Chọn file';
     const retry = element('speaking-retry-transcription');
     if (retry) retry.hidden = true;
-    const excelStaging = element('speaking-excel-staging-callout');
-    if (excelStaging) excelStaging.hidden = true;
     const generate = element('speaking-generate-tts');
     if (generate) generate.hidden = true;
     const progress = element('speaking-prompt-upload-progress');
@@ -664,10 +658,6 @@
     if (remove) remove.hidden = !asset;
     const replace = element('speaking-replace-audio');
     if (replace) replace.textContent = asset ? 'Thay file' : 'Chọn file';
-    const excelStaging = element('speaking-excel-staging-callout');
-    if (excelStaging) {
-      excelStaging.hidden = next.excelStagingAudioAvailable !== true;
-    }
     const durableStatus = next.sttOperation
       && next.sttOperation.taskStatus === 'retry_wait'
       ? 'retry_wait'
@@ -1243,55 +1233,6 @@
     }
   }
 
-  async function adoptExcelStaging() {
-    if (draftConflict) {
-      markDraftConflict();
-      return;
-    }
-    if (sourceDestructiveMutationPending()) {
-      showMessage('Đang cập nhật nguồn audio. Vui lòng chờ.', 'error');
-      return;
-    }
-    if (transcriptDirty) {
-      showMessage(
-        'Hãy lưu và xác nhận Ngữ cảnh cho AI trước khi đổi audio.',
-        'error');
-      return;
-    }
-    if (!state || state.excelStagingAudioAvailable !== true
-        || !activeClientId) return;
-    const clientId = activeClientId;
-    if (localMode !== 'audio_upload') {
-      localMode = 'audio_upload';
-      markDirty();
-      renderMode();
-    }
-    if (!(await flush()) || clientId !== activeClientId) return;
-    beginSourceDestructiveMutation();
-    const request = requestContext(clientId, true, 0);
-    beginMutation(request);
-    try {
-      showMessage(
-        'Đang xác minh audio từ Excel và chuẩn bị bản chép lời…',
-        'info');
-      const operation = jsonRequest(
-        endpointFor(clientId, '/audio/excel-staging'),
-        'POST',
-        {
-          expectedSourceRevision: acceptedRevision(clientId),
-          expectedDraftVersion: request.expectedDraftVersion
-        });
-      const next = await trackOperation(operation);
-      acceptState(clientId, next, request);
-      if (clientId === activeClientId) clearMessage();
-    } catch (error) {
-      handleMutationError(error, clientId, true);
-    } finally {
-      endMutation(request);
-      endSourceDestructiveMutation();
-    }
-  }
-
   async function retryTranscription() {
     if (draftConflict) {
       markDraftConflict();
@@ -1452,7 +1393,6 @@
     flush,
     hasPendingChanges,
     upload,
-    adoptExcelStaging,
     removeOriginal,
     renderLegacyPreview,
     syncToQuestion

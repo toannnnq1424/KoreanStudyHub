@@ -59,11 +59,6 @@ public class SpeakingPromptAuthoringStateService {
         SpeakingPromptAuthoringAiProperties.TtsConfig approved =
                 properties.ttsConfig();
         SelectedTtsOptions selected = safeOptions(draftOptions, approved);
-        boolean excelStagingAudioAvailable =
-                assetService.hasExcelStaging(
-                        draftId,
-                        authorized.ownerId(),
-                        questionClientId);
         SpeakingPromptSource source = sourceRepository
                 .findByDraftIdAndQuestionClientId(draftId, questionClientId)
                 .orElse(null);
@@ -76,7 +71,6 @@ public class SpeakingPromptAuthoringStateService {
                             : SpeakingPromptSource.INPUT_AUDIO_UPLOAD,
                     draftOptions.ttsEnabled(),
                     authorized.question().path("prompt").asText(""),
-                    excelStagingAudioAvailable,
                     selected,
                     approvedOptions(approved),
                     properties.sttConfig().maxInputBytes(),
@@ -157,7 +151,6 @@ public class SpeakingPromptAuthoringStateService {
                 source.getTranscriptStatus(),
                 effectiveAudioStatus,
                 original,
-                excelStagingAudioAvailable,
                 generated,
                 generatedCurrent,
                 transcript == null ? null : transcript.getContextText(),
@@ -384,7 +377,6 @@ public class SpeakingPromptAuthoringStateService {
             String transcriptStatus,
             String audioStatus,
             SpeakingPromptAssetService.AssetPresentation originalAudio,
-            boolean excelStagingAudioAvailable,
             SpeakingPromptAssetService.AssetPresentation generatedAudio,
             boolean generatedAudioCurrent,
             String lecturerContext,
@@ -418,7 +410,6 @@ public class SpeakingPromptAuthoringStateService {
                 String inputType,
                 boolean ttsEnabled,
                 String manualText,
-                boolean excelStagingAudioAvailable,
                 SelectedTtsOptions selected,
                 ApprovedTtsOptions approved,
                 long maximumUploadBytes,
@@ -432,7 +423,6 @@ public class SpeakingPromptAuthoringStateService {
                     SpeakingPromptSource.STATUS_IDLE,
                     SpeakingPromptSource.STATUS_IDLE,
                     null,
-                    excelStagingAudioAvailable,
                     null,
                     false,
                     null,

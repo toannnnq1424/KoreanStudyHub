@@ -155,24 +155,6 @@ public class SpeakingPromptAuthoringController {
                 stateService.load(draftId, clientId, user.getId()));
     }
 
-    @PostMapping("/audio/excel-staging")
-    public ResponseEntity<SpeakingPromptAuthoringStateService.EditorState>
-            adoptExcelStaging(
-                    @PathVariable Long draftId,
-                    @PathVariable String clientId,
-                    @Valid @RequestBody RevisionRequest request,
-                    @AuthenticationPrincipal KshUserDetails user) {
-        uploadCoordinator.adoptExcelStagingAndEnqueueStt(
-                new SpeakingPromptAuthoringService.SourceCommand(
-                        draftId,
-                        clientId,
-                        user.getId(),
-                        request.expectedSourceRevision(),
-                        request.expectedDraftVersion()));
-        return ResponseEntity.accepted().body(
-                stateService.load(draftId, clientId, user.getId()));
-    }
-
     @PostMapping("/transcription/retry")
     public ResponseEntity<?> retryTranscription(
             @PathVariable Long draftId,
