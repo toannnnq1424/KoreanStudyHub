@@ -6,9 +6,13 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.service.approval.ClassPendingReviewEvent;
 import com.ksh.features.classes.service.codes.ClassCodeGenerationException;
 import com.ksh.features.classes.service.codes.ClassCodeGenerator;
 import com.ksh.features.classes.service.invites.InviteCodeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * Encapsulates the {@link ClassEntity} creation flow including the collision-
@@ -26,6 +30,7 @@ import com.ksh.features.classes.service.invites.InviteCodeService;
  */
 final class ClassCreator {
 
+    private static final Logger log = LoggerFactory.getLogger(ClassCreator.class);
     static final int MAX_CODE_GEN_ATTEMPTS = 3;
 
     private final ClassRepository classRepository;
@@ -33,17 +38,20 @@ final class ClassCreator {
     private final ClassCodeGenerator codeGenerator;
     private final InviteCodeService inviteCodeService;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     ClassCreator(ClassRepository classRepository,
                  ClassActivityWriter activityWriter,
                  ClassCodeGenerator codeGenerator,
                  InviteCodeService inviteCodeService,
-                 UserRepository userRepository) {
+                 UserRepository userRepository,
+                 ApplicationEventPublisher eventPublisher) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
         this.codeGenerator = codeGenerator;
         this.inviteCodeService = inviteCodeService;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -76,6 +84,14 @@ final class ClassCreator {
         activityWriter.write(saved.getId(), ClassActivity.TYPE_CREATED,
                 "Tạo lớp " + saved.getName(), userId);
         inviteCodeService.provisionDefaults(saved.getId(), userId);
+        try {
+            eventPublisher.publishEvent(new ClassPendingReviewEvent(
+                    saved.getId(), saved.getDepartmentId(), saved.getLecturerId(),
+                    saved.getName(), saved.getCode()));
+        } catch (RuntimeException exception) {
+            log.warn("Không đăng ký được thông báo chờ duyệt cho lớp {}",
+                    saved.getId(), exception);
+        }
         return saved;
     }
 }
