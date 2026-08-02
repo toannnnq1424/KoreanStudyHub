@@ -20,7 +20,7 @@ class PracticeAuthoringCandidateMigrationTest {
     private static final Pattern VERSION = Pattern.compile("V(\\d+)__.*\\.sql");
 
     @Test
-    void reconciledChainIsUniqueContinuousAndEndsAtV83() throws Exception {
+    void reconciledChainIsUniqueContinuousAndContainsV83() throws Exception {
         Map<Integer, Integer> counts = new HashMap<>();
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
             files.map(path -> path.getFileName().toString())
@@ -30,9 +30,12 @@ class PracticeAuthoringCandidateMigrationTest {
                     .forEach(version -> counts.merge(version, 1, Integer::sum));
         }
 
-        assertThat(counts).hasSize(83);
+        int current = counts.keySet().stream().mapToInt(Integer::intValue)
+                .max().orElseThrow();
+        assertThat(current).isGreaterThanOrEqualTo(83);
+        assertThat(counts).hasSize(current);
         assertThat(counts.keySet()).containsExactlyInAnyOrderElementsOf(
-                java.util.stream.IntStream.rangeClosed(1, 83).boxed().toList());
+                java.util.stream.IntStream.rangeClosed(1, current).boxed().toList());
         assertThat(counts.values()).containsOnly(1);
     }
 
