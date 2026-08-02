@@ -3,8 +3,6 @@ package com.ksh.features.practice.manage.service;
 import com.ksh.entities.PracticePdfImportSession;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -12,9 +10,13 @@ import java.io.InputStream;
 public class PracticePdfPreviewService {
 
     private final PracticePdfImportSessionService sessionService;
+    private final com.ksh.features.practice.pdf.PracticePdfStorageService storageService;
 
-    public PracticePdfPreviewService(PracticePdfImportSessionService sessionService) {
+    public PracticePdfPreviewService(
+            PracticePdfImportSessionService sessionService,
+            com.ksh.features.practice.pdf.PracticePdfStorageService storageService) {
         this.sessionService = sessionService;
+        this.storageService = storageService;
     }
 
     public InputStream getPdfStream(Long sessionId, Long userId) throws IOException {
@@ -23,10 +25,6 @@ public class PracticePdfPreviewService {
         if (pdfPath == null) {
             throw new IllegalArgumentException("Đường dẫn file PDF bị thiếu.");
         }
-        File file = new File(pdfPath);
-        if (!file.exists()) {
-            throw new java.io.FileNotFoundException("File PDF không còn tồn tại trên server.");
-        }
-        return new FileInputStream(file);
+        return storageService.open(session.getStorageProfileCode(), pdfPath);
     }
 }

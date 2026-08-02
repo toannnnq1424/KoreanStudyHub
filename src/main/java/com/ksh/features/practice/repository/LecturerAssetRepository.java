@@ -55,9 +55,21 @@ public interface LecturerAssetRepository extends JpaRepository<LecturerAsset, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select a from LecturerAsset a
-            where a.storageKey = :storageKey
+            where a.storageProfileCode is null
+              and a.storageKey = :storageKey
             order by a.id asc
             """)
     List<LecturerAsset> findByStorageKeyForUpdate(
+            @Param("storageKey") String storageKey);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select a from LecturerAsset a
+            where a.storageProfileCode = :profileCode
+              and a.storageKey = :storageKey
+            order by a.id asc
+            """)
+    List<LecturerAsset> findByStorageProfileCodeAndStorageKeyForUpdate(
+            @Param("profileCode") String profileCode,
             @Param("storageKey") String storageKey);
 }

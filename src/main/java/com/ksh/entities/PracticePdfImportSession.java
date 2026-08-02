@@ -36,6 +36,9 @@ public class PracticePdfImportSession {
     @Column(name = "stored_pdf_path")
     private String storedPdfPath;
 
+    @Column(name = "storage_profile_code", length = 40)
+    private String storageProfileCode;
+
     @Column(name = "total_pages")
     private Integer totalPages;
 
@@ -169,6 +172,14 @@ public class PracticePdfImportSession {
 
     public void setStoredPdfPath(String storedPdfPath) {
         this.storedPdfPath = storedPdfPath;
+    }
+
+    public String getStorageProfileCode() {
+        return storageProfileCode;
+    }
+
+    public void setStorageProfileCode(String storageProfileCode) {
+        this.storageProfileCode = storageProfileCode;
     }
 
     public Integer getTotalPages() {

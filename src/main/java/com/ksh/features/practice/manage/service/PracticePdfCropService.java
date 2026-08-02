@@ -13,7 +13,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 
 @Service
@@ -24,24 +23,47 @@ public class PracticePdfCropService {
 
     private final LecturerAssetService assetService;
     private final PracticePdfAiLimits limits;
+    private final com.ksh.features.practice.pdf.PracticePdfStorageService storageService;
 
     public PracticePdfCropService(
             LecturerAssetService assetService,
-            PracticePdfAiLimits limits) {
+            PracticePdfAiLimits limits,
+            com.ksh.features.practice.pdf.PracticePdfStorageService storageService) {
         this.assetService = assetService;
         this.limits = limits;
+        this.storageService = storageService;
     }
 
-    public LecturerAsset cropRegion(String pdfPath, int pageNumber, double xRatio, double yRatio,
-                                    double wRatio, double hRatio, String cropMode, Integer paddingPx,
-                                    Long ownerId, Long sessionId, Long regionId) throws IOException {
-        File file = new File(pdfPath);
-        if (!file.exists()) {
-            throw new java.io.FileNotFoundException("File PDF không tồn tại.");
+    public LecturerAsset cropRegion(
+            com.ksh.entities.PracticePdfImportSession session,
+            int pageNumber, double xRatio, double yRatio,
+            double wRatio, double hRatio, String cropMode, Integer paddingPx,
+            Long ownerId, Long sessionId, Long regionId) throws IOException {
+        if (session == null || storageService == null) {
+            throw new IllegalArgumentException("STORAGE_IDENTITY_INVALID");
         }
         requireNormalizedBox(xRatio, yRatio, wRatio, hRatio);
+        byte[] pdf = storageService.readBytes(
+                session.getStorageProfileCode(), session.getStoredPdfPath());
+        return cropDocument(pdf, pageNumber, xRatio, yRatio, wRatio, hRatio,
+                cropMode, paddingPx, ownerId, sessionId, regionId);
+    }
 
-        try (PDDocument doc = Loader.loadPDF(file)) {
+    private LecturerAsset cropDocument(
+            byte[] pdf, int pageNumber, double xRatio, double yRatio,
+            double wRatio, double hRatio, String cropMode, Integer paddingPx,
+            Long ownerId, Long sessionId, Long regionId) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(pdf)) {
+            return cropDocument(doc, pageNumber, xRatio, yRatio, wRatio, hRatio,
+                    cropMode, paddingPx, ownerId, sessionId, regionId);
+        }
+    }
+
+    private LecturerAsset cropDocument(
+            PDDocument doc, int pageNumber, double xRatio, double yRatio,
+            double wRatio, double hRatio, String cropMode, Integer paddingPx,
+            Long ownerId, Long sessionId, Long regionId) throws IOException {
+            requireNormalizedBox(xRatio, yRatio, wRatio, hRatio);
             if (pageNumber < 1 || pageNumber > doc.getNumberOfPages()) {
                 throw new IllegalArgumentException("Số trang " + pageNumber + " vượt quá phạm vi PDF.");
             }
@@ -125,7 +147,6 @@ public class PracticePdfCropService {
                         null
                 );
             }
-        }
     }
 
     private static void requireNormalizedBox(

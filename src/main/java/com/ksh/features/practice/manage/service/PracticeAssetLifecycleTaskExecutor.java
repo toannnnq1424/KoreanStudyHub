@@ -23,7 +23,17 @@ public class PracticeAssetLifecycleTaskExecutor {
             if (!transactions.confirmPhysicalDeleteAllowed(claim)) {
                 return;
             }
-            storageService.delete(claim.storageKey());
+            if (claim.storageProfileCode() == null) {
+                storageService.delete(claim.storageKey());
+            } else {
+                storageService.delete(claim.storageProfileCode(), claim.storageKey());
+            }
+            boolean stillExists = claim.storageProfileCode() == null
+                    ? storageService.exists(claim.storageKey())
+                    : storageService.exists(claim.storageProfileCode(), claim.storageKey());
+            if (stillExists) {
+                throw new java.io.IOException("Physical asset deletion was not confirmed.");
+            }
             transactions.complete(claim);
         } catch (Exception exception) {
             transactions.retry(claim, exception);

@@ -1,11 +1,12 @@
 package com.ksh.features.practice.pdf;
 
+import com.ksh.features.practice.manage.service.AssetStorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
@@ -16,16 +17,14 @@ public class PracticePdfStorageService {
 
     private static final long MAX_SIZE = 20L * 1024 * 1024;
 
-    private final Path uploadRoot;
+    private final AssetStorageService storage;
+    private final Path legacyRoot;
 
     public PracticePdfStorageService(
+            AssetStorageService storage,
             @Value("${app.upload.dir:${user.home}/.ksh/uploads}") String uploadDir) {
-        this.uploadRoot = Paths.get(uploadDir, "practice-pdfs").toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(uploadRoot);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Cannot create practice PDF upload root: " + uploadRoot, ex);
-        }
+        this.storage = storage;
+        this.legacyRoot = Paths.get(uploadDir, "practice-pdfs").toAbsolutePath().normalize();
     }
 
     public StoredPdf store(MultipartFile file, Long uploaderId) throws IOException {
@@ -44,22 +43,57 @@ public class PracticePdfStorageService {
             throw new IllegalArgumentException("File tải lên không phải PDF hợp lệ.");
         }
 
-        Path userDir = uploadRoot.resolve(String.valueOf(uploaderId)).normalize();
-        if (!userDir.startsWith(uploadRoot)) {
-            throw new IllegalArgumentException("Đường dẫn lưu file không hợp lệ.");
+        String namespace = "practice-pdfs/" + uploaderId + "/temporary/objects/"
+                + UUID.randomUUID().toString().toLowerCase(Locale.ROOT);
+        AssetStorageService.StoredAsset stored;
+        try (var input = file.getInputStream()) {
+            stored = storage.store(input, originalFilename, namespace);
         }
-        Files.createDirectories(userDir);
+        return new StoredPdf(stored.storageKey(), null, originalFilename,
+                stored.sizeBytes(), stored.storageProfileCode());
+    }
 
-        String filename = UUID.randomUUID() + ".pdf";
-        Path destination = userDir.resolve(filename).normalize();
-        file.transferTo(destination.toFile());
+    public InputStream open(String storageProfileCode, String storedPath) throws IOException {
+        if (storageProfileCode != null) {
+            return storage.load(storageProfileCode, storedPath).getInputStream();
+        }
+        Path path = Paths.get(storedPath == null ? "" : storedPath).toAbsolutePath().normalize();
+        if (!path.startsWith(legacyRoot) || !java.nio.file.Files.isRegularFile(path)) {
+            throw new java.io.FileNotFoundException("Không tìm thấy PDF legacy.");
+        }
+        return java.nio.file.Files.newInputStream(path);
+    }
 
-        return new StoredPdf(
-                "practice-pdfs/" + uploaderId + "/" + filename,
-                destination,
-                originalFilename,
-                file.getSize()
-        );
+    public byte[] readBytes(String storageProfileCode, String storedPath) throws IOException {
+        try (InputStream input = open(storageProfileCode, storedPath)) {
+            byte[] bytes = input.readNBytes(Math.toIntExact(MAX_SIZE + 1));
+            if (bytes.length == 0 || bytes.length > MAX_SIZE) {
+                throw new IOException("PDF bytes exceed the bounded storage contract");
+            }
+            return bytes;
+        }
+    }
+
+    public void delete(String storageProfileCode, String storedPath) throws IOException {
+        if (storageProfileCode != null) {
+            storage.delete(storageProfileCode, storedPath);
+            return;
+        }
+        Path path = Paths.get(storedPath == null ? "" : storedPath).toAbsolutePath().normalize();
+        if (!path.startsWith(legacyRoot)) {
+            throw new IllegalArgumentException("STORAGE_IDENTITY_INVALID");
+        }
+        java.nio.file.Files.deleteIfExists(path);
+    }
+
+    public boolean existsLegacy(String storedPath) {
+        try {
+            Path path = Paths.get(storedPath == null ? "" : storedPath)
+                    .toAbsolutePath().normalize();
+            return path.startsWith(legacyRoot) && java.nio.file.Files.isRegularFile(path);
+        } catch (RuntimeException invalidPath) {
+            return false;
+        }
     }
 
     private static boolean hasPdfHeader(MultipartFile file) throws IOException {
@@ -76,6 +110,11 @@ public class PracticePdfStorageService {
     }
 
     public record StoredPdf(String storedPath, Path absolutePath,
-                            String originalFilename, long sizeBytes) {
+                            String originalFilename, long sizeBytes,
+                            String storageProfileCode) {
+        public StoredPdf(String storedPath, Path absolutePath,
+                         String originalFilename, long sizeBytes) {
+            this(storedPath, absolutePath, originalFilename, sizeBytes, null);
+        }
     }
 }
