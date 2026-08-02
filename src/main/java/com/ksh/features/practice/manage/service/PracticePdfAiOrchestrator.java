@@ -278,7 +278,7 @@ public class PracticePdfAiOrchestrator {
     private static void requireAvailable(
             PracticeStructuredGenerationPort.ProviderIdentity identity) {
         if (identity == null || !identity.available()
-                || identity.bindingRevision() < 1
+                || identity.bindingRevision() < 0
                 || identity.providerProfileRevision() < 0
                 || identity.providerProfileCode() == null
                 || identity.providerProfileCode().isBlank()) {

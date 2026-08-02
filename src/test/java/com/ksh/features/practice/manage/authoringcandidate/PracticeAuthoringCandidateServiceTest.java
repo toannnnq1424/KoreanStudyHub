@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -99,7 +100,7 @@ class PracticeAuthoringCandidateServiceTest {
     }
 
     @Test
-    void exactPdfAiSnapshotPersistsReviewingCandidateWithoutDraftMutation() {
+    void zeroBasedPdfAiSnapshotPersistsWhileNegativeRevisionFailsClosed() {
         PracticeDraft draft = PracticeAuthoringCandidateTestFixtures.targetDraft(0);
         when(draftRepository.findByIdForUpdate(5001L))
                 .thenReturn(Optional.of(draft));
@@ -120,7 +121,7 @@ class PracticeAuthoringCandidateServiceTest {
                 .set("sourceRefs", objectMapper.createArrayNode().add(sourceRef.deepCopy()));
         ObjectNode execution = objectMapper.createObjectNode();
         execution.put("purpose", "PRACTICE_PDF_AUTHORING");
-        execution.put("bindingRevision", 4L);
+        execution.put("bindingRevision", 0L);
         execution.put("providerProfileCode", "PRACTICE_AUTHORING_V1");
         execution.put("providerFamily", "OPENAI_COMPATIBLE");
         execution.put("model", "fake-model");
@@ -132,7 +133,7 @@ class PracticeAuthoringCandidateServiceTest {
                         SourceKind.PDF_AI,
                         "practice-pdf-authoring-output-v1",
                         "sha256:" + PracticeAuthoringCandidateTestFixtures.SOURCE_DIGEST,
-                        "authoring-v1-b4", "source.pdf",
+                        "authoring-v1-b0", "source.pdf",
                         SourceOperation.EXTRACT, execution),
                 new TargetRoute(5001L, 1, "READING", "R1"),
                 groups);
@@ -150,9 +151,29 @@ class PracticeAuthoringCandidateServiceTest {
                 .isEqualTo("EXTRACT");
         assertThat(result.candidate().at("/source/aiExecution/purpose").asText())
                 .isEqualTo("PRACTICE_PDF_AUTHORING");
+        assertThat(result.candidate().at(
+                "/source/aiExecution/bindingRevision").asLong()).isZero();
         assertThat(result.issues()).extracting(ValidationIssue::code)
                 .contains("PDF_LOW_CONFIDENCE");
+        ObjectNode negativeExecution = execution.deepCopy();
+        negativeExecution.put("bindingRevision", -1L);
+        CreateCommand negativeRevision = new CreateCommand(
+                101L,
+                new SourceSnapshot(
+                        SourceKind.PDF_AI,
+                        "practice-pdf-authoring-output-v1",
+                        "sha256:" + PracticeAuthoringCandidateTestFixtures.SOURCE_DIGEST,
+                        "authoring-v1-b-1", "source.pdf",
+                        SourceOperation.EXTRACT, negativeExecution),
+                new TargetRoute(5001L, 1, "READING", "R1"),
+                groups);
+
+        assertThatThrownBy(() -> service.createOrReuse(negativeRevision))
+                .isInstanceOf(PracticeAuthoringCandidateException.class)
+                .extracting("code")
+                .isEqualTo("CANDIDATE_SOURCE_INVALID");
         verify(draftRepository, never()).save(any());
+        verify(candidateRepository, times(1)).saveAndFlush(any());
     }
 
     @Test

@@ -115,7 +115,7 @@
           ],
           "properties": {
             "purpose": { "const": "PRACTICE_PDF_AUTHORING" },
-            "bindingRevision": { "type": "integer", "minimum": 1 },
+            "bindingRevision": { "type": "integer", "minimum": 0 },
             "providerProfileCode": { "type": "string", "minLength": 1, "maxLength": 100 },
             "providerFamily": { "type": "string", "minLength": 1, "maxLength": 100 },
             "model": { "type": "string", "minLength": 1, "maxLength": 200 },
