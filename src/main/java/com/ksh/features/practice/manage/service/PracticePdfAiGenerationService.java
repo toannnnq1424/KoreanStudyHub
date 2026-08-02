@@ -18,7 +18,7 @@ import java.util.UUID;
 public class PracticePdfAiGenerationService {
 
     private static final Set<String> RELEASE_STATUSES =
-            Set.of("READY_FOR_AI", "AI_FAILED_RETRYABLE");
+            Set.of("READY_FOR_AI", "AI_FAILED_RETRYABLE", "REVIEWING");
 
     private final PracticePdfImportSessionRepository repository;
     private final PracticePdfAiLimits limits;
