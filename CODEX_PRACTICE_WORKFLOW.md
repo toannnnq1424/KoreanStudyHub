@@ -5,6 +5,33 @@ Korean Study Hub — Feature `/practice`
 This file must be read before Codex performs any audit, implementation,
 stabilization, commit/push, or roadmap update task for this project.
 
+## Current post-Pre-14 overlay — 2026-08-02
+
+PR #55 merged `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE` into `origin/main` at
+`3dfab18ae308005c018c9066256bb7c79b686e8e`; Pre-14 is `CLOSED_MERGED`.
+The active successor is the contract-first
+`POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` epic. Its AIM-0/AIM-1 authority is
+recorded in
+`docs/PRACTICE_POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_ROADMAP_AMENDMENT.md`,
+`docs/decisions/0012-practice-authoring-import-modernization-boundaries.md` and
+`docs/architecture/practice/PRACTICE_AUTHORING_IMPORT_MODERNIZATION_CONTRACT.md`.
+
+Authoritative remaining sequence:
+
+```text
+Pre-14 CLOSED_MERGED
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION (AIM-2..AIM-8)
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_CONSOLIDATED_GATE
+  -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
+  -> Phase 15 Manual UAT & Release Hardening
+  -> deferred Phase 14 Report an Error & Content Review (14A-14F)
+  -> Phase 16 only after a separate product GO
+```
+
+This overlay supersedes lower historical wording that routes directly from
+Pre-14 to Pre-15. It does not reopen Pre-14, authorize AIM-2+ implementation,
+or move direct-audio/acoustic Speaking out of its Pre-15 dependencies.
+
 ## Current Phase 13H overlay — 2026-07-28
 
 Phase 13G is `CLOSED_VERIFIED_MERGED`, not pending publication:
@@ -74,6 +101,8 @@ Authoritative remaining sequence:
 ```text
 13C3 -> 13G -> 13H -> comprehensive /practice audit/cleanup
   -> PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_CONSOLIDATED_GATE
   -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 Manual UAT & Release Hardening
   -> deferred Phase 14 Report an Error & Content Review (14A-14F)
@@ -2893,9 +2922,10 @@ complete Phase 13E validation is accepted; actual baseline construction waits
 until the final pre-14 schema contracts are frozen and all rebaseline guards
 pass. Phase 14 still cannot start until mandatory 13C3, Phase 13G-13H and
 pre-14 evidence are accepted, but it is no longer the next step or an initial
-release blocker. A green gate now hands off to
-`PRE_PHASE_15_RELEASE_CLOSURE_GATE` and Phase 15 Manual UAT; deferred Phase 14
-consumes the same accepted evidence later.
+release blocker. Pre-14 is now closed and hands off to
+`POST_PRE14_AUTHORING_IMPORT_MODERNIZATION`; only that epic's consolidated
+gate hands off to `PRE_PHASE_15_RELEASE_CLOSURE_GATE` and Phase 15 Manual UAT.
+Deferred Phase 14 consumes the accepted evidence later.
 
 Before 14A creates report targets, the following identities and fail-closed
 runtime contracts must be stable:
@@ -3036,7 +3066,7 @@ The learner UI must never expose internal moderation notes and must never imply
 that a report changed a score until review is complete and the applicable
 corrected version or score decision has actually been published.
 
-### PRE_PHASE_15_RELEASE_CLOSURE_GATE — after the Pre-14 gate, before Phase 15
+### PRE_PHASE_15_RELEASE_CLOSURE_GATE — after the post-Pre14 authoring/import consolidated gate, before Phase 15
 
 This release-closure gate no longer waits for the deferred canonical 14A-14F
 review loop. It consumes, but does not reopen, accepted pre-14 correctness
@@ -3070,8 +3100,8 @@ identified disposable UAT environment and never permits Flyway repair.
 Status:
 NOT_STARTED
 
-Phase 15 follows the accepted Pre-14 and Pre-15 gates directly; it does not
-wait for deferred Phase 14. Its release evidence must state that Report an
+Phase 15 follows the accepted post-Pre14 authoring/import consolidated gate and
+Pre-15 gate; it does not wait for deferred Phase 14. Its release evidence must state that Report an
 Error is outside the tested/released scope. After Phase 15 closes, Phase 14 may
 be opened as a separate later capability with its own `14A-14F` gate.
 
@@ -3427,8 +3457,17 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-28 | Phase 13C3 Corrected Exact-SHA Audit And Merge Closure | CONSOLIDATED_VALIDATION_GREEN_PENDING_COMMIT_PUSH | CLOSED_VERIFIED_MERGED | corrected remote SHA `420a9a905cd202116158802eeaff799aab29e4b5`; PR #26 merge commit `65328e9fae5201be2f154c90739bcb78f1034e4d` | Both required fresh independent read-only audits returned `ACCEPT` for exact corrected SHA `420a9a9`; PR #26 then merged by merge commit without squashing the six Phase 13F commits or rewriting Phase 13C3 ancestry. No new browser/device/provider evidence is claimed. | Phase 13C3 is closed. Browser/device QA remains deferred to 13H/end-of-Phase-13, and live STT/TTS remains not approved. | Open only Phase 13G inventory/static implementation on a clean branch from merge SHA `65328e9`; preserve excluded paths and the untouched Pre-14 sidecar stash. |
 | 2026-07-28 | Phase 13G Responsive, Accessibility And Performance | COMPLETE_FOCUSED_GATE_GREEN | CLOSED_VERIFIED_MERGED | `68f3801214a741688499f9091f6821a03d5f8e0b`; PR #27 merge `4f09dd9faa22d3aec5d11dd40c7a82144664ea4a`; PR #28/main merge `2549438c1a327b6932dc78d5284d7feaf5daf628` | The full 56-path snapshot received three fresh `ACCEPT_STATIC` verdicts. The first consolidated run exposed one stale icon contract and four nested-Mockito test-helper errors; one grouped test-only correction and the permitted exact rerun passed `82/82` on JDK 17. Fresh MySQL V56 proof returned `56/56/0/1/7`, cleanup absence `0`, and PREP/KSH static image audit `52/52`. No full suite, browser/device journey, standalone startup, Docker or provider call ran. | The four Phase 13G commits `74a3026`, `85c61ab`, `81d78e8`, `68f3801` remain intact. The trees at the 13G head and both merge commits were verified byte-identical. Practice-specific and project-wide/Admin AI/storage remain operational and separate. | Open only the separate Phase 13H stabilization/visual/journey unit from exact main SHA `2549438`; do not rerun Phase 13G publication. |
 | 2026-07-28 | Phase 13H Stabilization, Visual And Journey Gate | PHASE_13G_CLOSED_VERIFIED_MERGED | IMPLEMENTATION_AUDIT_OPEN | branch `codex/practice-phase13h-stabilization-gate`; baseline `2549438c1a327b6932dc78d5284d7feaf5daf628` | Entry branch/HEAD/main/origin-main ancestry, untouched sidecar stash and excluded user paths were verified. Mandatory authority documents and the full stash patch were read before implementation. No consolidated Phase 13H validation is claimed yet. | Own reproducible Java 17, dated dependency/SBOM/reachability evidence, PRE-10..13, candidate COMP-20/dead-resource proof, migration validation safeguards and the final provider-disabled automated/browser/device journey matrix. | Complete read-only audits, freeze the 13H implementation inventory, implement once, declare `READY_FOR_PHASE_VALIDATION`, then execute one consolidated gate. |
+| 2026-08-02 | Post-Pre-14 Authoring/Import Modernization AIM-0/AIM-1 | PRE14_CLOSED_MERGED_PR_55 | AIM_0_CLOSED_AIM_1_CONTRACT_FROZEN | `origin/main@3dfab18ae308005c018c9066256bb7c79b686e8e` | Refreshed HEAD/origin-main ancestry; accepted the 48-row ledger at 12 MATCH/36 PARTIAL/0 MISSING; Draft 2020-12 schemas and R/L/W/S/Advanced/PDF examples passed; negative evaluation-field checks, exact 24-column/six-purpose/three-profile/static roadmap checks and `git diff --check` passed. No Java, SQL, runtime config, real provider call or acoustic fixture was created. | Inserted the epic and consolidated gate before Pre-15; froze one-sheet Quick, shared persistent candidate/idempotent apply, Practice-owned AI/storage data planes with Admin control planes, strict PDF authoring JSON, canonical preview/editor reuse, additive compatibility/rollback and unchanged direct-audio deferral. Pre-existing Flyway V73-V75 version collisions are recorded, not edited or assigned around. | Integrate the AIM-0/AIM-1 documentation, refresh `origin/main`, then open AIM-2 only. Preserve the frozen no-go boundaries and stop for product approval if a contract identity changes. |
 
 ## Current Required Next Action
+
+> **Current-source supersession (`2026-08-02`, post-Pre-14):** Pre-14 is
+> `CLOSED_MERGED` by PR #55 at `origin/main@3dfab18a`. AIM-0 and AIM-1 of
+> `POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` are documentation/schema complete;
+> AIM-2 through AIM-8 remain `NOT_STARTED`. Integrate this contract-only batch,
+> refresh `origin/main`, and then open AIM-2 as the next separately controlled
+> implementation slice. The Phase 13H instruction immediately below is retained
+> as history and must not be executed as current work.
 
 > **Current-source supersession (`2026-07-28`, Phase 13H):** Phase 13G is
 > `CLOSED_VERIFIED_MERGED` at exact head `68f3801`; PR #27 merged as

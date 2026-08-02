@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "practice-authoring-candidate-v1",
+  "candidateId": "22222222-2222-4222-8222-222222222222",
+  "ownerId": 101,
+  "source": {
+    "kind": "QUICK_EXCEL",
+    "contractVersion": "practice-quick-excel-v1",
+    "sourceDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "sourceRevision": "upload-1",
+    "sourceName": "listening-quick-v1.xlsx"
+  },
+  "target": {
+    "draftId": 5001,
+    "baseDraftVersion": 3,
+    "testNo": 1,
+    "skill": "LISTENING",
+    "lessonCode": "L1"
+  },
+  "state": "READY_TO_APPLY",
+  "normalizerVersion": "practice-authoring-normalizer-v1",
+  "validatorVersion": "practice-authoring-validator-v1",
+  "groups": [
+    {
+      "candidateGroupId": "listening_group_1",
+      "groupOrder": 1,
+      "label": "Nghe thông báo",
+      "instruction": "Nghe và xác định thông tin đúng.",
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "Nghe và xác định thông tin đúng.",
+        "passageText": "",
+        "transcriptText": "회의는 금요일 오후 세 시에 이 층 회의실에서 시작합니다.",
+        "mediaReference": null,
+        "provenance": {
+          "source": "QUICK_EXCEL",
+          "approved": false,
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-4",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 4,
+              "column": "stimulus_text"
+            }
+          ]
+        }
+      },
+      "sourceRefs": [
+        {
+          "kind": "SHEET_ROW",
+          "sourceId": "quick-row-4",
+          "sheet": "QUICK_QUESTIONS",
+          "row": 4
+        }
+      ],
+      "questions": [
+        {
+          "candidateQuestionId": "listening_q_1",
+          "questionOrder": 1,
+          "questionType": "TRUE_FALSE_NOT_GIVEN",
+          "prompt": "회의는 금요일 오후 세 시에 시작합니다.",
+          "points": 1,
+          "explanationVi": "Nội dung này trùng khớp trực tiếp với thông báo.",
+          "explanationStrategy": {
+            "registryVersion": "rl-explanation-strategy-registry-v2",
+            "strategyCode": "TFNG_CONTRADICTION_TABLE",
+            "strategyVersion": "v1"
+          },
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [],
+            "blanks": [],
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "TRUE_FALSE_NOT_GIVEN",
+            "correctOptionIds": [],
+            "correctValue": "TRUE",
+            "blanks": [],
+            "scoringPolicyCode": "ALL_OR_NOTHING"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-4",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 4
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "issues": [],
+  "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "warningsAcknowledged": true,
+  "createdAt": "2026-08-02T02:05:00Z",
+  "expiresAt": "2026-08-09T02:05:00Z",
+  "applied": null
+}

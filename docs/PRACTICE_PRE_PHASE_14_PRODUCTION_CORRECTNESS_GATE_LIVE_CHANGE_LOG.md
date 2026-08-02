@@ -2,7 +2,15 @@
 
 Started: `2026-07-30`
 
-Status: `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE_IN_PROGRESS`
+Status: `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE_CLOSED_MERGED`
+
+> Closure overlay (`2026-08-02`): the final Gate E evidence below directly
+> recertifies all `48/48` master-matrix rows with zero missing proof and no
+> fabricated acoustic state. PR #55 merged the accepted branch into `main` as
+> `3dfab18ae308005c018c9066256bb7c79b686e8e`; a fresh fetch verified both HEAD
+> and `origin/main` at that commit. Pre-14 is therefore `CLOSED_MERGED`. The
+> post-Pre-14 authoring/import epic is now the next roadmap unit; it does not
+> reopen this gate.
 
 ## 1. Authority, sequencing and baseline freeze
 
@@ -3641,3 +3649,34 @@ substate.
 Checkpoint verdict:
 
 `GATE_E_ALL_48_ROWS_DIRECTLY_RECERTIFIED_ACOUSTIC_AUTHORITY_FAIL_CLOSED`
+
+## 60. PR #55 MERGE CLOSURE AND POST-PRE-14 HANDOFF
+
+The final row-specific evidence in Sections 55--59 is the terminal Pre-14
+acceptance set:
+
+```text
+master rows with direct proof:                     48/48
+matrix verdicts:                 12 MATCH / 36 PARTIAL
+missing rows:                                          0
+fabricated acoustic states:                            0
+focused acoustic contracts:                       64/64
+real provider calls:                                   0
+accepted branch merge PR:                            #55
+origin/main merge commit: 3dfab18ae308005c018c9066256bb7c79b686e8e
+```
+
+The remaining `PARTIAL` labels are intentional evidence classifications for
+KSH-native content/taxonomy/artwork differences or unavailable acoustic
+authority. They are not missing gate work and are not promoted to false visual
+matches. Direct-audio/acoustic Speaking remains routed to `P15-PRE-01B` after
+its policy, privacy, calibration and Phase 15 gates.
+
+Final merged verdict:
+
+`PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE_CLOSED_MERGED_PR_55`
+
+The authoritative successor is
+`POST_PRE14_AUTHORING_IMPORT_MODERNIZATION`, followed by its consolidated gate,
+then Pre-15. See
+`docs/PRACTICE_POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_ROADMAP_AMENDMENT.md`.

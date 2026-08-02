@@ -2,6 +2,14 @@
 
 Korean Study Hub - Feature `/practice`
 
+Current post-Pre-14 overlay (`2026-08-02`): PR #55 merged the Pre-14 gate at
+`3dfab18ae308005c018c9066256bb7c79b686e8e`; it is `CLOSED_MERGED`. The
+authoritative next sequence is
+`POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` -> its consolidated epic gate ->
+Pre-15 -> Phase 15 Manual UAT/release -> deferred Phase 14. This overlay
+supersedes lower historical direct Pre-14 -> Pre-15 wording. AIM-0/AIM-1 do not
+authorize AIM-2+ implementation.
+
 Current-source overlay (`2026-07-28`, Phase 13H): Phase 13G is
 `CLOSED_VERIFIED_MERGED`. Its reviewed head is
 `68f3801214a741688499f9091f6821a03d5f8e0b`; PR #27 merged it into
@@ -65,6 +73,7 @@ Phase 14 keeps the stable `14A-14F` name and full “Report an Error & Content
 Review” contract, but its execution status is now
 `DEFERRED_POST_MANUAL_UAT_NON_RELEASE_BLOCKING`. The authoritative order is
 `PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE ->
+POST_PRE14_AUTHORING_IMPORT_MODERNIZATION -> consolidated epic gate ->
 PRE_PHASE_15_RELEASE_CLOSURE_GATE -> Phase 15 Manual UAT/release hardening ->
 deferred Phase 14 14A-14F -> optional Phase 16`. No Pre-14 or Pre-15 debt is
 deferred. The first Manual-UAT/release verdict explicitly excludes the Report
@@ -1996,7 +2005,7 @@ notification/SLA/metrics -> 14E; end-to-end gate -> 14F.
 - permission/privacy/dedupe/attachment/malformed-content UAT;
 - immutable history và audit trail đầy đủ.
 
-### Gate bắt buộc sau Pre-14, trước 15A — `PRE_PHASE_15_RELEASE_CLOSURE_GATE`
+### Gate bắt buộc sau post-Pre14 authoring/import consolidated gate, trước 15A — `PRE_PHASE_15_RELEASE_CLOSURE_GATE`
 
 Gate này không làm lại production-correctness contract đã khóa ở Pre-14 và
 không chờ 14F. Nó
@@ -2021,8 +2030,8 @@ repair.
 ## 13. Kế hoạch Phase 15 - Manual UAT and Release Hardening
 
 Phase 15 là nơi trả debt vận hành và quyết định GO/NO-GO, không phải nơi vá dồn
-mọi feature còn thiếu. Phase này đi trực tiếp sau hai gate Pre-14 và Pre-15;
-không chờ Phase 14. Manual UAT/release verdict ban đầu không bao gồm Report an
+mọi feature còn thiếu. Phase này đi sau post-Pre14 authoring/import
+consolidated gate và Pre-15; không chờ Phase 14. Manual UAT/release verdict ban đầu không bao gồm Report an
 Error, và khi xanh mới bàn giao sang Phase 14 deferred.
 
 ### 15A - Compatibility cleanup and automated release gate
@@ -2291,6 +2300,8 @@ Pre-10 ownership/graph audit
         -> freeze final relational contract
         -> guarded Practice rebaseline decision/execution when allowed
         -> fresh Flyway/Hibernate + technical smoke proof]
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_CONSOLIDATED_GATE
   -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 UAT/release hardening
   -> deferred Phase 14 report/correction workflow (14A-14F)

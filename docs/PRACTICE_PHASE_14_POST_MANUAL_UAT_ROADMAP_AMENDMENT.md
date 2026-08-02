@@ -4,6 +4,13 @@ Recorded: `2026-07-27`
 
 Status: `ROADMAP_ORDER_LOCKED`
 
+> Post-Pre-14 overlay (`2026-08-02`): Pre-14 is now `CLOSED_MERGED` by PR #55
+> at `origin/main@3dfab18a`. The authoritative remaining order inserts
+> `POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` and its consolidated gate before
+> Pre-15. The deferred placement and unchanged 14A-14F scope below remain
+> locked. See
+> `PRACTICE_POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_ROADMAP_AMENDMENT.md`.
+
 ## 1. User decision
 
 The canonical `14A-14F` **Report an Error & Content Review** capability is
@@ -26,7 +33,9 @@ Phase 13C3 validation -> coherent commits -> one push -> post-push audits
   -> audit-first Practice/non-Practice AI-storage product/package reconciliation
        -> approved compatibility-first slices + validation/commits/push
   -> comprehensive /practice audit + cleanup validation/commits/push
-  -> PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE
+  -> PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE — CLOSED_MERGED
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_CONSOLIDATED_GATE
   -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 Manual UAT & Release Hardening
   -> deferred Phase 14 Report an Error & Content Review (14A-14F)
@@ -46,6 +55,9 @@ does **not** reduce, postpone or waive either prerequisite program:
   direct-audio disable/rollout decision, retained-data/environment cleanup,
   compatibility disposition, dependency rescan and premium-seed preparation
   remain mandatory before Phase 15 Manual UAT;
+- `POST_PRE14_AUTHORING_IMPORT_MODERNIZATION` is now a mandatory predecessor of
+  Pre-15. It modernizes authoring/import only under its frozen candidate,
+  purpose-binding, storage-profile, compatibility and no-go contracts; and
 - Phase 15 still owns the full browser/device/provider/load/security/manual-UAT
   matrix and the initial release GO/NO-GO decision.
 
@@ -88,3 +100,7 @@ are superseded only with respect to execution order. Historical phase results,
 the content of the Pre-14/Pre-15 work, and the detailed 14A-14F feature contract
 remain audit history or future implementation authority unless separately
 amended.
+
+Statements that route a now-closed Pre-14 gate directly to Pre-15 are also
+superseded. The current route is Pre-14 closed -> post-Pre-14 authoring/import
+epic -> epic consolidated gate -> Pre-15 -> Phase 15 -> deferred Phase 14.

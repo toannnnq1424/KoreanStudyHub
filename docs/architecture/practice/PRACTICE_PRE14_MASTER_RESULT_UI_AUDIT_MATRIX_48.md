@@ -4,12 +4,15 @@ Audit date: 2026-07-31
 Authoritative worktree: `/Users/toanlamsaoduocc/.codex/worktrees/054c/ksh`
 Branch: `feature/practice-pre14-production-correctness-gate`
 
+Closure: `PRE_PHASE_14_CLOSED_MERGED_PR_55` at
+`origin/main@3dfab18ae308005c018c9066256bb7c79b686e8e`.
+
 ## Gate and status
 
 - PREP files opened and inspected at original resolution: **48/48**.
 - PREP rows with a normalized target-viewport KSH capture plus side-by-side and overlay/diff: **48/48** after consolidated Gate E recertification. Gate A consists of rows `1–8`, `10–12`, and `45`: row 9 is Speaking Detail despite its source folder, while row 45 is Speaking Overview despite its source folder.
 - Baseline verdicts: **33 PARTIAL, 15 MISSING, 0 MATCH, 0 NOT_APPLICABLE**.
-- Current verdicts: **36 PARTIAL, 0 MISSING, 12 MATCH, 0 NOT_APPLICABLE**. Gate A is **12/12 DONE**. Gate B has an exact inventory and direct visual pack for **13/13** authority rows. All four rows added after the original nine now have normalized pairs; their remaining `PARTIAL` status records visible product-authority/taxonomy differences rather than missing evidence.
+- Current verdicts: **36 PARTIAL, 0 MISSING, 12 MATCH, 0 NOT_APPLICABLE**. Gate A is **12/12 DONE**. Every row now has direct row-specific proof after consolidated Gate E recertification. Remaining `PARTIAL` status records visible KSH-native product-authority/taxonomy/artwork differences or deliberately unavailable acoustic authority rather than missing evidence. PR #55 accepted this truthful classification and closed Pre-14; no row is promoted to a false pixel match.
 - Gate B product/fixture corrections are recorded in the row artifacts: one question-level `Lời giải đáp án` trigger after the answer set, zero per-option explanation links, every question in the active group visible at once, grouped bottom navigation, learner debug/provenance suppression, stable hash routing, neutral unanswered state, semantically valid TFNG contradiction data, and denser authoritative Reading/Listening source content. The four formerly absent states — `MULTIPLE_ANSWER`, `MATCHING`, `PINNED_SHARED_MATERIAL`, and `LOCAL_HELPER_DRAWER` — now have backend, player/result, persistence/accessibility, deterministic-seed and browser evidence; none is a front-end-only fabrication.
 - A row can move to `MATCH` only after its named interaction state is captured from KSH at the mapped viewport and the side-by-side plus overlay/diff show no observable hierarchy or geometry drift. DOM/test success alone is insufficient.
 - PREP branding and IELTS labels are reference-only. KSH keeps its Korean/Vietnamese taxonomy while converging hierarchy, density, progressive disclosure, state, and interaction.
@@ -172,10 +175,10 @@ The three KSH screenshots supplied on 2026-07-31 are samples of these system-wid
 | Gate | Coverage represented in this matrix | Baseline closure |
 |---|---:|---|
 | A. Result Overview R/L/W/S | Overview rows 1–8, 10–12 and 45 | **DONE 12/12** — same-state artifacts and verdicts are recorded; supported KSH authority converges without fabricating holistic/acoustic values. |
-| B. R/L Detail all strategies/states | rows 13–25 | **PRODUCT/INTERACTION DONE; VISUAL RECERTIFICATION OPEN** — 13/13 typed states are available; matching, multi-answer, pinning and local helper are no longer missing. All rows retain `PARTIAL` until normalized overlays are refreshed. |
-| C. Writing Detail Q51–Q54/tabs/chips/states | rows 26–36 | **PRODUCT/INTERACTION DONE; VISUAL RECERTIFICATION OPEN** — Q51–Q54 hierarchy, authoritative blank/span routing, scoped occurrences and continuous upgrade/sample surfaces have direct browser proof; row-by-row PREP overlays retain `PARTIAL`. |
-| D. Speaking Detail question/part/tabs/chips/acoustic | rows 9 and 37–48 | **PRODUCT/INTERACTION DONE; VISUAL RECERTIFICATION OPEN** — transcript-grounded hierarchy, meaningful criterion feedback, exact spans and fail-closed acoustic states are browser/test proven; aligned word audio remains unavailable when authority is absent. |
-| E. Consolidated responsive/accessibility/visual closure | all rows at 1440x900, 1536x915 and compact/responsive states | **DIRECT BROWSER/CONTRACT CLOSURE DONE; STRICT 48-ROW OVERLAY RECERTIFICATION OPEN** — zero horizontal overflow and one-scroll compact ownership are proven on the current surfaces; only a normalized row-by-row pixel verdict may promote remaining `PARTIAL` rows to `MATCH`. |
+| B. R/L Detail all strategies/states | rows 13–25 | **CLOSED WITH DIRECT ROW PROOF** — 13/13 typed states are available; matching, multi-answer, pinning and local helper are no longer missing. Remaining visual `PARTIAL` verdicts are retained as evidence classifications. |
+| C. Writing Detail Q51–Q54/tabs/chips/states | rows 26–36 | **CLOSED WITH DIRECT ROW PROOF** — Q51–Q54 hierarchy, authoritative blank/span routing, scoped occurrences and continuous upgrade/sample surfaces have row-specific browser proof. Remaining visual `PARTIAL` verdicts are retained. |
+| D. Speaking Detail question/part/tabs/chips/acoustic | rows 9 and 37–48 | **CLOSED WITH AUTHORITY-PARTIAL PROOF** — transcript-grounded hierarchy, meaningful criterion feedback, exact spans and fail-closed acoustic states are proven. Aligned word audio remains correctly unavailable and routed outside Pre-14. |
+| E. Consolidated responsive/accessibility/visual closure | all rows at 1440x900, 1536x915 and compact/responsive states | **CLOSED 48/48 DIRECT RECERTIFICATION** — every row has its normalized reference/actual/comparison proof, zero row is missing and unsupported acoustic/authority states are not fabricated. `PARTIAL` does not mean the accepted gate is open. |
 
 ## Required evidence output per row
 
@@ -189,4 +192,8 @@ For each row, place artifacts under `target/pre14-ui-acceptance-current/master-r
 6. `interaction-proof.json` covering the row's default/active/expanded/empty/unavailable sequence,
 7. `verdict.json` with structural, behavioral, visual and contract results.
 
-The matrix remains authoritative until every row is `MATCH` or an explicitly approved `NOT_APPLICABLE` with product rationale. No current row is `NOT_APPLICABLE`.
+The matrix remains the authoritative Pre-14 evidence ledger. PR #55 accepted
+`12 MATCH + 36 authority/visual PARTIAL + 0 MISSING`; therefore it no longer
+acts as an open roadmap condition requiring every KSH-native row to become a
+pixel `MATCH`. A future change may promote a row only with new direct proof and
+must never erase the accepted fail-closed rationale.

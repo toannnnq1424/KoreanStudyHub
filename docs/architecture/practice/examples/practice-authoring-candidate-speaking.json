@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "practice-authoring-candidate-v1",
+  "candidateId": "44444444-4444-4444-8444-444444444444",
+  "ownerId": 101,
+  "source": {
+    "kind": "QUICK_EXCEL",
+    "contractVersion": "practice-quick-excel-v1",
+    "sourceDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "sourceRevision": "upload-1",
+    "sourceName": "speaking-quick-v1.xlsx"
+  },
+  "target": {
+    "draftId": 5001,
+    "baseDraftVersion": 3,
+    "testNo": 1,
+    "skill": "SPEAKING",
+    "lessonCode": "S1"
+  },
+  "state": "READY_TO_APPLY",
+  "normalizerVersion": "practice-authoring-normalizer-v1",
+  "validatorVersion": "practice-authoring-validator-v1",
+  "groups": [
+    {
+      "candidateGroupId": "speaking_group_1",
+      "groupOrder": 1,
+      "label": "Nói theo chủ đề",
+      "instruction": "Đọc câu hỏi và trả lời bằng tiếng Hàn.",
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "NONE",
+        "instruction": "Đọc câu hỏi và trả lời bằng tiếng Hàn.",
+        "passageText": "",
+        "transcriptText": "",
+        "mediaReference": null,
+        "provenance": {
+          "source": "QUICK_EXCEL",
+          "approved": false,
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-4",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 4
+            }
+          ]
+        }
+      },
+      "sourceRefs": [
+        {
+          "kind": "SHEET_ROW",
+          "sourceId": "quick-row-4",
+          "sheet": "QUICK_QUESTIONS",
+          "row": 4
+        }
+      ],
+      "questions": [
+        {
+          "candidateQuestionId": "speaking_q_1",
+          "questionOrder": 1,
+          "questionType": "SPEAKING",
+          "prompt": "주말에 보통 무엇을 합니까? 이유와 함께 말해 보십시오.",
+          "points": 100,
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [],
+            "blanks": [],
+            "speakingDelivery": {
+              "inputType": "manual_text",
+              "deliveryMode": "text_only",
+              "promptAudioReference": null,
+              "audioOrigin": "none",
+              "promptPlayLimit": null,
+              "preparationSeconds": 30,
+              "responseSeconds": 60
+            },
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "SPEAKING",
+            "correctOptionIds": [],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "PROFILE_BASED"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-4",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 4
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "issues": [],
+  "contentDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "warningsAcknowledged": true,
+  "createdAt": "2026-08-02T02:15:00Z",
+  "expiresAt": "2026-08-09T02:15:00Z",
+  "applied": null
+}
