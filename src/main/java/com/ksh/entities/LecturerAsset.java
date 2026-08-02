@@ -17,7 +17,7 @@ public class LecturerAsset {
     @Column(name = "storage_provider", nullable = false)
     private String storageProvider = "LOCAL";
 
-    @Column(name = "storage_profile_code", length = 40)
+    @Column(name = "storage_profile_code", nullable = false, length = 40)
     private String storageProfileCode;
 
     @Column(name = "storage_key", nullable = false)

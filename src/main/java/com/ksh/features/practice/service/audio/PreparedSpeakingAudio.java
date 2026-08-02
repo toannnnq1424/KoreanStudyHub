@@ -15,31 +15,10 @@ public record PreparedSpeakingAudio(
         long durationMs,
         String contentHash
 ) {
-    public PreparedSpeakingAudio(
-            PracticeSpeakingStorageProvider storageProvider,
-            String storageKey,
-            String mimeType,
-            String container,
-            String codec,
-            long byteSize,
-            long durationMs,
-            String contentHash) {
-        this(storageProvider, null, storageKey, storageKey,
-                mimeType, container, codec, byteSize, durationMs, contentHash);
-    }
-
-    public ValidatedSpeakingMediaDescriptor toDescriptor() {
-        return new ValidatedSpeakingMediaDescriptor(
-                storageProvider,
-                storageProfileCode == null ? "PRACTICE_SPEAKING" : storageProfileCode,
-                storageKey,
-                mimeType,
-                container,
-                codec,
-                byteSize,
-                durationMs,
-                contentHash
-        );
+    public PreparedSpeakingAudio {
+        if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+            throw new IllegalArgumentException("storageProfileCode is invalid.");
+        }
     }
 
     public ValidatedSpeakingMediaDescriptor temporaryDescriptor() {
@@ -52,13 +31,6 @@ public record PreparedSpeakingAudio(
         return new ValidatedSpeakingMediaDescriptor(
                 storageProvider, storageProfileCode, readyStorageKey,
                 mimeType, container, codec, byteSize, durationMs, contentHash);
-    }
-
-    public boolean requiresProfilePromotion() {
-        return storageProfileCode != null
-                && temporaryStorageKey != null
-                && temporaryStorageKey.startsWith("learner-speaking/temporary/")
-                && temporaryStorageKey.equals(storageKey);
     }
 
     @Override

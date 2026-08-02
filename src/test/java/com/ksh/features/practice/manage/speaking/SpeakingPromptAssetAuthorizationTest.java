@@ -261,23 +261,26 @@ class SpeakingPromptAssetAuthorizationTest {
         when(file.getBytes()).thenReturn(bytes);
         when(file.getOriginalFilename()).thenReturn("original.mp3");
         when(storage.providerCode()).thenReturn("LOCAL");
+        when(storage.profileCode()).thenReturn("PRACTICE_AUTHORING");
         when(storage.store(any(), any(), any()))
                 .thenAnswer(invocation -> {
                     String namespace = invocation.getArgument(2);
                     String key = namespace + "/" + hash + ".mp3";
                     freshUploadKey.set(key);
                     return new AssetStorageService.StoredAsset(
-                            key, bytes.length, hash, true);
+                            key, bytes.length, hash, true,
+                            "PRACTICE_AUTHORING", "LOCAL");
                 });
-        when(storage.load(publishedStorageKey))
+        when(storage.load("PRACTICE_AUTHORING", publishedStorageKey))
                 .thenReturn(new ByteArrayResource(bytes));
         when(assets
                 .findByOwnerLecturerIdAndSha256AndStatusAndDeletedAtIsNull(
                         ownerId, hash, "ACTIVE"))
                 .thenReturn(List.of(published));
-        when(lifecycleTasks.findActiveBySourceStorageKeyForUpdate(
-                publishedStorageKey)).thenReturn(List.of());
-        when(assets.findByStorageKeyForUpdate(publishedStorageKey))
+        when(lifecycleTasks.findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey)).thenReturn(List.of());
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey))
                 .thenReturn(List.of(published));
         when(assets.save(any(LecturerAsset.class)))
                 .thenAnswer(invocation -> {
@@ -343,9 +346,10 @@ class SpeakingPromptAssetAuthorizationTest {
         assertThat(binding.getValue().getAssetId()).isEqualTo(privateAssetId);
         assertThat(binding.getValue().getPlacement())
                 .isEqualTo(SpeakingPromptAssetService.ORIGINAL_PLACEMENT);
-        verify(lifecycleTasks).findActiveBySourceStorageKeyForUpdate(
-                publishedStorageKey);
-        verify(assets).findByStorageKeyForUpdate(publishedStorageKey);
+        verify(lifecycleTasks).findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey);
+        verify(assets).findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey);
         verify(lifecycleTasks).save(
                 org.mockito.ArgumentMatchers.argThat(task ->
                         PracticeAssetLifecycleTask.ORPHAN_RECONCILE.equals(
@@ -710,6 +714,7 @@ class SpeakingPromptAssetAuthorizationTest {
         LecturerAsset asset = new LecturerAsset();
         asset.setId(assetId);
         asset.setOwnerLecturerId(ownerId);
+        asset.setStorageProfileCode("PRACTICE_AUTHORING");
         asset.setContentVerified(true);
         asset.setStatus("ACTIVE");
         asset.setVisibility("PRIVATE");

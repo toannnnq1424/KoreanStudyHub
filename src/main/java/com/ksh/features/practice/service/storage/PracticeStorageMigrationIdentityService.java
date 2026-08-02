@@ -62,12 +62,11 @@ public class PracticeStorageMigrationIdentityService {
                    SET storage_profile_code = ?, storage_provider = ?, storage_key = ?,
                        updated_at = CURRENT_TIMESTAMP
                  WHERE id = ? AND storage_key = ?
-                   AND ((? IS NULL AND storage_profile_code IS NULL)
-                        OR storage_profile_code = ?)
+                   AND storage_profile_code = ?
                    AND size_bytes = ? AND LOWER(sha256) = ?
                 """, job.getTargetProfileCode().name(), job.getTargetStorageProvider().name(),
                 job.getTargetStorageKey(), job.getLogicalId(), job.getSourceStorageKey(),
-                nullableName(job), nullableName(job), job.getExpectedSize(), job.getExpectedSha256());
+                job.getSourceProfileCode().name(), job.getExpectedSize(), job.getExpectedSha256());
     }
 
     private int updateSpeakingMedia(PracticeStorageMigrationJob job) {
@@ -79,24 +78,20 @@ public class PracticeStorageMigrationIdentityService {
                 UPDATE practice_speaking_media
                    SET storage_profile_code = ?, storage_provider = ?, storage_key = ?
                  WHERE id = ? AND storage_key = ?
-                   AND ((? IS NULL AND storage_profile_code IS NULL)
-                        OR storage_profile_code = ?)
+                   AND storage_profile_code = ?
                    AND byte_size = ? AND LOWER(content_hash) = ?
                    AND status <> 'DELETED'
                 """, job.getTargetProfileCode().name(), provider,
                 job.getTargetStorageKey(), job.getLogicalId(), job.getSourceStorageKey(),
-                nullableName(job), nullableName(job), job.getExpectedSize(), job.getExpectedSha256());
+                job.getSourceProfileCode().name(), job.getExpectedSize(), job.getExpectedSha256());
     }
 
     private static void requireTypeProfile(PracticeStorageMigrationJob job,
                                            PracticeStorageMigrationLogicalType type) {
         if (job.getLogicalType() != type
+                || job.getSourceProfileCode() != type.requiredProfile()
                 || job.getTargetProfileCode() != type.requiredProfile()) {
             throw new IllegalStateException("STORAGE_MIGRATION_PROFILE_INVALID");
         }
-    }
-
-    private static String nullableName(PracticeStorageMigrationJob job) {
-        return job.getSourceProfileCode() == null ? null : job.getSourceProfileCode().name();
     }
 }

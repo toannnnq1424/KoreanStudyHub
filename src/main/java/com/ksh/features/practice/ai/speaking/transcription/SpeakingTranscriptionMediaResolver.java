@@ -1,7 +1,6 @@
 package com.ksh.features.practice.ai.speaking.transcription;
 
 import com.ksh.entities.PracticeSpeakingMediaStatus;
-import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
@@ -43,8 +42,7 @@ public class SpeakingTranscriptionMediaResolver {
         }
 
         var selected = rows.get(0);
-        if (selected.getStorageProfileCode() == null
-                && selected.getStorageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
+        if (!"PRACTICE_SPEAKING".equals(selected.getStorageProfileCode())) {
             return unavailable(SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE);
         }
         if (!allowedMime(selected.getMimeType())
@@ -56,9 +54,8 @@ public class SpeakingTranscriptionMediaResolver {
             return unavailable(SpeakingTranscriptionErrorCategory.UNSUPPORTED_MEDIA);
         }
         try {
-            boolean exists = selected.getStorageProfileCode() == null
-                    ? storage.exists(selected.getStorageKey())
-                    : storage.exists(selected.getStorageProfileCode(), selected.getStorageKey());
+            boolean exists = storage.exists(
+                    selected.getStorageProfileCode(), selected.getStorageKey());
             if (!exists) {
                 return unavailable(SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE);
             }
@@ -98,9 +95,7 @@ public class SpeakingTranscriptionMediaResolver {
 
     private InputStream open(String storageProfileCode, String storageKey) throws IOException {
         try {
-            return storageProfileCode == null
-                    ? storage.open(storageKey)
-                    : storage.open(storageProfileCode, storageKey);
+            return storage.open(storageProfileCode, storageKey);
         } catch (SpeakingAudioValidationException ex) {
             throw new IOException("Speaking audio object is unavailable", ex);
         }

@@ -3094,6 +3094,7 @@ class PracticeIntegrationTest {
         SpeakingAttemptFixture fixture = createSpeakingAttemptFixture("Speaking history guard");
         PracticeSpeakingMedia media = speakingMediaRepository.saveAndFlush(PracticeSpeakingMedia.ready(
                 fixture.attemptId(), fixture.questionId(), PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 "test/guard-" + java.util.UUID.randomUUID() + ".webm", "audio/webm", "webm", "opus",
                 100L, 1000L, "a".repeat(64)));
         var before = resultDetailAssembler.assemble(
@@ -5369,6 +5370,7 @@ class PracticeIntegrationTest {
                         fixture.attemptId(),
                         fixture.questionId(),
                         PracticeSpeakingStorageProvider.LOCAL,
+                        "PRACTICE_SPEAKING",
                         "test/disabled-"
                                 + java.util.UUID.randomUUID()
                                 + ".webm",

@@ -18,7 +18,7 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
 
     interface PlaybackAuthorizationProjection {
         PracticeSpeakingStorageProvider getStorageProvider();
-        default String getStorageProfileCode() { return null; }
+        String getStorageProfileCode();
         String getStorageKey();
         String getMimeType();
         Long getByteSize();
@@ -30,7 +30,7 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
         Long getQuestionId();
         Long getLockVersion();
         PracticeSpeakingStorageProvider getStorageProvider();
-        default String getStorageProfileCode() { return null; }
+        String getStorageProfileCode();
         String getStorageKey();
         String getMimeType();
         Long getByteSize();
@@ -44,8 +44,6 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
 
     Optional<PracticeSpeakingMedia> findByIdAndAttemptIdAndQuestionId(
             Long id, Long attemptId, Long questionId);
-
-    boolean existsByStorageProviderAndStorageKey(PracticeSpeakingStorageProvider storageProvider, String storageKey);
 
     boolean existsByStorageProfileCodeAndStorageKey(String storageProfileCode, String storageKey);
 

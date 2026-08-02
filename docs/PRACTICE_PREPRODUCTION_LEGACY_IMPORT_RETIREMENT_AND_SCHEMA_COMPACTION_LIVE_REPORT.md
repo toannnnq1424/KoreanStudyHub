@@ -4,9 +4,9 @@ Recorded: `2026-08-02`
 
 Program: `PRACTICE_PREPRODUCTION_LEGACY_IMPORT_RETIREMENT_AND_SCHEMA_COMPACTION`
 
-Current slice: `CLEAN_CUT_3_PDF_WORKSPACE_RETIREMENT`
+Current slice: `CLEAN_CUT_4_STORAGE_AND_SCHEMA_COMPACTION`
 
-Status: `CLEAN_CUT_3_IMPLEMENTED__COORDINATOR_AUDIT_PENDING__CLEAN_CUT_4_NOT_STARTED`
+Status: `CLEAN_CUT_4_IMPLEMENTED__COORDINATOR_AUDIT_PENDING__CLEAN_CUT_5_NOT_STARTED`
 
 ## 1. Checkpoint and authority
 
@@ -71,12 +71,12 @@ contract freeze; it does not rewrite the historical evidence.
 - Phase 14, Phase 15, Pre-15, Speaking direct-audio/acoustic evaluation and
   provider API-console/documentation links are excluded.
 - Automated validation must make real calls `AI/R2/STT/TTS = 0/0/0/0`.
-- CLEAN_CUT_1 through CLEAN_CUT_5 use this one worktree and coordinator-owned
+- CLEAN_CUT_1 through CLEAN_CUT_6 use this one worktree and coordinator-owned
   branch. After auditing both slices, the coordinator created the single local
   CLEAN_CUT_1 + CLEAN_CUT_2 commit
   `d02be7843c8fd77a72600121f8bc4f1e31a9ae76`. Later slices return to one
   coordinator-created audited local commit per slice. There is no inter-slice
-  merge, push or PR. Only after CLEAN_CUT_5 and consolidated green evidence may
+  merge, push or PR. Only after CLEAN_CUT_6 and consolidated green evidence may
   the coordinator push the full chain and merge one PR.
 
 ## 2. Classification vocabulary
@@ -92,7 +92,7 @@ Two separate classifications are used so that “dead now” is not confused wit
 
 | Lifecycle disposition | Meaning |
 |---|---|
-| `KEEP` | Remains an active production contract after CLEAN_CUT_5. |
+| `KEEP` | Remains an active production contract after CLEAN_CUT_6. |
 | `RETIRE` | Production route/code/UI/writer/reader is removed in CLEAN_CUT_2, 3 or 4 after its gate passes. Historical migration bytes and persisted source identities are not erased. |
 | `DROP_LATER` | Physical table/column/FK/index or compatibility tombstone is changed only by a new forward migration after owning runtime code is gone and the exact preflight passes. |
 
@@ -387,7 +387,7 @@ Admin's `StorageProfileAdminService.referenceCount` is a cross-feature consumer:
 its SQL names both `practice_pdf_import_sessions` and
 `practice_storage_migration_jobs`. CLEAN_CUT_3 must remove the session-table
 subquery before that table can be dropped. The migration-job table remains an
-empty rollback tombstone through CLEAN_CUT_5, so its Admin subquery remains
+empty rollback tombstone through CLEAN_CUT_6, so its Admin subquery remains
 valid for the supported prior runtime.
 
 ## 7. Dead and retirement surface ledger
@@ -513,7 +513,7 @@ only after all rows above are green.
   version at this checkpoint.
 - All non-import content/result legacy readers; this program cannot remove them.
 - `practice_storage_migration_jobs` physical table and its V85 constraints/index
-  through CLEAN_CUT_5 as an empty rollback/read tombstone. No new job is seeded
+  through CLEAN_CUT_6 as an empty rollback/read tombstone. No new job is seeded
   or processed. Its eventual removal requires a later rollback-window decision.
 
 ### 9.2 RETIRE
@@ -559,7 +559,7 @@ preflight is zero, the new migration drops in dependency order:
 remain authoritative; the obsolete `PDF_REGION` writer/default is removed or
 changed to the canonical manual default only after a refreshed writer scan.
 `storage_provider` columns and `practice_storage_migration_jobs` remain physical
-rollback tombstones through CLEAN_CUT_5 and are `DROP_LATER` only after the
+rollback tombstones through CLEAN_CUT_6 and are `DROP_LATER` only after the
 supported prior-runtime window closes.
 
 The same migration may tighten `storage_profile_code` to non-null for retained
@@ -587,7 +587,7 @@ Before CLEAN_CUT_4 schema drop, CLEAN_CUT_3 must:
 4. keep exact-profile readers and make no automatic storage migration call.
 
 The physical `practice_storage_migration_jobs` table and retained provider
-columns stay through CLEAN_CUT_5 so the CLEAN_CUT_3 runtime can start and read on
+columns stay through CLEAN_CUT_6 so the CLEAN_CUT_3 runtime can start and read on
 the compacted schema. Rollback means deny new Quick/Basic candidate POSTs at the
 authenticated edge, disable the affected exact purpose bindings/new R2 writes,
 preserve schema/Flyway history/candidates/audits, and run the CLEAN_CUT_3 binary
@@ -595,7 +595,7 @@ read-only against canonical profile-coded data. It never reverse-migrates,
 restores Advanced/Legacy UI, drops schema, deletes rows/objects or uses Flyway
 `repair`/`clean`.
 
-CLEAN_CUT_5 must prove both current-runtime reads and this immediate prior-
+CLEAN_CUT_6 must prove both current-runtime reads and this immediate prior-
 runtime read/start path on disposable catalogs. If CLEAN_CUT_3 is not tolerant
 of the proposed schema, CLEAN_CUT_4 cannot drop that identity.
 
@@ -681,9 +681,20 @@ bucket or upload root is modified or deleted.
 Stop after coordinator audit and exactly one local CLEAN_CUT_4 commit. Do not
 push or begin CLEAN_CUT_5 in the same audit step.
 
-### CLEAN_CUT_5 — Consolidated validation
+### CLEAN_CUT_5 — Admin settings IA and visual UI/UX redesign
 
 Entry gate: CLEAN_CUT_4 audited/committed locally; worktree clean.
+
+The user has inserted this slice after C4. Its detailed implementation scope is
+coordinator-owned and intentionally not inferred here. The C4 compatibility
+freeze is that `/admin/settings/storage` and its shared `GENERAL_UPLOADS`
+control-plane ownership remain operational; C4 performs no Admin IA or visual
+redesign. C5 must receive its explicit scope before work begins and must return
+to its own coordinator audit/commit checkpoint without opening C6.
+
+### CLEAN_CUT_6 — Consolidated validation
+
+Entry gate: CLEAN_CUT_5 audited/committed locally; worktree clean.
 
 Required consolidated evidence:
 
@@ -705,7 +716,7 @@ Required consolidated evidence:
 8. real-call counters `AI/R2/STT/TTS = 0/0/0/0` plus explicit confirmation that
    Phase 14/15/Pre-15, direct-audio/acoustic and provider links remain absent.
 
-Only after this evidence is consolidated and CLEAN_CUT_5 has one audited local
+Only after this evidence is consolidated and CLEAN_CUT_6 has one audited local
 commit may the coordinator push the full commit chain and create/merge one PR.
 
 ## 12. CLEAN_CUT_1 exit evidence (accepted by coordinator)
@@ -834,7 +845,7 @@ retired endpoints/selectors/handlers.
   guard rejecting missing `TEST_DB_URL`; unrelated existing static/migration
   fixtures also report `8` failures. No database connection was attempted after
   the guard failed. Focused C2 suites are the authoritative result for this
-  slice; disposable-catalog consolidated regression remains CLEAN_CUT_5 work.
+  slice; disposable-catalog consolidated regression remains CLEAN_CUT_6 work.
 - real external calls during C2 validation:
   `AI/R2/STT/TTS = 0/0/0/0`.
 
@@ -1039,7 +1050,7 @@ not authorize a shared-database operation or any schema drop.
   this unconfigured worktree: the repository-wide guard rejects missing
   `TEST_DB_URL` before any connection. The changed integration fixture now opens
   Basic import with an owned exact target and expects the retired targetless
-  bookmark to return 404. Disposable fresh/upgrade/rollback catalogs remain C5
+  bookmark to return 404. Disposable fresh/upgrade/rollback catalogs remain C6
   consolidated work.
 - real external calls during implementation and validation:
   `AI/R2/STT/TTS = 0/0/0/0`.
@@ -1076,4 +1087,195 @@ before the local commit:
 - no database, object store or real AI/R2/STT/TTS provider was contacted.
 
 Verdict: `CLEAN_CUT_3_ACCEPTED_FOR_ONE_LOCAL_COMMIT`. The commit is coordinator
+owned, remains local and does not authorize a push, PR or merge.
+
+The coordinator-created local commit is
+`a5623b47a21c42458fcf8349338a38fd827edae1` (`refactor(practice): retire PDF
+workspace sessions`). It was the clean C4 entry point and remains unpushed.
+
+## 15. CLEAN_CUT_4 storage and schema compaction checkpoint
+
+### 15.1 Entry checkpoint and refreshed ownership inventory
+
+Before C4 changes, the worktree was clean on
+`codex/practice-clean-cut-legacy-retirement-schema-compaction` at exact `HEAD`
+`a5623b47a21c42458fcf8349338a38fd827edae1`. Local and remote main remained the
+program baseline `0361372f44843e4410602e1482c05c6f5dedef49`. The refreshed
+migration inventory was `85 files / 85 unique versions / V1..V85 / no gap / no
+duplicate`; both historical checksum manifests still end at V85 and no V1-V85
+byte was changed.
+
+The runtime/entity/repository/native-SQL/Admin/static/object-key refresh proved:
+
+- the six C3-retired PDF workspace tables and seven lecturer-asset provenance
+  columns have no current runtime mapping/query/writer;
+- the retained authoring and Speaking data planes already have exact
+  `PRACTICE_AUTHORING` and `PRACTICE_SPEAKING` replacements, while nullable
+  provider/key-only and local-root adapters were compatibility-only;
+- `GENERAL_UPLOADS`, `SystemSettingGroups.STORAGE`, `ObjectStorageConfig`,
+  `DualReadObjectStorage` and `GeneralUploadsObjectStorage` still have
+  non-Practice consumers or bounded pre-AIM6 read-compatibility ownership and
+  therefore remain `KEEP`;
+- `/admin/settings/storage` remains the compatibility route for the inserted C5
+  Admin slice; C4 does not redesign it; and
+- no additional generic Practice UI/static surface met the exact dead-owner
+  threshold. The only generic dead production removals are the two Practice-
+  local storage adapters whose callers were fully replaced.
+
+### 15.2 Forward migration V86
+
+The first free version is
+`V86__practice_legacy_import_schema_compaction.sql`. It is clean-cut and has no
+row copy, backfill, object scan or object delete. A retry-safe stored-procedure
+preflight runs before destructive DDL and signals one of four stable failures:
+
+| Guard | Required zero/exact state | Stable failure |
+|---|---|---|
+| retired PDF workspace | all six tables empty | `C4_PDF_WORKSPACE_ROWS_MUST_BE_EMPTY` |
+| lecturer PDF provenance | all seven columns null and no `PDF_REGION` row | `C4_PDF_PROVENANCE_MUST_BE_EMPTY` |
+| retained asset/media identity | no null profile in lecturer assets or Speaking media | `C4_RETAINED_STORAGE_PROFILE_REQUIRED` |
+| storage work queues | authoring lifecycle, Speaking cleanup and migration-job tables empty | `C4_STORAGE_WORK_QUEUES_MUST_BE_EMPTY` |
+
+After the guard passes, V86 performs this exact dependency-ordered DDL:
+
+1. drop `fk_page_extract_session` and `idx_page_extract_session_page`, then
+   `practice_pdf_page_extractions`;
+2. drop the three `idx_pdf_region_session_*` indexes, then
+   `practice_pdf_region_annotations`;
+3. drop `idx_pdf_section_draft_session` and
+   `practice_pdf_import_section_drafts`;
+4. drop `idx_pdf_group_draft_session` and
+   `practice_pdf_import_group_drafts`;
+5. drop `idx_ai_audit_session` and `practice_ai_request_audits`;
+6. drop `fk_pdf_session_storage_profile`, `idx_pdf_session_uploader`,
+   `idx_pdf_session_target`, `idx_pdf_session_generation_lease` and
+   `idx_pdf_session_profile_path`, then `practice_pdf_import_sessions`;
+7. drop `idx_lecturer_assets_session` and lecturer-asset columns
+   `source_import_session_id`, `source_region_id`, `source_page_number`,
+   `crop_x`, `crop_y`, `crop_width`, `crop_height`; change the retained
+   `source_type` default to `MANUAL_UPLOAD`; and make
+   `lecturer_assets.storage_profile_code` non-null;
+8. make `practice_asset_lifecycle_tasks.storage_profile_code`,
+   `practice_speaking_media.storage_profile_code` and
+   `practice_speaking_media_cleanup_tasks.storage_profile_code` non-null; and
+9. drop provider/key-only uniques `uk_psm_storage` and
+   `uk_psm_cleanup_storage`, retaining exact-profile uniques
+   `uk_psm_profile_storage` and `uk_psm_cleanup_profile_storage`.
+
+V86 deliberately retains V83 `practice_authoring_candidates`, V84
+`practice_ai_execution_audits`, all six `PracticeAiPurpose` identities, V85
+`practice_ai_purpose_bindings`, all three `storage_profiles`,
+`practice_storage_migration_jobs`, canonical lecturer/material assets and the
+complete Speaking media/cleanup graph. Provider columns remain evidence;
+profile code is the dispatch authority. Storage profile revision `0` and AI
+binding revision `0` remain valid.
+
+### 15.3 Exact-profile runtime cut
+
+Practice authoring now accepts only exact `PRACTICE_AUTHORING` operations under
+the `lecturer-assets/` key family. Practice Speaking write, promotion, open,
+existence, delete, playback, transcription, discard and durable cleanup accept
+only exact `PRACTICE_SPEAKING`; no path falls back to `GENERAL_UPLOADS`, the old
+public upload root or the old private Speaking root. Missing/wrong profiles and
+unsafe prefixes fail closed.
+
+The nullable/default overloads, compatibility record constructors, provider-
+key repository methods and null-profile lifecycle locks were removed. The
+production-dead `LocalAssetStorageService` and
+`LocalPrivateSpeakingAudioStorage` plus their owned tests were deleted.
+Profiled adapters now depend only on `StorageProfileObjectStore`. Speaking
+upload persists an unreferenced temporary identity, promotes the exact-profile
+object, then explicitly activates it; compensation and deletion keep a durable
+exact-profile cleanup intent. The exact cleanup upsert retains reason priority,
+retry/backoff and idempotence, and dispatches by profile even when the retained
+provider value records an object-storage backend.
+
+Historical `PDF_IMPORT_SESSION` migration-job values remain readable but the
+execution port returns `PDF_IMPORT_SESSION_MIGRATION_RETIRED`; null source
+profiles fail with `STORAGE_MIGRATION_SOURCE_PROFILE_REQUIRED`. No automatic
+migration runner, shared bucket scan or shared-root deletion was introduced.
+
+### 15.4 Disposable migration and rollback/read evidence
+
+Validation used a new isolated Docker network/container and three uniquely
+named catalogs only:
+
+- `ksh_test_c4fresh_19b6`: fresh Flyway V1 through V86 and current Hibernate
+  validation passed; schema history is exactly `86`, max `86`;
+- `ksh_test_c4upgrade_19b6`: Flyway stopped at exact V85 (`85/85`), zero-state
+  preflight was independently queried, V86 applied as one forward migration,
+  and current Hibernate validation passed;
+- `ksh_test_c4guard_19b6`: one intentionally seeded disposable PDF session made
+  V86 fail with exit `1`, SQLSTATE `45000` and exact
+  `C4_PDF_WORKSPACE_ROWS_MUST_BE_EMPTY`; successful history remained max V85,
+  the session table/row and all seven provenance columns remained intact.
+
+Post-V86 catalog inspection found zero retired tables, zero retired provenance
+columns, all four retained profile columns `NOT NULL`, all eight named retained
+tables present, both legacy Speaking uniques absent, lecturer asset default
+`MANUAL_UPLOAD`, and exactly the three profiles
+`GENERAL_UPLOADS/PRACTICE_AUTHORING/PRACTICE_SPEAKING`.
+
+The exact C3 source snapshot at `a5623b47` started against the V86 upgrade
+catalog with Flyway disabled and Hibernate validation enabled. Its denied-route
+rollback/read probe passed `2/2`: both retired/gated Speaking media endpoints
+remain 404 while current canonical schema is readable. No reverse SQL, Flyway
+repair/clean or reused/shared catalog was used.
+
+### 15.5 JDK17 regression evidence
+
+- JDK17 production plus all `430` test sources: `test-compile` PASS.
+- exact-profile adapters, authoring/Speaking lifecycle, promotion/compensation,
+  playback/transcription, migration tombstone and V86 static contracts:
+  `12` suites / `77` tests / `0` failures / `0` errors / `0` skipped.
+- DB-backed Speaking media and durable cleanup: `2` suites / `50` tests / `0`
+  failures / `0` errors; this includes FK/unique, transaction boundary,
+  ownership, stale/retry/idempotence and exact-profile dispatch coverage.
+- fresh storage-profile persistence: `1/1`; explicitly enabled AIM-8 integrated
+  candidate/six-purpose/revision-zero/storage contract: `1/1`.
+- C3 rollback/read binary: `2/2`.
+- V86 fresh, V85 upgrade, negative guard, migration continuity and current
+  Hibernate validation: PASS.
+- real external calls throughout C4 implementation and validation:
+  `AI/R2/STT/TTS = 0/0/0/0`.
+
+### 15.6 CLEAN_CUT_4 checkpoint
+
+`CLEAN_CUT_4_STORAGE_AND_SCHEMA_COMPACTION` is implemented and ready for
+coordinator audit. `HEAD` remains `a5623b47a21c42458fcf8349338a38fd827edae1`;
+all C4 source, tests, V86 and this one live report are intentionally uncommitted.
+Historical V1-V85 bytes/checksum manifests are unchanged. No shared database,
+bucket or upload root was touched, and no real provider call occurred.
+
+The disposable C4 container/catalogs, isolated network and C3 filesystem
+snapshot were removed after evidence capture. C5 has not started. Only the
+coordinator may audit and create the one local C4 commit; this task must not
+commit, push, open a PR, merge or infer the pending C5 Admin redesign scope.
+
+### 15.7 Coordinator acceptance evidence
+
+The coordinator independently audited the complete C4 delta at clean entry
+`a5623b47a21c42458fcf8349338a38fd827edae1`: `55` paths, `757` insertions and
+`1897` deletions before this acceptance note. Historical V1-V85 migration files
+remain unchanged; V86 is the only new migration. The dependency order,
+fail-before-DDL preflight, retained table/profile/purpose ownership, exact
+Practice profile enforcement, rollback tombstone and deletion of the two
+proven-dead local adapters were reviewed against the refreshed inventory.
+
+Coordinator reruns with JDK 17 produced:
+
+- full production and all test-source compilation: PASS;
+- the exact C4 focused static/unit selection: `12` suites / `77` tests / `0`
+  failures / `0` errors;
+- `git diff --check`: PASS; and
+- source scans found no retained runtime caller for the removed nullable/local
+  Practice storage contracts and no newly introduced global fallback.
+
+The coordinator also accepted the isolated disposable-catalog evidence recorded
+in Sections 15.4-15.5: fresh V1-to-V86, V85-to-V86 upgrade, negative SQLSTATE
+`45000` preflight with V85 left intact, current Hibernate validation and C3
+read-only startup/probes against V86. No shared database or object store was
+used, and real external calls remain `AI/R2/STT/TTS = 0/0/0/0`.
+
+Verdict: `CLEAN_CUT_4_ACCEPTED_FOR_ONE_LOCAL_COMMIT`. The commit is coordinator
 owned, remains local and does not authorize a push, PR or merge.

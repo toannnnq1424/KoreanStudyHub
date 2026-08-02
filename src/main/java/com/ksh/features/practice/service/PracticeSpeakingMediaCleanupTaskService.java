@@ -69,17 +69,6 @@ public class PracticeSpeakingMediaCleanupTaskService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Long enqueueSupersededRetention(
-            PracticeSpeakingStorageProvider storageProvider,
-            String storageKey) {
-        return enqueue(
-                PracticeSpeakingMediaCleanupReason.SUPERSEDED_RETENTION,
-                storageProvider,
-                storageKey,
-                now().plusHours(24));
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public Long enqueueSupersededRetention(
             Long mediaId,
             PracticeSpeakingStorageProvider storageProvider,
             String storageProfileCode,
@@ -91,34 +80,12 @@ public class PracticeSpeakingMediaCleanupTaskService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Long enqueueLogicalDelete(
-            PracticeSpeakingStorageProvider storageProvider,
-            String storageKey) {
-        return enqueue(
-                PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE,
-                storageProvider,
-                storageKey,
-                now());
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public Long enqueueLogicalDelete(
             Long mediaId,
             PracticeSpeakingStorageProvider storageProvider,
             String storageProfileCode,
             String storageKey) {
         return enqueueExact(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE,
                 mediaId, storageProvider, storageProfileCode, storageKey, now());
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Long enqueueCompensationOrphan(
-            PracticeSpeakingStorageProvider storageProvider,
-            String storageKey) {
-        return enqueue(
-                PracticeSpeakingMediaCleanupReason.ACTIVATION_COMPENSATION,
-                storageProvider,
-                storageKey,
-                now());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -148,21 +115,6 @@ public class PracticeSpeakingMediaCleanupTaskService {
             String storageKey) {
         return enqueueExact(PracticeSpeakingMediaCleanupReason.ACTIVATION_COMPENSATION,
                 null, storageProvider, storageProfileCode, storageKey, now());
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public Long enqueueDiscardAttempt(
-            PracticeSpeakingStorageProvider storageProvider,
-            String storageKey,
-            LocalDateTime discardedAt) {
-        if (discardedAt == null) {
-            throw new IllegalArgumentException("discardedAt is required.");
-        }
-        return enqueue(
-                PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT,
-                storageProvider,
-                storageKey,
-                discardedAt.plusHours(24));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -273,13 +225,6 @@ public class PracticeSpeakingMediaCleanupTaskService {
         return task.getStatus();
     }
 
-    private Long enqueue(PracticeSpeakingMediaCleanupReason reason,
-                         PracticeSpeakingStorageProvider storageProvider,
-                         String storageKey,
-                         LocalDateTime dueAt) {
-        return enqueue(reason, storageProvider, storageKey, dueAt, dueAt);
-    }
-
     private Long enqueueExact(
             PracticeSpeakingMediaCleanupReason reason,
             Long mediaId,
@@ -287,31 +232,12 @@ public class PracticeSpeakingMediaCleanupTaskService {
             String storageProfileCode,
             String storageKey,
             LocalDateTime dueAt) {
-        PracticeSpeakingMediaCleanupTask.pendingExact(reason, mediaId,
+        PracticeSpeakingMediaCleanupTask candidate = PracticeSpeakingMediaCleanupTask.pendingExact(reason, mediaId,
                 storageProvider, storageProfileCode, storageKey, dueAt, dueAt);
         repository.insertOrKeepExistingExact(reason.name(), mediaId,
-                storageProvider.name(), storageProfileCode, storageKey, dueAt, dueAt);
+                storageProvider.name(), storageProfileCode, candidate.getStorageKey(), dueAt, dueAt);
         return repository.findByStorageProfileCodeAndStorageKey(
-                        storageProfileCode, storageKey)
-                .orElseThrow(() -> new IllegalStateException("Cleanup task was not persisted."))
-                .getId();
-    }
-
-    private Long enqueue(PracticeSpeakingMediaCleanupReason reason,
-                         PracticeSpeakingStorageProvider storageProvider,
-                         String storageKey,
-                         LocalDateTime dueAt,
-                         LocalDateTime nextAttemptAt) {
-        PracticeSpeakingMediaCleanupTask candidate =
-                PracticeSpeakingMediaCleanupTask.pending(
-                        reason, storageProvider, storageKey, dueAt, nextAttemptAt);
-        repository.insertOrKeepExisting(
-                reason.name(),
-                storageProvider.name(),
-                candidate.getStorageKey(),
-                dueAt,
-                nextAttemptAt);
-        return repository.findByStorageProviderAndStorageKey(storageProvider, candidate.getStorageKey())
+                        storageProfileCode, candidate.getStorageKey())
                 .orElseThrow(() -> new IllegalStateException("Cleanup task was not persisted."))
                 .getId();
     }

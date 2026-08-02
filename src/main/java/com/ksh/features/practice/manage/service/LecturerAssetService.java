@@ -222,10 +222,8 @@ public class LecturerAssetService {
             asset.setCreatedAt(LocalDateTime.now());
             asset.setUpdatedAt(LocalDateTime.now());
             if ("IMAGE".equalsIgnoreCase(assetType)) {
-                AssetStorageService.AssetMetadata metadata =
-                        registeredStorageProfile == null
-                                ? assetStorage.inspect(registeredStorageKey)
-                                : assetStorage.inspect(registeredStorageProfile, registeredStorageKey);
+                AssetStorageService.AssetMetadata metadata = assetStorage.inspect(
+                        registeredStorageProfile, registeredStorageKey);
                 asset.setWidth(metadata.width());
                 asset.setHeight(metadata.height());
             }
@@ -269,9 +267,8 @@ public class LecturerAssetService {
              * takes the same order before sharing an existing physical key.
              */
             reserveStorageKeyForAsset(candidate.getStorageProfileCode(), storageKey);
-            List<LecturerAsset> lockedRows = candidate.getStorageProfileCode() == null
-                    ? assetRepository.findByStorageKeyForUpdate(storageKey)
-                    : assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
+            List<LecturerAsset> lockedRows =
+                    assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
                             candidate.getStorageProfileCode(), storageKey);
             LecturerAsset locked = lockedRows
                     .stream()
@@ -381,9 +378,7 @@ public class LecturerAssetService {
         if (!asset.getOwnerLecturerId().equals(ownerId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền truy cập asset này.");
         }
-        return asset.getStorageProfileCode() == null
-                ? assetStorage.load(asset.getStorageKey())
-                : assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey());
+        return assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey());
     }
 
     /**
@@ -409,9 +404,8 @@ public class LecturerAssetService {
             throw new IllegalArgumentException(
                     "Kích thước asset không hợp lệ.");
         }
-        try (InputStream input = (asset.getStorageProfileCode() == null
-                ? assetStorage.load(asset.getStorageKey())
-                : assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey()))
+        try (InputStream input = assetStorage.load(
+                asset.getStorageProfileCode(), asset.getStorageKey())
                 .getInputStream()) {
             byte[] bytes = input.readNBytes(
                     Math.toIntExact(maximumBytes + 1L));
@@ -799,13 +793,12 @@ public class LecturerAssetService {
                 || storageKey.isBlank()) {
             return;
         }
-        List<PracticeAssetLifecycleTask> active =
-                storageProfileCode == null
-                        ? lifecycleTaskRepository
-                            .findActiveBySourceStorageKeyForUpdate(storageKey)
-                        : lifecycleTaskRepository
-                            .findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
-                                    storageProfileCode, storageKey);
+        if (!"PRACTICE_AUTHORING".equals(storageProfileCode)) {
+            throw new IllegalStateException("Practice authoring storage profile is invalid.");
+        }
+        List<PracticeAssetLifecycleTask> active = lifecycleTaskRepository
+                .findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+                        storageProfileCode, storageKey);
         if (active.stream().anyMatch(task ->
                 "RUNNING".equals(task.getStatus()))) {
             throw new IllegalStateException(
@@ -925,11 +918,7 @@ public class LecturerAssetService {
             return;
         }
         try {
-            if (assetStorage.profileCode() == null) {
-                assetStorage.delete(storageKey);
-            } else {
-                assetStorage.delete(assetStorage.profileCode(), storageKey);
-            }
+            assetStorage.delete(assetStorage.profileCode(), storageKey);
         } catch (IOException exception) {
             enqueueLifecycle(
                     null,

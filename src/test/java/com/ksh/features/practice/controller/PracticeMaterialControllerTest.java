@@ -154,6 +154,7 @@ class PracticeMaterialControllerTest {
         asset.setId(7L);
         asset.setOwnerLecturerId(11L);
         asset.setStorageProvider("LOCAL");
+        asset.setStorageProfileCode("PRACTICE_AUTHORING");
         asset.setStorageKey("private/prompt.mp3");
         asset.setOriginalFilename("prompt.mp3");
         asset.setMimeType("audio/mpeg");
@@ -181,7 +182,7 @@ class PracticeMaterialControllerTest {
                 44L, PracticePublishedVersion.STATUS_PUBLISHED))
                 .thenReturn(Optional.of(publishedVersion));
         when(publishedVersion.getId()).thenReturn(55L);
-        when(storage.load("private/prompt.mp3"))
+        when(storage.load("PRACTICE_AUTHORING", "private/prompt.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1, 2, 3, 4}));
 
         PracticeMaterialAccessService.MaterialContent material =
@@ -190,7 +191,7 @@ class PracticeMaterialControllerTest {
         assertThat(material.mimeType()).isEqualTo("audio/mpeg");
         verify(authorization).canReadDraft(20L, 99L);
         verify(authorization).canReadSet(44L, 99L);
-        verify(storage).load("private/prompt.mp3");
+        verify(storage).load("PRACTICE_AUTHORING", "private/prompt.mp3");
     }
 
     @Test

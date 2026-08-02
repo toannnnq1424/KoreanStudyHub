@@ -1,50 +1,44 @@
 package com.ksh.features.practice.manage.service;
 
+import com.ksh.features.storage.StoredObject;
+import com.ksh.features.storage.profile.StorageProfileCode;
 import com.ksh.features.storage.profile.StorageProfileObjectStore;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
-import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class ProfiledPracticeAuthoringStorageTest {
-    @TempDir Path legacyRoot;
-
     @Test
-    void nullIdentityReadsOnlyCurrentLegacyRoot() throws Exception {
+    void exactProfileReadsCanonicalObject() throws Exception {
         StorageProfileObjectStore profiles = mock(StorageProfileObjectStore.class);
-        LocalAssetStorageService legacy = new LocalAssetStorageService(legacyRoot.toString());
-        var stored = legacy.store(new ByteArrayInputStream(new byte[]{1, 2, 3}),
-                "a.bin", "lecturer-assets/legacy");
+        String key = "lecturer-assets/7/object.bin";
+        when(profiles.open(StorageProfileCode.PRACTICE_AUTHORING, key))
+                .thenReturn(new StoredObject(new ByteArrayInputStream(new byte[]{1, 2, 3}),
+                        3L, "application/octet-stream"));
         ProfiledPracticeAuthoringStorage adapter =
-                new ProfiledPracticeAuthoringStorage(profiles, legacy);
+                new ProfiledPracticeAuthoringStorage(profiles);
 
-        assertThat(adapter.load(null, stored.storageKey()).getInputStream().readAllBytes())
-                .containsExactly(1, 2, 3);
-        assertThat(adapter.load(stored.storageKey()).getInputStream().readAllBytes())
-                .containsExactly(1, 2, 3);
-        assertThatThrownBy(() -> adapter.load(null, "../outside.bin"))
-                .isInstanceOf(java.io.FileNotFoundException.class);
-        verifyNoInteractions(profiles);
+        assertThat(adapter.load("PRACTICE_AUTHORING", key)
+                .getInputStream().readAllBytes()).containsExactly(1, 2, 3);
     }
 
     @Test
-    void nonNullIdentityRejectsEveryCrossProfileCodeBeforeRead() {
+    void nullAndCrossProfileIdentityFailBeforeRead() {
         StorageProfileObjectStore profiles = mock(StorageProfileObjectStore.class);
-        ProfiledPracticeAuthoringStorage adapter = new ProfiledPracticeAuthoringStorage(
-                profiles, new LocalAssetStorageService(legacyRoot.toString()));
+        ProfiledPracticeAuthoringStorage adapter =
+                new ProfiledPracticeAuthoringStorage(profiles);
 
-        assertThatThrownBy(() -> adapter.load(
-                "GENERAL_UPLOADS", "lecturer-assets/same-key.bin"))
+        assertThatThrownBy(() -> adapter.load(null, "lecturer-assets/same-key.bin"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("STORAGE_IDENTITY_INVALID");
         assertThatThrownBy(() -> adapter.load(
-                "PRACTICE_SPEAKING", "lecturer-assets/same-key.bin"))
+                "GENERAL_UPLOADS", "lecturer-assets/same-key.bin"))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(profiles);
     }

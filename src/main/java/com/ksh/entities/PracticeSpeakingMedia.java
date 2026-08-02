@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "practice_speaking_media",
-        uniqueConstraints = @UniqueConstraint(name = "uk_psm_storage", columnNames = {"storage_provider", "storage_key"})
+        uniqueConstraints = @UniqueConstraint(name = "uk_psm_profile_storage", columnNames = {"storage_profile_code", "storage_key"})
 )
 public class PracticeSpeakingMedia {
 
@@ -34,7 +34,7 @@ public class PracticeSpeakingMedia {
     @Column(name = "storage_provider", nullable = false, length = 32)
     private PracticeSpeakingStorageProvider storageProvider;
 
-    @Column(name = "storage_profile_code", length = 40)
+    @Column(name = "storage_profile_code", nullable = false, length = 40)
     private String storageProfileCode;
 
     @Column(name = "storage_key", nullable = false, length = 512)
@@ -92,6 +92,9 @@ public class PracticeSpeakingMedia {
         this.attemptId = attemptId;
         this.questionId = questionId;
         this.storageProvider = storageProvider;
+        if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+            throw new IllegalArgumentException("storageProfileCode is invalid.");
+        }
         this.storageProfileCode = storageProfileCode;
         this.storageKey = storageKey;
         this.mimeType = mimeType;
@@ -101,21 +104,6 @@ public class PracticeSpeakingMedia {
         this.durationMs = durationMs;
         this.contentHash = contentHash;
         this.status = PracticeSpeakingMediaStatus.READY;
-    }
-
-    public static PracticeSpeakingMedia ready(Long attemptId,
-                                              Long questionId,
-                                              PracticeSpeakingStorageProvider storageProvider,
-                                              String storageKey,
-                                              String mimeType,
-                                              String container,
-                                              String codec,
-                                              Long byteSize,
-                                              Long durationMs,
-                                              String contentHash) {
-        return new PracticeSpeakingMedia(
-                attemptId, questionId, storageProvider, null, storageKey,
-                mimeType, container, codec, byteSize, durationMs, contentHash);
     }
 
     public static PracticeSpeakingMedia ready(Long attemptId,

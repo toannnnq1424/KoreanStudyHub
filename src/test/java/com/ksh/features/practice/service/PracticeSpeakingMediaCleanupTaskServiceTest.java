@@ -43,6 +43,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     private static final Instant FIXED_INSTANT = Instant.parse("2026-07-05T00:00:00Z");
     private static final LocalDateTime NOW = LocalDateTime.ofInstant(FIXED_INSTANT, ZoneOffset.UTC);
+    private static final String PROFILE = "PRACTICE_SPEAKING";
     private static final String SECRET_KEY = "learner-speaking/ready/learner_audio_cleanup_key_secret_b3a1";
     private static final String OTHER_SECRET_KEY = "learner-speaking/ready/learner_audio_cleanup_key_secret_b3a1_other";
 
@@ -105,7 +106,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
                 """, String.class);
         assertThat(indexes).contains(
                 "PRIMARY",
-                "uk_psm_cleanup_storage",
+                "uk_psm_cleanup_profile_storage",
                 "idx_psm_cleanup_status_next_attempt",
                 "idx_psm_cleanup_due_at",
                 "idx_psm_cleanup_status_lease");
@@ -121,19 +122,16 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void mandatoryEnqueueRequiresExistingTransactionAndUsesExactPolicyTimes() {
-        assertThatThrownBy(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY))
+        assertThatThrownBy(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY))
                 .isInstanceOf(IllegalTransactionStateException.class);
 
-        Long supersededTaskId = inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        Long supersededTaskId = inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
         var superseded = repository.findById(supersededTaskId).orElseThrow();
         assertThat(superseded.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.SUPERSEDED_RETENTION);
         assertThat(superseded.getDueAt()).isEqualTo(NOW.plusHours(24));
         assertThat(superseded.getNextAttemptAt()).isEqualTo(NOW.plusHours(24));
 
-        Long deleteTaskId = inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, OTHER_SECRET_KEY));
+        Long deleteTaskId = inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, OTHER_SECRET_KEY));
         var deleted = repository.findById(deleteTaskId).orElseThrow();
         assertThat(deleted.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE);
         assertThat(deleted.getDueAt()).isEqualTo(NOW);
@@ -151,8 +149,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
                         Clock.fixed(fractionalInstant, ZoneOffset.UTC));
         String storageKey = "learner-speaking/ready/fractional-immediate-delete";
 
-        Long taskId = inTransaction(() -> fractionalClockService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, storageKey));
+        Long taskId = inTransaction(() -> fractionalClockService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, storageKey));
 
         var persisted = repository.findById(taskId).orElseThrow();
         assertThat(persisted.getDueAt()).isEqualTo(persistedSecond);
@@ -166,10 +163,8 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void idempotentEnqueueKeepsOneTaskAndDoesNotReactivateCompletedOrTerminal() {
-        Long taskId = inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
-        Long repeatedId = inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        Long taskId = inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
+        Long repeatedId = inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
         assertThat(repeatedId).isEqualTo(taskId);
         assertThat(repository.findAll()).hasSize(1);
         assertThat(repository.findById(taskId).orElseThrow().getDueAt()).isEqualTo(NOW);
@@ -178,75 +173,64 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         taskService.markRetry(
                 retrySnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
-        Long retryId = inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        Long retryId = inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
         assertThat(retryId).isEqualTo(taskId);
         assertThat(repository.findById(taskId).orElseThrow().getAttemptCount()).isEqualTo(1L);
 
         String completedKey =
                 "learner-speaking/ready/completed-secret-b3a1";
-        Long completedTaskId = taskService.enqueueCompensationOrphan(
-                PracticeSpeakingStorageProvider.LOCAL, completedKey);
+        Long completedTaskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, completedKey);
         var completedSnapshot =
                 taskService.claimForProcessing(completedTaskId).orElseThrow();
         taskService.markCompleted(completedSnapshot);
-        Long completedId = inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, completedKey));
+        Long completedId = inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, completedKey));
         assertThat(completedId).isEqualTo(completedTaskId);
         assertThat(repository.findById(completedTaskId).orElseThrow().getStatus())
                 .isEqualTo(PracticeSpeakingMediaCleanupStatus.COMPLETED);
 
-        Long terminalTaskId = inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/ready/terminal-secret-b3a1"));
+        Long terminalTaskId = inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, "learner-speaking/ready/terminal-secret-b3a1"));
         var terminalSnapshot = taskService.claimForProcessing(terminalTaskId).orElseThrow();
         taskService.markTerminal(
                 terminalSnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.INVALID_STORAGE_IDENTITY);
-        inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/ready/terminal-secret-b3a1"));
+        inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, "learner-speaking/ready/terminal-secret-b3a1"));
         assertThat(repository.findById(terminalTaskId).orElseThrow().getStatus())
                 .isEqualTo(PracticeSpeakingMediaCleanupStatus.TERMINAL);
     }
 
     @Test
     void reenqueueEscalatesImmediateReasonsAndNeverPostponesExistingDueTime() {
-        Long taskId = inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        Long taskId = inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
         var superseded = repository.findById(taskId).orElseThrow();
         assertThat(superseded.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.SUPERSEDED_RETENTION);
         assertThat(superseded.getDueAt()).isEqualTo(NOW.plusHours(24));
 
-        Long logicalDeleteId = inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        Long logicalDeleteId = inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
         var logicalDelete = repository.findById(logicalDeleteId).orElseThrow();
         assertThat(logicalDeleteId).isEqualTo(taskId);
         assertThat(logicalDelete.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE);
         assertThat(logicalDelete.getDueAt()).isEqualTo(NOW);
         assertThat(logicalDelete.getNextAttemptAt()).isEqualTo(NOW);
 
-        inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
         var stillImmediate = repository.findById(taskId).orElseThrow();
         assertThat(stillImmediate.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE);
         assertThat(stillImmediate.getDueAt()).isEqualTo(NOW);
 
-        taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         var compensation = repository.findById(taskId).orElseThrow();
         assertThat(compensation.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.ACTIVATION_COMPENSATION);
         assertThat(compensation.getDueAt()).isEqualTo(NOW);
 
-        inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
+        inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
         assertThat(repository.findById(taskId).orElseThrow().getCleanupReason())
                 .isEqualTo(PracticeSpeakingMediaCleanupReason.ACTIVATION_COMPENSATION);
     }
 
     @Test
     void discardEnqueueEscalatesRetentionAndPreservesRetryBackoff() {
-        Long retentionTaskId = inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY));
-        Long discardTaskId = inTransaction(() -> taskService.enqueueDiscardAttempt(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY, NOW));
+        Long retentionTaskId = inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY));
+        Long discardTaskId = inTransaction(() -> taskService.enqueueDiscardAttempt(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY, NOW));
         assertThat(discardTaskId).isEqualTo(retentionTaskId);
         var discardTask = repository.findById(discardTaskId).orElseThrow();
         assertThat(discardTask.getCleanupReason())
@@ -265,22 +249,19 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
                 discardSnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
         var retryBefore = repository.findById(discardTaskId).orElseThrow();
-        inTransaction(() -> taskService.enqueueDiscardAttempt(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY, NOW));
+        inTransaction(() -> taskService.enqueueDiscardAttempt(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY, NOW));
         var retryAfter = repository.findById(discardTaskId).orElseThrow();
         assertThat(retryAfter.getAttemptCount()).isEqualTo(retryBefore.getAttemptCount());
         assertThat(retryAfter.getNextAttemptAt()).isEqualTo(retryBefore.getNextAttemptAt());
         assertThat(retryAfter.getLastErrorCode()).isEqualTo(retryBefore.getLastErrorCode());
 
-        Long logicalId = inTransaction(() -> taskService.enqueueLogicalDelete(
-                PracticeSpeakingStorageProvider.LOCAL, OTHER_SECRET_KEY));
+        Long logicalId = inTransaction(() -> taskService.enqueueLogicalDelete(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, OTHER_SECRET_KEY));
         var logicalSnapshot = taskService.claimForProcessing(logicalId).orElseThrow();
         taskService.markRetry(
                 logicalSnapshot,
                 PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
         var logicalBefore = repository.findById(logicalId).orElseThrow();
-        inTransaction(() -> taskService.enqueueDiscardAttempt(
-                PracticeSpeakingStorageProvider.LOCAL, OTHER_SECRET_KEY, NOW));
+        inTransaction(() -> taskService.enqueueDiscardAttempt(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, OTHER_SECRET_KEY, NOW));
         var logicalAfter = repository.findById(logicalId).orElseThrow();
         assertThat(logicalAfter.getCleanupReason())
                 .isEqualTo(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE);
@@ -292,19 +273,19 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     void requiresNewOrphanEnqueueSurvivesOuterTransactionRollback() {
         TransactionTemplate template = new TransactionTemplate(transactionManager);
         assertThatThrownBy(() -> template.execute(status -> {
-            taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+            taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
             throw new IllegalStateException("rollback outer transaction");
         })).isInstanceOf(IllegalStateException.class);
 
-        var task = repository.findByStorageProviderAndStorageKey(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY).orElseThrow();
+        var task = repository.findByStorageProfileCodeAndStorageKey(
+                PROFILE, SECRET_KEY).orElseThrow();
         assertThat(task.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.ACTIVATION_COMPENSATION);
         assertThat(task.getDueAt()).isEqualTo(NOW);
     }
 
     @Test
     void processingSnapshotAndEntityToStringDoNotExposeStorageKey() {
-        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         var task = repository.findById(taskId).orElseThrow();
         CleanupProcessingSnapshot snapshot = taskService.processingSnapshot(taskId).orElseThrow();
 
@@ -314,12 +295,14 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void staleOutcomeVersionIsRejected() {
-        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         CleanupProcessingSnapshot claim = taskService.claimForProcessing(taskId).orElseThrow();
         CleanupProcessingSnapshot wrongVersion = new CleanupProcessingSnapshot(
                 claim.taskId(),
                 999L,
+                claim.mediaId(),
                 claim.storageProvider(),
+                claim.storageProfileCode(),
                 claim.storageKey(),
                 claim.status(),
                 claim.claimToken(),
@@ -334,7 +317,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void staleRetryCannotOverwriteCompletedTaskAndFinalTaskCannotBeReclaimed() {
-        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         CleanupProcessingSnapshot stale = taskService.claimForProcessing(taskId).orElseThrow();
         taskService.markCompleted(stale);
 
@@ -352,8 +335,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void onlyOneWorkerOwnsLiveClaimAndExpiredClaimCanBeReclaimed() {
-        Long taskId = taskService.enqueueCompensationOrphan(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
 
         CleanupProcessingSnapshot first =
                 taskService.claimForProcessing(taskId).orElseThrow();
@@ -383,8 +365,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void concurrentWorkersProduceExactlyOneLiveClaim() throws Exception {
-        Long taskId = taskService.enqueueCompensationOrphan(
-                PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
         var executor = Executors.newFixedThreadPool(2);
@@ -415,8 +396,8 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     }
 
     @Test
-    void processorCompletesLocalDeletesOutsideTransactionAndSkipsCompletedOrTerminal() {
-        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+    void processorDispatchesByExactProfileOutsideTransactionAndSkipsCompletedTasks() {
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         TrackingStorage storage = new TrackingStorage();
         PracticeSpeakingMediaCleanupProcessor processor =
                 new PracticeSpeakingMediaCleanupProcessor(taskService, storage);
@@ -430,18 +411,16 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertThat(processor.processTaskNow(taskId).outcome()).isEqualTo(Outcome.SKIPPED);
         assertThat(storage.deletedKeys).containsExactly(SECRET_KEY);
 
-        Long terminalTaskId = taskService.enqueueCompensationOrphan(
-                PracticeSpeakingStorageProvider.OBJECT_STORAGE, OTHER_SECRET_KEY);
-        assertThat(processor.processTaskNow(terminalTaskId).outcome()).isEqualTo(Outcome.TERMINAL);
+        Long terminalTaskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.OBJECT_STORAGE, PROFILE, OTHER_SECRET_KEY);
+        assertThat(processor.processTaskNow(terminalTaskId).outcome()).isEqualTo(Outcome.COMPLETED);
         assertThat(repository.findById(terminalTaskId).orElseThrow().getStatus())
-                .isEqualTo(PracticeSpeakingMediaCleanupStatus.TERMINAL);
-        assertThat(storage.deletedKeys).containsExactly(SECRET_KEY);
+                .isEqualTo(PracticeSpeakingMediaCleanupStatus.COMPLETED);
+        assertThat(storage.deletedKeys).containsExactly(SECRET_KEY, OTHER_SECRET_KEY);
     }
 
     @Test
     void processorMarksInvalidKeyTerminalWithoutCallingStorage() {
-        Long taskId = taskService.enqueueCompensationOrphan(
-                PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/../bad-secret-b3a1");
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, "learner-speaking/../bad-secret-b3a1");
         TrackingStorage storage = new TrackingStorage();
         PracticeSpeakingMediaCleanupProcessor processor =
                 new PracticeSpeakingMediaCleanupProcessor(taskService, storage);
@@ -455,7 +434,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void processorRetryBackoffIsDeterministicAndBounded() {
-        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         TrackingStorage storage = new TrackingStorage();
         storage.failDeletes = true;
         PracticeSpeakingMediaCleanupProcessor processor =
@@ -480,7 +459,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void processorSaturatesAttemptCountInsteadOfOverflowing() {
-        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
+        Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, SECRET_KEY);
         jdbcTemplate.update(
                 "UPDATE practice_speaking_media_cleanup_tasks SET attempt_count = ? WHERE id = ?",
                 Long.MAX_VALUE,
@@ -499,12 +478,9 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
 
     @Test
     void dueBatchHonorsLimitAndContinuesAfterTaskFailure() {
-        Long failingId = taskService.enqueueCompensationOrphan(
-                PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/ready/fail-secret-b3a1");
-        Long succeedingId = taskService.enqueueCompensationOrphan(
-                PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/ready/success-secret-b3a1");
-        Long laterId = inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL, "learner-speaking/ready/later-secret-b3a1"));
+        Long failingId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, "learner-speaking/ready/fail-secret-b3a1");
+        Long succeedingId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE, "learner-speaking/ready/success-secret-b3a1");
+        Long laterId = inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, "learner-speaking/ready/later-secret-b3a1"));
         TrackingStorage storage = new TrackingStorage();
         storage.failKeyFragment = "fail-secret";
         PracticeSpeakingMediaCleanupProcessor processor =
@@ -530,12 +506,10 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     @Test
     void dueBatchUsesInclusiveBoundaryDeterministicOrderAndSafeMaximumLimit() {
         for (int i = 0; i < 105; i++) {
-            taskService.enqueueCompensationOrphan(
-                    PracticeSpeakingStorageProvider.LOCAL,
+            taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, PROFILE,
                     "learner-speaking/ready/batch-secret-b3a1-" + i);
         }
-        Long laterId = inTransaction(() -> taskService.enqueueSupersededRetention(
-                PracticeSpeakingStorageProvider.LOCAL,
+        Long laterId = inTransaction(() -> taskService.enqueueSupersededRetention(null, PracticeSpeakingStorageProvider.LOCAL, PROFILE,
                 "learner-speaking/ready/batch-later-secret-b3a1"));
         TrackingStorage storage = new TrackingStorage();
         PracticeSpeakingMediaCleanupProcessor processor =
@@ -604,22 +578,25 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         }
 
         @Override
-        public String promoteTemporary(String temporaryKey) {
+        public String promoteTemporary(String storageProfileCode, String temporaryKey) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public InputStream open(String storageKey) {
+        public InputStream open(String storageProfileCode, String storageKey) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public boolean exists(String storageKey) {
+        public boolean exists(String storageProfileCode, String storageKey) {
             return false;
         }
 
         @Override
-        public void delete(String storageKey) {
+        public void delete(String storageProfileCode, String storageKey) {
+            if (!PROFILE.equals(storageProfileCode)) {
+                throw new IllegalArgumentException("unexpected profile");
+            }
             transactionActiveDuringDelete.add(TransactionSynchronizationManager.isActualTransactionActive());
             deletedKeys.add(storageKey);
             if (failDeletes || (failKeyFragment != null && storageKey.contains(failKeyFragment))) {

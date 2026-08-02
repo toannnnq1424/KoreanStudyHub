@@ -26,8 +26,8 @@ class SpeakingTranscriptionMediaResolverTest {
     void readyMediaIsEligibleAndRequestDoesNotExposeStorageKey() {
         Fixture fixture = fixture(List.of(row(1L, PracticeSpeakingStorageProvider.LOCAL,
                 "learner-speaking/ready/secret.webm", "audio/webm", 100L, 1200L)));
-        when(fixture.storage.exists("learner-speaking/ready/secret.webm")).thenReturn(true);
-        when(fixture.storage.open("learner-speaking/ready/secret.webm"))
+        when(fixture.storage.exists("PRACTICE_SPEAKING", "learner-speaking/ready/secret.webm")).thenReturn(true);
+        when(fixture.storage.open("PRACTICE_SPEAKING", "learner-speaking/ready/secret.webm"))
                 .thenReturn(new ByteArrayInputStream(new byte[]{1, 2, 3}));
 
         var resolution = fixture.resolver.resolveForOwner(77L, 88L, 99L);
@@ -59,7 +59,7 @@ class SpeakingTranscriptionMediaResolverTest {
     void missingLocalObjectMapsAudioUnavailable() {
         Fixture fixture = fixture(List.of(row(1L, PracticeSpeakingStorageProvider.LOCAL,
                 "learner-speaking/ready/missing.webm", "audio/webm", 100L, 1200L)));
-        when(fixture.storage.exists("learner-speaking/ready/missing.webm")).thenReturn(false);
+        when(fixture.storage.exists("PRACTICE_SPEAKING", "learner-speaking/ready/missing.webm")).thenReturn(false);
 
         var resolution = fixture.resolver.resolveForOwner(77L, 88L, 99L);
 
@@ -73,7 +73,7 @@ class SpeakingTranscriptionMediaResolverTest {
     void storageValidationFailureMapsAudioUnavailable() {
         Fixture fixture = fixture(List.of(row(1L, PracticeSpeakingStorageProvider.LOCAL,
                 "learner-speaking/ready/bad.webm", "audio/webm", 100L, 1200L)));
-        when(fixture.storage.exists("learner-speaking/ready/bad.webm"))
+        when(fixture.storage.exists("PRACTICE_SPEAKING", "learner-speaking/ready/bad.webm"))
                 .thenThrow(new SpeakingAudioValidationException(
                         SpeakingAudioValidationCategory.STORAGE_FAILURE, "unavailable"));
 
@@ -122,7 +122,7 @@ class SpeakingTranscriptionMediaResolverTest {
     void uploadAndPlaybackGatesDoNotControlTranscriptionEligibility() {
         Fixture fixture = fixture(List.of(row(1L, PracticeSpeakingStorageProvider.LOCAL,
                 "learner-speaking/ready/gates.webm", "audio/mp4", 100L, 1200L)));
-        when(fixture.storage.exists("learner-speaking/ready/gates.webm")).thenReturn(true);
+        when(fixture.storage.exists("PRACTICE_SPEAKING", "learner-speaking/ready/gates.webm")).thenReturn(true);
 
         var resolution = fixture.resolver.resolveForOwner(77L, 88L, 99L);
 
@@ -206,6 +206,7 @@ class SpeakingTranscriptionMediaResolverTest {
         @Override public Long getQuestionId() { return 99L; }
         @Override public Long getLockVersion() { return 3L; }
         @Override public PracticeSpeakingStorageProvider getStorageProvider() { return storageProvider; }
+        @Override public String getStorageProfileCode() { return "PRACTICE_SPEAKING"; }
         @Override public String getStorageKey() { return storageKey; }
         @Override public String getMimeType() { return mimeType; }
         @Override public Long getByteSize() { return byteSize; }

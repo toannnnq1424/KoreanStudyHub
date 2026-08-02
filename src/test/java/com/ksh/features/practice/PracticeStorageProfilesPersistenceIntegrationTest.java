@@ -18,7 +18,7 @@ class PracticeStorageProfilesPersistenceIntegrationTest {
     @Autowired JdbcTemplate jdbc;
 
     @Test
-    void freshSchemaHasExactProfilesNullableIdentitiesAndNoMigrationWork() {
+    void freshSchemaHasExactProfilesNonNullIdentitiesAndNoMigrationWork() {
         assertThat(profiles.findAll()).hasSize(3)
                 .extracting(profile -> profile.getProfileCode())
                 .containsExactlyInAnyOrder(StorageProfileCode.values());
@@ -39,12 +39,12 @@ class PracticeStorageProfilesPersistenceIntegrationTest {
                        'practice_speaking_media_cleanup_tasks')
                    AND is_nullable = 'YES'
                 """, Integer.class);
-        assertThat(nullableIdentityColumns).isEqualTo(5);
+        assertThat(nullableIdentityColumns).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM practice_storage_migration_jobs", Long.class)).isZero();
         assertThat(jdbc.queryForObject("""
                 SELECT MAX(CAST(version AS UNSIGNED))
                   FROM flyway_schema_history WHERE success = 1
-                """, Integer.class)).isEqualTo(85);
+                """, Integer.class)).isEqualTo(86);
     }
 }

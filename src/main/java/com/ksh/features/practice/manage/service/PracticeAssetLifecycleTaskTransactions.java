@@ -186,10 +186,11 @@ public class PracticeAssetLifecycleTaskTransactions {
 
     private java.util.List<LecturerAsset> lockStorageRows(
             String storageProfileCode, String storageKey) {
-        return storageProfileCode == null
-                ? assetRepository.findByStorageKeyForUpdate(storageKey)
-                : assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
-                        storageProfileCode, storageKey);
+        if (!"PRACTICE_AUTHORING".equals(storageProfileCode)) {
+            throw new IllegalStateException("Practice authoring storage profile is invalid.");
+        }
+        return assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
+                storageProfileCode, storageKey);
     }
 
     private void deferRetainedStorageKey(
@@ -284,13 +285,5 @@ public class PracticeAssetLifecycleTaskTransactions {
             String storageProfileCode,
             String operation,
             String storageKey,
-            String claimToken) {
-        public ClaimedDelete(Long taskId,
-                             Long assetId,
-                             String operation,
-                             String storageKey,
-                             String claimToken) {
-            this(taskId, assetId, null, operation, storageKey, claimToken);
-        }
-    }
+            String claimToken) {}
 }

@@ -18,8 +18,8 @@ import java.util.Locale;
 @Table(
         name = "practice_speaking_media_cleanup_tasks",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_psm_cleanup_storage",
-                columnNames = {"storage_provider", "storage_key"})
+                name = "uk_psm_cleanup_profile_storage",
+                columnNames = {"storage_profile_code", "storage_key"})
 )
 public class PracticeSpeakingMediaCleanupTask {
 
@@ -38,7 +38,7 @@ public class PracticeSpeakingMediaCleanupTask {
     @Column(name = "storage_provider", nullable = false, length = 32)
     private PracticeSpeakingStorageProvider storageProvider;
 
-    @Column(name = "storage_profile_code", length = 40)
+    @Column(name = "storage_profile_code", nullable = false, length = 40)
     private String storageProfileCode;
 
     @Column(name = "storage_key", nullable = false, length = 512)
@@ -83,17 +83,11 @@ public class PracticeSpeakingMediaCleanupTask {
     protected PracticeSpeakingMediaCleanupTask() {
     }
 
-    public static PracticeSpeakingMediaCleanupTask pending(
+    public static PracticeSpeakingMediaCleanupTask pendingExact(
             PracticeSpeakingMediaCleanupReason cleanupReason,
+            Long mediaId,
             PracticeSpeakingStorageProvider storageProvider,
-            String storageKey,
-            LocalDateTime dueAt) {
-        return pending(cleanupReason, storageProvider, storageKey, dueAt, dueAt);
-    }
-
-    public static PracticeSpeakingMediaCleanupTask pending(
-            PracticeSpeakingMediaCleanupReason cleanupReason,
-            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
             String storageKey,
             LocalDateTime dueAt,
             LocalDateTime nextAttemptAt) {
@@ -105,19 +99,6 @@ public class PracticeSpeakingMediaCleanupTask {
         task.nextAttemptAt = require(nextAttemptAt, "nextAttemptAt");
         task.status = PracticeSpeakingMediaCleanupStatus.PENDING;
         task.attemptCount = 0L;
-        return task;
-    }
-
-    public static PracticeSpeakingMediaCleanupTask pendingExact(
-            PracticeSpeakingMediaCleanupReason cleanupReason,
-            Long mediaId,
-            PracticeSpeakingStorageProvider storageProvider,
-            String storageProfileCode,
-            String storageKey,
-            LocalDateTime dueAt,
-            LocalDateTime nextAttemptAt) {
-        PracticeSpeakingMediaCleanupTask task = pending(
-                cleanupReason, storageProvider, storageKey, dueAt, nextAttemptAt);
         if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
             throw new IllegalArgumentException("storageProfileCode is invalid.");
         }

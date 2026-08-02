@@ -28,12 +28,9 @@ public class ProfiledPracticeAuthoringStorage implements AssetStorageService {
     public static final StorageProfileCode PROFILE = StorageProfileCode.PRACTICE_AUTHORING;
 
     private final StorageProfileObjectStore profileStore;
-    private final LocalAssetStorageService legacyLocal;
 
-    public ProfiledPracticeAuthoringStorage(StorageProfileObjectStore profileStore,
-                                            LocalAssetStorageService legacyLocal) {
+    public ProfiledPracticeAuthoringStorage(StorageProfileObjectStore profileStore) {
         this.profileStore = profileStore;
-        this.legacyLocal = legacyLocal;
     }
 
     @Override
@@ -75,50 +72,22 @@ public class ProfiledPracticeAuthoringStorage implements AssetStorageService {
     }
 
     @Override
-    public Resource load(String storageKey) throws IOException {
-        return legacyLocal.load(storageKey);
-    }
-
-    @Override
     public Resource load(String storageProfileCode, String storageKey) throws IOException {
-        if (storageProfileCode == null) {
-            return legacyLocal.load(storageKey);
-        }
         requireExactProfile(storageProfileCode);
         return new StoredObjectResource(profileStore.open(PROFILE, storageKey),
                 "private Practice authoring object");
     }
 
     @Override
-    public boolean exists(String storageKey) {
-        return legacyLocal.exists(storageKey);
-    }
-
-    @Override
     public boolean exists(String storageProfileCode, String storageKey) {
-        if (storageProfileCode == null) return legacyLocal.exists(storageKey);
         requireExactProfile(storageProfileCode);
         return profileStore.exists(PROFILE, storageKey);
     }
 
     @Override
-    public void delete(String storageKey) throws IOException {
-        legacyLocal.delete(storageKey);
-    }
-
-    @Override
     public void delete(String storageProfileCode, String storageKey) throws IOException {
-        if (storageProfileCode == null) {
-            legacyLocal.delete(storageKey);
-            return;
-        }
         requireExactProfile(storageProfileCode);
         profileStore.delete(PROFILE, storageKey);
-    }
-
-    @Override
-    public AssetMetadata inspect(String storageKey) throws IOException {
-        return inspect(null, storageKey);
     }
 
     @Override
@@ -140,8 +109,7 @@ public class ProfiledPracticeAuthoringStorage implements AssetStorageService {
     private static String requireNamespace(String value) {
         String namespace = com.ksh.features.storage.profile.StorageProfileResolver
                 .requireSafeObjectKey(value == null ? "" : value.replaceAll("/+$", ""));
-        if (!namespace.startsWith("lecturer-assets/")
-                && !namespace.startsWith("practice-pdfs/")) {
+        if (!namespace.startsWith("lecturer-assets/")) {
             throw new IllegalArgumentException("STORAGE_IDENTITY_INVALID");
         }
         return namespace;

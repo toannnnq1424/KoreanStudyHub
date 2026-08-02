@@ -64,14 +64,14 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
 
         assertThrows(AccessDeniedException.class, () -> service.load(1L, 11L));
-        verify(storageService, never()).load(anyString());
+        verify(storageService, never()).load(anyString(), anyString());
     }
 
     @Test
     void ownerCanReadVerifiedPrivateAsset() throws Exception {
         LecturerAsset asset = asset(1L, 11L);
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
-        when(storageService.load("private/key.mp3"))
+        when(storageService.load("PRACTICE_AUTHORING", "private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1, 2, 3}));
 
         PracticeMaterialAccessService.MaterialContent content = service.load(1L, 11L);
@@ -88,12 +88,12 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(authorizationService.canReadDraft(20L, 22L)).thenReturn(true);
-        when(storageService.load("private/key.mp3"))
+        when(storageService.load("PRACTICE_AUTHORING", "private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
         service.load(1L, 22L);
 
-        verify(storageService).load("private/key.mp3");
+        verify(storageService).load("PRACTICE_AUTHORING", "private/key.mp3");
     }
 
     @Test
@@ -112,12 +112,12 @@ class PracticeMaterialAccessServiceTest {
         when(publishedVersionRepository.findFirstBySetIdAndStatusOrderByVersionNumberDesc(
                 44L, PracticePublishedVersion.STATUS_PUBLISHED))
                 .thenReturn(Optional.of(currentVersion));
-        when(storageService.load("private/key.mp3"))
+        when(storageService.load("PRACTICE_AUTHORING", "private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
         service.load(1L, 99L);
 
-        verify(storageService).load("private/key.mp3");
+        verify(storageService).load("PRACTICE_AUTHORING", "private/key.mp3");
     }
 
     @Test
@@ -139,7 +139,7 @@ class PracticeMaterialAccessServiceTest {
 
         assertThrows(AccessDeniedException.class, () -> service.load(1L, 99L));
 
-        verify(storageService, never()).load(anyString());
+        verify(storageService, never()).load(anyString(), anyString());
     }
 
     @Test
@@ -154,12 +154,12 @@ class PracticeMaterialAccessServiceTest {
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(setRepository.findById(44L)).thenReturn(Optional.of(set));
         when(authorizationService.canReadSet(44L, 22L)).thenReturn(true);
-        when(storageService.load("private/key.mp3"))
+        when(storageService.load("PRACTICE_AUTHORING", "private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
         service.load(1L, 22L);
 
-        verify(storageService).load("private/key.mp3");
+        verify(storageService).load("PRACTICE_AUTHORING", "private/key.mp3");
         verify(publishedVersionRepository, never())
                 .findFirstBySetIdAndStatusOrderByVersionNumberDesc(
                         44L, PracticePublishedVersion.STATUS_PUBLISHED);
@@ -174,12 +174,12 @@ class PracticeMaterialAccessServiceTest {
         when(referenceService.references(1L)).thenReturn(List.of(reference));
         when(attemptRepository.existsByPublishedVersionIdAndUserId(55L, 99L))
                 .thenReturn(true);
-        when(storageService.load("private/key.mp3"))
+        when(storageService.load("PRACTICE_AUTHORING", "private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
         service.load(1L, 99L);
 
-        verify(storageService).load("private/key.mp3");
+        verify(storageService).load("PRACTICE_AUTHORING", "private/key.mp3");
         verify(setRepository, never()).findById(44L);
     }
 
@@ -189,12 +189,12 @@ class PracticeMaterialAccessServiceTest {
         asset.setStatus("ARCHIVED");
         when(referenceService.hasPublishedVersionReference(1L, 55L)).thenReturn(true);
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
-        when(storageService.load("private/key.mp3"))
+        when(storageService.load("PRACTICE_AUTHORING", "private/key.mp3"))
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
 
         service.loadForPublishedVersion(1L, 55L);
 
-        verify(storageService).load("private/key.mp3");
+        verify(storageService).load("PRACTICE_AUTHORING", "private/key.mp3");
     }
 
     @Test
@@ -205,7 +205,7 @@ class PracticeMaterialAccessServiceTest {
                 () -> service.loadForPublishedVersion(1L, 66L));
 
         verify(assetRepository, never()).findById(1L);
-        verify(storageService, never()).load(anyString());
+        verify(storageService, never()).load(anyString(), anyString());
     }
 
     @Test
@@ -218,7 +218,7 @@ class PracticeMaterialAccessServiceTest {
         when(authorizationService.canReadDraft(20L, 99L)).thenReturn(false);
 
         assertThrows(AccessDeniedException.class, () -> service.load(1L, 99L));
-        verify(storageService, never()).load(anyString());
+        verify(storageService, never()).load(anyString(), anyString());
     }
 
     @Test
@@ -227,7 +227,7 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
         when(referenceService.references(1L)).thenReturn(List.of());
         assertThrows(AccessDeniedException.class, () -> service.load(1L, 33L));
-        verify(storageService, never()).load(anyString());
+        verify(storageService, never()).load(anyString(), anyString());
     }
 
     @Test
@@ -237,7 +237,7 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
 
         assertThrows(EntityNotFoundException.class, () -> service.load(1L, 11L));
-        verify(storageService, never()).load(anyString());
+        verify(storageService, never()).load(anyString(), anyString());
     }
 
     @Test
@@ -247,7 +247,7 @@ class PracticeMaterialAccessServiceTest {
         when(assetRepository.findById(1L)).thenReturn(Optional.of(asset));
 
         assertThrows(EntityNotFoundException.class, () -> service.load(1L, 11L));
-        verify(storageService, never()).load(anyString());
+        verify(storageService, never()).load(anyString(), anyString());
     }
 
     private static LecturerAsset asset(Long id, Long ownerId) {
@@ -255,6 +255,7 @@ class PracticeMaterialAccessServiceTest {
         asset.setId(id);
         asset.setOwnerLecturerId(ownerId);
         asset.setStorageProvider("LOCAL");
+        asset.setStorageProfileCode("PRACTICE_AUTHORING");
         asset.setStorageKey("private/key.mp3");
         asset.setOriginalFilename("listen.mp3");
         asset.setMimeType("audio/mpeg");

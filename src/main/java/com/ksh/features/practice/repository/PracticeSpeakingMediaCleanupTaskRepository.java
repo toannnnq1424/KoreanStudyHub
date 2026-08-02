@@ -18,9 +18,6 @@ import jakarta.persistence.LockModeType;
 public interface PracticeSpeakingMediaCleanupTaskRepository
         extends JpaRepository<PracticeSpeakingMediaCleanupTask, Long> {
 
-    Optional<PracticeSpeakingMediaCleanupTask> findByStorageProviderAndStorageKey(
-            PracticeSpeakingStorageProvider storageProvider, String storageKey);
-
     Optional<PracticeSpeakingMediaCleanupTask> findByStorageProfileCodeAndStorageKey(
             String storageProfileCode, String storageKey);
 
@@ -41,45 +38,6 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
     @Query("select t from PracticeSpeakingMediaCleanupTask t where t.id = :taskId")
     Optional<PracticeSpeakingMediaCleanupTask> findByIdForUpdate(
             @Param("taskId") Long taskId);
-
-    @Modifying
-    @Query(value = """
-            INSERT INTO practice_speaking_media_cleanup_tasks
-                (cleanup_reason, storage_provider, storage_key, due_at, next_attempt_at, status, attempt_count)
-            VALUES
-                (:reason, :provider, :storageKey, :dueAt, :nextAttemptAt, 'PENDING', 0)
-            ON DUPLICATE KEY UPDATE
-                due_at = CASE
-                    WHEN status IN ('PENDING','RETRY') AND due_at > VALUES(due_at)
-                    THEN VALUES(due_at)
-                    ELSE due_at
-                END,
-                next_attempt_at = CASE
-                    WHEN status IN ('PENDING','RETRY')
-                         AND cleanup_reason = 'SUPERSEDED_RETENTION'
-                         AND VALUES(cleanup_reason) IN ('LOGICAL_DELETE','DISCARD_ATTEMPT','ACTIVATION_COMPENSATION')
-                         AND next_attempt_at > VALUES(next_attempt_at)
-                    THEN VALUES(next_attempt_at)
-                    ELSE next_attempt_at
-                END,
-                cleanup_reason = CASE
-                    WHEN status IN ('PENDING','RETRY')
-                         AND cleanup_reason = 'SUPERSEDED_RETENTION'
-                         AND VALUES(cleanup_reason) IN ('LOGICAL_DELETE','DISCARD_ATTEMPT','ACTIVATION_COMPENSATION')
-                    THEN VALUES(cleanup_reason)
-                    WHEN status IN ('PENDING','RETRY')
-                         AND cleanup_reason IN ('LOGICAL_DELETE','DISCARD_ATTEMPT')
-                         AND VALUES(cleanup_reason) = 'ACTIVATION_COMPENSATION'
-                    THEN VALUES(cleanup_reason)
-                    ELSE cleanup_reason
-                END
-            """, nativeQuery = true)
-    int insertOrKeepExisting(
-            @Param("reason") String reason,
-            @Param("provider") String provider,
-            @Param("storageKey") String storageKey,
-            @Param("dueAt") LocalDateTime dueAt,
-            @Param("nextAttemptAt") LocalDateTime nextAttemptAt);
 
     @Modifying
     @Query(value = """
@@ -108,6 +66,10 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
                          AND cleanup_reason IN ('SUPERSEDED_RETENTION','TEMPORARY_EXPIRY')
                          AND VALUES(cleanup_reason) IN
                              ('LOGICAL_DELETE','DISCARD_ATTEMPT','ACTIVATION_COMPENSATION')
+                    THEN VALUES(cleanup_reason)
+                    WHEN status IN ('PENDING','RETRY')
+                         AND cleanup_reason IN ('LOGICAL_DELETE','DISCARD_ATTEMPT')
+                         AND VALUES(cleanup_reason) = 'ACTIVATION_COMPENSATION'
                     THEN VALUES(cleanup_reason)
                     ELSE cleanup_reason END
             """, nativeQuery = true)

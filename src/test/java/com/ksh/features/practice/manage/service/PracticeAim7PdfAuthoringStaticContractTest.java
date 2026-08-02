@@ -100,16 +100,17 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     }
 
     @Test
-    void aim7AddsNoMigrationBeyondAim6StorageBaseline() throws Exception {
+    void c4AddsOnlyTheSingleForwardCompactionMigration() throws Exception {
         Path migrations = ROOT.resolve("src/main/resources/db/migration");
         try (var paths = Files.list(migrations)) {
             List<String> names = paths.map(path -> path.getFileName().toString())
                     .filter(name -> name.matches("V\\d+__.*\\.sql"))
                     .toList();
             assertThat(names).anyMatch(name -> name.startsWith("V85__"));
+            assertThat(names).anyMatch(name -> name.startsWith("V86__"));
             assertThat(names).noneMatch(name -> {
                 int separator = name.indexOf("__");
-                return Integer.parseInt(name.substring(1, separator)) > 85;
+                return Integer.parseInt(name.substring(1, separator)) > 86;
             });
         }
     }

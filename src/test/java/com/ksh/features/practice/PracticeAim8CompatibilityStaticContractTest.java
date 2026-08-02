@@ -26,7 +26,7 @@ class PracticeAim8CompatibilityStaticContractTest {
             "V(\\d+)__.+\\.sql");
 
     @Test
-    void migrationChainIsUniqueContinuousAndByteLockedThroughV85()
+    void migrationChainIsContinuousThroughV86AndHistoricalBytesStayLockedThroughV85()
             throws Exception {
         List<Path> migrations;
         try (var paths = Files.list(MIGRATIONS)) {
@@ -38,11 +38,11 @@ class PracticeAim8CompatibilityStaticContractTest {
                             PracticeAim8CompatibilityStaticContractTest::version))
                     .toList();
         }
-        assertThat(migrations).hasSize(85);
+        assertThat(migrations).hasSize(86);
         assertThat(migrations.stream().map(
                 PracticeAim8CompatibilityStaticContractTest::version).toList())
                 .containsExactlyElementsOf(
-                        java.util.stream.IntStream.rangeClosed(1, 85)
+                        java.util.stream.IntStream.rangeClosed(1, 86)
                                 .boxed().toList());
 
         List<String> manifestEntries = new ArrayList<>();
@@ -176,8 +176,8 @@ class PracticeAim8CompatibilityStaticContractTest {
         assertThat(privateAdapters)
                 .doesNotContain(
                         "GENERAL_UPLOADS", "GeneralUploadsObjectStorage",
-                        "presign", "publicUrl", "public URL")
-                .contains("storageProfileCode == null");
+                        "presign", "publicUrl", "public URL",
+                        "storageProfileCode == null");
     }
 
     @Test

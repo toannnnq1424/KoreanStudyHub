@@ -12,7 +12,7 @@ class PracticeStorageProfilesStaticContractTest {
     private static final Path ROOT = Path.of("").toAbsolutePath();
 
     @Test
-    void migrationAddsOnlyExactProfilesAndNullableLogicalIdentities() throws Exception {
+    void v85AddsOnlyExactProfilesAndMigrationQueueWithoutDestructiveDdl() throws Exception {
         String sql = read("src/main/resources/db/migration/V85__practice_storage_profiles.sql");
 
         assertThat(sql).contains(
@@ -39,8 +39,41 @@ class PracticeStorageProfilesStaticContractTest {
 
         assertThat(sources).doesNotContain(
                 "GENERAL_UPLOADS", "GeneralUploadsObjectStorage",
-                "presign", "Presign", "publicUrl", "public URL");
-        assertThat(sources).contains("storageProfileCode == null");
+                "presign", "Presign", "publicUrl", "public URL",
+                "storageProfileCode == null", "legacyLocal");
+    }
+
+    @Test
+    void v86FailsClosedBeforeDroppingOnlyRetiredPdfSchemaAndTightensPracticeProfiles()
+            throws Exception {
+        String sql = read("src/main/resources/db/migration/"
+                + "V86__practice_legacy_import_schema_compaction.sql");
+
+        assertThat(sql).contains(
+                "C4_PDF_WORKSPACE_ROWS_MUST_BE_EMPTY",
+                "C4_PDF_PROVENANCE_MUST_BE_EMPTY",
+                "C4_RETAINED_STORAGE_PROFILE_REQUIRED",
+                "C4_STORAGE_WORK_QUEUES_MUST_BE_EMPTY",
+                "DROP TABLE practice_pdf_import_sessions",
+                "DROP TABLE practice_ai_request_audits",
+                "DROP COLUMN source_import_session_id",
+                "MODIFY source_type VARCHAR(64) NOT NULL DEFAULT 'MANUAL_UPLOAD'",
+                "MODIFY storage_profile_code VARCHAR(40) NOT NULL",
+                "DROP INDEX uk_psm_storage",
+                "DROP INDEX uk_psm_cleanup_storage");
+        assertThat(sql).doesNotContain(
+                "DROP TABLE practice_authoring_candidates",
+                "DROP TABLE practice_ai_execution_audits",
+                "DROP TABLE storage_profiles",
+                "DROP TABLE practice_storage_migration_jobs",
+                "DELETE FROM", "TRUNCATE", "flyway_schema_history");
+
+        assertThat(Files.exists(ROOT.resolve(
+                "src/main/java/com/ksh/features/practice/manage/service/LocalAssetStorageService.java")))
+                .isFalse();
+        assertThat(Files.exists(ROOT.resolve(
+                "src/main/java/com/ksh/features/practice/service/audio/LocalPrivateSpeakingAudioStorage.java")))
+                .isFalse();
     }
 
     @Test

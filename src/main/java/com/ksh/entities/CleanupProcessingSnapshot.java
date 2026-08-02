@@ -15,18 +15,10 @@ public record CleanupProcessingSnapshot(
         Long attemptCount,
         LocalDateTime nextAttemptAt
 ) {
-    public CleanupProcessingSnapshot(
-            Long taskId,
-            Long lockVersion,
-            PracticeSpeakingStorageProvider storageProvider,
-            String storageKey,
-            PracticeSpeakingMediaCleanupStatus status,
-            String claimToken,
-            LocalDateTime leaseExpiresAt,
-            Long attemptCount,
-            LocalDateTime nextAttemptAt) {
-        this(taskId, lockVersion, null, storageProvider, null, storageKey,
-                status, claimToken, leaseExpiresAt, attemptCount, nextAttemptAt);
+    public CleanupProcessingSnapshot {
+        if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+            throw new IllegalArgumentException("storageProfileCode is invalid.");
+        }
     }
 
     @Override
