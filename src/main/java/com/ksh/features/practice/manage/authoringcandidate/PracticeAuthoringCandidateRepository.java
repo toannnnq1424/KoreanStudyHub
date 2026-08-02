@@ -20,6 +20,15 @@ public interface PracticeAuthoringCandidateRepository
     Optional<PracticeAuthoringCandidate> findByIdAndOwnerId(
             String id, Long ownerId);
 
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("""
+            select c from PracticeAuthoringCandidate c
+            where c.id = :id and c.ownerId = :ownerId
+            """)
+    Optional<PracticeAuthoringCandidate> findByIdAndOwnerIdForRead(
+            @Param("id") String id,
+            @Param("ownerId") Long ownerId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from PracticeAuthoringCandidate c where c.id = :id")
     Optional<PracticeAuthoringCandidate> findByIdForUpdate(

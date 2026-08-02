@@ -33,6 +33,7 @@ public class PracticeAuthoringCandidateApplyService {
     private final PracticeDraftContractService draftContractService;
     private final PracticeDraftValidator draftValidator;
     private final PracticeAuthoringCandidateJson candidateJson;
+    private final PracticeAuthoringCandidateMaterialAuthority materialAuthority;
     private final Clock clock;
 
     @Autowired
@@ -44,10 +45,12 @@ public class PracticeAuthoringCandidateApplyService {
             PracticeAuthoringCandidateDraftProjector projector,
             PracticeDraftContractService draftContractService,
             PracticeDraftValidator draftValidator,
-            PracticeAuthoringCandidateJson candidateJson) {
+            PracticeAuthoringCandidateJson candidateJson,
+            PracticeAuthoringCandidateMaterialAuthority materialAuthority) {
         this(candidateRepository, eventRepository, draftRepository,
                 authorizationService, projector, draftContractService,
-                draftValidator, candidateJson, Clock.systemUTC());
+                draftValidator, candidateJson, materialAuthority,
+                Clock.systemUTC());
     }
 
     PracticeAuthoringCandidateApplyService(
@@ -59,6 +62,7 @@ public class PracticeAuthoringCandidateApplyService {
             PracticeDraftContractService draftContractService,
             PracticeDraftValidator draftValidator,
             PracticeAuthoringCandidateJson candidateJson,
+            PracticeAuthoringCandidateMaterialAuthority materialAuthority,
             Clock clock) {
         this.candidateRepository = candidateRepository;
         this.eventRepository = eventRepository;
@@ -68,6 +72,8 @@ public class PracticeAuthoringCandidateApplyService {
         this.draftContractService = draftContractService;
         this.draftValidator = draftValidator;
         this.candidateJson = candidateJson;
+        this.materialAuthority = Objects.requireNonNull(
+                materialAuthority, "material authority");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -168,6 +174,14 @@ public class PracticeAuthoringCandidateApplyService {
             return record(
                     candidate, command, ApplyResultCode.REJECTED,
                     "CANDIDATE_DRAFT_VALIDATION_FAILED", null, now);
+        }
+        try {
+            materialAuthority.requireAuthorized(
+                    candidate.getTargetDraftId(), normalizedDraft);
+        } catch (PracticeAuthoringCandidateException exception) {
+            return record(
+                    candidate, command, ApplyResultCode.REJECTED,
+                    exception.code(), null, now);
         }
 
         draft.setDraftJson(normalizedDraft);

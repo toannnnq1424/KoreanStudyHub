@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Rà soát nội dung nhập | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" href="../../../static/css/app-shell.css" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" href="../../../static/css/practice/manage-editor.css" th:href="@{/css/practice/manage-editor.css}">
+  <link class="page-css" rel="stylesheet" href="../../../static/css/practice/candidate-review.css" th:href="@{/css/practice/candidate-review.css}">
+</head>
+<body class="pi-body">
+<main class="candidate-review-page">
+  <header class="candidate-review-header">
+    <div>
+      <div class="editor-eyebrow">Candidate nhập liệu · layout Auto</div>
+      <h1>Rà soát trước khi áp dụng</h1>
+      <p>Bản nháp chỉ thay đổi sau thao tác “Áp dụng vào bản nháp”. Xuất bản vẫn là bước riêng trong Editor.</p>
+    </div>
+    <a id="back-to-editor" href="/practice/manage" class="btn-action btn-sec">Quay lại quản lý</a>
+  </header>
+
+  <div id="candidate-notice" class="candidate-notice" role="status"
+       aria-live="assertive" tabindex="-1" hidden></div>
+
+  <section class="candidate-summary" aria-labelledby="candidate-summary-title">
+    <div>
+      <span id="candidate-summary-title">Trạng thái</span>
+      <strong id="candidate-state">Đang tải…</strong>
+    </div>
+    <div><span>Target</span><strong id="candidate-target">—</strong></div>
+    <div><span>Phiên bản candidate</span><strong id="candidate-version">—</strong></div>
+    <div><span>Digest</span><strong id="candidate-digest">—</strong></div>
+  </section>
+
+  <div class="candidate-workspace">
+    <aside class="candidate-issues" aria-labelledby="candidate-issues-title">
+      <div class="candidate-panel-heading">
+        <div>
+          <div class="editor-eyebrow">Normalize + validate</div>
+          <h2 id="candidate-issues-title">Vấn đề cần xử lý</h2>
+        </div>
+        <span id="candidate-issue-count" class="candidate-count">0</span>
+      </div>
+      <div id="candidate-issue-list" class="candidate-issue-list"></div>
+    </aside>
+
+    <section class="candidate-content" aria-labelledby="candidate-content-title">
+      <div class="candidate-panel-heading">
+        <div>
+          <div class="editor-eyebrow">Theo thứ tự Auto</div>
+          <h2 id="candidate-content-title">Nhóm và câu hỏi</h2>
+        </div>
+        <button id="save-review" type="button" class="btn-action btn-sec" disabled>Lưu rà soát</button>
+      </div>
+      <div id="candidate-group-list" class="candidate-group-list"></div>
+    </section>
+  </div>
+
+  <footer class="candidate-actions">
+    <label id="warning-ack-label" class="candidate-warning-ack" hidden>
+      <input id="warning-ack" type="checkbox">
+      Tôi đã đọc và chấp nhận toàn bộ cảnh báo không chặn.
+    </label>
+    <div class="candidate-action-buttons">
+      <button id="reject-candidate" type="button" class="btn-action candidate-danger" disabled>Từ chối candidate</button>
+      <button id="learner-preview" type="button" class="btn-action btn-sec" disabled>Xem như học viên</button>
+      <button id="mark-ready" type="button" class="btn-action btn-sec" disabled>Đánh dấu sẵn sàng</button>
+      <button id="apply-candidate" type="button" class="btn-action btn-pri" disabled>Áp dụng vào bản nháp</button>
+    </div>
+  </footer>
+</main>
+
+<div th:replace="~{practice/manage/fragments/draft-preview :: modal}"></div>
+
+<script src="../../../static/js/practice/manage-draft-preview.js"
+        th:src="@{/js/practice/manage-draft-preview.js}"></script>
+<script th:inline="javascript">
+  window.KSH_CANDIDATE_REVIEW = {
+    candidateId: /*[[${candidateId}]]*/ '',
+    strategyCatalog: /*[[${objectiveExplanationStrategyCatalog}]]*/ []
+  };
+</script>
+<script src="../../../static/js/practice/candidate-review.js"
+        th:src="@{/js/practice/candidate-review.js}"></script>
+</body>
+</html>

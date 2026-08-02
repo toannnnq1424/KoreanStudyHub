@@ -83,6 +83,7 @@ public final class PracticeAuthoringCandidateModels {
             String candidateId,
             Long actorId,
             long expectedVersion,
+            String expectedDigest,
             JsonNode groups,
             boolean acknowledgeWarnings
     ) {

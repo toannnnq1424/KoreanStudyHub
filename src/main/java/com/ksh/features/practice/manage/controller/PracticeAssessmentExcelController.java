@@ -132,7 +132,9 @@ public class PracticeAssessmentExcelController {
                     "candidateId", candidate.candidateId(),
                     "state", candidate.state().name(),
                     "candidateVersion", candidate.version(),
-                    "contentDigest", candidate.contentDigest()
+                    "contentDigest", candidate.contentDigest(),
+                    "reviewUrl", "/practice/manage/authoring-candidates/"
+                            + candidate.candidateId()
             ));
         } catch (PracticeAssessmentExcelException exception) {
             return ResponseEntity.badRequest().body(Map.of(

@@ -21,4 +21,8 @@ public interface PracticeDraftRepository extends JpaRepository<PracticeDraft, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from PracticeDraft d where d.id = :id")
     Optional<PracticeDraft> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("select d from PracticeDraft d where d.id = :id")
+    Optional<PracticeDraft> findByIdForRead(@Param("id") Long id);
 }

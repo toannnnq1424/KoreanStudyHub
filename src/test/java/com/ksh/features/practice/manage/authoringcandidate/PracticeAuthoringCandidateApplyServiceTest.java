@@ -53,6 +53,8 @@ class PracticeAuthoringCandidateApplyServiceTest {
     private PracticeDraftContractService draftContractService;
     @Mock
     private PracticeDraftValidator draftValidator;
+    @Mock
+    private PracticeAuthoringCandidateMaterialAuthority materialAuthority;
 
     private ObjectMapper objectMapper;
     private PracticeAuthoringCandidateJson candidateJson;
@@ -65,7 +67,7 @@ class PracticeAuthoringCandidateApplyServiceTest {
         service = new PracticeAuthoringCandidateApplyService(
                 candidateRepository, eventRepository, draftRepository,
                 authorizationService, projector, draftContractService,
-                draftValidator, candidateJson,
+                draftValidator, candidateJson, materialAuthority,
                 Clock.fixed(Instant.parse("2026-08-03T00:00:00Z"),
                         ZoneOffset.UTC));
     }
@@ -111,6 +113,75 @@ class PracticeAuthoringCandidateApplyServiceTest {
         assertThat(result.draftVersion()).isEqualTo(1);
         verify(draftRepository, never()).saveAndFlush(any());
         verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void reusedRequestWithDifferentCandidateIdentityFailsClosed() {
+        PracticeAuthoringCandidate candidate = readyCandidate();
+        PracticeDraft draft = PracticeAuthoringCandidateTestFixtures
+                .targetDraft(1);
+        arrangeLocks(candidate, draft);
+        PracticeAuthoringCandidateApplyEvent event =
+                new PracticeAuthoringCandidateApplyEvent(
+                        candidate.getId(), REQUEST_ID,
+                        candidate.getLockVersion() + 1,
+                        candidate.getContentDigest(),
+                        candidate.getBaseDraftVersion(),
+                        ApplyResultCode.DRAFT_APPLIED, "DRAFT_APPLIED", 1,
+                        101L, LocalDateTime.of(2026, 8, 2, 1, 0));
+        when(eventRepository.findByCandidateIdAndApplyRequestId(
+                candidate.getId(), REQUEST_ID.toString()))
+                .thenReturn(Optional.of(event));
+
+        var result = service.apply(command(candidate));
+
+        assertThat(result.result()).isEqualTo(ApplyResultCode.REJECTED);
+        assertThat(result.resultCode()).isEqualTo("APPLY_REQUEST_MISMATCH");
+        assertThat(result.replayed()).isTrue();
+        verify(projector, never()).append(any(), any(), any());
+        verify(draftRepository, never()).saveAndFlush(any());
+        verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void staleSubmittedCandidateVersionFailsClosedWithoutDraftMutation() {
+        PracticeAuthoringCandidate candidate = readyCandidate();
+        PracticeDraft draft = PracticeAuthoringCandidateTestFixtures
+                .targetDraft(0);
+        arrangeLocks(candidate, draft);
+        ApplyCommand stale = new ApplyCommand(
+                candidate.getId(), REQUEST_ID, 101L,
+                candidate.getLockVersion() + 1,
+                "sha256:" + candidate.getContentDigest());
+
+        var result = service.apply(stale);
+
+        assertThat(result.result()).isEqualTo(ApplyResultCode.REJECTED);
+        assertThat(result.resultCode())
+                .isEqualTo("CANDIDATE_VERSION_CONFLICT");
+        verify(projector, never()).append(any(), any(), any());
+        verify(draftRepository, never()).saveAndFlush(any());
+        verify(eventRepository).save(any(
+                PracticeAuthoringCandidateApplyEvent.class));
+    }
+
+    @Test
+    void reviewingCandidateCannotApplyAndLeavesDraftUntouched() {
+        PracticeAuthoringCandidate candidate =
+                PracticeAuthoringCandidateTestFixtures
+                        .reviewingCandidate(objectMapper);
+        PracticeDraft draft = PracticeAuthoringCandidateTestFixtures
+                .targetDraft(0);
+        arrangeLocks(candidate, draft);
+
+        var result = service.apply(command(candidate));
+
+        assertThat(result.result()).isEqualTo(ApplyResultCode.REJECTED);
+        assertThat(result.resultCode()).isEqualTo("CANDIDATE_NOT_READY");
+        verify(projector, never()).append(any(), any(), any());
+        verify(draftRepository, never()).saveAndFlush(any());
+        verify(eventRepository).save(any(
+                PracticeAuthoringCandidateApplyEvent.class));
     }
 
     @Test
@@ -168,6 +239,35 @@ class PracticeAuthoringCandidateApplyServiceTest {
         assertThat(result.resultCode())
                 .isEqualTo("CANDIDATE_DRAFT_VALIDATION_FAILED");
         assertThat(draft.getDraftJson()).doesNotContain("normalized");
+        verify(draftRepository, never()).saveAndFlush(any());
+        verify(eventRepository).save(any(
+                PracticeAuthoringCandidateApplyEvent.class));
+    }
+
+    @Test
+    void materialAuthorityFailureLeavesDraftUntouchedAndRecordsRejection() {
+        PracticeAuthoringCandidate candidate = readyCandidate();
+        PracticeDraft draft = PracticeAuthoringCandidateTestFixtures
+                .targetDraft(0);
+        arrangeLocks(candidate, draft);
+        ObjectNode projected = objectMapper.createObjectNode();
+        when(projector.append(any(), any(), any())).thenReturn(projected);
+        when(draftContractService.normalize(projected, "QUICK_EXCEL"))
+                .thenReturn(new PracticeDraftContractService.NormalizedDraft(
+                        "{\"normalized\":true}"));
+        when(draftValidator.validate("{\"normalized\":true}"))
+                .thenReturn(new PracticeDraftValidator.ValidationResult(
+                        false, List.of(), 1, 1, 1, 1));
+        doThrow(new PracticeAuthoringCandidateException(
+                "CANDIDATE_MATERIAL_AUTHORITY_INVALID", "denied"))
+                .when(materialAuthority).requireAuthorized(
+                        5001L, "{\"normalized\":true}");
+
+        var result = service.apply(command(candidate));
+
+        assertThat(result.result()).isEqualTo(ApplyResultCode.REJECTED);
+        assertThat(result.resultCode())
+                .isEqualTo("CANDIDATE_MATERIAL_AUTHORITY_INVALID");
         verify(draftRepository, never()).saveAndFlush(any());
         verify(eventRepository).save(any(
                 PracticeAuthoringCandidateApplyEvent.class));

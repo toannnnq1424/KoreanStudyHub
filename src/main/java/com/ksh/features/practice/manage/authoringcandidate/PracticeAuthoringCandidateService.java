@@ -193,12 +193,14 @@ public class PracticeAuthoringCandidateService {
         authorizationService.requireDraft(
                 candidate.getTargetDraftId(), command.actorId(),
                 PracticeAction.EDIT);
-        requireVersion(candidate, command.expectedVersion());
+        requireVersionAndDigest(
+                candidate, command.expectedVersion(), command.expectedDigest());
         LocalDateTime now = now();
         if (!candidate.isTerminal() && candidate.isExpiredAt(now)) {
             expire(candidate, now);
             return view(candidateRepository.saveAndFlush(candidate));
         }
+        requireReviewable(candidate);
 
         ObjectNode current = candidateJson.readObject(candidate.getCandidateJson());
         PracticeAuthoringCandidateNormalizer.NormalizationResult normalized =
@@ -230,15 +232,21 @@ public class PracticeAuthoringCandidateService {
     public CandidateView markReady(
             String candidateId,
             Long actorId,
-            long expectedVersion) {
+            long expectedVersion,
+            String expectedDigest) {
         PracticeAuthoringCandidate candidate = owned(candidateId, actorId);
         authorizationService.requireDraft(
                 candidate.getTargetDraftId(), actorId, PracticeAction.EDIT);
-        requireVersion(candidate, expectedVersion);
+        requireVersionAndDigest(candidate, expectedVersion, expectedDigest);
         LocalDateTime now = now();
         if (!candidate.isTerminal() && candidate.isExpiredAt(now)) {
             expire(candidate, now);
             return view(candidateRepository.saveAndFlush(candidate));
+        }
+        if (candidate.getState() != CandidateState.REVIEWING) {
+            throw new PracticeAuthoringCandidateException(
+                    "CANDIDATE_NOT_READY",
+                    "Candidate không ở trạng thái rà soát để đánh dấu sẵn sàng.");
         }
         ObjectNode envelope = candidateJson.readObject(candidate.getCandidateJson());
         List<ValidationIssue> priorIssues = readIssues(envelope.path("issues"));
@@ -263,15 +271,21 @@ public class PracticeAuthoringCandidateService {
     public CandidateView reject(
             String candidateId,
             Long actorId,
-            long expectedVersion) {
+            long expectedVersion,
+            String expectedDigest) {
         PracticeAuthoringCandidate candidate = owned(candidateId, actorId);
         authorizationService.requireDraft(
                 candidate.getTargetDraftId(), actorId, PracticeAction.EDIT);
-        requireVersion(candidate, expectedVersion);
+        requireVersionAndDigest(candidate, expectedVersion, expectedDigest);
         LocalDateTime now = now();
         if (!candidate.isTerminal() && candidate.isExpiredAt(now)) {
             expire(candidate, now);
             return view(candidateRepository.saveAndFlush(candidate));
+        }
+        if (candidate.isTerminal()) {
+            throw new PracticeAuthoringCandidateException(
+                    "CANDIDATE_NOT_REVIEWABLE",
+                    "Candidate đã đóng và không thể từ chối lại.");
         }
         ObjectNode envelope = candidateJson.readObject(candidate.getCandidateJson());
         setState(envelope, CandidateState.REJECTED);
@@ -311,13 +325,31 @@ public class PracticeAuthoringCandidateService {
                 "Bạn không có quyền truy cập authoring candidate này.");
     }
 
-    private static void requireVersion(
+    private static void requireVersionAndDigest(
             PracticeAuthoringCandidate candidate,
-            long expectedVersion) {
-        if (candidate.getLockVersion() != expectedVersion) {
+            long expectedVersion,
+            String expectedDigest) {
+        String digest = PracticeAuthoringCandidateJson.stripDigestPrefix(
+                expectedDigest);
+        if (candidate.getLockVersion() != expectedVersion
+                || !digest.matches("[0-9a-f]{64}")
+                || !candidate.getContentDigest().equals(digest)) {
             throw new PracticeAuthoringCandidateException(
                     "CANDIDATE_VERSION_CONFLICT",
-                    "Candidate đã thay đổi; hãy tải lại trước khi tiếp tục.");
+                    "Candidate hoặc digest đã thay đổi; hãy tải lại trước khi tiếp tục.");
+        }
+    }
+
+    private static void requireReviewable(
+            PracticeAuthoringCandidate candidate) {
+        if (!Set.of(
+                CandidateState.VALIDATED,
+                CandidateState.REVIEWING,
+                CandidateState.READY_TO_APPLY)
+                .contains(candidate.getState())) {
+            throw new PracticeAuthoringCandidateException(
+                    "CANDIDATE_NOT_REVIEWABLE",
+                    "Candidate không còn ở trạng thái có thể rà soát.");
         }
     }
 

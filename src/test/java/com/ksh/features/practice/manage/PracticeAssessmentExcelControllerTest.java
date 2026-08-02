@@ -87,6 +87,9 @@ class PracticeAssessmentExcelControllerTest {
         assertEquals("11111111-1111-4111-8111-111111111111",
                 body.get("candidateId"));
         assertEquals("REVIEWING", body.get("state"));
+        assertEquals(
+                "/practice/manage/authoring-candidates/11111111-1111-4111-8111-111111111111",
+                body.get("reviewUrl"));
         assertFalse(body.containsKey("draftId"));
         assertFalse(body.containsKey("redirectUrl"));
     }
