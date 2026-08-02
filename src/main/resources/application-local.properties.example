@@ -3,6 +3,9 @@
 # File application-local.properties da duoc .gitignore — KHONG commit.
 # File nay duoc nap qua spring.config.import trong application.properties.
 
+# AIM-6: LOCAL profiles are permitted only in an explicit dev/test environment.
+STORAGE_PROFILES_ALLOW_LOCAL=true
+
 # ----- Datasource (feed cho placeholder ${DB_URL}/${DB_USERNAME}/${DB_PASSWORD}) -----
 DB_URL=jdbc:mysql://127.0.0.1:3306/ksh_db?useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
 DB_USERNAME=root
