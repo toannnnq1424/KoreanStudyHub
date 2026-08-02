@@ -38,6 +38,7 @@ public class PracticeAuthoringCandidateDraftProjector {
         group.put("label", candidateGroup.path("label").asText());
         group.put("instruction",
                 candidateGroup.path("instruction").asText(""));
+        group.put("layout", "AUTO");
         group.set("stimulus", candidateGroup.path("stimulus").deepCopy());
         group.putArray("sourceRegionIds");
         ArrayNode questions = group.putArray("questions");

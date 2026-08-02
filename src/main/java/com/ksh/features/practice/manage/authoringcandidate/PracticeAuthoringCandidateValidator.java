@@ -3,6 +3,7 @@ package com.ksh.features.practice.manage.authoringcandidate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
+import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
@@ -266,13 +267,15 @@ public class PracticeAuthoringCandidateValidator {
             validateSourceRefs(sourceKind, question.path("sourceRefs"),
                     path + "/sourceRefs", issues);
             validateQuestion(
-                    sourceKind, target, question, path, issues);
+                    sourceKind, target, group.path("stimulus"),
+                    question, path, issues);
         }
     }
 
     private void validateQuestion(
             SourceKind sourceKind,
             TargetRoute target,
+            JsonNode groupStimulus,
             JsonNode question,
             String path,
             List<ValidationIssue> issues) {
@@ -320,7 +323,8 @@ public class PracticeAuthoringCandidateValidator {
         validateTypedBounds(question, path, issues);
         if (("READING".equals(upper(target.skill()))
                 || "LISTENING".equals(upper(target.skill())))) {
-            validateExplanationStrategy(question, type, path, issues);
+            validateExplanationStrategy(
+                    groupStimulus, question, type, path, issues);
         }
         if (sourceKind == SourceKind.QUICK_EXCEL) {
             validateQuickQuestion(target, question, type, path, issues);
@@ -480,6 +484,7 @@ public class PracticeAuthoringCandidateValidator {
     }
 
     private void validateExplanationStrategy(
+            JsonNode groupStimulus,
             JsonNode question,
             CanonicalQuestionType type,
             String path,
@@ -496,8 +501,10 @@ public class PracticeAuthoringCandidateValidator {
                     candidateJson.write(question.path("questionContent")), type);
             AnswerSpec answer = contractCodec.readAnswerSpec(
                     candidateJson.write(question.path("answerSpec")), content);
+            AssessmentStimulus stimulus = explanationStimulus(
+                    groupStimulus, question);
             ObjectiveExplanationStrategyRegistry.requireAllowed(
-                    type, selection, content, answer);
+                    type, selection, stimulus, content, answer);
         } catch (IllegalArgumentException exception) {
             issues.add(error(
                     "EXPLANATION_STRATEGY_REVIEW_REQUIRED", "QUESTION",
@@ -505,6 +512,25 @@ public class PracticeAuthoringCandidateValidator {
                     "Hãy chọn chiến lược giải thích phù hợp trước khi áp dụng.",
                     "EDIT_IN_REVIEW"));
         }
+    }
+
+    private static AssessmentStimulus explanationStimulus(
+            JsonNode raw,
+            JsonNode question) {
+        String provenance = raw.path("provenance")
+                .path("source").asText("CANDIDATE");
+        return switch (raw.path("type").asText("NONE")) {
+            case "READING_PASSAGE" -> AssessmentStimulus.readingPassage(
+                    raw.path("passageText").asText(""), provenance);
+            case "LISTENING_AUDIO" -> AssessmentStimulus.listeningAudio(
+                    raw.path("mediaReference").asText(null),
+                    raw.path("transcriptText").asText(""),
+                    provenance,
+                    raw.path("provenance").path("approved")
+                            .asBoolean(false));
+            default -> AssessmentStimulus.standalonePrompt(
+                    question.path("prompt").asText(""), provenance);
+        };
     }
 
     private void validateQuickQuestion(
@@ -724,9 +750,32 @@ public class PracticeAuthoringCandidateValidator {
                     case "WARNING" -> 1;
                     default -> 2;
                 })
-                .thenComparing(ValidationIssue::path)
+                .thenComparingInt(issue -> pointerIndex(issue.path(), "groups"))
+                .thenComparingInt(issue -> pointerIndex(issue.path(), "questions"))
+                .thenComparing(issue -> fieldPointer(issue.path()))
                 .thenComparing(ValidationIssue::code));
         return new ValidationResult(sorted);
+    }
+
+    private static int pointerIndex(String path, String collection) {
+        if (path == null) return -1;
+        String marker = "/" + collection + "/";
+        int start = path.indexOf(marker);
+        if (start < 0) return -1;
+        start += marker.length();
+        int end = path.indexOf('/', start);
+        String value = end < 0 ? path.substring(start) : path.substring(start, end);
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException exception) {
+            return -1;
+        }
+    }
+
+    private static String fieldPointer(String path) {
+        if (path == null) return "";
+        return path.replaceAll("/groups/\\d+", "/groups")
+                .replaceAll("/questions/\\d+", "/questions");
     }
 
     private static String upper(String value) {
