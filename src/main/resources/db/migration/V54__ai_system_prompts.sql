@@ -1,5 +1,5 @@
 -- =============================================================================
--- ULP — V54__ai_system_prompts.sql
+-- KSH — V54__ai_system_prompts.sql
 -- AI System Prompt catalog (Sprint 8)
 --
 -- Admin-managed catalog of named system prompts. Each row is one reusable

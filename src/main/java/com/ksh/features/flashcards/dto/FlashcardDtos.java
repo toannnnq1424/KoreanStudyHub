@@ -107,14 +107,19 @@ public final class FlashcardDtos {
     public record DeckDetailView(Long id, String title, String description,
                                  long cardCount, boolean owner, boolean shared,
                                  Long classId, String className,
-                                 List<ClassOption> shareClasses, String ownerName) {
+                                 List<ClassOption> shareClasses, String ownerName,
+                                 boolean publicLink, String shareToken) {
         public DeckDetailView(Long id, String title, String description,
                               long cardCount, boolean owner, boolean shared,
                               Long classId, String className,
                               List<ClassOption> shareClasses) {
             this(id, title, description, cardCount, owner, shared,
-                    classId, className, shareClasses, null);
+                    classId, className, shareClasses, null, false, null);
         }
+    }
+
+    /** Anonymous, identity-free view of a deck reached by its public token. */
+    public record PublicDeckView(String title, String description, long cardCount) {
     }
 
     /**

@@ -259,6 +259,32 @@
         <button type="submit" class="fc-btn fc-btn-ghost">Ngừng chia sẻ</button>
       </form>
     </div>
+    <div class="fc-share">
+      <h3 class="fc-section-title">Link công khai</h3>
+      <p>Bất kỳ ai có link đều có thể xem bộ thẻ ở chế độ chỉ đọc.</p>
+
+      <form th:if="${!deck.publicLink()}"
+            th:action="@{|/my/flashcards/${deck.id()}/public-link/enable|}" method="post">
+        <button type="submit" class="fc-btn fc-btn-primary">Bật link công khai</button>
+      </form>
+
+      <div class="fc-share-form" th:if="${deck.publicLink() and deck.shareToken() != null}">
+        <input type="text" readonly aria-label="Link công khai"
+               th:value="@{|/s/${deck.shareToken()}|}">
+        <a class="fc-btn fc-btn-secondary" target="_blank" rel="noopener noreferrer"
+           th:href="@{|/s/${deck.shareToken()}|}">Mở link</a>
+      </div>
+
+      <div class="fc-share-form" th:if="${deck.publicLink()}">
+        <form th:action="@{|/my/flashcards/${deck.id()}/public-link/disable|}" method="post">
+          <button type="submit" class="fc-btn fc-btn-ghost">Tắt link</button>
+        </form>
+        <form th:action="@{|/my/flashcards/${deck.id()}/public-link/regenerate|}" method="post"
+              onsubmit="return confirm('Link cũ sẽ không còn hiệu lực. Tiếp tục?');">
+          <button type="submit" class="fc-btn fc-btn-ghost">Tạo link mới</button>
+        </form>
+      </div>
+    </div>
   </section>
 </main>
 

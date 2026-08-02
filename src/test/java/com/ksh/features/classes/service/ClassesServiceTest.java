@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -61,6 +62,7 @@ class ClassesServiceTest {
     private InviteCodeService inviteCodeService;
     private UserRepository userRepository;
     private ClassRoleAccessPolicy accessPolicy;
+    private ApplicationEventPublisher eventPublisher;
     private ClassesService service;
 
     @BeforeEach
@@ -72,6 +74,7 @@ class ClassesServiceTest {
         inviteCodeService = mock(InviteCodeService.class);
         userRepository = mock(UserRepository.class);
         accessPolicy = mock(ClassRoleAccessPolicy.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         when(userRepository.findById(any())).thenReturn(Optional.empty());
         when(accessPolicy.canAccess(any(), any(), any())).thenAnswer(invocation -> {
             ClassEntity clazz = invocation.getArgument(0);
@@ -82,7 +85,7 @@ class ClassesServiceTest {
                     || role == Role.LEADER;
         });
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository, accessPolicy);
+                codeGenerator, inviteCodeService, userRepository, accessPolicy, eventPublisher);
         when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
                 .thenReturn(Optional.empty());
     }

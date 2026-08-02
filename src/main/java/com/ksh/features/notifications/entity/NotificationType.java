@@ -41,6 +41,9 @@ public final class NotificationType {
     public static final String CLASS_APPROVED = "CLASS_APPROVED";
     public static final String CLASS_REJECTED = "CLASS_REJECTED";
 
+    /** Department Leader notified after a lecturer submits a new class. */
+    public static final String CLASS_PENDING_APPROVAL = "CLASS_PENDING_APPROVAL";
+
     /**
      * The set of notification types that trigger a durable email outbox job.
      * Join-approval lifecycle types and CLASS_ENROLLED / ASSIGNMENT_GRADED

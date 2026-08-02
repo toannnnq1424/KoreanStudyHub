@@ -11,6 +11,7 @@ import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ksh.features.flashcards.dto.FlashcardDtos.StudentDeckList;
 import com.ksh.features.flashcards.service.CardService;
 import com.ksh.features.flashcards.service.DeckService;
+import com.ksh.features.flashcards.service.DeckPublicLinkService;
 import com.ksh.features.flashcards.service.FlashcardStudyService;
 import com.ksh.features.flashcards.service.SmartReviewService;
 import com.ksh.security.KshUserDetails;
@@ -46,17 +47,20 @@ import static com.ksh.common.IConstant.*;
 public class StudentFlashcardController {
 
     private final DeckService deckService;
+    private final DeckPublicLinkService publicLinkService;
     private final CardService cardService;
     private final SmartReviewService smartReviewService;
     private final FlashcardStudyService flashcardStudyService;
     private final ObjectMapper objectMapper;
 
     public StudentFlashcardController(DeckService deckService,
+                                      DeckPublicLinkService publicLinkService,
                                       CardService cardService,
                                       SmartReviewService smartReviewService,
                                       FlashcardStudyService flashcardStudyService,
                                       ObjectMapper objectMapper) {
         this.deckService = deckService;
+        this.publicLinkService = publicLinkService;
         this.cardService = cardService;
         this.smartReviewService = smartReviewService;
         this.flashcardStudyService = flashcardStudyService;
@@ -182,6 +186,36 @@ public class StudentFlashcardController {
         deckService.unshare(id, user.getId());
         ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_DECK_UNSHARED);
         return "redirect:" + deckUrl(id);
+    }
+
+    /** Enables a stable anonymous read-only link; owner-only. */
+    @PostMapping("/{id}/public-link/enable")
+    public String enablePublicLink(@PathVariable Long id,
+                                   @AuthenticationPrincipal KshUserDetails user,
+                                   RedirectAttributes ra) {
+        publicLinkService.enable(id, user.getId());
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_DECK_PUBLIC_LINK_ENABLED);
+        return "redirect:" + deckUrl(id) + "#share";
+    }
+
+    /** Disables anonymous access while preserving the current token. */
+    @PostMapping("/{id}/public-link/disable")
+    public String disablePublicLink(@PathVariable Long id,
+                                    @AuthenticationPrincipal KshUserDetails user,
+                                    RedirectAttributes ra) {
+        publicLinkService.disable(id, user.getId());
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_DECK_PUBLIC_LINK_DISABLED);
+        return "redirect:" + deckUrl(id) + "#share";
+    }
+
+    /** Replaces a leaked public token and immediately enables the new link. */
+    @PostMapping("/{id}/public-link/regenerate")
+    public String regeneratePublicLink(@PathVariable Long id,
+                                       @AuthenticationPrincipal KshUserDetails user,
+                                       RedirectAttributes ra) {
+        publicLinkService.regenerate(id, user.getId());
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_DECK_PUBLIC_LINK_REGENERATED);
+        return "redirect:" + deckUrl(id) + "#share";
     }
 
     /** Canonical URL for a single deck. Carries a path variable, so not a constant. */

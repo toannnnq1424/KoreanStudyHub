@@ -215,6 +215,7 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
+                        .requestMatchers("/s/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
                         .requestMatchers("/practice/preferences/**")
                         .hasAnyRole(Roles.STUDENT, Roles.LECTURER)

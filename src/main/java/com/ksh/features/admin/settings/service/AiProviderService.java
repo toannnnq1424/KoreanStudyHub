@@ -42,7 +42,11 @@ public class AiProviderService {
     private static final String MASKED_DISPLAY = "••••••••••••";
 
     private static final String PING_MESSAGE = "ping";
-    private static final int PING_MAX_TOKENS = 5;
+    /**
+     * A connectivity check still needs enough output budget for reasoning
+     * models, which may consume internal tokens before emitting "ping".
+     */
+    static final int PING_MAX_TOKENS = 2048;
 
     /**
      * V1 seeds this legacy placeholder and the multi-provider feature deliberately
