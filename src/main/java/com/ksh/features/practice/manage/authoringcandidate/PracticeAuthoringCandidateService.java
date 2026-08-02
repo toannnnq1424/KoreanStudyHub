@@ -426,7 +426,7 @@ public class PracticeAuthoringCandidateService {
                 || !"PRACTICE_PDF_AUTHORING".equals(
                         aiExecution.path("purpose").asText())
                 || !aiExecution.path("bindingRevision").isIntegralNumber()
-                || aiExecution.path("bindingRevision").asInt(0) < 1
+                || aiExecution.path("bindingRevision").asLong() < 0
                 || !boundedText(aiExecution, "providerProfileCode", 100)
                 || !boundedText(aiExecution, "providerFamily", 100)
                 || !boundedText(aiExecution, "model", 200)

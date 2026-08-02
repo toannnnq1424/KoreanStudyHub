@@ -49,9 +49,10 @@ class PracticePdfAuthoringCandidateAssemblerTest {
                                 new PracticeContentRules()));
         ObjectNode execution = mapper.createObjectNode();
         execution.put("purpose", "PRACTICE_PDF_AUTHORING");
+        execution.put("bindingRevision", 0L);
         PracticePdfAiOrchestrator.GenerationResult generation =
                 new PracticePdfAiOrchestrator.GenerationResult(
-                        output, execution, "authoring-v1-b4", "request-1", "provider-1");
+                        output, execution, "authoring-v1-b0", "request-1", "provider-1");
 
         CandidateView actual = assembler.assemble(request, generation, 101L);
 
@@ -70,6 +71,8 @@ class PracticePdfAuthoringCandidateAssemblerTest {
                 .isEqualTo(SourceOperation.EXTRACT);
         assertThat(command.getValue().source().aiExecution().path("purpose").asText())
                 .isEqualTo("PRACTICE_PDF_AUTHORING");
+        assertThat(command.getValue().source().aiExecution()
+                .path("bindingRevision").asLong()).isZero();
         assertThat(command.getValue().groups().at("/0/questions/0/reviewState").asText())
                 .isEqualTo("REVIEW_REQUIRED");
         assertThat(command.getValue().groups().at("/0/questions/0/points").asDouble())

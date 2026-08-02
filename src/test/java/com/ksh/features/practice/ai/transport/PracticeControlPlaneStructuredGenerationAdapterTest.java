@@ -32,6 +32,27 @@ import static org.mockito.Mockito.when;
 class PracticeControlPlaneStructuredGenerationAdapterTest {
 
     @Test
+    void identityPreservesFirstZeroBasedBindingRevision() {
+        PracticeAiResolvedBinding binding = binding(
+                PracticeAiPurpose.PRACTICE_PDF_AUTHORING, true, 0, 0L);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        when(resolver.availableSnapshot(PracticeAiPurpose.PRACTICE_PDF_AUTHORING))
+                .thenReturn(Optional.of(binding.snapshot()));
+        PracticeControlPlaneStructuredGenerationAdapter adapter = adapter(
+                resolver,
+                mock(PracticeAiExecutionAuditService.class),
+                mock(PracticeAiProviderTransport.class));
+
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                adapter.identity(PracticeAiPurpose.PRACTICE_PDF_AUTHORING);
+
+        assertThat(identity.available()).isTrue();
+        assertThat(identity.bindingRevision()).isZero();
+        assertThat(identity.providerProfileRevision()).isEqualTo(3L);
+        assertThat(identity.providerProfileCode()).isEqualTo("PRACTICE_PRIMARY");
+    }
+
+    @Test
     void usesOneExactBindingSnapshotAndAuditsBeforeFakeTransport() {
         PracticeAiResolvedBinding binding = binding(
                 PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, true);
@@ -223,10 +244,18 @@ class PracticeControlPlaneStructuredGenerationAdapterTest {
             PracticeAiPurpose purpose,
             boolean imageInput,
             int maxRetries) {
+        return binding(purpose, imageInput, maxRetries, 5L);
+    }
+
+    private static PracticeAiResolvedBinding binding(
+            PracticeAiPurpose purpose,
+            boolean imageInput,
+            int maxRetries,
+            long bindingRevision) {
         return new PracticeAiResolvedBinding(
                 new PracticeAiExecutionSnapshot(
                         purpose,
-                        5,
+                        bindingRevision,
                         3,
                         "OPENAI_COMPATIBLE",
                         "PRACTICE_PRIMARY",
