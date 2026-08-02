@@ -45,14 +45,17 @@ public class PracticeSpeakingMediaPlaybackService {
                 .map(PlaybackDescriptor::from)
                 .orElseThrow(PracticeSpeakingMediaPlaybackNotFoundException::new);
         descriptor.validate(properties.getMaxAudioBytes());
-        if (descriptor.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
+        if (descriptor.storageProfileCode() == null
+                && descriptor.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
             throw new PracticeSpeakingMediaPlaybackNotFoundException();
         }
         try {
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
                 throw new IllegalStateException("Playback storage open must not run in a transaction.");
             }
-            InputStream input = storage.open(descriptor.storageKey());
+            InputStream input = descriptor.storageProfileCode() == null
+                    ? storage.open(descriptor.storageKey())
+                    : storage.open(descriptor.storageProfileCode(), descriptor.storageKey());
             return new PlaybackStream(descriptor.mimeType(), descriptor.byteSize(), input);
         } catch (SpeakingAudioValidationException ex) {
             throw new PracticeSpeakingMediaPlaybackNotFoundException();
@@ -61,6 +64,7 @@ public class PracticeSpeakingMediaPlaybackService {
 
     private record PlaybackDescriptor(
             PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
             String storageKey,
             String mimeType,
             long byteSize
@@ -69,13 +73,16 @@ public class PracticeSpeakingMediaPlaybackService {
                 PracticeSpeakingMediaRepository.PlaybackAuthorizationProjection projection) {
             return new PlaybackDescriptor(
                     projection.getStorageProvider(),
+                    projection.getStorageProfileCode(),
                     projection.getStorageKey(),
                     projection.getMimeType(),
                     projection.getByteSize() == null ? -1L : projection.getByteSize());
         }
 
         private void validate(long maxAudioBytes) {
-            if (storageProvider == null || storageKey == null || storageKey.isBlank()) {
+            if (storageProvider == null || storageKey == null || storageKey.isBlank()
+                    || (storageProfileCode != null
+                        && !"PRACTICE_SPEAKING".equals(storageProfileCode))) {
                 throw new PracticeSpeakingMediaPlaybackNotFoundException();
             }
             if (byteSize <= 0L || byteSize > maxAudioBytes) {

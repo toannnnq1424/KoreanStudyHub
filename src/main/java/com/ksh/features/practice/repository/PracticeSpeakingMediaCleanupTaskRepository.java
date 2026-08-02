@@ -21,6 +21,9 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
     Optional<PracticeSpeakingMediaCleanupTask> findByStorageProviderAndStorageKey(
             PracticeSpeakingStorageProvider storageProvider, String storageKey);
 
+    Optional<PracticeSpeakingMediaCleanupTask> findByStorageProfileCodeAndStorageKey(
+            String storageProfileCode, String storageKey);
+
     @Query("""
             select t.id
             from PracticeSpeakingMediaCleanupTask t
@@ -74,6 +77,45 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
     int insertOrKeepExisting(
             @Param("reason") String reason,
             @Param("provider") String provider,
+            @Param("storageKey") String storageKey,
+            @Param("dueAt") LocalDateTime dueAt,
+            @Param("nextAttemptAt") LocalDateTime nextAttemptAt);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO practice_speaking_media_cleanup_tasks
+                (cleanup_reason, media_id, storage_provider, storage_profile_code,
+                 storage_key, due_at, next_attempt_at, status, attempt_count)
+            VALUES
+                (:reason, :mediaId, :provider, :profileCode,
+                 :storageKey, :dueAt, :nextAttemptAt, 'PENDING', 0)
+            ON DUPLICATE KEY UPDATE
+                media_id = CASE
+                    WHEN VALUES(cleanup_reason) = 'ACTIVATION_COMPENSATION' THEN NULL
+                    ELSE COALESCE(media_id, VALUES(media_id)) END,
+                due_at = CASE
+                    WHEN status IN ('PENDING','RETRY') AND due_at > VALUES(due_at)
+                    THEN VALUES(due_at) ELSE due_at END,
+                next_attempt_at = CASE
+                    WHEN status IN ('PENDING','RETRY')
+                         AND cleanup_reason IN ('SUPERSEDED_RETENTION','TEMPORARY_EXPIRY')
+                         AND VALUES(cleanup_reason) IN
+                             ('LOGICAL_DELETE','DISCARD_ATTEMPT','ACTIVATION_COMPENSATION')
+                         AND next_attempt_at > VALUES(next_attempt_at)
+                    THEN VALUES(next_attempt_at) ELSE next_attempt_at END,
+                cleanup_reason = CASE
+                    WHEN status IN ('PENDING','RETRY')
+                         AND cleanup_reason IN ('SUPERSEDED_RETENTION','TEMPORARY_EXPIRY')
+                         AND VALUES(cleanup_reason) IN
+                             ('LOGICAL_DELETE','DISCARD_ATTEMPT','ACTIVATION_COMPENSATION')
+                    THEN VALUES(cleanup_reason)
+                    ELSE cleanup_reason END
+            """, nativeQuery = true)
+    int insertOrKeepExistingExact(
+            @Param("reason") String reason,
+            @Param("mediaId") Long mediaId,
+            @Param("provider") String provider,
+            @Param("profileCode") String profileCode,
             @Param("storageKey") String storageKey,
             @Param("dueAt") LocalDateTime dueAt,
             @Param("nextAttemptAt") LocalDateTime nextAttemptAt);

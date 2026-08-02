@@ -65,7 +65,8 @@ public class PracticeSpeakingMediaCleanupProcessor {
                 || snapshot.claimToken() == null) {
             return CleanupTaskProcessingResult.skipped();
         }
-        if (snapshot.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
+        if (snapshot.storageProfileCode() == null
+                && snapshot.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
             return terminalOrSkipped(
                     snapshot,
                     PracticeSpeakingMediaCleanupErrorCode.PROVIDER_UNSUPPORTED);
@@ -76,18 +77,26 @@ public class PracticeSpeakingMediaCleanupProcessor {
                     PracticeSpeakingMediaCleanupErrorCode.INVALID_STORAGE_IDENTITY);
         }
         try {
-            storage.delete(snapshot.storageKey());
+            storage.delete(snapshot.storageProfileCode(), snapshot.storageKey());
+            if (storage.exists(snapshot.storageProfileCode(), snapshot.storageKey())) {
+                throw new IllegalStateException(
+                        "Speaking audio deletion was not confirmed");
+            }
             try {
-                taskService.markCompleted(snapshot);
+                taskService.confirmPhysicalDeletion(snapshot);
                 return CleanupTaskProcessingResult.completed();
             } catch (IllegalStateException lostClaim) {
                 return CleanupTaskProcessingResult.skipped();
             }
         } catch (RuntimeException ex) {
             try {
-                taskService.markRetry(
+                PracticeSpeakingMediaCleanupStatus status = taskService.markRetry(
                         snapshot,
                         PracticeSpeakingMediaCleanupErrorCode.DELETE_FAILED);
+                if (status == PracticeSpeakingMediaCleanupStatus.TERMINAL) {
+                    log.warn(CLEANUP_FAILED_EVENT);
+                    return CleanupTaskProcessingResult.terminal();
+                }
             } catch (IllegalStateException lostClaim) {
                 return CleanupTaskProcessingResult.skipped();
             }

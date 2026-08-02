@@ -47,7 +47,8 @@ public class PracticeSpeakingMediaService {
         PracticeAttempt attempt = loadOwnedAttemptForUpdate(attemptId, userId);
         validateMutableAttempt(attempt);
         validateQuestionScope(attempt, questionId);
-        if (mediaRepository.existsByStorageProviderAndStorageKey(descriptor.storageProvider(), descriptor.storageKey())) {
+        if (mediaRepository.existsByStorageProfileCodeAndStorageKey(
+                descriptor.storageProfileCode(), descriptor.storageKey())) {
             throw new IllegalStateException("Speaking media storage identity already exists.");
         }
 
@@ -64,6 +65,7 @@ public class PracticeSpeakingMediaService {
                 attemptId,
                 questionId,
                 descriptor.storageProvider(),
+                descriptor.storageProfileCode(),
                 descriptor.storageKey(),
                 descriptor.mimeType(),
                 descriptor.container(),
@@ -71,6 +73,69 @@ public class PracticeSpeakingMediaService {
                 descriptor.byteSize(),
                 descriptor.durationMs(),
                 descriptor.contentHash());
+        PracticeSpeakingMedia saved = mediaRepository.saveAndFlush(media);
+        return activationResult(saved, supersededCleanupTaskId);
+    }
+
+    @Transactional
+    public Long registerUnreferencedTemporaryForOwner(
+            Long userId,
+            Long attemptId,
+            Long questionId,
+            ValidatedSpeakingMediaDescriptor descriptor) {
+        PracticeAttempt attempt = loadOwnedAttemptForUpdate(attemptId, userId);
+        validateMutableAttempt(attempt);
+        validateQuestionScope(attempt, questionId);
+        if (mediaRepository.existsByStorageProfileCodeAndStorageKey(
+                descriptor.storageProfileCode(), descriptor.storageKey())) {
+            throw new IllegalStateException("Speaking media storage identity already exists.");
+        }
+        PracticeSpeakingMedia temporary = PracticeSpeakingMedia.temporary(
+                attemptId, questionId, descriptor.storageProvider(),
+                descriptor.storageProfileCode(), descriptor.storageKey(),
+                descriptor.mimeType(), descriptor.container(), descriptor.codec(),
+                descriptor.byteSize(), descriptor.durationMs(), descriptor.contentHash());
+        temporary = mediaRepository.saveAndFlush(temporary);
+        cleanupTaskService.enqueueTemporaryExpiry(
+                temporary.getId(), temporary.getStorageProvider(),
+                temporary.getStorageProfileCode(), temporary.getStorageKey());
+        return temporary.getId();
+    }
+
+    @Transactional
+    public SpeakingMediaActivationResult promoteTemporaryForOwner(
+            Long userId,
+            Long attemptId,
+            Long questionId,
+            Long temporaryMediaId,
+            String expectedTemporaryKey,
+            ValidatedSpeakingMediaDescriptor readyDescriptor) {
+        PracticeAttempt attempt = loadOwnedAttemptForUpdate(attemptId, userId);
+        validateMutableAttempt(attempt);
+        validateQuestionScope(attempt, questionId);
+        PracticeSpeakingMedia media = mediaRepository.findByIdForUpdate(temporaryMediaId)
+                .orElseThrow(this::uploadTargetNotFound);
+        if (!attemptId.equals(media.getAttemptId())
+                || !questionId.equals(media.getQuestionId())
+                || media.getStatus() != PracticeSpeakingMediaStatus.UNREFERENCED_TEMPORARY
+                || !java.util.Objects.equals(expectedTemporaryKey, media.getStorageKey())
+                || !java.util.Objects.equals(readyDescriptor.storageProfileCode(),
+                        media.getStorageProfileCode())
+                || mediaRepository.existsByStorageProfileCodeAndStorageKey(
+                        readyDescriptor.storageProfileCode(), readyDescriptor.storageKey())) {
+            throw new IllegalStateException("Speaking temporary media identity changed.");
+        }
+        List<PracticeSpeakingMedia> readyRows = readyRows(attemptId, questionId);
+        if (readyRows.size() > 1) {
+            throw new IllegalStateException("Multiple READY speaking media rows detected.");
+        }
+        Optional<Long> supersededCleanupTaskId = readyRows.stream()
+                .findFirst().map(this::enqueueSupersededCleanup);
+        readyRows.forEach(PracticeSpeakingMedia::markSuperseded);
+        media.promoteToReady(readyDescriptor.storageProvider(),
+                readyDescriptor.storageProfileCode(), readyDescriptor.storageKey());
+        cleanupTaskService.enqueuePromotedTemporaryCleanup(
+                media.getStorageProvider(), media.getStorageProfileCode(), expectedTemporaryKey);
         PracticeSpeakingMedia saved = mediaRepository.saveAndFlush(media);
         return activationResult(saved, supersededCleanupTaskId);
     }
@@ -162,14 +227,17 @@ public class PracticeSpeakingMediaService {
         validateQuestionScope(attempt, questionId);
         PracticeSpeakingMedia media = mediaRepository.findByIdAndAttemptIdAndQuestionId(mediaId, attemptId, questionId)
                 .orElseThrow(this::uploadTargetNotFound);
-        media.markDeleted();
-        Long cleanupTaskId = cleanupTaskService.enqueueLogicalDelete(
-                media.getStorageProvider(),
-                media.getStorageKey());
+        media.markDeletionPending();
+        Long cleanupTaskId = media.getStorageProfileCode() == null
+                ? cleanupTaskService.enqueueLogicalDelete(
+                        media.getStorageProvider(), media.getStorageKey())
+                : cleanupTaskService.enqueueLogicalDelete(
+                        media.getId(), media.getStorageProvider(),
+                        media.getStorageProfileCode(), media.getStorageKey());
         mediaRepository.flush();
         return new SpeakingMediaDeletionResult(
                 media.getId(),
-                PracticeSpeakingMediaStatus.DELETED,
+                PracticeSpeakingMediaStatus.DELETION_PENDING,
                 cleanupTaskId);
     }
 
@@ -271,9 +339,12 @@ public class PracticeSpeakingMediaService {
     }
 
     private Long enqueueSupersededCleanup(PracticeSpeakingMedia media) {
-        return cleanupTaskService.enqueueSupersededRetention(
-                media.getStorageProvider(),
-                media.getStorageKey());
+        return media.getStorageProfileCode() == null
+                ? cleanupTaskService.enqueueSupersededRetention(
+                        media.getStorageProvider(), media.getStorageKey())
+                : cleanupTaskService.enqueueSupersededRetention(
+                        media.getId(), media.getStorageProvider(),
+                        media.getStorageProfileCode(), media.getStorageKey());
     }
 
     private EntityNotFoundException uploadTargetNotFound() {

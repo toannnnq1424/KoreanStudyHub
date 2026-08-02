@@ -1,8 +1,10 @@
 package com.ksh.entities;
 
 public enum PracticeSpeakingMediaCleanupReason {
+    TEMPORARY_EXPIRY,
     SUPERSEDED_RETENTION,
     LOGICAL_DELETE,
     DISCARD_ATTEMPT,
-    ACTIVATION_COMPENSATION
+    ACTIVATION_COMPENSATION,
+    MIGRATION_SOURCE_DELETE
 }

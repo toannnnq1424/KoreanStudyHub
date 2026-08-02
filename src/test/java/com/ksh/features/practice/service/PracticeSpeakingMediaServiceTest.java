@@ -199,7 +199,10 @@ class PracticeSpeakingMediaServiceTest {
 
         assertThat(mediaRepository.findAllById(List.of(ready.getId(), superseded.getId(), deleted.getId())))
                 .extracting(PracticeSpeakingMedia::getStatus)
-                .containsOnly(PracticeSpeakingMediaStatus.DELETED);
+                .containsExactlyInAnyOrder(
+                        PracticeSpeakingMediaStatus.DELETION_PENDING,
+                        PracticeSpeakingMediaStatus.DELETION_PENDING,
+                        PracticeSpeakingMediaStatus.DELETED);
         assertThat(first.cleanupTaskCount()).isEqualTo(3);
         assertThat(first.immediateCleanupTaskIds()).isEmpty();
         var tasks = cleanupTaskRepository.findAll();
@@ -320,7 +323,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.attemptId(), fixture.userId());
 
         assertThat(mediaRepository.findById(activated.mediaId()).orElseThrow().getStatus())
-                .isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+                .isEqualTo(PracticeSpeakingMediaStatus.DELETION_PENDING);
         assertThat(discarded.cleanupTaskCount()).isEqualTo(1);
         assertThat(discarded.immediateCleanupTaskIds()).isEmpty();
         assertThat(cleanupTaskRepository.findByStorageProviderAndStorageKey(
@@ -905,9 +908,9 @@ class PracticeSpeakingMediaServiceTest {
         SpeakingMediaDeletionResult readyDelete = service.markDeletedForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), second.mediaId());
 
-        assertThat(supersededDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
-        assertThat(repeatedDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
-        assertThat(readyDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
+        assertThat(supersededDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETION_PENDING);
+        assertThat(repeatedDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETION_PENDING);
+        assertThat(readyDelete.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETION_PENDING);
         assertThat(cleanupTaskRepository.findById(supersededDelete.cleanupTaskId()).orElseThrow().getStorageKey())
                 .isEqualTo(firstDescriptor.storageKey());
         assertThat(repeatedDelete.cleanupTaskId()).isEqualTo(supersededDelete.cleanupTaskId());
@@ -915,10 +918,10 @@ class PracticeSpeakingMediaServiceTest {
                 .isEqualTo(secondDescriptor.storageKey());
         assertThat(repeatedDelete.toString()).doesNotContain(firstDescriptor.storageKey());
 
-        List<PracticeSpeakingMedia> deleted = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
-                fixture.attemptId(), fixture.speakingQuestionId(), PracticeSpeakingMediaStatus.DELETED);
-        assertThat(deleted).hasSize(2);
-        assertThat(deleted).allSatisfy(media -> assertThat(media.getDeletedAt()).isNotNull());
+        List<PracticeSpeakingMedia> pending = mediaRepository.findByAttemptIdAndQuestionIdAndStatus(
+                fixture.attemptId(), fixture.speakingQuestionId(), PracticeSpeakingMediaStatus.DELETION_PENDING);
+        assertThat(pending).hasSize(2);
+        assertThat(pending).allSatisfy(media -> assertThat(media.getDeletedAt()).isNull());
         assertThat(service.findReadyMediaForOwner(
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId())).isEmpty();
     }
@@ -1304,9 +1307,25 @@ class PracticeSpeakingMediaServiceTest {
         }
 
         @Override
+        public boolean exists(String storageProfileCode, String storageKey) {
+            if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+                throw new IllegalArgumentException("unexpected profile");
+            }
+            return false;
+        }
+
+        @Override
         public void delete(String storageKey) {
             transactionActiveDuringDeletes.add(TransactionSynchronizationManager.isActualTransactionActive());
             deletedKeys.add(storageKey);
+        }
+
+        @Override
+        public void delete(String storageProfileCode, String storageKey) {
+            if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+                throw new IllegalArgumentException("unexpected profile");
+            }
+            delete(storageKey);
         }
     }
 

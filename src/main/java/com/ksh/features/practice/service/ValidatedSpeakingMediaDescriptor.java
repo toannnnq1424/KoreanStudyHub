@@ -6,6 +6,7 @@ import java.util.Locale;
 
 public record ValidatedSpeakingMediaDescriptor(
         PracticeSpeakingStorageProvider storageProvider,
+        String storageProfileCode,
         String storageKey,
         String mimeType,
         String container,
@@ -14,6 +15,20 @@ public record ValidatedSpeakingMediaDescriptor(
         long durationMs,
         String contentHash
 ) {
+    /** Pre-AIM-6 test compatibility; production preparation uses the exact-profile constructor. */
+    ValidatedSpeakingMediaDescriptor(
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageKey,
+            String mimeType,
+            String container,
+            String codec,
+            long byteSize,
+            long durationMs,
+            String contentHash) {
+        this(storageProvider, null, storageKey, mimeType,
+                container, codec, byteSize, durationMs, contentHash);
+    }
+
     private static final int MAX_STORAGE_KEY_LENGTH = 512;
     private static final int MAX_MIME_TYPE_LENGTH = 128;
     private static final int MAX_CONTAINER_LENGTH = 32;
@@ -23,6 +38,10 @@ public record ValidatedSpeakingMediaDescriptor(
     public ValidatedSpeakingMediaDescriptor {
         if (storageProvider == null) {
             throw new IllegalArgumentException("storageProvider is required.");
+        }
+        if (storageProfileCode != null
+                && !"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+            throw new IllegalArgumentException("storageProfileCode is invalid.");
         }
         storageKey = requireBoundedText(storageKey, "storageKey", MAX_STORAGE_KEY_LENGTH).toLowerCase(Locale.ROOT);
         validateStorageKey(storageKey);
