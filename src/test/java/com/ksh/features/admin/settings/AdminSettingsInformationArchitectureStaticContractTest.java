@@ -143,12 +143,15 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 "src/main/resources/static/css/admin-settings-hub.css"));
         assertThat(css)
                 .contains("min-width: 0", "overflow-wrap: anywhere")
-                .contains("@media (max-width: 800px)", "@media (max-width: 620px)")
+                .contains("@media (max-width: 1180px)", "@media (max-width: 900px)",
+                        "@media (max-width: 620px)")
                 .contains(":focus-visible", "prefers-reduced-motion")
                 .contains("grid-template-columns: 1fr")
                 .contains("input:not([type=\"checkbox\"]):not([type=\"hidden\"])")
                 .contains("min-height: 44px", "border-radius: 10px")
                 .contains("select:disabled", "cursor: not-allowed")
+                .contains(".settings-body .class-detail-layout {",
+                        "grid-template-columns: minmax(0, 1fr)")
                 .contains(".settings-body .class-detail-layout > aside { display: none; }")
                 .contains(".settings-official-links > div { flex: none; }");
     }
@@ -199,6 +202,8 @@ class AdminSettingsInformationArchitectureStaticContractTest {
         assertThat(binding).contains("data-base-url=${profile.baseUrl}", "model-suggestions");
         assertThat(binding)
                 .contains("data-settings-combobox", "role=\"listbox\"", "role=\"option\"")
+                .contains("class=\"settings-combobox-chevron\"", "viewBox=\"0 0 24 24\"")
+                .doesNotContain(">⌄</span>")
                 .contains("settings-combobox-native", "eleven_multilingual_v2")
                 .contains("cần adapter riêng")
                 .contains("aria-autocomplete=\"list\"", "data-model-count", "data-model-empty")

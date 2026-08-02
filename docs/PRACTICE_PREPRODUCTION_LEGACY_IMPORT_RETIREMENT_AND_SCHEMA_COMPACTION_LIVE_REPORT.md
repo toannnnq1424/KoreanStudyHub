@@ -4,9 +4,9 @@ Recorded: `2026-08-02`
 
 Program: `PRACTICE_PREPRODUCTION_LEGACY_IMPORT_RETIREMENT_AND_SCHEMA_COMPACTION`
 
-Current slice: `CLEAN_CUT_5_ADMIN_SETTINGS_IA_AND_VISUAL_REDESIGN`
+Current slice: `CLEAN_CUT_6_CONSOLIDATED_VALIDATION`
 
-Status: `CLEAN_CUT_5_IMPLEMENTED__COORDINATOR_AUDIT_PENDING__CLEAN_CUT_6_NOT_STARTED`
+Status: `UPSTREAM_INTEGRATION_GO`
 
 ## 1. Checkpoint and authority
 
@@ -1473,3 +1473,450 @@ and real external calls remain `AI/R2/STT/TTS = 0/0/0/0`.
 
 Verdict: `CLEAN_CUT_5_ACCEPTED_FOR_ONE_LOCAL_COMMIT`. The commit is coordinator
 owned, remains local and does not authorize a push, PR or merge.
+
+## 17. CLEAN_CUT_6 consolidated validation checkpoint
+
+### 17.1 Entry and post-C5 user-directed UI remediation
+
+C6 opened on
+`codex/practice-clean-cut-legacy-retirement-schema-compaction` at exact HEAD
+`905c407fd2db13f2f3aec21445b4bb80adc9e833`. The baseline remains
+`0361372f44843e4410602e1482c05c6f5dedef49`; the four expected local commits are
+exactly `d02be784`, `a5623b47`, `e11254be` and `905c407f` in that order. No
+commit, push, PR or merge was performed.
+
+Before the consolidated gate, the user explicitly required a bounded UI repair
+for Home, Profile, Lecturer Dashboard and the Practice AI provider picker. The
+uncommitted repair:
+
+- replaces the placeholder/Sprint home page with role-aware destinations and a
+  reduced-motion-safe Baekho welcome animation;
+- redesigns Profile and Lecturer Dashboard in the established login-page blue
+  palette, reduces excessive card rounding, removes decorative icon colors,
+  fixes dashboard search wrapping and preserves mobile overflow safety;
+- makes avatar upload fail with actionable storage-profile feedback instead of
+  HTTP 500 and refreshes the authenticated header avatar after a successful
+  upload;
+- replaces the Practice provider-picker text glyph with a styled inline SVG
+  chevron; and
+- uses the user's exact `/Users/toanlamsaoduocc/Downloads/ksh_logo.png` bytes as
+  `static/images/brand/ksh-logo.png`. Source and workspace SHA-256 are both
+  `67c0655c919736df58b48eae447876d227bf5f5fe0d870bc2eb815e3731fc9d8`; no
+  generated logo variant remains in the working tree.
+
+Focused JDK17 tests for profile/avatar/storage/auth/static IA passed `7` suites
+and `31/31` tests. Browser checks at desktop `1280x820` and mobile `390x844`
+found zero horizontal overflow on Home, Profile and Lecturer Dashboard; the
+dashboard search input/button remained on one row; the Home animation was
+active with its reduced-motion contract; the new favicon/header asset loaded;
+and no `Sprint` copy remained. The local-only opt-in for a disposable LOCAL
+`GENERAL_UPLOADS` profile was supplied through ignored
+`application-local.properties`; the production default remains fail-closed.
+
+### 17.2 Consolidated JDK17 attempt and stop condition
+
+The host exposes only JDK 26 and the Maven enforcer correctly rejected it. No
+enforcer bypass was used. Validation moved to the task's isolated
+`eclipse-temurin:17-jdk` container and a newly named disposable MySQL catalog
+`ksh_test_c6_full_19b6`, with all asynchronous Practice/AI workers disabled and
+no real secret or provider endpoint configured.
+
+The first complete command without `TEST_DB_*` was intentionally rejected by
+the repository disposable-database guard. The guarded rerun used explicit
+credentials for only the named disposable catalog and proved:
+
+- JDK `17.0.19` and Maven enforcer: PASS;
+- Flyway inventory validation: `86` migrations;
+- fresh migration V1 through V86: PASS, current version `86`;
+- current Hibernate mapping initialization/validation: PASS; and
+- early suites, including `Sprint8AiSettingsIntegrationTest` `39/39`: PASS.
+
+The consolidated suite then became red in the non-Practice class-invite lane:
+`ClassInviteJoinIntegrationTest` and `JoinClassServiceTest` produced `12`
+failures and `7` errors around `CLASS_NOT_JOINABLE`/join redirects. The forked
+JVM was subsequently killed with exit `137`; Maven stopped after `605` tests.
+This is not accepted as a green full regression and is not bypassed or relabeled
+as an infrastructure PASS.
+
+Per the locked C6 stop rule, upgrade V85→V86, negative preflight preservation,
+C3 rollback/read binary verification and the remaining consolidated ownership
+lanes were not rerun after this red gate. Earlier coordinator-accepted C4/C5
+evidence remains historical evidence only and is not promoted to a fresh C6
+verdict.
+
+### 17.3 Provider-call and publication verdict
+
+No real AI, R2, STT or TTS provider/storage service was called. Test-only AI
+failure probes used the reserved non-routable documentation address
+`192.0.2.1`; real-call counters remain `AI/R2/STT/TTS = 0/0/0/0`.
+
+Verdict: **`CLEAN_CUT_6_NO_GO__FULL_JDK17_REGRESSION_RED`**.
+
+The working tree remains uncommitted for coordinator audit. No push, PR, merge,
+archive, shared-database mutation, shared object-store action, Phase 14/15,
+Pre-15 or Speaking direct-audio/acoustic work is authorized by this checkpoint.
+
+### 17.4 DIAGNOSIS — class-invite failures and exit 137
+
+Diagnosis was performed read-only against application and test sources. The
+only additional write is this evidence section; no production behavior or test
+expectation was changed. Relative to C5 `905c407f`, the working tree contains
+the user-directed Home/Profile/Dashboard/brand/provider-picker delta described
+in 17.1 (`20` tracked paths plus `6` untracked static/test paths) and this live
+report. It contains no class-join controller/service/entity/test or migration
+delta. Likewise, the committed C1-C5 range from baseline `0361372f` to
+`905c407f` contains no `JoinClass`, `ClassInvite`, `StudentClasses` or
+`ClassEntity` path change.
+
+The two red suites were rerun alone under JDK `17.0.19` against a newly created,
+task-specific catalog `ksh_test_c6_join_diag_19b6`:
+
+`./mvnw -q -Dtest=ClassInviteJoinIntegrationTest,JoinClassServiceTest test`
+
+The catalog migrated fresh from V1 through V86 before the tests. The isolated
+result exactly reproduced the full-run signature: `56` tests, `12` failures,
+`7` errors, `0` skipped. `ClassInviteJoinIntegrationTest` contributed `9`
+failures and `JoinClassServiceTest` contributed `3` failures plus `7` errors.
+The integration class is transactional, so each method rolls back; reproduction
+on the new catalog excludes suite order and residual enrollment/invite rows as
+the cause.
+
+The primary root cause predates this clean-cut program. Commit `329124e3`
+(`feat(classes): add approval lifecycle state`), which is already an ancestor
+of baseline `0361372f`, changed every newly constructed `ClassEntity` from
+`UPCOMING` to `DRAFT`. `JoinTokenValidator` has independently required exactly
+`UPCOMING` or `ACTIVE` since commit `b629c9f4`. However:
+
+- `JoinClassServiceTest.buildClass()` still constructs a class without moving
+  it out of `DRAFT`. Seven nominal success/idempotency cases therefore throw
+  `CLASS_NOT_JOINABLE`; three precedence assertions receive
+  `CLASS_NOT_JOINABLE` instead of `ALREADY_COMPLETED`, `CLASS_FULL` or
+  `OWN_CLASS`.
+- `ClassInviteJoinIntegrationTest.createClassViaController()` creates a class
+  and immediately attempts joins without an approval transition. The form
+  correctly catches `CLASS_NOT_JOINABLE` and renders HTTP 200, while the stale
+  assertions expect redirects. The full-class assertion consequently sees
+  `Lớp không nhận thành viên mới` instead of `Lớp đã đầy`, and both link flows
+  return to `/my/classes/join` rather than `/my/classes`.
+- The remaining integration failure is a separate stale authorization
+  expectation. `lecturer_can_access_join_form` expects HTTP 200, but commit
+  `daf72f6c` explicitly made `StudentClassesController` learner-only with
+  `@PreAuthorize(hasRole('STUDENT'))`; the observed HTTP 403 is consistent with
+  current production policy. That commit is also already an ancestor of
+  baseline `0361372f`.
+
+Thus the `12 + 7` signature is a pre-existing baseline test-fixture/expectation
+drift, not a C1-C5 regression, current UI delta, database contamination or
+timing/order defect. The likely repair scope is confined to the two failing
+test classes: make join scenarios explicitly create/approve an `UPCOMING` class
+and align the lecturer-route assertion with the locked student-only boundary.
+Changing `JoinTokenValidator`, allowing joins to `DRAFT` classes, or reopening
+student routes to lecturers would weaken the approval/auth contract and is not
+recommended without a product decision.
+
+Exit `137` is a separate resource gate, not a consequence of the deterministic
+join assertions. Docker Desktop exposes `8,321,712,128` bytes (7.75 GiB) total.
+The test containers had no per-container memory cap (`HostConfig.Memory=0`),
+and the first combined app/test container was recorded by Docker with
+`OOMKilled=true`. A subsequent isolated full-suite fork again ended with
+SIGKILL/exit `137` after `605` tests. The Maven build has no explicit Surefire
+`forkCount`, `reuseForks`, heap or metaspace cap, so a long-lived Spring test
+fork can grow against the shared Docker VM limit. Historical peak RSS was not
+retained after the `--rm` container exited, so the evidence proves an OOM kill
+for the first run and strongly attributes the second SIGKILL to the same
+unbounded-container/shared-limit condition, but does not invent an exact peak.
+A bounded rerun with a named container and RSS/cgroup sampling is required to
+quantify peak usage before this gate can be called green.
+
+Remediation requires explicit approval because it would edit tests and/or test
+execution configuration. Until then the C6 verdict remains NO_GO. This
+diagnostic rerun made no real external calls; counters remain
+`AI/R2/STT/TTS = 0/0/0/0`, and no shared database or object store was touched.
+
+### 17.5 Approved remediation and complete JDK17 rerun
+
+The user explicitly approved remediation after the diagnosis above. Production
+join/auth policy was not weakened. `JoinClassServiceTest` now moves its fixture
+through the real approval transition before testing join behavior;
+`ClassInviteJoinIntegrationTest` does the same for join scenarios and expects
+HTTP 403 for the lecturer-only negative authorization case. The isolated join
+selection then passed `56/56` with no failure, error or skip.
+
+The first complete rerun exposed additional stale expectations that all
+predated this clean-cut range. Repairs were limited to test fixtures/contracts:
+the current R/L type catalog, exact Practice storage profile, disabled
+Speaking evaluator boundary, current result wording/radar asset, V86 migration
+tombstone, current avatar selector, immutable migration filenames and the
+student-only lesson route. Four remaining text-glyph buttons in touched
+Practice templates were replaced with local inline SVG to satisfy the existing
+active-icon contract. No runtime data-plane, provider, schema or migration
+behavior was relaxed.
+
+The final complete JDK17 run used the named container
+`ksh-c6-full-fix3-19b6`, a 3 GiB container limit, JVM
+`-Xmx1536m -XX:MaxMetaspaceSize=512m`, one non-reused Surefire fork and the
+new disposable catalog `ksh_test_c6_full_fix3_19b6`. Result:
+
+- container exit `0`, `OOMKilled=false`;
+- `428` XML suites, `2938` tests, `0` failures, `0` errors, `14` skips;
+- Flyway current version `86` and current Hibernate context validation PASS;
+- only the reserved documentation endpoint `192.0.2.1:9` appeared in negative
+  provider probes; no real provider or storage endpoint was called.
+
+This bounded successful run closes the earlier exit-137 resource diagnosis;
+the application container later stopped while multiple independent migration
+test containers were intentionally run in parallel on the same Docker VM, but
+that development server is not the named full-regression container or a test
+result. It was restarted for browser QA and did not alter any catalog gate.
+
+### 17.6 Fresh migration, upgrade, negative preflight and rollback/read
+
+All database validation used newly named catalogs inside the local disposable
+C5 MySQL container. No shared catalog was selected, cleaned or modified.
+
+- `ksh_test_c6_fresh_19b6`: fresh V1 through V86, history `86/86`, current
+  Spring/Hibernate context validation PASS.
+- `ksh_test_c6_upgrade_19b6`: stopped at exact V85 with history `85/85`, then
+  applied V86; history `86/86` and current Spring/Hibernate validation PASS.
+- `ksh_test_c6_guard_19b6`: stopped at exact V85, then received one disposable
+  PDF-session row. V86 failed with the exact
+  `C4_PDF_WORKSPACE_ROWS_MUST_BE_EMPTY` preflight. Successful history remained
+  `85/85`, and the source table plus its one row remained intact.
+- An exact source snapshot of C3 commit `a5623b47` ran with Flyway disabled and
+  Hibernate validation enabled against the V86 upgrade catalog. Its absent
+  Speaking upload/delete and playback routes remained 404: `2/2` PASS. No
+  reverse SQL, Flyway clean/repair or shared-root operation was used.
+
+Historical V1-V85 files remain byte-unchanged and V86 remains the only forward
+migration in the clean-cut range. Runtime scans found no mapped/querying
+consumer for the six retired PDF/session/audit tables, no `/models` fetch and
+no reference to the removed `admin-settings-storage.js`.
+
+### 17.7 C5 browser/static gate and final verdict
+
+The authenticated local browser reran Home, Profile and Lecturer Dashboard at
+desktop `1440x900`, compact `1024x768` and mobile `390x844`. Bounding-box and
+screenshot checks found no horizontal overflow, clipped title, broken image or
+unlabelled active form control; the dashboard search stayed on one row. The
+user-supplied KSH/Baekho logo rendered in the header and favicon, Profile avatar
+state propagated through the authenticated principal, and the Home welcome
+animation has a reduced-motion fallback.
+
+The Admin route smoke covered overview, global AI, Practice AI, new Practice
+profile, exact `PRACTICE_PDF_AUTHORING` binding, global storage and Practice
+storage at widths `1440`, `1024` and `390`. Every canonical route rendered with
+zero horizontal overflow and zero broken image. Fixed provider links were the
+allowlisted OpenAI, Gemini, DeepSeek and Qwen/Model Studio URLs, each with
+`target=_blank` and `rel="noopener noreferrer"`; no Base-URL-derived link,
+secret rendering or `/models` request was present.
+
+The final compact-window correction was rerun on the Admin overview and
+Practice AI control plane at `1440x900`, `1080x900`, `820x900` and `390x844`.
+At `1080` the duplicate 240px Admin rail is hidden in favor of the header-owned
+navigation menu, leaving two overview cards at approximately `475px` each and
+the Practice provider card at `978px`; at `900` and below the primary,
+provider and purpose grids become single-column. All measured viewports had
+`scrollWidth - clientWidth == 0`; the next-action button remained inside its
+panel, while desktop `1440` retained the `280px + 1092px` rail/content layout.
+`AdminSettingsInformationArchitectureStaticContractTest` passed on JDK17 after
+locking the `1180/900/620` responsive ownership breakpoints.
+
+The refreshed C5 focused selection passed `8` suites / `34` executed tests /
+`0` failures / `0` errors (`4` environment-conditional skips). The complete
+JDK17 run above exercised the skipped conditional lanes in their consolidated
+configuration. `node --check` for the new Profile script, dead-route/static
+ownership scans and `git diff --check` all passed.
+
+Final consolidated verdict:
+**`CLEAN_CUT_6_GO__READY_FOR_COORDINATOR_AUDIT`**.
+
+The worktree intentionally contains exactly the user-directed UI/brand/profile
+delta, approved stale-test remediation and this consolidated live report: `36`
+tracked modified paths plus `6` untracked static/test paths. There is no C6
+migration/schema delta. Real-call counters remain
+`AI/R2/STT/TTS = 0/0/0/0`. No commit, push, PR, merge, shared-database action,
+shared object-store action, Phase 14/15, Pre-15 or Speaking
+direct-audio/acoustic work was performed. Coordinator audit and the fifth local
+commit remain coordinator-owned.
+
+### 17.8 Coordinator acceptance and upstream publication hold
+
+The coordinator independently reviewed the complete C6 worktree, the approved
+baseline-test remediation, user-directed UI/brand/profile delta, production
+fail-closed avatar behavior, responsive evidence and the consolidated gate
+record. `git diff --check` passed, the source logo checksum matches the supplied
+asset exactly, and the recorded bounded JDK17 run is accepted as `2938/2938`
+green with `OOMKilled=false`. Fresh, upgrade, negative-preflight and C3
+rollback/read evidence is complete; real-call counters remain
+`AI/R2/STT/TTS = 0/0/0/0`.
+
+Verdict: `CLEAN_CUT_6_ACCEPTED_FOR_FIFTH_LOCAL_COMMIT_ONLY`.
+
+Publication is deliberately held because `origin/main` advanced from
+`0361372f` to `73ea51ba` during C6 and now owns a different Flyway V86 migration.
+The clean-cut branch must be integrated against that new upstream, move its
+Practice migration to the next valid identity, refresh affected contracts and
+rerun the migration/regression gates before any push, PR or merge.
+
+## 18. Upstream integration validation — V86 flashcard to V87 Practice
+
+### 18.1 Integrated Git and migration ownership
+
+Validation ran read-only from branch
+`codex/practice-clean-cut-legacy-retirement-schema-compaction` at
+`4bd20809d096a109a4bcfa686501c71cf9a36ba4`. The range above
+`origin/main@73ea51ba` is exactly the five rebased clean-cut commits, in order:
+
+1. `1caced86` — Excel replacement and retirement;
+2. `d8f8f65a` — PDF workspace/session retirement;
+3. `3cf952b1` — legacy storage schema compaction;
+4. `fbce725e` — Admin AI/storage settings redesign; and
+5. `4bd20809` — consolidated C6 validation and user-directed UI fixes.
+
+The uncommitted integration delta moves the Practice compaction identity from
+the now-conflicting V86 filename to
+`V87__practice_legacy_import_schema_compaction.sql` and refreshes only its four
+static migration contracts. Source inventory is exactly `87` files, `87`
+unique versions, minimum `1`, maximum `87`, no gap and no duplicate. Upstream
+V86 remains `V86__flashcard_public_links.sql`; Practice owns only V87. The V87
+body is the accepted Practice compaction DDL with its historical-boundary
+comment advanced to V1-V86. No migration after V87 exists.
+
+### 18.2 Canonical upstream historical rewrite
+
+Commit `b099beb7` (`chore(migrations): remove fragile database bootstrap and
+stale branding`) is upstream-owned and intentionally changed the published V1
+and V54 bytes plus their checksum manifest. The integrated tree matches
+`origin/main@73ea51ba` exactly for all three files:
+
+- `V1__init_schema.sql` SHA-256
+  `64c75c28f72f0bea75c538fcaafaa2048588558f81abdfa9c2c0f4a87f74c93f`;
+- `V54__ai_system_prompts.sql` SHA-256
+  `8d974851b8ccc00d30124e97b911a35fa521e2a2ebd444652c5ea14bea09b48f`;
+- both values are the corresponding entries in
+  `docs/operations/practice-migrations-v1-v56.sha256`.
+
+Current migration sources contain no `CREATE DATABASE` or `USE` statement.
+Fresh validation therefore required the disposable harness to create/select
+the catalog before Flyway. The stale operational sentence claiming V1 still
+created `ksh_db` was corrected in `docs/operations/ksh-java17-toolchain.md`;
+the runbook now states that catalog creation belongs to runtime/test harness,
+while Flyway owns only objects inside the selected catalog. Active production
+sources contain no ULP branding. The remaining `ulp` text is limited to the
+runbook's explicit instruction for removing an old ignored IntelliJ module and
+negative branding tests; it is not an active module, setting, schema or prompt.
+
+Earlier sections that say “V1-V85 byte-unchanged” describe what the clean-cut
+slice itself did against baseline `0361372f`; they do not override the later,
+canonical upstream-owned V1/V54 rewrite. The clean-cut commits did not restore
+or independently edit either historical migration.
+
+### 18.3 Focused JDK17 and static ownership gates
+
+All focused runs used `eclipse-temurin:17-jdk`, local dependency cache and no
+real provider or object-store configuration:
+
+- migration checksum, AIM-8, storage, PDF retirement/orchestration, request-
+  local payload/validation and exact Practice profile selection:
+  `15` suites / `62` tests / `0` failures / `0` errors / `0` skips;
+- Admin settings IA, Practice AI control plane, Excel retirement and PDF
+  retirement static contracts: `4` suites / `21` tests / `0` failures / `0`
+  errors / `0` skips;
+- `git diff --check`: PASS;
+- production route/template/static scan: no mapped/querying reference to the
+  six retired PDF/session/audit tables, no `/models` request and no reference
+  to removed `admin-settings-storage.js`: PASS.
+
+### 18.4 Disposable fresh, upgrade and preflight gates
+
+Database validation used only the dedicated Docker network
+`ksh-c6-upstream-19b6`, its dedicated MySQL 8.4 container and newly created
+catalogs. No shared catalog, root, bucket or object store was selected or
+modified.
+
+- Fresh catalog `ksh_c6_up_fresh_19b6`: after a required `mvn clean` removed a
+  stale ignored `target/classes` resource from the old pre-rebase build, Flyway
+  applied V1 through V87 in order. History is `87` successful rows, max `87`,
+  zero failure; current Spring/Hibernate `validate` started successfully. V86
+  added `flashcard_decks.share_token/is_public` and its unique index, then V87
+  removed the six retired Practice PDF/session/audit tables.
+- Upgrade catalog `ksh_c6_up_upgrade_19b6`: an exact source archive of
+  `origin/main@73ea51ba` migrated and Hibernate-validated the catalog through
+  upstream V86. The current integrated source then validated all `87`
+  migrations, applied only V87 and passed current Hibernate validation. Final
+  history is `87/87`; V86 flashcard columns/index remain and all retired
+  Practice tables are absent.
+- Negative catalog `ksh_c6_up_guard_19b6`: exact upstream first reached V86,
+  then one disposable row was inserted into
+  `practice_pdf_import_sessions`. Current startup exited `1` with SQLSTATE
+  `45000` and exact `C4_PDF_WORKSPACE_ROWS_MUST_BE_EMPTY`. Successful history
+  remains max V86 (`86` successful rows; the V87 history row is failed), all
+  six source tables remain and the seeded row remains unchanged. No compaction
+  DDL ran after the preflight.
+- Rollback/read compatibility: the exact rebased C3 source snapshot
+  `d8f8f65a` started against the final V87 upgrade catalog with Flyway disabled
+  and Hibernate `validate` enabled. Its runtime does not map/query the removed
+  session graph, so the forward schema remains readable without reverse SQL,
+  Flyway repair or clean.
+
+### 18.5 Full JDK17 regression and OOM diagnosis
+
+The first full command was correctly rejected by
+`DisposableTestDatabaseEnvironmentGuard` because its catalog name did not
+match `ksh_test_<run_id>`; the guard was not bypassed and that run is not a
+test result. A fresh compliant catalog was then used.
+
+A diagnostic full attempt with the heap cap applied only to the Maven launcher
+ended `137`; it was discarded because the Surefire fork had not received the
+locked cap. The corrected run used container `ksh-c6-up-full3-19b6`, catalog
+`ksh_test_c6_up_full3_19b6`, a 3 GiB container, Maven launcher
+`-Xmx512m -XX:MaxMetaspaceSize=256m`, and exactly one non-reused Surefire fork
+with `-Xmx1536m -XX:MaxMetaspaceSize=512m`. Fresh V1 through V87 and initial
+Hibernate validation passed.
+
+The initial corrected run nevertheless recorded `oom_kill=4` in
+`/sys/fs/cgroup/memory.events`. Investigation showed this was Docker-VM-wide
+contention, not an application/test-class leak: twelve older disposable/test
+containers were concurrently consuming approximately 6.1 GiB of the Docker
+VM's approximately 7.75 GiB before the 3 GiB full-suite container started.
+The killed full-suite container itself had reached only approximately 1.56 GiB.
+The old disposable containers were stopped rather than explicitly deleted;
+Docker removed the old C5 app container because it had been created with
+auto-remove semantics. The shared `korean_study_hub_db` container was not
+touched.
+
+With the competing disposable containers stopped, two complete diagnostic
+runs traversed all 431 suites without an OOM. They exposed two ordinary
+integration-contract issues rather than memory failures: persistence tests
+still expected max Flyway V86 after upstream assigned V86 to flashcard public
+links, and a MockMvc `StreamingResponseBody` test dispatched while its test
+stream was still writing. The expectations were advanced to V87, including
+the opt-in AIM-8 persistence contract, and the streaming test now waits on a
+bounded test-only stream-close latch before async dispatch. Production
+streaming, migration DDL and runtime behavior were not changed.
+
+The final clean run used catalog `ksh_test_c6_up_full6_19b6`, container
+`ksh-c6-up-full6-19b6`, the same 3 GiB limit, Maven
+`-Xmx512m -XX:MaxMetaspaceSize=256m`, and one non-reused Surefire fork with
+`-Xmx1536m -XX:MaxMetaspaceSize=512m`. Result: exit `0`,
+`OOMKilled=false`, 431 reports, **2,945 tests, 0 failures, 0 errors and 14
+skipped**. The focused speaking playback controller was also repeated three
+times after synchronization and passed 21/21 each time. This closes the OOM
+and full-regression gate without increasing the locked memory limits or
+bypassing database safety guards.
+
+### 18.6 Provider counters and integration verdict
+
+All application probes disabled asynchronous Practice/AI workers. Focused
+tests used fakes/mocks, no secret or real provider/storage endpoint was
+configured, and no external action was taken. Real-call counters remain
+`AI/R2/STT/TTS = 0/0/0/0`.
+
+Verdict: **`UPSTREAM_INTEGRATION_GO`**.
+
+The worktree intentionally remains uncommitted with only the V86-to-V87
+migration identity/contracts, the canonical V1 runbook correction, test-only
+V87/async synchronization adjustments and this integration evidence. No
+commit, push, PR, merge, shared-database operation, shared object-store
+operation, Phase 14/15, Pre-15 or Speaking direct-audio/acoustic work was
+performed.

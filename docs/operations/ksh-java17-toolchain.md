@@ -64,7 +64,8 @@ The user-authorized diagnostic schema `ksh_phase13h_intellij_fresh` was created
 empty and reached V56 before Phase 13H validation. Its ignored datasource
 configuration and the database itself are not repository artifacts.
 
-V1's cross-schema `CREATE DATABASE IF NOT EXISTS ksh_db` and the published
-`TINYINT(1)` spellings are retained to preserve applied checksums. Their MySQL
-9.7 warnings are compatibility debt for a separately authorized new baseline,
-not permission to rewrite migration history.
+The canonical V1 no longer executes cross-schema `CREATE DATABASE` bootstrap
+DDL. The runtime or disposable-test harness must create and select the target
+catalog before Flyway starts; migrations only own objects inside that catalog.
+The published `TINYINT(1)` spellings remain checksum-pinned compatibility debt,
+not permission for a clean-cut slice to rewrite migration history.

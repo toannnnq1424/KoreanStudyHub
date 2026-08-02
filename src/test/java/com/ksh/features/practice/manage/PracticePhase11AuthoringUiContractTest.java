@@ -880,7 +880,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(practiceCss.contains("opacity: 1"));
         assertTrue(appShellCss.contains("white-space: nowrap"));
         assertTrue(appShellCss.contains(".user-chip .name"));
-        assertTrue(appShellCss.contains(".user-chip .avatar::first-letter"));
+        assertTrue(appShellCss.contains(".user-chip .avatar-initial::first-letter"));
         assertTrue(appShellCss.contains("font-size: 0"));
         assertTrue(appShellCss.contains("@media (max-width: 1440px)"));
         assertTrue(appShellCss.contains("@media (max-width: 1280px)"));

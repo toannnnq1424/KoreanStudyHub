@@ -4,6 +4,7 @@ import com.ksh.entities.User;
 import com.ksh.features.profile.dto.ProfileDtos;
 import com.ksh.features.profile.service.ProfileService;
 import com.ksh.features.storage.StorageNotConfiguredException;
+import com.ksh.features.storage.profile.StorageProfileException;
 import com.ksh.features.upload.AvatarStorageService;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
@@ -21,6 +22,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.io.IOException;
 
 import static com.ksh.common.IConstant.ATTR_USER;
+import static com.ksh.common.IConstant.MSG_STORAGE_PROFILE_UNAVAILABLE;
 import static com.ksh.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
 import static com.ksh.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
 
@@ -113,12 +115,18 @@ public class ProfileController {
         try {
             String url = avatarService.store(file);
             profileService.updateAvatar(user, url);
+            principal.updateAvatarUrl(url);
             ra.addFlashAttribute(ATTR_AVATAR_UPDATED, true);
         } catch (IllegalArgumentException e) {
             ra.addFlashAttribute(ATTR_AVATAR_ERROR, e.getMessage());
         } catch (StorageNotConfiguredException e) {
             // R2 selected but incomplete — fail closed with a clear admin hint.
             ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_STORAGE_R2_NOT_CONFIGURED);
+        } catch (StorageProfileException e) {
+            // GENERAL_UPLOADS is exact-profile and fail-closed. Keep the user on
+            // the profile page with an actionable message instead of leaking the
+            // infrastructure exception through the global 500 page.
+            ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_STORAGE_PROFILE_UNAVAILABLE);
         } catch (IOException e) {
             ra.addFlashAttribute(ATTR_AVATAR_ERROR, MSG_STORAGE_UPLOAD_FAILED);
         }

@@ -1,5 +1,5 @@
 -- CLEAN_CUT_4: compact the schema after the C3 runtime stopped mapping and
--- querying the legacy PDF workspace. V1-V85 remain immutable.
+-- querying the legacy PDF workspace. V1-V86 remain immutable.
 --
 -- This is intentionally a clean-cut migration. It never copies rows or scans
 -- object storage. The preflight fails before any DDL when a disposable catalog

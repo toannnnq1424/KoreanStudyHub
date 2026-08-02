@@ -50,7 +50,7 @@ class PracticePdfRetirementStaticContractTest {
                 "practice_ai_request_audits");
         try (var paths = Files.list(ROOT.resolve("src/main/resources/db/migration"))) {
             assertThat(paths.map(path -> path.getFileName().toString()).toList())
-                    .noneMatch(name -> name.matches("V(8[6-9]|9\\d|[1-9]\\d{2,})__.*\\.sql"));
+                    .noneMatch(name -> name.matches("V(8[8-9]|9\\d|[1-9]\\d{2,})__.*\\.sql"));
         }
     }
 
@@ -86,7 +86,7 @@ class PracticePdfRetirementStaticContractTest {
                 .doesNotContain("practice_pdf_import_sessions");
         assertThat(objectMigration)
                 .contains(
-                        "case PDF_IMPORT_SESSION -> throw retiredPdfMigration()",
+                        "== com.ksh.entities.PracticeStorageMigrationLogicalType.PDF_IMPORT_SESSION",
                         "PDF_IMPORT_SESSION_MIGRATION_RETIRED")
                 .doesNotContain("PracticePdfStorageService");
     }

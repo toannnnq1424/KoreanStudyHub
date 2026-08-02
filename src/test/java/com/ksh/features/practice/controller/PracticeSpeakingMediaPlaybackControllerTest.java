@@ -87,7 +87,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isOk())
                 .andExpect(content().bytes(new byte[]{1, 2, 3, 4}))
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, containsString("audio/webm")))
@@ -112,16 +112,17 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void oidcStudentOwnerUsesLocalUserId() throws Exception {
+        TrackingInputStream stream = stream(new byte[]{8, 9});
         when(playbackService.openForOwner(88L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
-                        "audio/mp4", 2L, stream(new byte[]{8, 9})));
+                        "audio/mp4", 2L, stream));
 
         MvcResult result = mockMvc.perform(get(ROUTE)
                         .with(authentication(oidcAuthentication(88L, Role.STUDENT))))
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isOk())
                 .andExpect(content().bytes(new byte[]{8, 9}))
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, containsString("audio/mp4")));
@@ -155,9 +156,10 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void zeroToZeroRangeReturnsSingleByte() throws Exception {
+        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
-                        "audio/webm", 4L, stream(new byte[]{1, 2, 3, 4})));
+                        "audio/webm", 4L, stream));
 
         MvcResult result = mockMvc.perform(get(ROUTE)
                         .header(HttpHeaders.RANGE, "bytes=0-0")
@@ -165,7 +167,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isPartialContent())
                 .andExpect(content().bytes(new byte[]{1}))
                 .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-0/4"))
@@ -198,9 +200,10 @@ class PracticeSpeakingMediaPlaybackControllerTest {
     @Test
     void openEndedRangeReturnsBytesFromOffsetToEnd() throws Exception {
         byte[] content = sequence(160);
+        TrackingInputStream stream = stream(content);
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
-                        "audio/webm", content.length, stream(content)));
+                        "audio/webm", content.length, stream));
 
         MvcResult result = mockMvc.perform(get(ROUTE)
                         .header(HttpHeaders.RANGE, "bytes=100-")
@@ -208,7 +211,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isPartialContent())
                 .andExpect(content().bytes(java.util.Arrays.copyOfRange(content, 100, 160)))
                 .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 100-159/160"))
@@ -217,9 +220,10 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void suffixRangeReturnsTrailingBytes() throws Exception {
+        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4, 5});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
-                        "audio/webm", 5L, stream(new byte[]{1, 2, 3, 4, 5})));
+                        "audio/webm", 5L, stream));
 
         MvcResult result = mockMvc.perform(get(ROUTE)
                         .header(HttpHeaders.RANGE, "bytes=-2")
@@ -227,7 +231,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isPartialContent())
                 .andExpect(content().bytes(new byte[]{4, 5}))
                 .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 3-4/5"))
@@ -236,9 +240,10 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void suffixRangeLargerThanTotalReturnsWholeBodyAsPartial() throws Exception {
+        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4, 5});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
-                        "audio/webm", 5L, stream(new byte[]{1, 2, 3, 4, 5})));
+                        "audio/webm", 5L, stream));
 
         MvcResult result = mockMvc.perform(get(ROUTE)
                         .header(HttpHeaders.RANGE, "bytes=-50")
@@ -246,7 +251,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isPartialContent())
                 .andExpect(content().bytes(new byte[]{1, 2, 3, 4, 5}))
                 .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 0-4/5"))
@@ -336,7 +341,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isOk())
                 .andExpect(content().bytes(new byte[]{1, 2, 3}))
                 .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 3L));
@@ -356,7 +361,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mockMvc.perform(asyncDispatch(result))
+        mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isOk())
                 .andExpect(content().bytes(new byte[]{1, 2}))
                 .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, 4L));
@@ -547,6 +552,12 @@ class PracticeSpeakingMediaPlaybackControllerTest {
         return content;
     }
 
+    private static MvcResult awaitAsync(MvcResult result, TrackingInputStream stream) throws Exception {
+        result.getAsyncResult(5_000L);
+        stream.awaitClosed();
+        return result;
+    }
+
     private static UsernamePasswordAuthenticationToken formAuthentication(Long userId, Role role) {
         KshUserDetails principal = new KshUserDetails(user(userId, role));
         return new UsernamePasswordAuthenticationToken(principal, "n/a", principal.getAuthorities());
@@ -570,7 +581,8 @@ class PracticeSpeakingMediaPlaybackControllerTest {
     }
 
     private static class TrackingInputStream extends ByteArrayInputStream {
-        private boolean closed;
+        private final CountDownLatch closedLatch = new CountDownLatch(1);
+        private volatile boolean closed;
 
         private TrackingInputStream(byte[] buf) {
             super(buf);
@@ -579,7 +591,12 @@ class PracticeSpeakingMediaPlaybackControllerTest {
         @Override
         public void close() throws IOException {
             closed = true;
+            closedLatch.countDown();
             super.close();
+        }
+
+        private void awaitClosed() throws InterruptedException {
+            assertThat(closedLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
         }
     }
 

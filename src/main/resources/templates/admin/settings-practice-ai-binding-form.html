@@ -36,7 +36,10 @@
                                     aria-haspopup="listbox" aria-controls="provider-profile-options" aria-expanded="false"
                                     aria-labelledby="provider-profile-label provider-profile-value"
                                     th:disabled="${#lists.isEmpty(profiles)}">
-                                <span id="provider-profile-value" data-combobox-label>Chọn nhà cung cấp</span><span class="settings-combobox-chevron" aria-hidden="true">⌄</span>
+                                <span id="provider-profile-value" data-combobox-label>Chọn nhà cung cấp</span>
+                                <svg class="settings-combobox-chevron" aria-hidden="true" viewBox="0 0 24 24">
+                                    <path d="m7 10 5 5 5-5"/>
+                                </svg>
                             </button>
                             <div id="provider-profile-options" class="settings-combobox-options" role="listbox"
                                  aria-labelledby="provider-profile-label" tabindex="-1" hidden>

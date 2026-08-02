@@ -64,7 +64,8 @@ class PracticeResultWordingTest {
     @Test
     void speakingOverviewUsesTranscriptProfileWordingWithKshCriterionLevels() throws IOException {
         String fragment = readResource("templates/practice/result/speaking.html");
-        String css = readResource("static/css/practice-result.css");
+        String css = readResource("static/css/practice-result.css")
+                + readResource("static/css/practice-result-prep.css");
 
         assertTrue(fragment.contains("Hồ sơ ngôn ngữ dựa trên bản chép lời"));
         assertTrue(fragment.contains("Kết quả Nói tổng hợp"));
@@ -73,16 +74,16 @@ class PracticeResultWordingTest {
         assertTrue(fragment.contains("Không có điểm số"));
         assertTrue(fragment.contains("Bản chép lời, độ tin cậy nhận dạng và thông tin tệp"));
         assertFalse(fragment.contains("IELTS"));
-        assertTrue(fragment.contains("criterion.band().label()"));
+        assertTrue(fragment.contains("criterion.performanceLabel()"));
         assertTrue(fragment.contains("data-result-tabs=\"speaking-overview-criteria\""));
-        assertTrue(fragment.contains("Bộ đánh giá chưa nhận âm thanh trực tiếp"));
+        assertTrue(fragment.contains("bộ đánh giá chưa nhận âm thanh trực tiếp"));
         assertFalse(fragment.contains("criterion.percentage()"));
         assertFalse(fragment.contains("Band descriptors"));
         assertFalse(fragment.contains("pr-scale"));
-        assertFalse(fragment.toLowerCase().contains("radar"));
+        assertTrue(fragment.contains("pr-speaking-radar"));
         assertFalse(css.contains(".pr-band-chip"));
         assertFalse(css.contains(".pr-scale"));
-        assertFalse(css.toLowerCase().contains("radar"));
+        assertTrue(css.contains(".pr-speaking-radar"));
     }
 
     @Test

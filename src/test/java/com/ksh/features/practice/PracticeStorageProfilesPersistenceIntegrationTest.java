@@ -45,6 +45,6 @@ class PracticeStorageProfilesPersistenceIntegrationTest {
         assertThat(jdbc.queryForObject("""
                 SELECT MAX(CAST(version AS UNSIGNED))
                   FROM flyway_schema_history WHERE success = 1
-                """, Integer.class)).isEqualTo(86);
+                """, Integer.class)).isEqualTo(87);
     }
 }

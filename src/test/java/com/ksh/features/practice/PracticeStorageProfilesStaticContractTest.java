@@ -44,10 +44,10 @@ class PracticeStorageProfilesStaticContractTest {
     }
 
     @Test
-    void v86FailsClosedBeforeDroppingOnlyRetiredPdfSchemaAndTightensPracticeProfiles()
+    void v87FailsClosedBeforeDroppingOnlyRetiredPdfSchemaAndTightensPracticeProfiles()
             throws Exception {
         String sql = read("src/main/resources/db/migration/"
-                + "V86__practice_legacy_import_schema_compaction.sql");
+                + "V87__practice_legacy_import_schema_compaction.sql");
 
         assertThat(sql).contains(
                 "C4_PDF_WORKSPACE_ROWS_MUST_BE_EMPTY",

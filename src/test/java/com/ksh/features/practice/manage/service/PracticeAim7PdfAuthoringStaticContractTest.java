@@ -107,10 +107,10 @@ class PracticeAim7PdfAuthoringStaticContractTest {
                     .filter(name -> name.matches("V\\d+__.*\\.sql"))
                     .toList();
             assertThat(names).anyMatch(name -> name.startsWith("V85__"));
-            assertThat(names).anyMatch(name -> name.startsWith("V86__"));
+            assertThat(names).anyMatch(name -> name.startsWith("V87__"));
             assertThat(names).noneMatch(name -> {
                 int separator = name.indexOf("__");
-                return Integer.parseInt(name.substring(1, separator)) > 86;
+                return Integer.parseInt(name.substring(1, separator)) > 87;
             });
         }
     }

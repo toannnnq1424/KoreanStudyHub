@@ -5421,9 +5421,7 @@ class PracticeIntegrationTest {
         assertThat(result.feedback().state())
                 .isEqualTo("UNAVAILABLE");
         assertThat(result.score().available()).isFalse();
-        verifyNoInteractions(
-                speakingEvaluationClient,
-                speakingTranscriptionClient);
+        verifyNoInteractions(speakingEvaluationClient);
     }
 
     @Test

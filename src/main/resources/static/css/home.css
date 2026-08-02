@@ -1,0 +1,298 @@
+/* KSH home — useful role-aware landing page, deliberately neutral in color. */
+
+.home-page-body {
+  background:
+    radial-gradient(circle at 92% 0, rgba(30, 136, 229, .20), transparent 430px),
+    linear-gradient(180deg, #f1f8ff 0, #f6f9fc 480px);
+}
+
+.home-page {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 40px 0 72px;
+}
+
+.home-welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  align-items: center;
+  gap: 36px;
+  overflow: hidden;
+  padding: 38px 40px;
+  border: 1px solid #cfe3f5;
+  border-radius: 12px;
+  background:
+    linear-gradient(105deg, rgba(220, 239, 255, .92), rgba(255, 255, 255, .97) 62%),
+    #fff;
+  box-shadow: 0 10px 28px rgba(30, 136, 229, .08);
+}
+
+.home-eyebrow,
+.home-section-kicker {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.home-welcome h1 {
+  max-width: 720px;
+  color: #172033;
+  font-size: clamp(30px, 4vw, 46px);
+  font-weight: 790;
+  letter-spacing: -.045em;
+  line-height: 1.12;
+}
+
+.home-welcome-copy > p {
+  max-width: 680px;
+  margin-top: 13px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.home-account-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 21px;
+  color: #4b5769;
+  font-size: 13px;
+}
+
+.home-role-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid #b8d9f6;
+  border-radius: 999px;
+  background: #f1f7fd;
+  color: #1d6098;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.home-welcome-mascot {
+  position: relative;
+  display: flex;
+  min-height: 172px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #1f6da9;
+  text-align: center;
+}
+
+.home-mascot-sprite {
+  width: 128px;
+  height: 128px;
+  background-image: url('/images/practice/baekho/baekho_celebration_128.png');
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 1280px 128px;
+  image-rendering: pixelated;
+  animation: home-baekho-welcome 1.25s steps(10) infinite;
+}
+
+.home-mascot-greeting {
+  margin-top: -4px;
+  color: #1769aa;
+  font-size: 15px;
+  font-weight: 780;
+}
+
+.home-welcome-mascot small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+@keyframes home-baekho-welcome {
+  to { background-position: -1280px 0; }
+}
+
+.home-section {
+  margin-top: 34px;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 17px;
+}
+
+.home-section-head h2 {
+  color: #172033;
+  font-size: 23px;
+  font-weight: 760;
+  letter-spacing: -.025em;
+}
+
+.home-section-head > p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.home-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.home-action-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 112px;
+  padding: 18px;
+  border: 1px solid #d4e4f2;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: none;
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+
+.home-action-card:hover {
+  transform: translateY(-2px);
+  border-color: #8fc0ea;
+  box-shadow: 0 8px 20px rgba(30, 136, 229, .08);
+}
+
+.home-action-card:focus-visible {
+  border-color: var(--primary);
+  outline: 3px solid rgba(30, 136, 229, .14);
+  outline-offset: 2px;
+}
+
+.home-action-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: #2477b9;
+}
+
+.home-action-icon svg,
+.home-action-arrow {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.home-action-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.home-action-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.home-action-copy strong {
+  color: #222e40;
+  font-size: 14px;
+  font-weight: 740;
+}
+
+.home-action-copy > span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.home-action-arrow {
+  width: 18px;
+  height: 18px;
+  color: #75a7d1;
+  transition: transform .15s;
+}
+
+.home-action-card:hover .home-action-arrow {
+  transform: translateX(2px);
+  color: var(--primary-dark);
+}
+
+@media (max-width: 980px) {
+  .home-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .home-page {
+    width: min(100% - 28px, 640px);
+    padding-top: 28px;
+  }
+
+  .home-welcome {
+    grid-template-columns: 1fr;
+    padding: 30px;
+  }
+
+  .home-welcome-mascot {
+    min-height: 140px;
+    padding-top: 4px;
+  }
+
+  .home-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-mascot-sprite {
+    animation: none;
+    background-position: 0 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-page {
+    width: min(100% - 24px, 480px);
+    padding: 24px 0 52px;
+  }
+
+  .home-welcome {
+    padding: 24px 21px;
+    border-radius: 10px;
+  }
+
+  .home-welcome h1 {
+    font-size: 30px;
+  }
+
+  .home-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .home-action-card {
+    grid-template-columns: 28px minmax(0, 1fr) 18px;
+    gap: 12px;
+    min-height: 96px;
+    padding: 15px;
+  }
+
+  .home-action-icon { width: 28px; height: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-action-card,
+  .home-action-arrow {
+    transition: none;
+  }
+}

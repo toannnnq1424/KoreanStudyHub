@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Đăng nhập vào tài khoản của bạn | Korean Study Hub</title>
+  <link rel="icon" href="/images/brand/ksh-logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="/images/brand/ksh-logo.png">
   <style>
     :root{
       --primary:#1E88E5; --primary-dark:#1565C0; --fg:#202227; --heading:#22313F;
@@ -20,7 +22,7 @@
     .page{min-height:100vh;display:flex;flex-direction:column}
     header{display:flex;align-items:center;justify-content:space-between;padding:16px 48px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:30}
     .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;color:var(--primary)}
-    .logo svg{flex:none}
+    .logo img{width:34px;height:34px;flex:none;object-fit:contain;image-rendering:pixelated}
     .header-right{display:flex;align-items:center}
     .header-help{padding:8px 14px;border-radius:var(--radius);font-size:14px;font-weight:600;color:var(--primary);transition:background .15s}
     .header-help:hover{background:rgba(30,136,229,.06)}
@@ -70,7 +72,7 @@
 <div class="page">
   <header>
     <a th:href="@{/login}" class="logo" id="logo">
-      <svg width="30" height="30" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="7" fill="#1E88E5"/><path d="M16 7l8 4v6c0 4.4-3.4 7.2-8 8-4.6-.8-8-3.6-8-8v-6l8-4z" fill="#fff"/><path d="M16 11l4 2-4 2-4-2 4-2z" fill="#1E88E5"/></svg>
+      <img src="/images/brand/ksh-logo.png" alt="">
       KSH
     </a>
     <div class="header-right">
