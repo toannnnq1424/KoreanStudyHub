@@ -926,13 +926,11 @@
       confirmImportButton.textContent = 'Đang tạo candidate...';
       const result = await submit('import', mediaOverrides);
       previewModal.close();
-      pageError.textContent = `Đã tạo authoring candidate ${result.candidateId}. `
-        + 'Bản nháp chưa thay đổi; nội dung đang dừng ở candidate boundary.';
-      pageError.style.borderColor = '#86efac';
-      pageError.style.background = '#f0fdf4';
-      pageError.style.color = '#166534';
-      pageError.hidden = false;
-      pageError.focus();
+      if (!result.reviewUrl || !result.reviewUrl.startsWith(
+        '/practice/manage/authoring-candidates/')) {
+        throw new Error('Máy chủ chưa trả về route rà soát candidate hợp lệ.');
+      }
+      window.location.assign(result.reviewUrl);
     } catch (error) {
       confirmImportButton.disabled = false;
       confirmImportButton.textContent = originalLabel;
