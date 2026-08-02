@@ -834,7 +834,7 @@
             </div>
             <div class="ai-pop-actions">
               <button type="button" class="pi-btn-primary" onclick="runAiAnalysis()">Thử lại AI</button>
-              <button type="button" class="pi-btn-secondary" onclick="convertDraftToManual()">Làm thủ công</button>
+              <button type="button" class="pi-btn-secondary" onclick="openLinkedDraft()">Mở màn biên soạn</button>
             </div>
           </div>
           <div class="pi-sr-only" id="ai-status-update" role="status"
@@ -999,7 +999,7 @@
           <button type="button" class="inspector-tab-btn" id="tab-btn-draft"
                   role="tab" aria-selected="false" tabindex="-1"
                   aria-controls="panel-draft-view"
-                  onclick="switchInspectorTab('draft')">Bản nháp AI</button>
+                  onclick="switchInspectorTab('draft')">Candidate</button>
         </div>
 
         <div class="inspector-content">
@@ -1144,21 +1144,17 @@
             </div>
           </div>
 
-          <!-- 3.2 Tab AI Draft -->
+          <!-- 3.2 Candidate handoff -->
           <div id="panel-draft-view" role="tabpanel"
                aria-labelledby="tab-btn-draft" hidden>
             <div id="draft-empty-state" style="text-align:center; padding:40px 0; color:var(--ksh-text-muted);">
-              <p style="font-size:0.82rem;">Chưa có kết quả phân tích AI. Hãy đánh dấu các vùng và nhấn "Phân tích bằng AI".</p>
+              <p style="font-size:0.82rem;">Sau khi phân tích, hệ thống mở candidate review hiện có. Workspace này không lưu hoặc ghép PracticeDraft.</p>
             </div>
             <div id="draft-tree-container" style="display:none; max-height:60vh; overflow-y:auto;">
               <!-- Tree list -->
             </div>
             
-            <div id="draft-action-panel" style="display:none; border-top:1px solid var(--ksh-border); padding-top:16px; margin-top:16px;">
-              <button class="pi-btn-primary" style="width:100%; margin-bottom:10px;" onclick="convertDraftToManual()">Đưa vào màn biên soạn</button>
-              <button class="pi-btn-secondary" style="width:100%; margin-bottom:10px; background:#fff;" onclick="openLearnerPreview()">Xem như học sinh</button>
-              <button th:if="${sessionInfo.linkedDraftId == null}" class="pi-btn-secondary" style="width:100%; background:#fff;" onclick="openAttachDraftModal()">Ghép vào bản nháp có sẵn</button>
-            </div>
+            <div id="draft-action-panel" style="display:none;"></div>
           </div>
         </div>
       </aside>
@@ -1296,28 +1292,6 @@
       <div style="font-size:0.75rem; color:var(--ksh-text-muted); margin-top:8px;">
         Đây là văn bản hệ thống đọc được từ PDF. Bố cục phức tạp hoặc chữ nằm trong ảnh vẫn cần giáo viên kiểm tra trên trang gốc.
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Attach Draft -->
-<div class="preview-modal" id="attach-draft-modal" data-focus-overlay
-     role="dialog" aria-modal="true" aria-labelledby="attach-draft-title"
-     aria-hidden="true" inert>
-  <div class="preview-card" style="width:450px; height:auto;" tabindex="-1">
-    <div class="preview-header">
-      <h3 id="attach-draft-title" style="margin:0; font-size:1rem; font-weight:800;">Ghép vào bản nháp hiện có</h3>
-      <button type="button" class="stage-tool-btn" style="color:var(--ksh-text);"
-              onclick="closeAttachDraftModal()" aria-label="Đóng ghép bản nháp">
-        <svg th:replace="~{practice/fragments/icons :: close}"></svg>
-      </button>
-    </div>
-    <div class="preview-body" style="padding:20px;">
-      <div class="form-group">
-        <label class="form-label" for="attach-target-id">Chọn bản nháp đích (Draft ID)</label>
-        <input type="number" id="attach-target-id" class="form-input" placeholder="Nhập ID bản nháp của bạn..." required>
-      </div>
-      <button class="pi-btn-primary" style="width:100%; margin-top:12px;" onclick="submitAttachDraft()">Bắt đầu ghép đề</button>
     </div>
   </div>
 </div>
@@ -2670,7 +2644,6 @@
   }
 
   // ═══ RUN AI ANALYSIS & REVIEW DRAFT ═══
-  let aiGeneratedDraft = null;
   let aiAttemptCount = 0;
   let lastAiRequestId = '-';
 
@@ -2844,8 +2817,10 @@
       const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/generate`, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           [header]: token
-        }
+        },
+        body: JSON.stringify({ operation: 'EXTRACT', lecturerRequest: '' })
       });
 
       const payload = await res.json().catch(() => ({}));
@@ -2860,23 +2835,15 @@
         failureStateSet = true;
         throw new Error(firstError);
       }
-      const draft = payload;
-      aiGeneratedDraft = draft;
-
       setAiAnalysisState('SUCCEEDED', {
-        message: 'AI đã bóc tách cấu trúc đề thi thành công. Kiểm tra lại ở tab AI Draft trước khi chuyển sang biên soạn.',
+        message: 'AI đã tạo authoring candidate. Đang mở màn rà soát có thể chỉnh sửa.',
         lastAttemptAt: attemptTime,
         requestId: lastAiRequestId
       });
-
-      const structure = JSON.parse(draft.draftJson);
-      renderDraftTree(structure);
-      switchInspectorTab('draft');
-      
-      await saveWorkspaceStateToServer();
       announceAiStatusUpdate(
-        'Phân tích AI đã hoàn tất. Hãy kiểm tra bản nháp AI trước khi chuyển sang biên soạn.'
+        'Phân tích AI đã hoàn tất. Đang chuyển sang authoring candidate review.'
       );
+      window.location.href = payload.reviewUrl;
     } catch (e) {
       const failureMessage = e?.message || 'Không thể hoàn tất phân tích AI.';
       if (!failureStateSet) {
@@ -2981,83 +2948,12 @@
     }
   }
 
-  async function convertDraftToManual() {
-    if (LINKED_DRAFT_ID) {
-      window.location.href = `/practice/manage/drafts/${LINKED_DRAFT_ID}`;
+  function openLinkedDraft() {
+    if (!LINKED_DRAFT_ID) {
+      alert('Workspace Advanced cần liên kết một bản nháp để tạo candidate.');
       return;
     }
-    showLoading("Đang chuyển đổi sang trình soạn thảo...", "Hệ thống đang liên kết manual draft.");
-    try {
-      const token = document.querySelector('meta[name="_csrf"]').content;
-      const header = document.querySelector('meta[name="_csrf_header"]').content;
-
-      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/create-manual-draft`, {
-        method: 'POST',
-        headers: {
-          [header]: token
-        }
-      });
-      if (res.ok) {
-        const manualDraft = await res.json();
-        alert("Đã chuyển đổi cấu trúc AI bóc tách sang Manual Draft biên tập thủ công thành công!");
-        window.location.href = `/practice/manage/drafts/${manualDraft.id}`;
-      }
-    } catch (e) {
-      alert("Lỗi: " + e.message);
-    } finally {
-      hideLoading();
-    }
-  }
-
-  function openLearnerPreview() {
-    const draftId = aiGeneratedDraft?.id || LINKED_DRAFT_ID;
-    if (!draftId) {
-      alert('Hãy phân tích tài liệu trước khi xem màn hình học sinh.');
-      return;
-    }
-    window.open(`/practice/manage/drafts/${draftId}?preview=1`, '_blank', 'noopener');
-  }
-
-  function openAttachDraftModal() {
-    openFocusOverlay('attach-draft-modal', '#attach-target-id');
-  }
-
-  function closeAttachDraftModal() {
-    closeFocusOverlay('attach-draft-modal');
-  }
-
-  async function submitAttachDraft() {
-    const draftId = document.getElementById('attach-target-id').value;
-    if (!draftId) {
-      alert("Vui lòng nhập Draft ID đích.");
-      return;
-    }
-
-    showLoading("Đang ghép vào bản nháp...", "Vui lòng giữ kết nối.");
-    try {
-      const token = document.querySelector('meta[name="_csrf"]').content;
-      const header = document.querySelector('meta[name="_csrf_header"]').content;
-
-      const res = await fetch(`/practice/manage/import-sessions/${SESSION_ID}/attach-to-draft?targetDraftId=${draftId}`, {
-        method: 'POST',
-        headers: {
-          [header]: token
-        }
-      });
-
-      if (res.ok) {
-        alert("Ghép kết quả import vào bản nháp đích thành công!");
-        window.location.href = `/practice/manage/drafts/${draftId}`;
-      } else {
-        const errText = await res.text();
-        throw new Error(errText || "Lỗi ghép đề.");
-      }
-    } catch (e) {
-      alert("Lỗi ghép đề: " + e.message);
-    } finally {
-      hideLoading();
-      closeAttachDraftModal();
-    }
+    window.location.href = `/practice/manage/drafts/${LINKED_DRAFT_ID}`;
   }
 
   // ═══ SESSION SNAPSHOT & UTILITIES ═══

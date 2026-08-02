@@ -143,7 +143,7 @@ public class PracticePdfPayloadPreviewService {
     }
 
     private String systemPrompt() {
-        return PracticePdfAiPromptRules.systemPrompt();
+        return PracticePdfAiOrchestrator.immutableSystemPrompt();
     }
 
     public record PayloadPreviewDto(

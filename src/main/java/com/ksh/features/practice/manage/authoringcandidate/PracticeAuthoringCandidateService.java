@@ -107,7 +107,24 @@ public class PracticeAuthoringCandidateService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public CandidateView createOrReuse(CreateCommand command) {
+        return createOrReuse(command, List.of());
+    }
+
+    /**
+     * Source adapters may add server-authored warnings after their own strict
+     * validation. Provider issue envelopes are never accepted directly.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public CandidateView createOrReuse(
+            CreateCommand command,
+            List<ValidationIssue> sourceIssues) {
         requireCommand(command);
+        List<ValidationIssue> trustedSourceIssues = sourceIssues == null
+                ? List.of() : List.copyOf(sourceIssues);
+        if (trustedSourceIssues.size() > 200) {
+            throw new IllegalArgumentException(
+                    "Candidate source issue count exceeds the safe limit");
+        }
         SourceSnapshot source = normalizeAndValidateSource(command.source());
         TargetRoute target = normalizeTarget(command.target());
         authorizationService.requireDraft(
@@ -136,12 +153,15 @@ public class PracticeAuthoringCandidateService {
         String candidateId = UUID.randomUUID().toString();
         PracticeAuthoringCandidateNormalizer.NormalizationResult normalized =
                 normalizer.normalize(candidateId, source.kind(), command.groups());
+        List<ValidationIssue> normalizationAndSourceIssues = new ArrayList<>(
+                normalized.issues());
+        normalizationAndSourceIssues.addAll(trustedSourceIssues);
         String digest = contentDigest(
                 source, target, baseDraftVersion, normalized.groups());
         ObjectNode envelope = envelope(
                 candidateId, command.actorId(), source, target,
                 baseDraftVersion, CandidateState.PARSED,
-                normalized.groups(), normalized.issues(), digest,
+                normalized.groups(), normalizationAndSourceIssues, digest,
                 false, now, expiresAt);
         PracticeAuthoringCandidate candidate = new PracticeAuthoringCandidate(
                 candidateId,
@@ -167,7 +187,7 @@ public class PracticeAuthoringCandidateService {
         PracticeAuthoringCandidateValidator.ValidationResult validation =
                 validator.validate(
                         source.kind(), target, normalized.groups(),
-                        normalized.issues());
+                        normalizationAndSourceIssues);
         setIssues(envelope, validation.issues());
         setState(envelope, CandidateState.VALIDATED);
         candidate.markValidated(candidateJson.write(envelope), digest, now);

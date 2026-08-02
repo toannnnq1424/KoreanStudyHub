@@ -5,6 +5,8 @@ import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.entities.PracticePdfPageExtraction;
 import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticePdfImportGroupDraftRepository;
 import com.ksh.features.practice.repository.PracticePdfImportSectionDraftRepository;
@@ -17,6 +19,7 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +28,65 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PracticePdfAiPayloadBuilderGuidedModeTest {
+
+    @Test
+    void basicTextSupportsExtractAndGenerateWithStableUntrustedEvidence() {
+        PracticePdfAiPayloadBuilder builder = builder(
+                mock(PracticePdfPageExtractionService.class));
+        TargetRoute target = new TargetRoute(91L, 2, "READING", "R2");
+
+        PracticePdfAuthoringRequest extract = builder.buildBasicText(
+                "  박물관은 월요일에 쉽니다.  ", SourceOperation.EXTRACT,
+                "Giữ nguyên câu hỏi", target);
+        PracticePdfAuthoringRequest generate = builder.buildBasicText(
+                "박물관은 월요일에 쉽니다.", SourceOperation.GENERATE,
+                "Tạo biến thể", target);
+
+        assertThat(extract.sourceType())
+                .isEqualTo(PracticePdfAuthoringRequest.SourceType.TEXT);
+        assertThat(extract.operation()).isEqualTo(SourceOperation.EXTRACT);
+        assertThat(generate.operation()).isEqualTo(SourceOperation.GENERATE);
+        assertThat(extract.sourceDigest()).isEqualTo(generate.sourceDigest());
+        assertThat(extract.evidence()).singleElement().satisfies(evidence -> {
+            assertThat(evidence.kind()).isEqualTo("TEXT_SPAN");
+            assertThat(evidence.sourceId()).isEqualTo("text-1");
+            assertThat(evidence.untrustedText()).isEqualTo("박물관은 월요일에 쉽니다.");
+        });
+        assertThat(extract.sourceContext())
+                .containsEntry("trust", "UNTRUSTED_SOURCE_CONTENT")
+                .containsEntry("mode", "BASIC_TEXT");
+    }
+
+    @Test
+    void basicPdfSupportsExtractAndGenerateWithPageBoundEvidence() {
+        PracticePdfPageExtractionService extraction =
+                mock(PracticePdfPageExtractionService.class);
+        PracticePdfAiPayloadBuilder builder = builder(extraction);
+        PracticePdfImportSession session = candidateSession();
+        when(extraction.extractOrGetPageText(session, 1))
+                .thenReturn(page(9L, 1, "Trang một có câu hỏi."));
+        when(extraction.extractOrGetPageText(session, 2))
+                .thenReturn(page(9L, 2, "Trang hai có đáp án."));
+
+        PracticePdfAuthoringRequest extract = builder.buildBasicPdf(
+                session, SourceOperation.EXTRACT, "Trích xuất");
+        PracticePdfAuthoringRequest generate = builder.buildBasicPdf(
+                session, SourceOperation.GENERATE, "Tạo câu mới");
+
+        assertThat(extract.sourceType())
+                .isEqualTo(PracticePdfAuthoringRequest.SourceType.PDF);
+        assertThat(extract.sessionId()).isEqualTo(9L);
+        assertThat(extract.evidence()).extracting(
+                        PracticePdfAuthoringRequest.SourceEvidence::sourceId)
+                .containsExactly("page-1", "page-1-text", "page-2", "page-2-text");
+        assertThat(extract.evidence()).filteredOn(
+                        evidence -> "PAGE".equals(evidence.kind()))
+                .extracting(PracticePdfAuthoringRequest.SourceEvidence::pageNumber)
+                .containsExactly(1, 2);
+        assertThat(generate.operation()).isEqualTo(SourceOperation.GENERATE);
+        assertThat(generate.sourceDigest()).isEqualTo(extract.sourceDigest());
+        assertThat(extract.images()).isEmpty();
+    }
 
     @Test
     void fullSelectedPagesCreatesTraceableSyntheticRegionsWithoutManualCrops() {
@@ -67,6 +129,19 @@ class PracticePdfAiPayloadBuilderGuidedModeTest {
         assertEquals("R2", payload.requestDto().getSections().get(0).getLessonCode());
         assertFalse(payload.validationErrors().stream()
                 .anyMatch(error -> "ERROR".equals(error.severity())));
+
+        session.setLinkedDraftId(91L);
+        PracticePdfAuthoringRequest advanced =
+                builder.buildAdvancedAuthoringRequest(
+                        session, payload, SourceOperation.EXTRACT, "");
+        assertThat(advanced.sourceType())
+                .isEqualTo(PracticePdfAuthoringRequest.SourceType.ADVANCED_PDF);
+        assertThat(advanced.evidence()).extracting(
+                        PracticePdfAuthoringRequest.SourceEvidence::sourceId)
+                .containsExactly("page-2", "page-3");
+        assertThat(advanced.sourceContext())
+                .containsEntry("mode", "ADVANCED_PDF")
+                .containsEntry("trust", "UNTRUSTED_SOURCE_CONTENT");
     }
 
     @Test
@@ -193,6 +268,34 @@ class PracticePdfAiPayloadBuilderGuidedModeTest {
         session.setSelectedEndPage(1);
         session.setExtractionStrategy("REGION_ONLY");
         return session;
+    }
+
+    private static PracticePdfImportSession candidateSession() {
+        PracticePdfImportSession session = new PracticePdfImportSession(
+                7L, "basic.pdf", "/private/basic.pdf", 2, "UPLOADED",
+                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.now().plusHours(1));
+        session.setId(9L);
+        session.setSelectedStartPage(1);
+        session.setSelectedEndPage(2);
+        session.setLinkedDraftId(91L);
+        session.setTargetTestNo(2);
+        session.setTargetSkill("READING");
+        session.setTargetLessonCode("R2");
+        return session;
+    }
+
+    private static PracticePdfAiPayloadBuilder builder(
+            PracticePdfPageExtractionService extraction) {
+        return new PracticePdfAiPayloadBuilder(
+                mock(PracticePdfRegionAnnotationRepository.class),
+                mock(PracticePdfImportSectionDraftRepository.class),
+                mock(PracticePdfImportGroupDraftRepository.class),
+                extraction,
+                mock(PracticePdfCropService.class),
+                mock(LecturerAssetRepository.class),
+                mock(AssetStorageService.class),
+                new ImportAiPayloadValidator());
     }
 
     private static PracticePdfRegionAnnotation imageRegion() {

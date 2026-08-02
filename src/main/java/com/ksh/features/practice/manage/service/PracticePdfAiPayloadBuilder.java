@@ -3,6 +3,8 @@ package com.ksh.features.practice.manage.service;
 import com.ksh.entities.*;
 import com.ksh.features.practice.manage.dto.AiDocumentImportRequest;
 import com.ksh.features.practice.manage.dto.AiDocumentImportRequest.*;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator.ValidationError;
 import com.ksh.features.practice.repository.*;
@@ -12,6 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -74,6 +79,146 @@ public class PracticePdfAiPayloadBuilder {
                 new PracticePdfAiLimits(
                         50, 100, 1_000_000, 5_242_880L, 20_971_520L,
                         40_000_000L, Duration.ofMinutes(2)));
+    }
+
+    public PracticePdfAuthoringRequest buildBasicText(
+            String sourceText,
+            SourceOperation operation,
+            String lecturerRequest,
+            TargetRoute target) {
+        String normalized = PracticePdfAuthoringRequest.normalize(sourceText);
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng dán nội dung cần biên soạn.");
+        }
+        if (normalized.length() > limits.maxTextCharacters()) {
+            throw new IllegalArgumentException(
+                    "Nội dung Text vượt ngân sách ký tự an toàn.");
+        }
+        PracticePdfAuthoringRequest.SourceEvidence evidence =
+                new PracticePdfAuthoringRequest.SourceEvidence(
+                        "TEXT_SPAN", "text-1", null,
+                        normalized.length(), normalized);
+        List<PracticePdfAuthoringRequest.SourceEvidence> evidenceList =
+                List.of(evidence);
+        return new PracticePdfAuthoringRequest(
+                PracticePdfAuthoringRequest.SourceType.TEXT,
+                operation,
+                "Pasted text",
+                digestEvidence(evidenceList, List.of()),
+                target,
+                lecturerRequest,
+                evidenceList,
+                sourceContext("BASIC_TEXT", target, evidenceList, Map.of(), null),
+                List.of(),
+                null);
+    }
+
+    public PracticePdfAuthoringRequest buildBasicPdf(
+            PracticePdfImportSession session,
+            SourceOperation operation,
+            String lecturerRequest) {
+        requireCandidateTarget(session);
+        int start = session.getSelectedStartPage();
+        int end = session.getSelectedEndPage();
+        if (start < 1 || end < start || end - start + 1 > limits.maxSelectedPages()) {
+            throw new IllegalArgumentException(
+                    "Phạm vi trang PDF vượt ngân sách xử lý an toàn.");
+        }
+        List<PracticePdfAuthoringRequest.SourceEvidence> evidence = new ArrayList<>();
+        int totalCharacters = 0;
+        for (int page = start; page <= end; page++) {
+            PracticePdfPageExtraction extraction =
+                    pageExtractionService.extractOrGetPageText(session, page);
+            if (!"COMPLETED".equals(extraction.getExtractionStatus())) {
+                throw new IllegalArgumentException(
+                        "Không thể trích xuất text từ trang PDF đã chọn.");
+            }
+            String text = PracticePdfAuthoringRequest.normalize(
+                    extraction.getNormalizedText() == null
+                            ? extraction.getRawText()
+                            : extraction.getNormalizedText());
+            if (text.length() > limits.maxTextCharacters() - totalCharacters) {
+                throw new IllegalArgumentException(
+                        "Nội dung PDF vượt ngân sách ký tự an toàn.");
+            }
+            totalCharacters += text.length();
+            evidence.add(new PracticePdfAuthoringRequest.SourceEvidence(
+                    "PAGE", "page-" + page, page, text.length(), text));
+            if (!text.isEmpty()) {
+                evidence.add(new PracticePdfAuthoringRequest.SourceEvidence(
+                        "TEXT_SPAN", "page-" + page + "-text", page,
+                        text.length(), text));
+            }
+        }
+        if (totalCharacters == 0) {
+            throw new IllegalArgumentException(
+                    "Các trang đã chọn không có text để biên soạn Basic. Hãy dùng Advanced.");
+        }
+        TargetRoute target = target(session);
+        return new PracticePdfAuthoringRequest(
+                PracticePdfAuthoringRequest.SourceType.PDF,
+                operation,
+                safeSourceName(session.getOriginalFilename()),
+                digestEvidence(evidence, List.of()),
+                target,
+                lecturerRequest,
+                evidence,
+                sourceContext("BASIC_PDF", target, evidence, Map.of(), session.getId()),
+                List.of(),
+                session.getId());
+    }
+
+    public PracticePdfAuthoringRequest buildAdvancedAuthoringRequest(
+            PracticePdfImportSession session,
+            PayloadInfo payload,
+            SourceOperation operation,
+            String lecturerRequest) {
+        requireCandidateTarget(session);
+        List<PracticePdfAuthoringRequest.SourceEvidence> evidence = new ArrayList<>();
+        if (payload.requestDto() != null && payload.requestDto().getRegions() != null) {
+            for (RegionPayload region : payload.requestDto().getRegions()) {
+                String text = PracticePdfAuthoringRequest.normalize(region.getOcrText());
+                String kind = "FULL_PAGE".equals(region.getRegionType())
+                        ? "PAGE" : "REGION";
+                evidence.add(new PracticePdfAuthoringRequest.SourceEvidence(
+                        kind,
+                        region.getRegionId(),
+                        region.getPageNumber(),
+                        text.length(),
+                        text));
+            }
+        }
+        if (evidence.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Advanced workspace chưa có source evidence hợp lệ.");
+        }
+        Map<String, String> assetReferences = new LinkedHashMap<>();
+        List<com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest.ImageEvidence>
+                images = new ArrayList<>();
+        for (CropInfo crop : payload.crops()) {
+            assetReferences.put(crop.assetRef(), crop.url());
+            images.add(new com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest.ImageEvidence(
+                    "PDF_REGION_" + crop.regionId(),
+                    sha256(crop.base64DataUrl()),
+                    crop.base64DataUrl(),
+                    "high"));
+        }
+        TargetRoute target = target(session);
+        Map<String, Object> context = sourceContext(
+                "ADVANCED_PDF", target, evidence, assetReferences, session.getId());
+        context = new LinkedHashMap<>(context);
+        context.put("workspaceHints", payload.requestDto());
+        return new PracticePdfAuthoringRequest(
+                PracticePdfAuthoringRequest.SourceType.ADVANCED_PDF,
+                operation,
+                safeSourceName(session.getOriginalFilename()),
+                digestEvidence(evidence, images),
+                target,
+                lecturerRequest,
+                evidence,
+                context,
+                images,
+                session.getId());
     }
 
     public PayloadInfo buildPayload(PracticePdfImportSession session) {
@@ -488,4 +633,95 @@ public class PracticePdfAiPayloadBuilder {
             Map<String, Object> statsSummary,
             List<ValidationError> validationErrors
     ) {}
+
+    private static TargetRoute target(PracticePdfImportSession session) {
+        return new TargetRoute(
+                session.getLinkedDraftId(),
+                session.getTargetTestNo(),
+                session.getTargetSkill(),
+                session.getTargetLessonCode());
+    }
+
+    private static void requireCandidateTarget(PracticePdfImportSession session) {
+        if (session == null || session.getLinkedDraftId() == null
+                || session.getTargetTestNo() == null
+                || session.getTargetSkill() == null
+                || session.getTargetLessonCode() == null) {
+            throw new IllegalArgumentException(
+                    "PDF authoring candidate cần một phần đích trong bản nháp hiện có.");
+        }
+    }
+
+    private static Map<String, Object> sourceContext(
+            String mode,
+            TargetRoute target,
+            List<PracticePdfAuthoringRequest.SourceEvidence> evidence,
+            Map<String, String> assetReferences,
+            Long sessionId) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("trust", "UNTRUSTED_SOURCE_CONTENT");
+        context.put("mode", mode);
+        context.put("targetSkill", target.skill());
+        context.put("targetTestNo", target.testNo());
+        context.put("targetLessonCode", target.lessonCode());
+        if (sessionId != null) context.put("sessionId", sessionId);
+        context.put("evidence", evidence.stream().map(item -> {
+            Map<String, Object> value = new LinkedHashMap<>();
+            value.put("kind", item.kind());
+            value.put("sourceId", item.sourceId());
+            if (item.pageNumber() != null) value.put("pageNumber", item.pageNumber());
+            value.put("textLength", item.textLength());
+            value.put("untrustedText", item.untrustedText());
+            return value;
+        }).toList());
+        context.put("assetReferences", Map.copyOf(assetReferences));
+        return Map.copyOf(context);
+    }
+
+    private static String digestEvidence(
+            List<PracticePdfAuthoringRequest.SourceEvidence> evidence,
+            List<com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest.ImageEvidence>
+                    images) {
+        MessageDigest digest = sha256Digest();
+        for (PracticePdfAuthoringRequest.SourceEvidence item : evidence) {
+            update(digest, item.kind());
+            update(digest, item.sourceId());
+            update(digest, item.pageNumber() == null ? "" : item.pageNumber().toString());
+            update(digest, item.untrustedText());
+        }
+        for (com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest.ImageEvidence
+                image : images) {
+            update(digest, image.role());
+            update(digest, image.sha256());
+        }
+        return "sha256:" + HexFormat.of().formatHex(digest.digest());
+    }
+
+    private static void update(MessageDigest digest, String value) {
+        byte[] bytes = (value == null ? "" : value).getBytes(StandardCharsets.UTF_8);
+        digest.update((byte) (bytes.length >>> 24));
+        digest.update((byte) (bytes.length >>> 16));
+        digest.update((byte) (bytes.length >>> 8));
+        digest.update((byte) bytes.length);
+        digest.update(bytes);
+    }
+
+    private static String safeSourceName(String value) {
+        String name = PracticePdfAuthoringRequest.normalize(value);
+        return name.isBlank() ? "Practice PDF" : name.substring(0, Math.min(255, name.length()));
+    }
+
+    private static String sha256(String value) {
+        MessageDigest digest = sha256Digest();
+        digest.update((value == null ? "" : value).getBytes(StandardCharsets.UTF_8));
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private static MessageDigest sha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is required", exception);
+        }
+    }
 }
