@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Practice AI profile', ~{::link.page-css})}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+<div class="class-detail-layout">
+    <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+    <main class="col">
+        <nav class="settings-breadcrumb"><a th:href="@{/admin/settings/practice-ai}">Practice AI</a><span class="sep">/</span><span>Provider profile</span></nav>
+        <h1 class="detail-title" th:text="${mode == 'create' ? 'Thêm Practice provider profile' : 'Sửa Practice provider profile'}">Profile</h1>
+        <form method="post" th:action="@{/admin/settings/practice-ai/profiles}" th:object="${form}" class="users-form">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" th:field="*{id}"><input type="hidden" th:field="*{revision}">
+            <div class="alert alert-danger" th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}">Error</div>
+            <section class="detail-card">
+                <div class="form-row"><label for="profileCode">Profile code</label><input id="profileCode" th:field="*{profileCode}" th:readonly="${mode == 'edit'}" maxlength="64" required><p class="field-error" th:errors="*{profileCode}"></p></div>
+                <div class="form-row"><label for="displayName">Tên hiển thị</label><input id="displayName" th:field="*{displayName}" maxlength="120" required><p class="field-error" th:errors="*{displayName}"></p></div>
+                <div class="form-row"><label for="providerFamily">Provider family</label><input id="providerFamily" th:field="*{providerFamily}" readonly></div>
+                <div class="form-row"><label for="baseUrl">Base URL</label><input id="baseUrl" th:field="*{baseUrl}" maxlength="500" required><p class="field-error" th:errors="*{baseUrl}"></p></div>
+                <div class="form-row"><label for="credentialSecret">Credential secret</label><input id="credentialSecret" type="password" th:field="*{credentialSecret}" maxlength="4096" autocomplete="new-password"><button th:if="${mode == 'edit'}" type="button" class="btn-ghost js-practice-ai-reveal" th:attr="data-profile-id=*{id}" aria-pressed="false">Hiện / ẩn secret</button><p>Để trống hoặc giữ ******** khi sửa để không thay secret.</p><p class="field-error" th:errors="*{credentialSecret}"></p></div>
+                <div class="form-row"><label><input type="checkbox" th:field="*{enabled}"> Enabled</label></div>
+                <button class="btn btn-primary" type="submit">Lưu profile</button>
+                <a class="btn-ghost" th:href="@{/admin/settings/practice-ai}">Hủy</a>
+            </section>
+        </form>
+    </main>
+</div>
+<div id="practiceAiActionResult" class="sr-only" role="status" aria-live="polite"></div>
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+<script th:src="@{/js/admin-settings-practice-ai.js}"></script>
+</body>
+</html>

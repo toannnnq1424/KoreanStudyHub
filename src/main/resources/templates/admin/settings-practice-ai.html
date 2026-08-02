@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Practice AI', ~{::link.page-css})}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+<div class="class-detail-layout">
+    <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+    <main class="col">
+        <nav class="settings-breadcrumb" aria-label="Breadcrumb">
+            <a th:href="@{/admin/settings}">Cài đặt hệ thống</a><span class="sep">/</span>
+            <a th:href="@{/admin/settings/ai}">AI</a><span class="sep">/</span>
+            <span>Practice control plane</span>
+        </nav>
+        <h1 class="detail-title">Practice AI control plane</h1>
+        <p class="detail-sub">Mỗi purpose chỉ có một binding. Practice dùng transport riêng và
+            dừng an toàn khi profile hoặc binding không sẵn sàng.</p>
+        <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
+             th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
+
+        <section class="admin-list-panel">
+            <div class="admin-list-head">
+                <div><h2>Provider profiles</h2><p>Secret không xuất hiện trong bảng.</p></div>
+                <a class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm profile</a>
+            </div>
+            <div class="admin-list-table-scroll">
+                <table class="admin-list-table">
+                    <thead><tr><th>Code</th><th>Tên</th><th>Family</th><th>Base URL</th><th>Revision</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(profiles)}"><td colspan="7">Chưa có Practice provider profile.</td></tr>
+                    <tr th:each="profile : ${profiles}">
+                        <td th:text="${profile.profileCode}">PRACTICE_PRIMARY</td>
+                        <td th:text="${profile.displayName}">Primary</td>
+                        <td th:text="${profile.providerFamily}">OPENAI_COMPATIBLE</td>
+                        <td th:text="${profile.baseUrl}">https://example.invalid/v1</td>
+                        <td th:text="${profile.revision}">0</td>
+                        <td th:text="${profile.enabled ? 'ACTIVE' : 'DISABLED'}">DISABLED</td>
+                        <td>
+                            <a class="btn-ghost" th:href="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/edit'}">Sửa</a>
+                            <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/toggle'}" style="display:inline">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                                <button class="btn-ghost" type="submit" th:text="${profile.enabled ? 'Tắt' : 'Bật'}">Bật</button>
+                            </form>
+                            <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/delete'}" style="display:inline">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                                <button class="btn-ghost" type="submit">Xóa nếu chưa bind</button>
+                            </form>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="admin-list-panel">
+            <div class="admin-list-head"><div><h2>Exact purpose bindings</h2><p>Capability test chỉ chạy khi Admin bấm Test.</p></div></div>
+            <div class="admin-list-table-scroll">
+                <table class="admin-list-table">
+                    <thead><tr><th>Purpose</th><th>Capability bắt buộc</th><th>Profile / model</th><th>Revision</th><th>Retention</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                    <tbody>
+                    <tr th:each="binding : ${bindings}">
+                        <td><strong th:text="${binding.purpose}">PURPOSE</strong><br><span th:text="${binding.purposeLabel}">Label</span>
+                            <div th:each="run : ${binding.recentRuns}" class="field-hint"
+                                 th:text="${'test r' + run.bindingRevision + ': ' + (run.status ?: 'RUNNING') + ' · ' + (run.durationMs ?: 0) + ' ms' + (run.errorCode != null ? ' · ' + run.errorCode : '')}">test audit</div>
+                        </td>
+                        <td th:text="${binding.requiredCapabilities}">STRICT_JSON_SCHEMA</td>
+                        <td th:text="${binding.configured ? binding.providerProfileCode + ' / ' + binding.model : 'MISSING'}">MISSING</td>
+                        <td th:text="${binding.configured ? binding.revision : '—'}">—</td>
+                        <td th:text="${binding.retentionCode ?: '—'}">—</td>
+                        <td th:text="${binding.configured ? (binding.enabled ? 'ACTIVE' : 'DISABLED') : 'MISSING'}">MISSING</td>
+                        <td>
+                            <a class="btn-ghost" th:href="@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/edit'}">Cấu hình</a>
+                            <form th:if="${binding.configured}" method="post" th:action="@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/toggle'}" style="display:inline">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                                <button class="btn-ghost" type="submit" th:text="${binding.enabled ? 'Tắt' : 'Bật'}">Bật</button>
+                            </form>
+                            <button th:if="${binding.configured and binding.enabled}"
+                                    class="btn-ghost js-practice-ai-test" type="button"
+                                    th:attr="data-url=@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/test'},data-purpose=${binding.purpose}">Test capability</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+<div id="practiceAiActionResult" class="sr-only" role="status" aria-live="polite"></div>
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+<script th:src="@{/js/admin-settings-practice-ai.js}"></script>
+</body>
+</html>
