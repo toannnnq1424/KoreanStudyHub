@@ -1,6 +1,8 @@
 package com.ksh.features.practice.manage.authoringcandidate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
@@ -12,6 +14,7 @@ import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCand
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceSnapshot;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.ValidationIssue;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +28,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -92,6 +96,63 @@ class PracticeAuthoringCandidateServiceTest {
         verify(authorizationService).requireDraft(
                 5001L, 101L, PracticeAction.EDIT);
         verify(candidateRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void exactPdfAiSnapshotPersistsReviewingCandidateWithoutDraftMutation() {
+        PracticeDraft draft = PracticeAuthoringCandidateTestFixtures.targetDraft(0);
+        when(draftRepository.findByIdForUpdate(5001L))
+                .thenReturn(Optional.of(draft));
+        when(candidateRepository.saveAndFlush(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        ArrayNode groups = PracticeAuthoringCandidateTestFixtures
+                .readingGroups(objectMapper, false);
+        ObjectNode group = (ObjectNode) groups.get(0);
+        ObjectNode sourceRef = objectMapper.createObjectNode();
+        sourceRef.put("kind", "TEXT_SPAN");
+        sourceRef.put("sourceId", "text-1");
+        sourceRef.put("start", 0);
+        sourceRef.put("end", 20);
+        group.set("sourceRefs", objectMapper.createArrayNode().add(sourceRef.deepCopy()));
+        group.withObject("/stimulus/provenance").put("source", "PDF_AI")
+                .set("sourceRefs", objectMapper.createArrayNode().add(sourceRef.deepCopy()));
+        group.withObject("/questions/0").put("reviewState", "REVIEW_REQUIRED")
+                .set("sourceRefs", objectMapper.createArrayNode().add(sourceRef.deepCopy()));
+        ObjectNode execution = objectMapper.createObjectNode();
+        execution.put("purpose", "PRACTICE_PDF_AUTHORING");
+        execution.put("bindingRevision", 4L);
+        execution.put("providerProfileCode", "PRACTICE_AUTHORING_V1");
+        execution.put("providerFamily", "OPENAI_COMPATIBLE");
+        execution.put("model", "fake-model");
+        execution.put("transportDialect", "OPENAI_COMPATIBLE_V1");
+        execution.put("requestId", "11111111-1111-4111-8111-111111111111");
+        CreateCommand pdf = new CreateCommand(
+                101L,
+                new SourceSnapshot(
+                        SourceKind.PDF_AI,
+                        "practice-pdf-authoring-output-v1",
+                        "sha256:" + PracticeAuthoringCandidateTestFixtures.SOURCE_DIGEST,
+                        "authoring-v1-b4", "source.pdf",
+                        SourceOperation.EXTRACT, execution),
+                new TargetRoute(5001L, 1, "READING", "R1"),
+                groups);
+
+        var result = service.createOrReuse(pdf, List.of(
+                ValidationIssue.warning(
+                        "PDF_LOW_CONFIDENCE", "SOURCE", "/groups/0/questions/0",
+                        "Cần rà soát.", "EDIT_IN_REVIEW")));
+
+        assertThat(result.state()).isEqualTo(
+                PracticeAuthoringCandidateModels.CandidateState.REVIEWING);
+        assertThat(result.candidate().at("/source/kind").asText())
+                .isEqualTo("PDF_AI");
+        assertThat(result.candidate().at("/source/operation").asText())
+                .isEqualTo("EXTRACT");
+        assertThat(result.candidate().at("/source/aiExecution/purpose").asText())
+                .isEqualTo("PRACTICE_PDF_AUTHORING");
+        assertThat(result.issues()).extracting(ValidationIssue::code)
+                .contains("PDF_LOW_CONFIDENCE");
+        verify(draftRepository, never()).save(any());
     }
 
     @Test
