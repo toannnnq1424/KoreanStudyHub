@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.OpenAiProperties;
 import com.ksh.features.practice.ai.media.AiImageEvidence;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.features.practice.ai.media.AiQuestionImageResolver;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
 import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
@@ -336,8 +337,9 @@ public class WritingEvaluationClient {
                                     "high"));
             PracticeStructuredGenerationRequest request =
                     new PracticeStructuredGenerationRequest(
+                            PracticeAiPurpose.PRACTICE_WRITING_EVALUATION,
                             "writing-evaluation-" + passName,
-                            PracticeAiCapability.ASSESSMENT_TEXT_VISION,
+                            PracticeAiCapability.STRICT_STRUCTURED_TEXT_VISION,
                             new PracticeAiAuthoritySnapshot(
                                     cacheSchemaVersion(),
                                     WritingPromptRules.PROMPT_VERSION,
@@ -431,19 +433,25 @@ public class WritingEvaluationClient {
 
     private boolean providerAvailable() {
         return structuredGeneration.identity(
-                PracticeAiCapability.ASSESSMENT_TEXT_VISION).available();
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION).available();
     }
 
     private String evaluatorModel() {
         return structuredGeneration.identity(
-                PracticeAiCapability.ASSESSMENT_TEXT_VISION).model();
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION).model();
     }
 
     private String transportIdentity() {
         PracticeStructuredGenerationPort.ProviderIdentity identity =
                 structuredGeneration.identity(
-                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+                        PracticeAiPurpose.PRACTICE_WRITING_EVALUATION);
         return identity.provider()
+                + ":"
+                + identity.providerProfileCode()
+                + ":binding-revision="
+                + identity.bindingRevision()
+                + ":profile-revision="
+                + identity.providerProfileRevision()
                 + ":"
                 + identity.capabilityProfile().profileVersion();
     }

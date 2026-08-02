@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.transport;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -85,13 +86,14 @@ public final class TestPracticeStructuredGenerationPort
     }
 
     @Override
-    public ProviderIdentity identity(PracticeAiCapability capability) {
-        if (capability != PracticeAiCapability.ASSESSMENT_TEXT_VISION) {
+    public ProviderIdentity identity(PracticeAiPurpose purpose) {
+        if (!purpose.structuredJson()) {
             return new ProviderIdentity(
                     identity.provider(),
                     "",
-                    DisabledPracticeStructuredGenerationAdapter.profileFor(
-                            capability),
+                    new PracticeModelCapabilityProfile(
+                            "practice-disabled-test-v1",
+                            false, false, false, false, false),
                     false);
         }
         return identity;

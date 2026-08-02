@@ -1,7 +1,12 @@
 package com.ksh.features.practice.manage.speaking;
 
+import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
+import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneException;
+import com.ksh.features.practice.ai.controlplane.PracticeAiExecutionAuditService;
+import com.ksh.features.practice.ai.controlplane.PracticeAiProviderTransport;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
+import com.ksh.features.practice.ai.controlplane.PracticeAiResolvedBinding;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
-import com.ksh.features.practice.service.audio.OpenAiAudioHttpTransport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -19,13 +24,20 @@ public class OpenAiSpeakingPromptTtsAdapter implements SpeakingPromptTtsPort {
     private final SpeakingPromptAudioVerifier audioVerifier;
     private final PracticeAiMetrics metrics;
     private final TtsTransport overrideTransport;
+    private final PracticeAiBindingResolver bindingResolver;
+    private final PracticeAiExecutionAuditService auditService;
+    private final PracticeAiProviderTransport providerTransport;
 
     @Autowired
     public OpenAiSpeakingPromptTtsAdapter(
             SpeakingPromptAuthoringAiProperties properties,
             SpeakingPromptAudioVerifier audioVerifier,
-            PracticeAiMetrics metrics) {
-        this(properties, audioVerifier, metrics, null);
+            PracticeAiMetrics metrics,
+            PracticeAiBindingResolver bindingResolver,
+            PracticeAiExecutionAuditService auditService,
+            PracticeAiProviderTransport providerTransport) {
+        this(properties, audioVerifier, metrics, null, bindingResolver,
+                auditService, providerTransport);
     }
 
     OpenAiSpeakingPromptTtsAdapter(
@@ -33,22 +45,51 @@ public class OpenAiSpeakingPromptTtsAdapter implements SpeakingPromptTtsPort {
             SpeakingPromptAudioVerifier audioVerifier,
             PracticeAiMetrics metrics,
             TtsTransport overrideTransport) {
+        this(properties, audioVerifier, metrics, overrideTransport, null, null, null);
+    }
+
+    private OpenAiSpeakingPromptTtsAdapter(
+            SpeakingPromptAuthoringAiProperties properties,
+            SpeakingPromptAudioVerifier audioVerifier,
+            PracticeAiMetrics metrics,
+            TtsTransport overrideTransport,
+            PracticeAiBindingResolver bindingResolver,
+            PracticeAiExecutionAuditService auditService,
+            PracticeAiProviderTransport providerTransport) {
         this.properties = properties;
         this.audioVerifier = audioVerifier;
         this.metrics = metrics;
         this.overrideTransport = overrideTransport;
+        this.bindingResolver = bindingResolver;
+        this.auditService = auditService;
+        this.providerTransport = providerTransport;
     }
 
     @Override
     public SpeakingPromptAiContract.TtsResult synthesize(
             SpeakingPromptAiContract.TtsRequest request) {
         long started = PracticeAiMetrics.startNanos();
-        SpeakingPromptAuthoringAiProperties.TtsConfig config =
-                properties.ttsConfig();
+        Long executionAuditId = null;
         try {
+            PracticeAiResolvedBinding binding = null;
+            if (bindingResolver != null) {
+                binding = bindingResolver.resolve(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_TTS);
+            }
+            SpeakingPromptAuthoringAiProperties.TtsConfig config =
+                    properties.ttsConfig();
+            if (binding != null) {
+                requireSameBinding(config, binding);
+                executionAuditId = auditService.start(
+                        binding.snapshot(),
+                        "AUTHORING_PROMPT_TTS",
+                        request == null ? "missing-request" : request.contractVersion(),
+                        "LECTURER_PROMPT_AUDIO");
+                bindingResolver.assertCurrent(binding.snapshot());
+            }
             requireEnabledOpenAi(config);
             validateRequest(request, config);
-            ProviderResponse response = callOnce(request, config);
+            ProviderResponse response = callOnce(request, config, binding);
             if (response.status() < 200 || response.status() >= 300) {
                 throw httpFailure(response.status(), response.requestReference());
             }
@@ -96,14 +137,28 @@ public class OpenAiSpeakingPromptTtsAdapter implements SpeakingPromptTtsPort {
                     PracticeAiMetrics.ProviderFeature.SPEAKING_PROMPT_TTS,
                     PracticeAiMetrics.ProviderOutcome.SUCCESS,
                     PracticeAiMetrics.elapsedSince(started));
+            success(executionAuditId);
             return result;
+        } catch (PracticeAiControlPlaneException failure) {
+            failed(executionAuditId, failure.errorCode());
+            metrics.recordProviderOperation(
+                    PracticeAiMetrics.ProviderFeature.SPEAKING_PROMPT_TTS,
+                    PracticeAiMetrics.ProviderOutcome.UNAVAILABLE,
+                    PracticeAiMetrics.elapsedSince(started));
+            throw new SpeakingPromptAiContract.ProviderFailure(
+                    SpeakingPromptAiContract.PublicErrorCategory.CONFIGURATION,
+                    false,
+                    null,
+                    failure);
         } catch (SpeakingPromptAiContract.ProviderFailure failure) {
+            failed(executionAuditId, failure.publicCategory().name());
             metrics.recordProviderOperation(
                     PracticeAiMetrics.ProviderFeature.SPEAKING_PROMPT_TTS,
                     outcome(failure.publicCategory()),
                     PracticeAiMetrics.elapsedSince(started));
             throw failure;
         } catch (ResourceAccessException exception) {
+            failed(executionAuditId, "PROVIDER_TRANSPORT_ERROR");
             SpeakingPromptAiContract.ProviderFailure failure =
                     transportFailure(exception);
             metrics.recordProviderOperation(
@@ -112,6 +167,7 @@ public class OpenAiSpeakingPromptTtsAdapter implements SpeakingPromptTtsPort {
                     PracticeAiMetrics.elapsedSince(started));
             throw failure;
         } catch (RuntimeException exception) {
+            failed(executionAuditId, "PROVIDER_TRANSPORT_ERROR");
             SpeakingPromptAiContract.ProviderFailure failure =
                     new SpeakingPromptAiContract.ProviderFailure(
                             SpeakingPromptAiContract.PublicErrorCategory.TRANSPORT,
@@ -126,13 +182,62 @@ public class OpenAiSpeakingPromptTtsAdapter implements SpeakingPromptTtsPort {
         }
     }
 
+    private static void requireSameBinding(
+            SpeakingPromptAuthoringAiProperties.TtsConfig config,
+            PracticeAiResolvedBinding binding) {
+        if (!config.baseUrl().equals(binding.baseUrl().toString())
+                || !config.apiKey().equals(binding.credentialSecret())
+                || !config.model().equals(binding.snapshot().model())
+                || !config.purposeCode().equals(binding.snapshot().purpose().name())
+                || !config.retentionCode().equals(binding.snapshot().retentionCode())) {
+            throw new PracticeAiControlPlaneException(
+                    "PROVIDER_BINDING_CHANGED", false);
+        }
+    }
+
+    private void success(Long auditId) {
+        if (auditId != null) {
+            auditService.success(auditId);
+        }
+    }
+
+    private void failed(Long auditId, String errorCode) {
+        if (auditId != null) {
+            auditService.failure(auditId, errorCode);
+        }
+    }
+
     private ProviderResponse callOnce(
             SpeakingPromptAiContract.TtsRequest request,
-            SpeakingPromptAuthoringAiProperties.TtsConfig config) {
-        TtsTransport transport = overrideTransport == null
-                ? new RestClientTtsTransport(config)
-                : overrideTransport;
-        return transport.post(request, config);
+            SpeakingPromptAuthoringAiProperties.TtsConfig config,
+            PracticeAiResolvedBinding binding) {
+        if (binding != null) {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("model", config.model());
+            body.put("input", request.promptText());
+            body.put("voice", request.voiceCode());
+            body.put("response_format", request.outputFormat());
+            body.put("speed", request.speed());
+            PracticeAiProviderTransport.ProviderResponse response =
+                    providerTransport.exchange(
+                            binding,
+                            "/audio/speech",
+                            MediaType.APPLICATION_JSON,
+                            MediaType.ALL,
+                            body,
+                            Map.of());
+            return new ProviderResponse(
+                    response.status(),
+                    response.body(),
+                    response.contentType(),
+                    response.requestReference());
+        }
+        if (overrideTransport == null) {
+            throw new SpeakingPromptAiContract.ProviderFailure(
+                    SpeakingPromptAiContract.PublicErrorCategory.CONFIGURATION,
+                    false, null, null);
+        }
+        return overrideTransport.post(request, config);
     }
 
     private static void validateRequest(
@@ -251,47 +356,4 @@ public class OpenAiSpeakingPromptTtsAdapter implements SpeakingPromptTtsPort {
         }
     }
 
-    private static final class RestClientTtsTransport implements TtsTransport {
-        private final OpenAiAudioHttpTransport transport;
-
-        private RestClientTtsTransport(
-                SpeakingPromptAuthoringAiProperties.TtsConfig config) {
-            transport = new OpenAiAudioHttpTransport(
-                    config.baseUrl(),
-                    config.apiKey(),
-                    config.connectTimeout(),
-                    config.readTimeout());
-        }
-
-        @Override
-        public ProviderResponse post(
-                SpeakingPromptAiContract.TtsRequest request,
-                SpeakingPromptAuthoringAiProperties.TtsConfig config) {
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("model", config.model());
-            body.put("input", request.promptText());
-            body.put("voice", request.voiceCode());
-            body.put("response_format", request.outputFormat());
-            body.put("speed", request.speed());
-            try {
-                OpenAiAudioHttpTransport.BoundedResponse response =
-                        transport.postBounded(
-                                "/audio/speech",
-                                MediaType.APPLICATION_JSON,
-                                body,
-                                config.maxOutputBytes());
-                return new ProviderResponse(
-                        response.status(),
-                        response.body(),
-                        response.contentType(),
-                        null);
-            } catch (OpenAiAudioHttpTransport.ResponseTooLargeException exception) {
-                throw new SpeakingPromptAiContract.ProviderFailure(
-                        SpeakingPromptAiContract.PublicErrorCategory.MALFORMED_OUTPUT,
-                        false,
-                        null,
-                        exception);
-            }
-        }
-    }
 }

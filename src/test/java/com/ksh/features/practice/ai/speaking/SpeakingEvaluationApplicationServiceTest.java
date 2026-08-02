@@ -7,6 +7,7 @@ import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionClient;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionMediaResolver;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
+import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionRequest;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionResult;
 import com.ksh.features.practice.ai.transport.PracticeAiCapability;
 import com.ksh.features.practice.ai.transport.PracticeModelCapabilityProfile;
@@ -346,23 +347,42 @@ class SpeakingEvaluationApplicationServiceTest {
         SpeakingTranscriptionMediaResolver resolver =
                 new SpeakingTranscriptionMediaResolver(repository, storage, transcriptionProperties);
         AtomicInteger transcriptionCalls = new AtomicInteger();
-        SpeakingTranscriptionClient transcriptionClient = request -> {
-            transcriptionCalls.incrementAndGet();
-            return new SpeakingTranscriptionResult(
-                    SpeakingEvaluationStatus.EVALUATED,
-                    SpeakingEvaluationSource.PROVIDER,
-                    "openai",
-                    "gpt-4o-mini-transcribe",
-                    "ko",
-                    "저는 학생입니다.",
-                    "저는 학생입니다.",
-                    new BigDecimal("0.82"),
-                    null,
-                    1200L,
-                    20L,
-                    null,
-                    false);
-        };
+        SpeakingTranscriptionClient transcriptionClient =
+                new SpeakingTranscriptionClient() {
+                    @Override
+                    public SpeakingTranscriptionResult transcribe(
+                            SpeakingTranscriptionRequest request) {
+                        transcriptionCalls.incrementAndGet();
+                        return new SpeakingTranscriptionResult(
+                                SpeakingEvaluationStatus.EVALUATED,
+                                SpeakingEvaluationSource.PROVIDER,
+                                "openai",
+                                "gpt-4o-mini-transcribe",
+                                "ko",
+                                "저는 학생입니다.",
+                                "저는 학생입니다.",
+                                new BigDecimal("0.82"),
+                                null,
+                                1200L,
+                                20L,
+                                null,
+                                false);
+                    }
+
+                    @Override
+                    public ProviderIdentity identity() {
+                        boolean available = transcriptionEnabled
+                                && transcriptionApiKey != null
+                                && !transcriptionApiKey.isBlank();
+                        return new ProviderIdentity(
+                                transcriptionProvider,
+                                "gpt-4o-mini-transcribe",
+                                5L,
+                                3L,
+                                "SPEAKING_STT_TEST",
+                                available);
+                    }
+                };
         FakeEvaluationClient evaluationClient = new FakeEvaluationClient();
         SpeakingEvaluatorProperties evaluatorProperties =
                 evaluatorProperties(
@@ -386,7 +406,9 @@ class SpeakingEvaluationApplicationServiceTest {
                 structuredGenerationPort(
                         evaluatorProvider,
                         "assessment-model",
-                        evaluatorApiKey),
+                        evaluatorEnabled && evaluatorApiKey != null
+                                ? evaluatorApiKey
+                                : ""),
                 textFallbackEnabled);
         return new Fixture(service, transcriptionClient, evaluationClient, transcriptionCalls);
     }
@@ -420,7 +442,7 @@ class SpeakingEvaluationApplicationServiceTest {
         return new PracticeStructuredGenerationPort() {
             @Override
             public ProviderIdentity identity(
-                    PracticeAiCapability capability) {
+                    com.ksh.features.practice.ai.controlplane.PracticeAiPurpose purpose) {
                 return new ProviderIdentity(
                         provider,
                         model,

@@ -183,6 +183,8 @@ public class SpeakingPromptWorkLoader {
                 base.maxInputCharacters(),
                 base.purposeCode(),
                 base.retentionCode(),
+                base.bindingRevision(),
+                base.providerProfileRevision(),
                 base.maxOutputBytes(),
                 base.maxOutputDuration(),
                 base.connectTimeout(),

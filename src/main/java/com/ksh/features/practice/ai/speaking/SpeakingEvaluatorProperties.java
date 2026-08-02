@@ -30,9 +30,9 @@ public class SpeakingEvaluatorProperties {
     public SpeakingEvaluatorProperties(
             @Value("${app.practice.speaking-evaluator.enabled:false}") boolean enabled,
             @Value("${app.practice.speaking-evaluator.provider:openai-primary}") String provider,
-            @Value("${app.practice.speaking-evaluator.base-url:${app.practice.ai.openai-primary.base-url:https://api.openai.com/v1}}") String baseUrl,
-            @Value("${app.practice.speaking-evaluator.api-key:${app.practice.ai.openai-primary.api-key:}}") String apiKey,
-            @Value("${app.practice.speaking-evaluator.model:${app.practice.ai.openai-primary.assessment-text-vision-model:}}") String model,
+            @Value("${app.practice.speaking-evaluator.base-url:}") String baseUrl,
+            @Value("${app.practice.speaking-evaluator.api-key:}") String apiKey,
+            @Value("${app.practice.speaking-evaluator.model:}") String model,
             @Value("${app.practice.speaking-evaluator.timeout:30s}") Duration timeout,
             @Value("${app.practice.speaking-evaluator.max-retries:2}") int maxRetries,
             @Value("${app.practice.speaking-evaluator.prompt-version:}") String promptVersion,
