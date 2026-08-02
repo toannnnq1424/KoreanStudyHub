@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "practice-authoring-candidate-v1",
+  "candidateId": "77777777-7777-4777-8777-777777777777",
+  "ownerId": 101,
+  "source": {
+    "kind": "ADVANCED_EXCEL_V2",
+    "contractVersion": "practice-excel-v2",
+    "sourceDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "sourceRevision": "upload-1",
+    "sourceName": "reading-advanced-v2.xlsx"
+  },
+  "target": {
+    "draftId": 5001,
+    "baseDraftVersion": 3,
+    "testNo": 1,
+    "skill": "READING",
+    "lessonCode": "R1"
+  },
+  "state": "READY_TO_APPLY",
+  "normalizerVersion": "practice-authoring-normalizer-v1",
+  "validatorVersion": "practice-authoring-validator-v1",
+  "groups": [
+    {
+      "candidateGroupId": "advanced_matching_group_1",
+      "groupOrder": 1,
+      "label": "Ghép thông tin",
+      "instruction": "Ghép mỗi người với hoạt động phù hợp.",
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "READING_PASSAGE",
+        "instruction": "Đọc thông tin và ghép đáp án.",
+        "passageText": "민수는 수영을 하고 지수는 등산을 합니다.",
+        "transcriptText": "",
+        "mediaReference": null,
+        "provenance": {
+          "source": "ADVANCED_EXCEL_V2",
+          "approved": false,
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "advanced-row-4",
+              "sheet": "03_CAU_HOI",
+              "row": 4
+            }
+          ]
+        }
+      },
+      "sourceRefs": [
+        {
+          "kind": "SHEET_ROW",
+          "sourceId": "advanced-row-4",
+          "sheet": "03_CAU_HOI",
+          "row": 4
+        }
+      ],
+      "questions": [
+        {
+          "candidateQuestionId": "advanced_matching_q_1",
+          "questionOrder": 1,
+          "questionType": "MATCHING",
+          "prompt": "각 사람에게 알맞은 활동을 연결하십시오.",
+          "points": 2,
+          "explanationVi": "Minsu đi bơi, còn Jisu đi leo núi.",
+          "explanationStrategy": {
+            "registryVersion": "rl-explanation-strategy-registry-v2",
+            "strategyCode": "MATCHING_MATRIX",
+            "strategyVersion": "v1"
+          },
+          "questionContent": {
+            "schemaVersion": "question-content-v1",
+            "options": [
+              { "id": "opt_A", "text": "수영" },
+              { "id": "opt_B", "text": "등산" }
+            ],
+            "blanks": [
+              { "id": "M1", "prompt": "민수" },
+              { "id": "M2", "prompt": "지수" }
+            ]
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "MATCHING",
+            "correctOptionIds": [],
+            "correctValue": null,
+            "blanks": [
+              { "blankId": "M1", "acceptedValues": ["opt_A"] },
+              { "blankId": "M2", "acceptedValues": ["opt_B"] }
+            ],
+            "scoringPolicyCode": "NORMALIZED_EXACT"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "advanced-row-4",
+              "sheet": "03_CAU_HOI",
+              "row": 4
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "issues": [],
+  "contentDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "warningsAcknowledged": true,
+  "createdAt": "2026-08-02T02:20:00Z",
+  "expiresAt": "2026-08-09T02:20:00Z",
+  "applied": null
+}

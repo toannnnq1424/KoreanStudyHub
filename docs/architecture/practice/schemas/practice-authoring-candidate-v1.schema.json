@@ -1,0 +1,498 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-authoring-candidate-v1.schema.json",
+  "title": "KSH Practice authoring candidate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "candidateId",
+    "ownerId",
+    "source",
+    "target",
+    "state",
+    "normalizerVersion",
+    "validatorVersion",
+    "groups",
+    "issues",
+    "contentDigest",
+    "createdAt",
+    "expiresAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "practice-authoring-candidate-v1" },
+    "candidateId": { "type": "string", "format": "uuid" },
+    "ownerId": { "type": "integer", "minimum": 1 },
+    "source": { "$ref": "#/$defs/source" },
+    "target": { "$ref": "#/$defs/target" },
+    "state": {
+      "enum": [
+        "PARSED",
+        "NORMALIZED",
+        "VALIDATED",
+        "REVIEWING",
+        "READY_TO_APPLY",
+        "APPLIED",
+        "FAILED",
+        "REJECTED",
+        "EXPIRED"
+      ]
+    },
+    "normalizerVersion": { "const": "practice-authoring-normalizer-v1" },
+    "validatorVersion": { "const": "practice-authoring-validator-v1" },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/group" }
+    },
+    "issues": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/issue" }
+    },
+    "contentDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "warningsAcknowledged": { "type": "boolean" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "applied": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applyRequestId", "draftVersion", "appliedAt"],
+          "properties": {
+            "applyRequestId": { "type": "string", "format": "uuid" },
+            "draftVersion": { "type": "integer", "minimum": 1 },
+            "appliedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "contractVersion", "sourceDigest", "sourceRevision"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "QUICK_EXCEL",
+            "ADVANCED_EXCEL_V2",
+            "LEGACY_EXCEL_V1",
+            "PDF_AI"
+          ]
+        },
+        "contractVersion": {
+          "enum": [
+            "practice-quick-excel-v1",
+            "practice-excel-v2",
+            "practice-excel-v1",
+            "practice-pdf-authoring-output-v1"
+          ]
+        },
+        "sourceDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "sourceRevision": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "sourceName": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "operation": { "enum": ["EXTRACT", "GENERATE"] },
+        "aiExecution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "purpose",
+            "bindingRevision",
+            "providerProfileCode",
+            "providerFamily",
+            "model",
+            "transportDialect",
+            "requestId"
+          ],
+          "properties": {
+            "purpose": { "const": "PRACTICE_PDF_AUTHORING" },
+            "bindingRevision": { "type": "integer", "minimum": 1 },
+            "providerProfileCode": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "providerFamily": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "transportDialect": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "requestId": { "type": "string", "format": "uuid" }
+          }
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["draftId", "baseDraftVersion", "testNo", "skill", "lessonCode"],
+      "properties": {
+        "draftId": { "type": "integer", "minimum": 1 },
+        "baseDraftVersion": { "type": "integer", "minimum": 0 },
+        "testNo": { "type": "integer", "minimum": 1 },
+        "skill": { "enum": ["READING", "LISTENING", "WRITING", "SPEAKING"] },
+        "lessonCode": { "type": "string", "pattern": "^[RLSW][1-9][0-9]*$" }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateGroupId",
+        "groupOrder",
+        "label",
+        "instruction",
+        "stimulus",
+        "sourceRefs",
+        "questions"
+      ],
+      "properties": {
+        "candidateGroupId": { "$ref": "#/$defs/stableId" },
+        "groupOrder": { "type": "integer", "minimum": 1 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "instruction": { "type": "string", "maxLength": 4000 },
+        "stimulus": { "$ref": "#/$defs/stimulus" },
+        "sourceRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceRef" }
+        },
+        "questions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/question" }
+        }
+      }
+    },
+    "stimulus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "type",
+        "instruction",
+        "passageText",
+        "transcriptText",
+        "mediaReference",
+        "provenance"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "practice-stimulus-v2" },
+        "type": { "enum": ["NONE", "READING_PASSAGE", "LISTENING_AUDIO"] },
+        "instruction": { "type": "string", "maxLength": 4000 },
+        "passageText": { "type": "string", "maxLength": 1000000 },
+        "transcriptText": { "type": "string", "maxLength": 1000000 },
+        "mediaReference": { "type": ["string", "null"], "maxLength": 512 },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "approved", "sourceRefs"],
+          "properties": {
+            "source": {
+              "enum": [
+                "QUICK_EXCEL",
+                "ADVANCED_EXCEL_V2",
+                "LEGACY_EXCEL_V1",
+                "PDF_AI"
+              ]
+            },
+            "approved": { "type": "boolean" },
+            "sourceRefs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/sourceRef" }
+            }
+          }
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateQuestionId",
+        "questionOrder",
+        "questionType",
+        "prompt",
+        "points",
+        "questionContent",
+        "answerSpec",
+        "reviewState",
+        "sourceRefs"
+      ],
+      "properties": {
+        "candidateQuestionId": { "$ref": "#/$defs/stableId" },
+        "questionOrder": { "type": "integer", "minimum": 1 },
+        "questionType": {
+          "enum": [
+            "SINGLE_CHOICE",
+            "MULTIPLE_ANSWER",
+            "TRUE_FALSE_NOT_GIVEN",
+            "FILL_BLANK",
+            "MATCHING",
+            "ESSAY",
+            "SPEAKING"
+          ]
+        },
+        "essayTaskType": { "enum": ["Q51", "Q52", "Q53", "Q54"] },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 100000 },
+        "points": { "type": "number", "exclusiveMinimum": 0 },
+        "explanationVi": { "type": "string", "maxLength": 100000 },
+        "explanationStrategy": { "$ref": "#/$defs/explanationStrategy" },
+        "questionContent": { "$ref": "#/$defs/questionContent" },
+        "answerSpec": { "$ref": "#/$defs/answerSpec" },
+        "reviewState": { "enum": ["REVIEW_REQUIRED", "ACCEPTED", "REJECTED"] },
+        "sourceRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceRef" }
+        }
+      }
+    },
+    "questionContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "options", "blanks"],
+      "properties": {
+        "schemaVersion": {
+          "enum": ["question-content-v1", "question-content-v2", "question-content-v3"]
+        },
+        "options": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text"],
+            "properties": {
+              "id": { "$ref": "#/$defs/stableId" },
+              "text": { "type": "string", "minLength": 1, "maxLength": 10000 },
+              "imageReference": { "type": ["string", "null"], "maxLength": 512 }
+            }
+          }
+        },
+        "blanks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "prompt"],
+            "properties": {
+              "id": { "$ref": "#/$defs/stableId" },
+              "prompt": { "type": "string", "maxLength": 10000 }
+            }
+          }
+        },
+        "imageReference": { "type": ["string", "null"], "maxLength": 512 },
+        "audioReference": { "type": ["string", "null"], "maxLength": 512 },
+        "speakingDelivery": { "$ref": "#/$defs/speakingDelivery" },
+        "writingResponse": { "$ref": "#/$defs/writingResponse" },
+        "languageTag": { "enum": ["ko", "vi"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "schemaVersion": { "const": "question-content-v3" } },
+            "required": ["schemaVersion"]
+          },
+          "then": { "required": ["languageTag"] },
+          "else": { "not": { "required": ["languageTag"] } }
+        }
+      ]
+    },
+    "answerSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "questionType",
+        "correctOptionIds",
+        "correctValue",
+        "blanks",
+        "scoringPolicyCode"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "answer-spec-v1" },
+        "questionType": {
+          "enum": [
+            "SINGLE_CHOICE",
+            "MULTIPLE_ANSWER",
+            "TRUE_FALSE_NOT_GIVEN",
+            "FILL_BLANK",
+            "MATCHING",
+            "ESSAY",
+            "SPEAKING"
+          ]
+        },
+        "correctOptionIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/stableId" }
+        },
+        "correctValue": {
+          "type": ["string", "null"],
+          "maxLength": 10000
+        },
+        "blanks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["blankId", "acceptedValues"],
+            "properties": {
+              "blankId": { "$ref": "#/$defs/stableId" },
+              "acceptedValues": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": { "type": "string", "minLength": 1, "maxLength": 10000 }
+              }
+            }
+          }
+        },
+        "scoringPolicyCode": {
+          "enum": ["ALL_OR_NOTHING", "NORMALIZED_EXACT", "PROFILE_BASED"]
+        },
+        "writingBlankAuthority": { "$ref": "#/$defs/writingBlankAuthority" }
+      }
+    },
+    "speakingDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputType",
+        "deliveryMode",
+        "promptAudioReference",
+        "audioOrigin",
+        "promptPlayLimit",
+        "preparationSeconds",
+        "responseSeconds"
+      ],
+      "properties": {
+        "inputType": { "enum": ["audio_upload", "manual_text"] },
+        "deliveryMode": { "enum": ["audio_only", "text_only", "text_and_audio"] },
+        "promptAudioReference": { "type": ["string", "null"], "maxLength": 512 },
+        "audioOrigin": { "enum": ["teacher_upload", "ai_tts", "none"] },
+        "promptPlayLimit": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "integer", "minimum": 1, "maximum": 10 }
+          ]
+        },
+        "preparationSeconds": { "type": "integer", "minimum": 0, "maximum": 600 },
+        "responseSeconds": { "type": "integer", "minimum": 1, "maximum": 1800 }
+      }
+    },
+    "writingResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["responseSchemaVersion", "responseMode", "taskType", "blanks"],
+      "properties": {
+        "responseSchemaVersion": { "const": "writing-blanks.v1" },
+        "responseMode": { "const": "STRUCTURED_BLANKS" },
+        "taskType": { "enum": ["Q51", "Q52"] },
+        "blanks": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["blankId", "ordinal", "context"],
+            "properties": {
+              "blankId": { "$ref": "#/$defs/stableId" },
+              "ordinal": { "type": "integer", "minimum": 1, "maximum": 2 },
+              "context": { "type": "string", "minLength": 1, "maxLength": 1000 }
+            }
+          }
+        }
+      }
+    },
+    "writingBlankAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractVersion", "taskType", "normalization", "whitespacePolicy", "blanks"],
+      "properties": {
+        "contractVersion": { "const": "writing-blank-authority.v1" },
+        "taskType": { "enum": ["Q51", "Q52"] },
+        "normalization": { "const": "NFC" },
+        "whitespacePolicy": { "const": "TRIM_COLLAPSE" },
+        "blanks": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["blankId", "ordinal", "acceptedAnswers"],
+            "properties": {
+              "blankId": { "$ref": "#/$defs/stableId" },
+              "ordinal": { "type": "integer", "minimum": 1, "maximum": 2 },
+              "acceptedAnswers": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["text", "equivalence", "evidenceIds"],
+                  "properties": {
+                    "text": { "type": "string", "minLength": 1, "maxLength": 10000 },
+                    "equivalence": { "const": "EXACT" },
+                    "reason": { "type": ["string", "null"], "maxLength": 1000 },
+                    "evidenceIds": {
+                      "type": "array",
+                      "items": { "$ref": "#/$defs/stableId" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "explanationStrategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registryVersion", "strategyCode", "strategyVersion"],
+      "properties": {
+        "registryVersion": { "const": "rl-explanation-strategy-registry-v2" },
+        "strategyCode": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "strategyVersion": { "const": "v1" }
+      }
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "sourceId"],
+      "properties": {
+        "kind": { "enum": ["SHEET_ROW", "TEXT_SPAN", "PAGE", "REGION"] },
+        "sourceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "sheet": { "type": "string", "maxLength": 100 },
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "string", "maxLength": 100 },
+        "pageNumber": { "type": "integer", "minimum": 1 },
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "code", "scope", "path", "messageVi", "remediation", "blocking"],
+      "properties": {
+        "severity": { "enum": ["ERROR", "WARNING", "INFO"] },
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,100}$" },
+        "scope": { "enum": ["WORKBOOK", "SOURCE", "CANDIDATE", "GROUP", "QUESTION", "FIELD", "TARGET"] },
+        "path": { "type": "string", "maxLength": 1000 },
+        "sourceLocation": { "$ref": "#/$defs/sourceRef" },
+        "messageVi": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "remediation": { "enum": ["EDIT_IN_REVIEW", "USE_ADVANCED", "FIX_SOURCE", "RETRY", "REOPEN_TARGET"] },
+        "blocking": { "type": "boolean" }
+      }
+    },
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,80}$"
+    }
+  }
+}

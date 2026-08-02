@@ -1,0 +1,232 @@
+{
+  "schemaVersion": "practice-authoring-candidate-v1",
+  "candidateId": "33333333-3333-4333-8333-333333333333",
+  "ownerId": 101,
+  "source": {
+    "kind": "QUICK_EXCEL",
+    "contractVersion": "practice-quick-excel-v1",
+    "sourceDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "sourceRevision": "upload-1",
+    "sourceName": "writing-quick-v1.xlsx"
+  },
+  "target": {
+    "draftId": 5001,
+    "baseDraftVersion": 3,
+    "testNo": 1,
+    "skill": "WRITING",
+    "lessonCode": "W1"
+  },
+  "state": "READY_TO_APPLY",
+  "normalizerVersion": "practice-authoring-normalizer-v1",
+  "validatorVersion": "practice-authoring-validator-v1",
+  "groups": [
+    {
+      "candidateGroupId": "writing_group_1",
+      "groupOrder": 1,
+      "label": "Viết Q51-Q54",
+      "instruction": "Hoàn thành bốn nhiệm vụ viết.",
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "NONE",
+        "instruction": "Hoàn thành bốn nhiệm vụ viết.",
+        "passageText": "",
+        "transcriptText": "",
+        "mediaReference": null,
+        "provenance": {
+          "source": "QUICK_EXCEL",
+          "approved": false,
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-4",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 4
+            }
+          ]
+        }
+      },
+      "sourceRefs": [
+        {
+          "kind": "SHEET_ROW",
+          "sourceId": "quick-row-4",
+          "sheet": "QUICK_QUESTIONS",
+          "row": 4
+        }
+      ],
+      "questions": [
+        {
+          "candidateQuestionId": "writing_q51",
+          "questionOrder": 1,
+          "questionType": "ESSAY",
+          "essayTaskType": "Q51",
+          "prompt": "안내문을 읽고 두 빈칸에 알맞은 표현을 쓰십시오.",
+          "points": 10,
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [],
+            "blanks": [],
+            "writingResponse": {
+              "responseSchemaVersion": "writing-blanks.v1",
+              "responseMode": "STRUCTURED_BLANKS",
+              "taskType": "Q51",
+              "blanks": [
+                { "blankId": "blank_1", "ordinal": 1, "context": "인사 표현" },
+                { "blankId": "blank_2", "ordinal": 2, "context": "요청 표현" }
+              ]
+            },
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "ESSAY",
+            "correctOptionIds": [],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "PROFILE_BASED",
+            "writingBlankAuthority": {
+              "contractVersion": "writing-blank-authority.v1",
+              "taskType": "Q51",
+              "normalization": "NFC",
+              "whitespacePolicy": "TRIM_COLLAPSE",
+              "blanks": [
+                {
+                  "blankId": "blank_1",
+                  "ordinal": 1,
+                  "acceptedAnswers": [
+                    { "text": "안녕하세요", "equivalence": "EXACT", "reason": null, "evidenceIds": [] }
+                  ]
+                },
+                {
+                  "blankId": "blank_2",
+                  "ordinal": 2,
+                  "acceptedAnswers": [
+                    { "text": "연락해 주시기 바랍니다", "equivalence": "EXACT", "reason": null, "evidenceIds": [] }
+                  ]
+                }
+              ]
+            }
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            { "kind": "SHEET_ROW", "sourceId": "quick-row-4", "sheet": "QUICK_QUESTIONS", "row": 4 }
+          ]
+        },
+        {
+          "candidateQuestionId": "writing_q52",
+          "questionOrder": 2,
+          "questionType": "ESSAY",
+          "essayTaskType": "Q52",
+          "prompt": "대화의 흐름에 맞게 두 빈칸을 완성하십시오.",
+          "points": 10,
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [],
+            "blanks": [],
+            "writingResponse": {
+              "responseSchemaVersion": "writing-blanks.v1",
+              "responseMode": "STRUCTURED_BLANKS",
+              "taskType": "Q52",
+              "blanks": [
+                { "blankId": "blank_1", "ordinal": 1, "context": "이유 묻기" },
+                { "blankId": "blank_2", "ordinal": 2, "context": "제안하기" }
+              ]
+            },
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "ESSAY",
+            "correctOptionIds": [],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "PROFILE_BASED",
+            "writingBlankAuthority": {
+              "contractVersion": "writing-blank-authority.v1",
+              "taskType": "Q52",
+              "normalization": "NFC",
+              "whitespacePolicy": "TRIM_COLLAPSE",
+              "blanks": [
+                {
+                  "blankId": "blank_1",
+                  "ordinal": 1,
+                  "acceptedAnswers": [
+                    { "text": "왜 늦었어요", "equivalence": "EXACT", "reason": null, "evidenceIds": [] }
+                  ]
+                },
+                {
+                  "blankId": "blank_2",
+                  "ordinal": 2,
+                  "acceptedAnswers": [
+                    { "text": "같이 가는 게 어때요", "equivalence": "EXACT", "reason": null, "evidenceIds": [] }
+                  ]
+                }
+              ]
+            }
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            { "kind": "SHEET_ROW", "sourceId": "quick-row-5", "sheet": "QUICK_QUESTIONS", "row": 5 }
+          ]
+        },
+        {
+          "candidateQuestionId": "writing_q53",
+          "questionOrder": 3,
+          "questionType": "ESSAY",
+          "essayTaskType": "Q53",
+          "prompt": "다음 자료를 설명하는 글을 200~300자로 쓰십시오.",
+          "points": 30,
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [],
+            "blanks": [],
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "ESSAY",
+            "correctOptionIds": [],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "PROFILE_BASED"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            { "kind": "SHEET_ROW", "sourceId": "quick-row-6", "sheet": "QUICK_QUESTIONS", "row": 6 }
+          ]
+        },
+        {
+          "candidateQuestionId": "writing_q54",
+          "questionOrder": 4,
+          "questionType": "ESSAY",
+          "essayTaskType": "Q54",
+          "prompt": "환경 보호를 위한 개인의 역할에 대해 600~700자로 쓰십시오.",
+          "points": 50,
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [],
+            "blanks": [],
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "ESSAY",
+            "correctOptionIds": [],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "PROFILE_BASED"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            { "kind": "SHEET_ROW", "sourceId": "quick-row-7", "sheet": "QUICK_QUESTIONS", "row": 7 }
+          ]
+        }
+      ]
+    }
+  ],
+  "issues": [],
+  "contentDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "warningsAcknowledged": true,
+  "createdAt": "2026-08-02T02:10:00Z",
+  "expiresAt": "2026-08-09T02:10:00Z",
+  "applied": null
+}
