@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.speaking;
 
 import com.ksh.features.practice.ai.media.AiImageEvidence;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.features.practice.ai.media.AiQuestionImageResolver;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionClient;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionMediaResolver;
@@ -89,6 +90,11 @@ public class SpeakingEvaluationApplicationService {
     }
 
     public boolean enabled() {
+        if (structuredGeneration != null) {
+            return transcriptionAuthorityAvailable()
+                    && evaluatorAuthorityAvailable()
+                    && evaluatorVersionPinsCurrent();
+        }
         return transcriptionProperties.enabled()
                 && evaluatorProperties.enabled()
                 && "openai".equals(
@@ -119,10 +125,12 @@ public class SpeakingEvaluationApplicationService {
                 transcriptionProperties.allowedMimeTypes().stream()
                         .sorted()
                         .collect(Collectors.joining(",")),
+                transcriptionBindingIdentity(),
                 Boolean.toString(evaluatorProperties.enabled()),
                 "evaluator-authority-available="
                         + evaluatorAuthorityAvailable(),
                 evaluatorProvider(),
+                evaluatorBindingIdentity(),
                 evaluatorBaseUrl(),
                 evaluatorModel(),
                 evaluatorProperties.timeout().toString(),
@@ -146,6 +154,37 @@ public class SpeakingEvaluationApplicationService {
                 evaluatorProperties.schemaVersion());
     }
 
+    private String transcriptionBindingIdentity() {
+        SpeakingTranscriptionClient.ProviderIdentity identity =
+                transcriptionClient.identity();
+        if (identity == null) {
+            return "UNBOUND";
+        }
+        return identity.providerProfileCode()
+                + ":binding-revision=" + identity.bindingRevision()
+                + ":profile-revision=" + identity.providerProfileRevision()
+                + ":model=" + identity.model()
+                + ":available=" + identity.available();
+    }
+
+    private boolean transcriptionAuthorityAvailable() {
+        SpeakingTranscriptionClient.ProviderIdentity identity =
+                transcriptionClient.identity();
+        return identity != null
+                && identity.available()
+                && identity.model() != null
+                && !identity.model().isBlank();
+    }
+
+    private String transcriptionModel() {
+        SpeakingTranscriptionClient.ProviderIdentity identity =
+                transcriptionClient.identity();
+        return identity == null || identity.model() == null
+                || identity.model().isBlank()
+                ? transcriptionProperties.model()
+                : identity.model();
+    }
+
     private boolean evaluatorAuthorityAvailable() {
         if (structuredGeneration == null) {
             return Set.of(
@@ -159,9 +198,13 @@ public class SpeakingEvaluationApplicationService {
         }
         PracticeStructuredGenerationPort.ProviderIdentity identity =
                 structuredGeneration.identity(
-                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
         return identity != null
-                && "openai-primary".equals(identity.provider())
+                && Set.of(
+                        "OPENAI_COMPATIBLE",
+                        "openai-primary",
+                        "openai-compatible")
+                        .contains(identity.provider())
                 && identity.available()
                 && identity.model() != null
                 && !identity.model().isBlank();
@@ -173,8 +216,22 @@ public class SpeakingEvaluationApplicationService {
         }
         PracticeStructuredGenerationPort.ProviderIdentity identity =
                 structuredGeneration.identity(
-                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
         return identity == null ? "" : identity.provider();
+    }
+
+    private String evaluatorBindingIdentity() {
+        if (structuredGeneration == null) {
+            return "LEGACY_TEST_ONLY";
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
+        return identity == null
+                ? "UNBOUND"
+                : identity.providerProfileCode()
+                        + ":binding-revision=" + identity.bindingRevision()
+                        + ":profile-revision=" + identity.providerProfileRevision();
     }
 
     private String evaluatorModel() {
@@ -183,7 +240,7 @@ public class SpeakingEvaluationApplicationService {
         }
         PracticeStructuredGenerationPort.ProviderIdentity identity =
                 structuredGeneration.identity(
-                        PracticeAiCapability.ASSESSMENT_TEXT_VISION);
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
         return identity == null ? "" : identity.model();
     }
 
@@ -238,7 +295,7 @@ public class SpeakingEvaluationApplicationService {
                             promptContext.promptContextContractIdentity(),
                             null,
                             null,
-                            transcriptionProperties.model(),
+                            transcriptionModel(),
                             evaluatorModel(),
                             evaluatorProperties.promptVersion(),
                             evaluatorProperties.rubricVersion(),
@@ -264,7 +321,7 @@ public class SpeakingEvaluationApplicationService {
                 promptContext.promptContextContractIdentity(),
                 request.mediaId(),
                 request.mediaVersion(),
-                transcriptionProperties.model(),
+                transcriptionModel(),
                 evaluatorModel(),
                 evaluatorProperties.promptVersion(),
                 evaluatorProperties.rubricVersion(),

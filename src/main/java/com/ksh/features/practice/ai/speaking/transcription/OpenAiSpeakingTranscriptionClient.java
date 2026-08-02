@@ -2,9 +2,14 @@ package com.ksh.features.practice.ai.speaking.transcription;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
+import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneException;
+import com.ksh.features.practice.ai.controlplane.PracticeAiExecutionAuditService;
+import com.ksh.features.practice.ai.controlplane.PracticeAiProviderTransport;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
+import com.ksh.features.practice.ai.controlplane.PracticeAiResolvedBinding;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationSource;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
-import com.ksh.features.practice.service.audio.OpenAiAudioHttpTransport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatusCode;
@@ -33,10 +38,18 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
     private final SpeakingTranscriptionProperties properties;
     private final ObjectMapper objectMapper;
     private final OpenAiTranscriptionTransport transport;
+    private final PracticeAiBindingResolver bindingResolver;
+    private final PracticeAiExecutionAuditService auditService;
+    private final PracticeAiProviderTransport providerTransport;
 
     @Autowired
-    public OpenAiSpeakingTranscriptionClient(SpeakingTranscriptionProperties properties, ObjectMapper objectMapper) {
-        this(properties, objectMapper, new RestClientOpenAiTranscriptionTransport(properties));
+    public OpenAiSpeakingTranscriptionClient(
+            SpeakingTranscriptionProperties properties,
+            ObjectMapper objectMapper,
+            PracticeAiBindingResolver bindingResolver,
+            PracticeAiExecutionAuditService auditService,
+            PracticeAiProviderTransport providerTransport) {
+        this(properties, objectMapper, null, bindingResolver, auditService, providerTransport);
     }
 
     OpenAiSpeakingTranscriptionClient(
@@ -44,51 +57,132 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
             ObjectMapper objectMapper,
             OpenAiTranscriptionTransport transport
     ) {
+        this(properties, objectMapper, transport, null, null, null);
+    }
+
+    private OpenAiSpeakingTranscriptionClient(
+            SpeakingTranscriptionProperties properties,
+            ObjectMapper objectMapper,
+            OpenAiTranscriptionTransport transport,
+            PracticeAiBindingResolver bindingResolver,
+            PracticeAiExecutionAuditService auditService,
+            PracticeAiProviderTransport providerTransport) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.transport = transport;
+        this.bindingResolver = bindingResolver;
+        this.auditService = auditService;
+        this.providerTransport = providerTransport;
     }
 
     @Override
     public SpeakingTranscriptionResult transcribe(SpeakingTranscriptionRequest request) {
         long startNanos = System.nanoTime();
-        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
+        PracticeAiResolvedBinding binding = null;
+        Long executionAuditId = null;
+        String provider = properties.provider();
+        String model = properties.model();
+        if (bindingResolver == null
+                && (properties.apiKey() == null || properties.apiKey().isBlank())) {
             return failure(SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE,
-                    request, SpeakingTranscriptionErrorCategory.MISSING_API_KEY, false, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.MISSING_API_KEY,
+                    false, startNanos, provider, model);
         }
         if (request == null || request.inputStreamSupplier() == null) {
             return failure(SpeakingEvaluationStatus.AUDIO_MISSING,
-                    request, SpeakingTranscriptionErrorCategory.AUDIO_MISSING, false, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.AUDIO_MISSING,
+                    false, startNanos, provider, model);
         }
         try {
-            String raw = callWithRetry(request);
-            return parse(raw, request, startNanos);
+            if (bindingResolver != null) {
+                binding = bindingResolver.resolve(PracticeAiPurpose.PRACTICE_SPEAKING_STT);
+                provider = binding.snapshot().providerProfileCode();
+                model = binding.snapshot().model();
+                validateBoundRequest(request, binding);
+                executionAuditId = auditService.start(
+                        binding.snapshot(),
+                        "LEARNER_RESPONSE_STT",
+                        requestIdentity(request),
+                        "LEARNER_RESPONSE_AUDIO");
+                bindingResolver.assertCurrent(binding.snapshot());
+            }
+            String raw = binding == null
+                    ? callWithRetry(request)
+                    : callWithRetry(request, binding);
+            SpeakingTranscriptionResult result = parse(
+                    raw, request, startNanos, provider, model);
+            auditSuccess(executionAuditId);
+            return result;
+        } catch (PracticeAiControlPlaneException ex) {
+            auditFailure(executionAuditId, ex.errorCode());
+            return failure(SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE,
+                    request, SpeakingTranscriptionErrorCategory.MISSING_API_KEY,
+                    false, startNanos, provider, model);
         } catch (AudioOpenException ex) {
+            auditFailure(executionAuditId, "AUDIO_UNAVAILABLE");
             return failure(SpeakingEvaluationStatus.AUDIO_UNAVAILABLE,
-                    request, SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE, false, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE,
+                    false, startNanos, provider, model);
         } catch (HttpStatusCodeException ex) {
+            auditFailure(executionAuditId, "PROVIDER_HTTP_ERROR");
             boolean retryable = isRetryable(ex.getStatusCode());
             return failure(SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE,
-                    request, SpeakingTranscriptionErrorCategory.PROVIDER_HTTP_ERROR, retryable, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.PROVIDER_HTTP_ERROR,
+                    retryable, startNanos, provider, model);
         } catch (ResourceAccessException ex) {
+            auditFailure(executionAuditId, "PROVIDER_TRANSPORT_ERROR");
             return failure(SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE,
-                    request, SpeakingTranscriptionErrorCategory.PROVIDER_TRANSPORT_ERROR, true, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.PROVIDER_TRANSPORT_ERROR,
+                    true, startNanos, provider, model);
         } catch (IOException ex) {
+            auditFailure(executionAuditId, "AUDIO_UNAVAILABLE");
             return failure(SpeakingEvaluationStatus.AUDIO_UNAVAILABLE,
-                    request, SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE, false, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE,
+                    false, startNanos, provider, model);
         } catch (RuntimeException ex) {
+            auditFailure(executionAuditId, "PROVIDER_TRANSPORT_ERROR");
             return failure(SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE,
-                    request, SpeakingTranscriptionErrorCategory.PROVIDER_TRANSPORT_ERROR, true, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.PROVIDER_TRANSPORT_ERROR,
+                    true, startNanos, provider, model);
         }
     }
 
+    @Override
+    public SpeakingTranscriptionClient.ProviderIdentity identity() {
+        if (bindingResolver == null) {
+            return new SpeakingTranscriptionClient.ProviderIdentity(
+                    properties.provider(),
+                    properties.model(),
+                    -1L,
+                    -1L,
+                    "LEGACY_TEST",
+                    properties.apiKey() != null && !properties.apiKey().isBlank());
+        }
+        return bindingResolver.availableSnapshot(PracticeAiPurpose.PRACTICE_SPEAKING_STT)
+                .map(snapshot -> new SpeakingTranscriptionClient.ProviderIdentity(
+                        snapshot.providerFamily(),
+                        snapshot.model(),
+                        snapshot.bindingRevision(),
+                        snapshot.providerProfileRevision(),
+                        snapshot.providerProfileCode(),
+                        true))
+                .orElseGet(() -> new SpeakingTranscriptionClient.ProviderIdentity(
+                        "UNBOUND", "", -1L, -1L, "UNBOUND", false));
+    }
+
     private MultiValueMap<String, Object> multipart(SpeakingTranscriptionRequest request) {
+        return multipart(request, properties.model());
+    }
+
+    private MultiValueMap<String, Object> multipart(
+            SpeakingTranscriptionRequest request,
+            String model) {
         LinkedMultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("model", properties.model());
+        body.add("model", model);
         body.add("file", audioResource(request));
         body.add("language", language(request));
         body.add("response_format", "json");
-        if (properties.includeLogprobs() && supportsLogprobs(properties.model())) {
+        if (properties.includeLogprobs() && supportsLogprobs(model)) {
             body.add("include[]", "logprobs");
         }
         return body;
@@ -151,6 +245,36 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
         throw new ResourceAccessException("Transcription provider unavailable");
     }
 
+    private String callWithRetry(
+            SpeakingTranscriptionRequest request,
+            PracticeAiResolvedBinding binding) throws IOException {
+        PracticeAiProviderTransport.ProviderResponse last = null;
+        for (int attempt = 0;
+                attempt <= binding.snapshot().limits().maxRetries();
+                attempt++) {
+            requireEvaluationThreadActive();
+            MultiValueMap<String, Object> body = multipart(
+                    request, binding.snapshot().model());
+            last = providerTransport.exchange(
+                    binding,
+                    "/audio/transcriptions",
+                    MediaType.MULTIPART_FORM_DATA,
+                    MediaType.APPLICATION_JSON,
+                    body,
+                    java.util.Map.of());
+            if (last.successful()) {
+                return new String(last.body(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+            if (!retryable(last.status())
+                    || attempt >= binding.snapshot().limits().maxRetries()) {
+                break;
+            }
+        }
+        throw new PracticeAiControlPlaneException(
+                "PROVIDER_HTTP_ERROR",
+                last != null && retryable(last.status()));
+    }
+
     private static void requireEvaluationThreadActive() {
         if (Thread.currentThread().isInterrupted()) {
             throw new IllegalStateException(
@@ -158,18 +282,25 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
         }
     }
 
-    private SpeakingTranscriptionResult parse(String raw, SpeakingTranscriptionRequest request, long startNanos) {
+    private SpeakingTranscriptionResult parse(
+            String raw,
+            SpeakingTranscriptionRequest request,
+            long startNanos,
+            String provider,
+            String model) {
         JsonNode root;
         try {
             root = objectMapper.readTree(raw);
         } catch (Exception ex) {
             return failure(SpeakingEvaluationStatus.INVALID_PROVIDER_RESULT,
-                    request, SpeakingTranscriptionErrorCategory.PROVIDER_MALFORMED_JSON, false, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.PROVIDER_MALFORMED_JSON,
+                    false, startNanos, provider, model);
         }
         String transcript = text(root.get("text"));
         if (transcript == null) {
             return failure(SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE,
-                    request, SpeakingTranscriptionErrorCategory.PROVIDER_EMPTY_TRANSCRIPT, false, startNanos);
+                    request, SpeakingTranscriptionErrorCategory.PROVIDER_EMPTY_TRANSCRIPT,
+                    false, startNanos, provider, model);
         }
         LogprobStats stats = logprobStats(root.path("logprobs"));
         BigDecimal confidence = stats == null ? null : stats.confidence();
@@ -180,8 +311,8 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
         return new SpeakingTranscriptionResult(
                 status,
                 SpeakingEvaluationSource.PROVIDER,
-                PROVIDER,
-                properties.model(),
+                provider,
+                model,
                 language(request),
                 transcript,
                 normalizeTranscript(transcript),
@@ -225,13 +356,15 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
             SpeakingTranscriptionRequest request,
             SpeakingTranscriptionErrorCategory category,
             boolean retryable,
-            long startNanos
+            long startNanos,
+            String provider,
+            String model
     ) {
         return new SpeakingTranscriptionResult(
                 status,
                 SpeakingEvaluationSource.PROVIDER,
-                PROVIDER,
-                properties.model(),
+                provider,
+                model,
                 request == null ? properties.language() : language(request),
                 null,
                 null,
@@ -241,6 +374,41 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
                 elapsedMillis(startNanos),
                 category,
                 retryable);
+    }
+
+    private static void validateBoundRequest(
+            SpeakingTranscriptionRequest request,
+            PracticeAiResolvedBinding binding) {
+        if (!binding.snapshot().capabilities().batchTranscription()
+                || request.byteSize() == null
+                || request.byteSize() <= 0
+                || request.byteSize() > binding.snapshot().limits().maxRequestBytes()) {
+            throw new PracticeAiControlPlaneException(
+                    "PROVIDER_CAPABILITY_INCOMPATIBLE", false);
+        }
+    }
+
+    private static String requestIdentity(SpeakingTranscriptionRequest request) {
+        return String.join("|",
+                "media=" + request.mediaId(),
+                "attempt=" + request.attemptId(),
+                "question=" + request.questionId(),
+                "version=" + request.mediaVersion(),
+                "mime=" + request.mimeType(),
+                "bytes=" + request.byteSize(),
+                "duration=" + request.durationMs());
+    }
+
+    private void auditSuccess(Long auditId) {
+        if (auditId != null) {
+            auditService.success(auditId);
+        }
+    }
+
+    private void auditFailure(Long auditId, String errorCode) {
+        if (auditId != null) {
+            auditService.failure(auditId, errorCode);
+        }
     }
 
     private String language(SpeakingTranscriptionRequest request) {
@@ -269,6 +437,11 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
         return value == 429 || value == 500 || value == 502 || value == 503 || value == 504;
     }
 
+    private static boolean retryable(int status) {
+        return status == 429 || status == 500 || status == 502
+                || status == 503 || status == 504;
+    }
+
     private static long elapsedMillis(long startNanos) {
         return Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
     }
@@ -285,40 +458,13 @@ public class OpenAiSpeakingTranscriptionClient implements SpeakingTranscriptionC
     }
 
     String transportBaseUrlForTest() {
-        return transport.baseUrl();
+        return transport == null ? "CONTROL_PLANE" : transport.baseUrl();
     }
 
     interface OpenAiTranscriptionTransport {
         String post(MultiValueMap<String, Object> body) throws IOException;
 
         String baseUrl();
-    }
-
-    private static class RestClientOpenAiTranscriptionTransport implements OpenAiTranscriptionTransport {
-        private final SpeakingTranscriptionProperties properties;
-        private final OpenAiAudioHttpTransport transport;
-
-        private RestClientOpenAiTranscriptionTransport(SpeakingTranscriptionProperties properties) {
-            this.properties = properties;
-            this.transport = new OpenAiAudioHttpTransport(
-                    properties.baseUrl(),
-                    properties.apiKey(),
-                    properties.timeout(),
-                    properties.timeout());
-        }
-
-        @Override
-        public String post(MultiValueMap<String, Object> body) {
-            return transport.postForString(
-                    "/audio/transcriptions",
-                    MediaType.MULTIPART_FORM_DATA,
-                    body);
-        }
-
-        @Override
-        public String baseUrl() {
-            return properties.baseUrl();
-        }
     }
 
     private record LogprobStats(

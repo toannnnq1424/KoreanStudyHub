@@ -1,10 +1,13 @@
 package com.ksh.features.practice.ai.transport;
 
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 public record PracticeStructuredGenerationRequest(
+        PracticeAiPurpose purpose,
         String operation,
         PracticeAiCapability capability,
         PracticeAiAuthoritySnapshot authority,
@@ -19,6 +22,7 @@ public record PracticeStructuredGenerationRequest(
         String idempotencyKey
 ) {
     public PracticeStructuredGenerationRequest {
+        purpose = Objects.requireNonNull(purpose, "purpose");
         operation = required(operation, "operation");
         capability = Objects.requireNonNull(capability, "capability");
         authority = Objects.requireNonNull(authority, "authority");

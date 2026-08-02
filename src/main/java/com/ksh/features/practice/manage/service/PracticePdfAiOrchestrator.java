@@ -1,19 +1,25 @@
 package com.ksh.features.practice.manage.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticeAiRequestAudit;
-import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
+import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
+import com.ksh.features.practice.ai.transport.PracticeAiCapability;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
+import com.ksh.features.practice.ai.transport.PracticeModelCapabilityProfile;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationResponse;
 import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.HexFormat;
 import java.util.*;
 
 @Service
@@ -21,58 +27,28 @@ public class PracticePdfAiOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(PracticePdfAiOrchestrator.class);
 
-    private final OpenAiProperties properties;
     private final ObjectMapper objectMapper;
-    private final RestClient restClient;
     private final PracticeAiRequestAuditRepository auditRepository;
+    private final PracticeStructuredGenerationPort structuredGeneration;
 
-    public PracticePdfAiOrchestrator(OpenAiProperties properties, ObjectMapper objectMapper,
-                                     PracticeAiRequestAuditRepository auditRepository) {
-        this.properties = properties;
+    public PracticePdfAiOrchestrator(
+            ObjectMapper objectMapper,
+            PracticeAiRequestAuditRepository auditRepository,
+            PracticeStructuredGenerationPort structuredGeneration) {
         this.objectMapper = objectMapper;
         this.auditRepository = auditRepository;
-        this.restClient = RestClient.builder()
-                .baseUrl(properties.baseUrl())
-                .defaultHeader("Authorization", "Bearer " + properties.apiKey())
-                .requestFactory(requestFactory(properties))
-                .build();
-    }
-
-    private static SimpleClientHttpRequestFactory requestFactory(
-            OpenAiProperties properties) {
-        SimpleClientHttpRequestFactory factory =
-                new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(
-                properties.connectTimeout() == null
-                        ? java.time.Duration.ofSeconds(5)
-                        : properties.connectTimeout());
-        factory.setReadTimeout(
-                properties.readTimeout() == null
-                        ? java.time.Duration.ofSeconds(60)
-                        : properties.readTimeout());
-        return factory;
+        this.structuredGeneration = structuredGeneration;
     }
 
     public String callAi(PracticePdfAiPayloadBuilder.PayloadInfo payloadInfo, Long sessionId, String strategy) {
-        requireApiKey();
+        log.info("[PdfAiOrchestrator] Preparing purpose-bound request for sessionId={}", sessionId);
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(PracticeAiPurpose.PRACTICE_PDF_AUTHORING);
 
-        log.info("[PdfAiOrchestrator] Preparing Chat Completions payload for sessionId={}", sessionId);
-
-        List<Map<String, Object>> messages = new ArrayList<>();
-        messages.add(message("system", systemPrompt()));
-        messages.add(multimodalMessage(payloadInfo));
-
-        Map<String, Object> request = new LinkedHashMap<>();
-        request.put("model", properties.evaluatorModel());
-        request.put("temperature", 0.0);
-        request.put("response_format", responseFormat());
-        request.put("messages", messages);
-
-        // Prepare audit record
         PracticeAiRequestAudit audit = new PracticeAiRequestAudit();
         audit.setSessionId(sessionId);
         audit.setPromptVersion("practice-import-v3");
-        audit.setModel(properties.evaluatorModel());
+        audit.setModel(identity.model());
         audit.setStrategy(strategy);
 
         int sentText = payloadInfo.statsSummary().containsKey("finalSentTextCharacters")
@@ -90,6 +66,9 @@ public class PracticePdfAiOrchestrator {
             Map<String, Object> summaryConfig = new LinkedHashMap<>();
             summaryConfig.put("strategy", strategy);
             summaryConfig.put("cropsCount", payloadInfo.crops().size());
+            summaryConfig.put("purpose", PracticeAiPurpose.PRACTICE_PDF_AUTHORING.name());
+            summaryConfig.put("providerProfile", identity.providerProfileCode());
+            summaryConfig.put("bindingRevision", identity.bindingRevision());
             if (payloadInfo.requestDto().getRequestMeta() != null) {
                 summaryConfig.put("requestId", payloadInfo.requestDto().getRequestMeta().getRequestId());
                 summaryConfig.put("schemaVersion", payloadInfo.requestDto().getRequestMeta().getSchemaVersion());
@@ -100,135 +79,78 @@ public class PracticePdfAiOrchestrator {
         }
 
         try {
-            String response = executeWithRetry(request);
+            PracticeStructuredGenerationResponse response = structuredGeneration.generate(
+                    request(payloadInfo, sessionId, strategy));
             audit.setStatus("SUCCESS");
             auditRepository.save(audit);
-            return response;
+            return objectMapper.writeValueAsString(response.output());
         } catch (Exception e) {
             audit.setStatus("FAILED");
-            audit.setErrorCode("AI_PROVIDER_CALL_FAILED");
+            audit.setErrorCode(e instanceof PracticeAiContractException contract
+                    ? contract.category()
+                    : "AI_PROVIDER_CALL_FAILED");
             auditRepository.save(audit);
-            throw e;
-        }
-    }
-
-
-
-    private void requireApiKey() {
-        if (properties.apiKey() == null || properties.apiKey().isBlank()) {
-            throw new IllegalStateException("Chưa cấu hình API key AI cho hệ thống.");
-        }
-    }
-
-    private String executeWithRetry(Map<String, Object> request) {
-        int maxRetries = 2;
-        long backoffMs = 1500;
-        for (int attempt = 1; attempt <= maxRetries + 1; attempt++) {
-            try {
-                String response = restClient.post()
-                        .uri("/chat/completions")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(request)
-                        .retrieve()
-                        .body(String.class);
-
-                JsonNode root = objectMapper.readTree(response);
-                JsonNode choice = root.path("choices").path(0);
-                if (choice.path("message").hasNonNull("content")) {
-                    return choice.path("message").path("content").asText();
-                }
-                if (root.hasNonNull("output_text")) {
-                    return root.path("output_text").asText();
-                }
-                return response;
-            } catch (HttpStatusCodeException ex) {
-                int status = ex.getStatusCode().value();
-                boolean retryable = (status == 429 || status == 500 || status == 502 || status == 503 || status == 504) && attempt <= maxRetries;
-                log.warn("[PdfAiOrchestrator] operation=provider-call model={} attempt={} status={} retryable={} exception={}",
-                        properties.evaluatorModel(), attempt, status, retryable, ex.getClass().getSimpleName());
-                if (retryable) {
-                    try {
-                        Thread.sleep(backoffMs);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    backoffMs *= 2;
-                    continue;
-                }
-                throw new IllegalStateException("AI provider trả lỗi " + status + ".");
-            } catch (Exception ex) {
-                log.warn("[PdfAiOrchestrator] operation=provider-call model={} exception={}",
-                        properties.evaluatorModel(), ex.getClass().getSimpleName());
-                throw new IllegalStateException("Không gọi được AI.");
+            if (e instanceof RuntimeException runtime) {
+                throw runtime;
             }
+            throw new IllegalStateException("Không thể giải mã phản hồi AI.", e);
         }
-        throw new IllegalStateException("Đã thử lại nhiều lần gọi AI nhưng không thành công.");
     }
 
-    private Map<String, Object> message(String role, String content) {
-        Map<String, Object> msg = new LinkedHashMap<>();
-        msg.put("role", role);
-        msg.put("content", content);
-        return msg;
+    private PracticeStructuredGenerationRequest request(
+            PracticePdfAiPayloadBuilder.PayloadInfo payloadInfo,
+            Long sessionId,
+            String strategy) {
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("request", payloadInfo.requestDto());
+        input.put("basePageRangeText",
+                payloadInfo.basePageRangeText() == null ? "" : payloadInfo.basePageRangeText());
+        input.put("regions", payloadInfo.crops().stream().map(crop -> Map.of(
+                "regionId", crop.regionId(),
+                "pageNumber", crop.pageNumber(),
+                "regionType", crop.regionType(),
+                "assetRef", crop.assetRef(),
+                "placement", crop.placement())).toList());
+        List<PracticeStructuredGenerationRequest.ImageEvidence> images =
+                payloadInfo.crops().stream()
+                        .map(crop -> new PracticeStructuredGenerationRequest.ImageEvidence(
+                                "PDF_REGION_" + crop.regionId(),
+                                sha256(crop.base64DataUrl()),
+                                crop.base64DataUrl(),
+                                "high"))
+                        .toList();
+        return new PracticeStructuredGenerationRequest(
+                PracticeAiPurpose.PRACTICE_PDF_AUTHORING,
+                "pdf-authoring-legacy-workspace",
+                PracticeAiCapability.STRICT_STRUCTURED_TEXT_VISION,
+                new PracticeAiAuthoritySnapshot(
+                        "pdf_import_response",
+                        "practice-import-v3",
+                        strategy,
+                        "legacy-workspace-v1",
+                        "session=" + sessionId),
+                PracticeModelCapabilityProfile.openAiAssessmentV1(),
+                systemPrompt(),
+                "Return only the strict authoring JSON object.",
+                input,
+                "pdf_import_response",
+                schema(),
+                images,
+                4096,
+                "pdf-session-" + sessionId);
     }
 
-    private Map<String, Object> multimodalMessage(PracticePdfAiPayloadBuilder.PayloadInfo payloadInfo) {
-        List<Map<String, Object>> content = new ArrayList<>();
-
-        StringBuilder textPrompt = new StringBuilder();
-        textPrompt.append("IMPORTANT: pageContexts are context only. Do not create sections, groups, questions, options, answers or assets from pageContexts unless the same content is tied to sourceRegionIds from regions.\n");
-        textPrompt.append("Dưới đây là mô tả JSON cấu trúc annotations và text bóc tách từ PDF:\n");
+    private static String sha256(String value) {
         try {
-            textPrompt.append(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payloadInfo.requestDto()));
-        } catch (Exception e) {
-            textPrompt.append(payloadInfo.requestDto().toString());
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is required", exception);
         }
-
-        if (payloadInfo.basePageRangeText() != null && !payloadInfo.basePageRangeText().isBlank()) {
-            textPrompt.append("\n\nVăn bản thô (raw text) bóc tách toàn phạm vi trang:\n")
-                    .append(payloadInfo.basePageRangeText());
-        }
-
-        content.add(Map.of("type", "text", "text", textPrompt.toString()));
-
-        // Add each crop image preceded by an IMAGE_REGION label block
-        for (PracticePdfAiPayloadBuilder.CropInfo crop : payloadInfo.crops()) {
-            // Build the image region label
-            String regionLabel = String.format(
-                    "IMAGE_REGION\nregionId=%s\npageNumber=%d\nregionType=%s\nassetRef=%s\nplacement=%s\n",
-                    crop.regionId(),
-                    crop.pageNumber(),
-                    crop.regionType(),
-                    crop.assetRef(),
-                    crop.placement()
-            );
-
-            content.add(Map.of("type", "text", "text", regionLabel));
-            content.add(Map.of(
-                    "type", "image_url",
-                    "image_url", Map.of("url", crop.base64DataUrl())
-            ));
-        }
-
-        Map<String, Object> msg = new LinkedHashMap<>();
-        msg.put("role", "user");
-        msg.put("content", content);
-        return msg;
     }
 
     private String systemPrompt() {
         return PracticePdfAiPromptRules.systemPrompt();
-    }
-
-    private Map<String, Object> responseFormat() {
-        Map<String, Object> responseFormat = new LinkedHashMap<>();
-        responseFormat.put("type", "json_schema");
-        responseFormat.put("json_schema", Map.of(
-                "name", "pdf_import_response",
-                "strict", Boolean.TRUE,
-                "schema", schema()
-        ));
-        return responseFormat;
     }
 
     private Map<String, Object> schema() {

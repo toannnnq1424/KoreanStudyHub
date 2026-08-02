@@ -6,6 +6,7 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
 import com.ksh.features.practice.ai.transport.PracticeAiCapability;
 import com.ksh.features.practice.ai.transport.PracticeAiContractException;
@@ -128,7 +129,16 @@ public class ReadingListeningExplanationClient {
 
     public String model() {
         return structuredGeneration.identity(
-                PracticeAiCapability.ASSESSMENT_TEXT_VISION).model();
+                PracticeAiPurpose.PRACTICE_RL_EXPLANATION).model();
+    }
+
+    public String bindingIdentity() {
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiPurpose.PRACTICE_RL_EXPLANATION);
+        return identity.providerProfileCode()
+                + ":binding-revision=" + identity.bindingRevision()
+                + ":profile-revision=" + identity.providerProfileRevision();
     }
 
     public String promptVersion() {
@@ -202,7 +212,7 @@ public class ReadingListeningExplanationClient {
 
     private boolean providerAvailable() {
         return structuredGeneration.identity(
-                PracticeAiCapability.ASSESSMENT_TEXT_VISION).available();
+                PracticeAiPurpose.PRACTICE_RL_EXPLANATION).available();
     }
 
     private String generateThroughStructuredPort(
@@ -225,8 +235,9 @@ public class ReadingListeningExplanationClient {
                 "type=" + context.questionType().name());
         PracticeStructuredGenerationRequest request =
                 new PracticeStructuredGenerationRequest(
+                        PracticeAiPurpose.PRACTICE_RL_EXPLANATION,
                         "reading-listening-explanation",
-                        PracticeAiCapability.ASSESSMENT_TEXT_VISION,
+                        PracticeAiCapability.STRICT_STRUCTURED_TEXT_VISION,
                         new PracticeAiAuthoritySnapshot(
                                 EXPLANATION_SCHEMA_VERSION,
                                 EXPLANATION_PROMPT_VERSION,

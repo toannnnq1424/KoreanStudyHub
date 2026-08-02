@@ -69,6 +69,7 @@ public class ExplanationFingerprintBuilder {
                 stimulusHash,
                 answerSpecHash,
                 mediaBundleHash,
+                client.bindingIdentity(),
                 client.model(),
                 client.promptVersion(),
                 client.schemaVersion(),

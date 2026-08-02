@@ -1,10 +1,8 @@
 package com.ksh.features.practice.ai.transport;
 
-/**
- * OPENAI_PRIMARY is one provider family with independent model slots.
- */
+/** Logical capability requested by a Practice-owned adapter. */
 public enum PracticeAiCapability {
-    ASSESSMENT_TEXT_VISION,
+    STRICT_STRUCTURED_TEXT_VISION,
     BATCH_TRANSCRIPTION,
     REALTIME_TRANSCRIPTION,
     TEXT_TO_SPEECH,

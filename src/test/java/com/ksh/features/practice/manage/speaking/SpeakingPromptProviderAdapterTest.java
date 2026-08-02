@@ -2,12 +2,21 @@ package com.ksh.features.practice.manage.speaking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.features.practice.ai.metrics.PracticeAiMetrics;
+import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
+import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilitySet;
+import com.ksh.features.practice.ai.controlplane.PracticeAiExecutionAuditService;
+import com.ksh.features.practice.ai.controlplane.PracticeAiExecutionSnapshot;
+import com.ksh.features.practice.ai.controlplane.PracticeAiLimits;
+import com.ksh.features.practice.ai.controlplane.PracticeAiProviderTransport;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
+import com.ksh.features.practice.ai.controlplane.PracticeAiResolvedBinding;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,6 +26,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class SpeakingPromptProviderAdapterTest {
@@ -27,13 +39,136 @@ class SpeakingPromptProviderAdapterTest {
         assertThat(OpenAiSpeakingPromptSttAdapter.class.getConstructor(
                 SpeakingPromptAuthoringAiProperties.class,
                 ObjectMapper.class,
-                PracticeAiMetrics.class).isAnnotationPresent(Autowired.class))
+                PracticeAiMetrics.class,
+                PracticeAiBindingResolver.class,
+                PracticeAiExecutionAuditService.class,
+                PracticeAiProviderTransport.class).isAnnotationPresent(Autowired.class))
                 .isTrue();
         assertThat(OpenAiSpeakingPromptTtsAdapter.class.getConstructor(
                 SpeakingPromptAuthoringAiProperties.class,
                 SpeakingPromptAudioVerifier.class,
-                PracticeAiMetrics.class).isAnnotationPresent(Autowired.class))
+                PracticeAiMetrics.class,
+                PracticeAiBindingResolver.class,
+                PracticeAiExecutionAuditService.class,
+                PracticeAiProviderTransport.class).isAnnotationPresent(Autowired.class))
                 .isTrue();
+    }
+
+    @Test
+    void productionSttUsesOnlyResolvedPracticeBindingAndCentralTransport() {
+        SpeakingPromptAuthoringAiProperties properties = configuredProperties();
+        PracticeAiResolvedBinding binding = binding(
+                PracticeAiPurpose.PRACTICE_SPEAKING_STT);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        PracticeAiExecutionAuditService audits =
+                mock(PracticeAiExecutionAuditService.class);
+        properties.setBindingResolver(resolver);
+        when(resolver.resolve(PracticeAiPurpose.PRACTICE_SPEAKING_STT))
+                .thenReturn(binding);
+        doNothing().when(resolver).assertCurrent(binding.snapshot());
+        when(audits.start(
+                any(), anyString(), anyString(), anyString())).thenReturn(41L);
+        AtomicInteger calls = new AtomicInteger();
+        PracticeAiProviderTransport fakeTransport =
+                (resolved, path, contentType, accept, body, headers) -> {
+                    calls.incrementAndGet();
+                    assertThat(resolved).isSameAs(binding);
+                    assertThat(path).isEqualTo("/audio/transcriptions");
+                    assertThat(String.valueOf(body))
+                            .contains("db-purpose-model")
+                            .doesNotContain("stt-secret", "legacy-model");
+                    return new PracticeAiProviderTransport.ProviderResponse(
+                            200,
+                            "{\"text\":\"전사 결과\",\"confidence\":0.91}"
+                                    .getBytes(StandardCharsets.UTF_8),
+                            "application/json",
+                            "fake-stt-request");
+                };
+        OpenAiSpeakingPromptSttAdapter adapter =
+                new OpenAiSpeakingPromptSttAdapter(
+                        properties,
+                        new ObjectMapper(),
+                        mock(PracticeAiMetrics.class),
+                        resolver,
+                        audits,
+                        fakeTransport);
+
+        SpeakingPromptAiContract.SttResult result =
+                adapter.transcribe(sttRequest());
+
+        assertThat(result.providerCode()).isEqualTo("openai");
+        assertThat(result.modelCode()).isEqualTo("db-purpose-model");
+        assertThat(result.purposeCode()).isEqualTo(
+                PracticeAiPurpose.PRACTICE_SPEAKING_STT.name());
+        assertThat(calls).hasValue(1);
+        verify(resolver, times(2)).resolve(
+                PracticeAiPurpose.PRACTICE_SPEAKING_STT);
+        verify(resolver).assertCurrent(binding.snapshot());
+        verify(audits).success(41L);
+    }
+
+    @Test
+    void productionTtsUsesOnlyResolvedPracticeBindingAndCentralTransport() {
+        SpeakingPromptAuthoringAiProperties properties = configuredProperties();
+        PracticeAiResolvedBinding binding = binding(
+                PracticeAiPurpose.PRACTICE_SPEAKING_TTS);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        PracticeAiExecutionAuditService audits =
+                mock(PracticeAiExecutionAuditService.class);
+        properties.setBindingResolver(resolver);
+        when(resolver.resolve(PracticeAiPurpose.PRACTICE_SPEAKING_TTS))
+                .thenReturn(binding);
+        doNothing().when(resolver).assertCurrent(binding.snapshot());
+        when(audits.start(
+                any(), anyString(), anyString(), anyString())).thenReturn(42L);
+        byte[] generated = "verified-generated-audio".getBytes(
+                StandardCharsets.UTF_8);
+        SpeakingPromptAudioVerifier verifier = mock(
+                SpeakingPromptAudioVerifier.class);
+        when(verifier.verifyTtsOutput(
+                any(byte[].class), anyString(), anyString()))
+                .thenReturn(new SpeakingPromptAiContract.VerifiedAudio(
+                        generated,
+                        "speaking-prompt-ai.mp3",
+                        "audio/mpeg",
+                        SpeakingPromptAiContract.exactBytesSha256(generated),
+                        2_000L));
+        AtomicInteger calls = new AtomicInteger();
+        PracticeAiProviderTransport fakeTransport =
+                (resolved, path, contentType, accept, body, headers) -> {
+                    calls.incrementAndGet();
+                    assertThat(resolved).isSameAs(binding);
+                    assertThat(path).isEqualTo("/audio/speech");
+                    assertThat(String.valueOf(body))
+                            .contains("db-purpose-model")
+                            .doesNotContain("tts-secret", "legacy-model");
+                    return new PracticeAiProviderTransport.ProviderResponse(
+                            200,
+                            generated,
+                            "audio/mpeg",
+                            "fake-tts-request");
+                };
+        OpenAiSpeakingPromptTtsAdapter adapter =
+                new OpenAiSpeakingPromptTtsAdapter(
+                        properties,
+                        verifier,
+                        mock(PracticeAiMetrics.class),
+                        resolver,
+                        audits,
+                        fakeTransport);
+
+        SpeakingPromptAiContract.TtsResult result =
+                adapter.synthesize(ttsRequest());
+
+        assertThat(result.providerCode()).isEqualTo("openai");
+        assertThat(result.modelCode()).isEqualTo("db-purpose-model");
+        assertThat(result.purposeCode()).isEqualTo(
+                PracticeAiPurpose.PRACTICE_SPEAKING_TTS.name());
+        assertThat(calls).hasValue(1);
+        verify(resolver, times(2)).resolve(
+                PracticeAiPurpose.PRACTICE_SPEAKING_TTS);
+        verify(resolver).assertCurrent(binding.snapshot());
+        verify(audits).success(42L);
     }
 
     @Test
@@ -458,5 +593,32 @@ class SpeakingPromptProviderAdapterTest {
         properties.getTts().setModel("speech-model");
         properties.getTts().setVoice("alloy");
         return properties;
+    }
+
+    private static PracticeAiResolvedBinding binding(PracticeAiPurpose purpose) {
+        PracticeAiCapabilitySet capabilities = switch (purpose) {
+            case PRACTICE_SPEAKING_STT ->
+                    new PracticeAiCapabilitySet(false, false, false, true, false);
+            case PRACTICE_SPEAKING_TTS ->
+                    new PracticeAiCapabilitySet(false, false, false, false, true);
+            default -> throw new IllegalArgumentException("Unsupported test purpose");
+        };
+        return new PracticeAiResolvedBinding(
+                new PracticeAiExecutionSnapshot(
+                        purpose,
+                        7L,
+                        3L,
+                        PracticeAiBindingResolver.PROVIDER_FAMILY,
+                        "PRACTICE_AUDIO",
+                        "db-purpose-model",
+                        PracticeAiBindingResolver.TRANSPORT_DIALECT,
+                        capabilities,
+                        new PracticeAiLimits(
+                                1_000, 5_000, 0, 1_048_576, 1_048_576),
+                        "a".repeat(64),
+                        "b".repeat(64),
+                        "PRACTICE_AUDIO_V1"),
+                URI.create("https://provider.invalid/v1"),
+                "FAKE_CONTROL_PLANE_SECRET");
     }
 }

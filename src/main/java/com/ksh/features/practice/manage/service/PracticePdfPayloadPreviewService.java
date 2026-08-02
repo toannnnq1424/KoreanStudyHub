@@ -2,7 +2,8 @@ package com.ksh.features.practice.manage.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.PracticePdfImportSession;
-import com.ksh.features.practice.ai.OpenAiProperties;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -11,14 +12,14 @@ import java.util.*;
 public class PracticePdfPayloadPreviewService {
 
     private final PracticePdfAiPayloadBuilder payloadBuilder;
-    private final OpenAiProperties properties;
+    private final PracticeStructuredGenerationPort structuredGeneration;
     private final ObjectMapper objectMapper;
 
     public PracticePdfPayloadPreviewService(PracticePdfAiPayloadBuilder payloadBuilder,
-                                            OpenAiProperties properties,
+                                            PracticeStructuredGenerationPort structuredGeneration,
                                             ObjectMapper objectMapper) {
         this.payloadBuilder = payloadBuilder;
-        this.properties = properties;
+        this.structuredGeneration = structuredGeneration;
         this.objectMapper = objectMapper;
     }
 
@@ -26,9 +27,12 @@ public class PracticePdfPayloadPreviewService {
         // Build unified payload from the builder
         PracticePdfAiPayloadBuilder.PayloadInfo info = payloadBuilder.buildPayload(session);
 
-        // System prompt and model from orchestrator properties
-        String sysPrompt = properties.apiKey() != null ? systemPrompt() : "Mock System Prompt (API Key not set)";
-        String model = properties.evaluatorModel();
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(PracticeAiPurpose.PRACTICE_PDF_AUTHORING);
+        String sysPrompt = identity.available()
+                ? systemPrompt()
+                : "Practice PDF authoring binding unavailable";
+        String model = identity.model();
         String strategy = session.getExtractionStrategy();
 
         // Calculate statistics

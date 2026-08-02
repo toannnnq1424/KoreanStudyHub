@@ -32,6 +32,8 @@ public class SpeakingPromptFingerprintService {
                 field("model", config.model()),
                 field("purpose_code", config.purposeCode()),
                 field("retention_code", config.retentionCode()),
+                field("binding_revision", String.valueOf(config.bindingRevision())),
+                field("profile_revision", String.valueOf(config.providerProfileRevision())),
                 field("contract", SpeakingPromptAiContract.CONTRACT_VERSION));
     }
 
@@ -53,6 +55,8 @@ public class SpeakingPromptFingerprintService {
                 field("format", config.outputFormat()),
                 field("purpose_code", config.purposeCode()),
                 field("retention_code", config.retentionCode()),
+                field("binding_revision", String.valueOf(config.bindingRevision())),
+                field("profile_revision", String.valueOf(config.providerProfileRevision())),
                 field("contract", SpeakingPromptAiContract.CONTRACT_VERSION));
     }
 
