@@ -37,9 +37,9 @@
 
   <div class="toolbar-right">
     <div class="toolbar-actions-scroll">
-    <a id="pdf-import-action" th:href="@{/practice/manage/import}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)" aria-label="Nhập lại từ PDF" title="Nhập lại từ PDF">
+    <a id="pdf-import-action" href="#" class="btn-action btn-sec" style="display:none;" onclick="handleEditorToolNavigation(event)" aria-label="Biên soạn từ Text hoặc PDF" title="Biên soạn từ Text hoặc PDF">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <span class="toolbar-action-label">Nhập lại từ PDF</span>
+      <span class="toolbar-action-label">Text/PDF</span>
     </a>
     <a id="excel-import-action" th:href="@{/practice/manage/excel(draftId=${draft.id})}" class="btn-action btn-sec" style="display:none;" onclick="handleEditorToolNavigation(event)" aria-label="Nhập Excel" title="Nhập Excel">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>
@@ -2639,11 +2639,15 @@
         + `&lessonCode=${encodeURIComponent(section.lessonCode)}`;
     }
     if (pdfAction) {
-      pdfAction.href = section
-        ? `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`
+      pdfAction.style.display = section ? 'flex' : 'none';
+      if (section) {
+        pdfAction.href = `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`
           + `&testNo=${encodeURIComponent(section.testNo)}`
-          + `&lessonCode=${encodeURIComponent(section.lessonCode)}`
-        : '/practice/manage/import';
+          + `&skill=${encodeURIComponent(section.skill)}`
+          + `&lessonCode=${encodeURIComponent(section.lessonCode)}`;
+      } else {
+        pdfAction.removeAttribute('href');
+      }
     }
   }
 
@@ -6853,22 +6857,6 @@
 
 <!-- ═══ ASSET LIBRARY DRAWER ═══ -->
 <style>
-  .asset-tab-btn {
-    flex: 1;
-    padding: 12px;
-    text-align: center;
-    background: none;
-    border: none;
-    font-weight: 700;
-    font-size: 0.78rem;
-    color: #687389;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-  }
-  .asset-tab-btn.active {
-    color: #4F6EF7;
-    border-bottom-color: #4F6EF7;
-  }
   .asset-card {
     background: #ffffff;
     border: 1px solid #E5EAF2;
@@ -6900,18 +6888,8 @@
        <svg th:replace="~{practice/fragments/icons :: close}"></svg>
      </button>
    </div>
-   <!-- Tabs -->
-   <div role="tablist" aria-label="Nguồn ảnh"
-        style="display: flex; background: #F8FAFD; border-bottom: 1px solid #E5EAF2;">
-     <button type="button" role="tab" class="asset-tab-btn active" id="asset-tab-active"
-             aria-selected="true" tabindex="0" aria-controls="asset-list-container"
-             onclick="switchAssetTab('active')">Ảnh của tôi</button>
-     <button type="button" role="tab" class="asset-tab-btn" id="asset-tab-session"
-             aria-selected="false" tabindex="-1" aria-controls="asset-list-container"
-             onclick="switchAssetTab('session')">Từ tệp PDF này</button>
-   </div>
    <!-- Content / List -->
-   <div id="asset-list-container" role="tabpanel" aria-labelledby="asset-tab-active"
+   <div id="asset-list-container" aria-labelledby="asset-library-title"
         style="flex: 1; overflow-y: auto; padding: 16px; background: #F6F8FC; display: flex; flex-direction: column; gap: 12px;">
      <!-- Populated by JS -->
    </div>
@@ -6919,7 +6897,6 @@
 
 <script>
   let isAssetLibraryOpen = false;
-  let activeAssetTab = 'active'; // active, session
   let assetLibraryReturnFocus = null;
 
   function toggleAssetLibraryDrawer(forceOpen) {
@@ -6954,39 +6931,13 @@
     }
   }
 
-  function switchAssetTab(tab) {
-    activeAssetTab = tab;
-    document.querySelectorAll('.asset-tab-btn').forEach(btn => {
-      const selected = btn.id === 'asset-tab-' + tab;
-      btn.classList.toggle('active', selected);
-      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
-      btn.tabIndex = selected ? 0 : -1;
-    });
-    document.getElementById('asset-list-container')
-      .setAttribute('aria-labelledby', 'asset-tab-' + tab);
-    loadAssetLibrary();
-  }
-
   async function loadAssetLibrary() {
     const container = document.getElementById('asset-list-container');
     container.setAttribute('aria-busy', 'true');
     container.innerHTML = '<div role="status" style="text-align:center; padding:20px; color:#687389; font-size:0.8rem;">Đang tải...</div>';
     
-    // We can extract sessionId from draft metadata if available, else fetch general
-    let url = '/practice/manage/assets';
-    if (activeAssetTab === 'session') {
-      const sesId = window.currentSessionId || '';
-      if (sesId) {
-        url += '?sessionId=' + sesId;
-      } else {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:#687389; font-size:0.8rem;">Bản nháp này chưa liên kết với phiên nhập PDF.</div>';
-        container.setAttribute('aria-busy', 'false');
-        return;
-      }
-    }
- 
     try {
-      const assets = await editorJsonFetch(url, {
+      const assets = await editorJsonFetch('/practice/manage/assets', {
         method: 'GET',
         headers: editorApiHeaders()
       }, 'Không tải được kho ảnh.');

@@ -78,28 +78,25 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     }
 
     @Test
-    void basicAndAdvancedUiShareTheExistingCandidateReviewJourney()
+    void requestLocalBasicUiOwnsTheOnlyPdfCandidateJourney()
             throws Exception {
         String wizard = read(ROOT.resolve(
                 "src/main/resources/templates/practice/manage/import-wizard.html"));
-        String workspace = read(ROOT.resolve(
-                "src/main/resources/templates/practice/manage/import-workspace.html"));
         assertThat(wizard)
                 .contains(
                         "Text/PDF → candidate có thể chỉnh sửa",
                         "id=\"basic-source-type\"",
                         "id=\"basic-operation\"",
-                        "id=\"advanced-authoring\"",
                         "/practice/manage/pdf-authoring/candidates",
-                        "window.location.href = payload.reviewUrl");
-        assertThat(workspace)
-                .contains(
-                        "candidate review hiện có",
-                        "operation: 'EXTRACT'",
-                        "window.location.href = payload.reviewUrl")
+                        "window.location.assign(payload.reviewUrl)",
+                        "Không lưu PDF")
                 .doesNotContain(
+                        "advanced-authoring", "import-sessions",
                         "create-manual-draft", "attach-to-draft",
                         "convertDraftToManual");
+        assertThat(Files.exists(ROOT.resolve(
+                "src/main/resources/templates/practice/manage/import-workspace.html")))
+                .isFalse();
     }
 
     @Test

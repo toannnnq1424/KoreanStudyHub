@@ -4,6 +4,7 @@ import com.ksh.features.storage.profile.StorageProfileCode;
 
 public enum PracticeStorageMigrationLogicalType {
     LECTURER_ASSET(StorageProfileCode.PRACTICE_AUTHORING),
+    /** Historical V85 job identity; runtime execution retired in CLEAN_CUT_3. */
     PDF_IMPORT_SESSION(StorageProfileCode.PRACTICE_AUTHORING),
     SPEAKING_MEDIA(StorageProfileCode.PRACTICE_SPEAKING);
 

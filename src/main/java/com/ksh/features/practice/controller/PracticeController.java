@@ -1,8 +1,6 @@
 package com.ksh.features.practice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.features.practice.dto.PracticeDtos.PracticePdfDraftView;
-import com.ksh.features.practice.dto.PracticeDtos.PracticePdfImportResult;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeResultDetailView;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeSetView;
@@ -1474,12 +1472,6 @@ public class PracticeController {
                     "Unable to serialize the canonical unavailable progress DTO",
                     fallbackFailure);
         }
-    }
-
-    @GetMapping(PracticeRoutes.MANAGE_UPLOAD)
-    @PreAuthorize(Roles.PREAUTH_LECTURER)
-    public String uploadFormRedirect() {
-        return "redirect:/practice/manage/import";
     }
 
     @GetMapping(PracticeRoutes.MANAGE_MANUAL)

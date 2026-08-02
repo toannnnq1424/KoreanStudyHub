@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.AiSystemPrompt;
-import com.ksh.entities.PracticeAiRequestAudit;
 import com.ksh.features.admin.settings.repository.AiSystemPromptRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
@@ -14,7 +13,6 @@ import com.ksh.features.practice.ai.transport.PracticeAiContractException;
 import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
 import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest;
 import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationResponse;
-import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +21,6 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -39,66 +36,51 @@ public class PracticePdfAiOrchestrator {
             PracticePdfAiOrchestrator.class);
 
     private final ObjectMapper objectMapper;
-    private final PracticeAiRequestAuditRepository auditRepository;
     private final PracticeStructuredGenerationPort structuredGeneration;
     private final AiSystemPromptRepository promptRepository;
 
     @Autowired
     public PracticePdfAiOrchestrator(
             ObjectMapper objectMapper,
-            PracticeAiRequestAuditRepository auditRepository,
             PracticeStructuredGenerationPort structuredGeneration,
             AiSystemPromptRepository promptRepository) {
         this.objectMapper = objectMapper;
-        this.auditRepository = auditRepository;
         this.structuredGeneration = structuredGeneration;
         this.promptRepository = promptRepository;
     }
 
     PracticePdfAiOrchestrator(
             ObjectMapper objectMapper,
-            PracticeAiRequestAuditRepository auditRepository,
             PracticeStructuredGenerationPort structuredGeneration) {
-        this(objectMapper, auditRepository, structuredGeneration, null);
+        this(objectMapper, structuredGeneration, null);
     }
 
     public GenerationResult generate(PracticePdfAuthoringRequest authoring) {
-        Long sessionId = authoring.sessionId();
-        log.info("[PdfAiOrchestrator] Preparing purpose-bound authoring request sessionId={}",
-                sessionId == null ? "TEXT" : sessionId);
+        log.info("[PdfAiOrchestrator] Preparing request-local purpose-bound authoring request sourceType={}",
+                authoring.sourceType());
         PracticeStructuredGenerationPort.ProviderIdentity identity =
                 structuredGeneration.identity(PracticeAiPurpose.PRACTICE_PDF_AUTHORING);
         requireAvailable(identity);
 
         String requestId = UUID.randomUUID().toString();
         AdminPrompt adminPrompt = adminPrompt();
-        PracticeAiRequestAudit legacyAudit = legacyAudit(
-                authoring, identity, requestId, adminPrompt.digest());
-        try {
-            PracticeStructuredGenerationResponse response = structuredGeneration.generate(
-                    request(authoring, identity, requestId, adminPrompt));
-            PracticeStructuredGenerationPort.ProviderIdentity current =
-                    structuredGeneration.identity(
-                            PracticeAiPurpose.PRACTICE_PDF_AUTHORING);
-            if (!sameAuthority(identity, current)
-                    || !identity.providerProfileCode().equals(response.provider())
-                    || !identity.model().equals(response.model())) {
-                throw new PracticeAiContractException(
-                        "PROVIDER_BINDING_CHANGED", false);
-            }
-            completeLegacyAudit(legacyAudit, "SUCCESS", null);
-            return new GenerationResult(
-                    response.output(),
-                    aiExecution(identity, requestId),
-                    sourceRevision(identity, adminPrompt.digest(), authoring),
-                    requestId,
-                    response.providerRequestId());
-        } catch (RuntimeException exception) {
-            String code = exception instanceof PracticeAiContractException contract
-                    ? contract.category() : "AI_PROVIDER_CALL_FAILED";
-            completeLegacyAudit(legacyAudit, "FAILED", code);
-            throw exception;
+        PracticeStructuredGenerationResponse response = structuredGeneration.generate(
+                request(authoring, identity, requestId, adminPrompt));
+        PracticeStructuredGenerationPort.ProviderIdentity current =
+                structuredGeneration.identity(
+                        PracticeAiPurpose.PRACTICE_PDF_AUTHORING);
+        if (!sameAuthority(identity, current)
+                || !identity.providerProfileCode().equals(response.provider())
+                || !identity.model().equals(response.model())) {
+            throw new PracticeAiContractException(
+                    "PROVIDER_BINDING_CHANGED", false);
         }
+        return new GenerationResult(
+                response.output(),
+                aiExecution(identity, requestId),
+                sourceRevision(identity, adminPrompt.digest(), authoring),
+                requestId,
+                response.providerRequestId());
     }
 
     private PracticeStructuredGenerationRequest request(
@@ -199,54 +181,13 @@ public class PracticePdfAiOrchestrator {
                 server cung cấp. Mỗi câu phải có canonical questionContent và
                 answerSpec; Writing dùng đúng Q51-Q54, Q51/Q52 có hai blank cùng
                 accepted answers typed; Speaking chỉ manual_text + text_only + none.
-                Mọi sourceRef phải thuộc requestEvidenceIds và khớp page/span/region.
+                Mọi sourceRef phải thuộc requestEvidenceIds và khớp page/span.
                 Không được trả target, storage key, URL tùy ý, publication action,
                 learner submission/result hay bất kỳ score, scoreSummary,
                 rubricScores, taskCoverage, diagnosticStates, evidenceLedger,
                 findings, feedback, upgradedAnswer, acoustic/alignment field nào.
                 Không markdown và không văn bản ngoài JSON.
                 """;
-    }
-
-    private PracticeAiRequestAudit legacyAudit(
-            PracticePdfAuthoringRequest authoring,
-            PracticeStructuredGenerationPort.ProviderIdentity identity,
-            String requestId,
-            String promptDigest) {
-        if (authoring.sessionId() == null) return null;
-        PracticeAiRequestAudit audit = new PracticeAiRequestAudit();
-        audit.setSessionId(authoring.sessionId());
-        audit.setPromptVersion(PracticePdfAuthoringJsonContract.PROMPT_VERSION);
-        audit.setModel(identity.model());
-        audit.setStrategy(authoring.sourceType().name() + ":" + authoring.operation());
-        audit.setSentTextChars(authoring.evidence().stream()
-                .mapToInt(PracticePdfAuthoringRequest.SourceEvidence::textLength).sum());
-        audit.setSentImageCount(authoring.images().size());
-        audit.setSentImageBytes(0L);
-        audit.setCreatedAt(LocalDateTime.now());
-        try {
-            audit.setPayloadSummaryJson(objectMapper.writeValueAsString(Map.of(
-                    "purpose", PracticeAiPurpose.PRACTICE_PDF_AUTHORING.name(),
-                    "bindingRevision", identity.bindingRevision(),
-                    "providerProfile", identity.providerProfileCode(),
-                    "requestId", requestId,
-                    "promptDigest", promptDigest,
-                    "sourceType", authoring.sourceType().name(),
-                    "operation", authoring.operation().name())));
-        } catch (Exception exception) {
-            throw new IllegalStateException("Cannot serialize bounded PDF audit", exception);
-        }
-        return audit;
-    }
-
-    private void completeLegacyAudit(
-            PracticeAiRequestAudit audit,
-            String status,
-            String errorCode) {
-        if (audit == null) return;
-        audit.setStatus(status);
-        audit.setErrorCode(errorCode);
-        auditRepository.save(audit);
     }
 
     private ObjectNode aiExecution(

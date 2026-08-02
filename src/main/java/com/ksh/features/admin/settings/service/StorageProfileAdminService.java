@@ -141,13 +141,12 @@ public class StorageProfileAdminService {
         Long count = jdbcTemplate.queryForObject("""
                 SELECT
                     (SELECT COUNT(*) FROM lecturer_assets WHERE storage_profile_code = ?)
-                  + (SELECT COUNT(*) FROM practice_pdf_import_sessions WHERE storage_profile_code = ?)
                   + (SELECT COUNT(*) FROM practice_asset_lifecycle_tasks WHERE storage_profile_code = ?)
                   + (SELECT COUNT(*) FROM practice_speaking_media WHERE storage_profile_code = ?)
                   + (SELECT COUNT(*) FROM practice_speaking_media_cleanup_tasks WHERE storage_profile_code = ?)
                   + (SELECT COUNT(*) FROM practice_storage_migration_jobs
                        WHERE source_profile_code = ? OR target_profile_code = ?)
-                """, Long.class, value, value, value, value, value, value, value);
+                """, Long.class, value, value, value, value, value, value);
         return count == null ? 0L : count;
     }
 

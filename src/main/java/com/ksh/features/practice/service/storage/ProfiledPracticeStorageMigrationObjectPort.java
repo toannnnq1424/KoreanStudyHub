@@ -1,7 +1,6 @@
 package com.ksh.features.practice.service.storage;
 
 import com.ksh.features.practice.manage.service.AssetStorageService;
-import com.ksh.features.practice.pdf.PracticePdfStorageService;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
 import com.ksh.features.storage.StoredObject;
 import com.ksh.features.storage.profile.StorageBackend;
@@ -16,17 +15,14 @@ public class ProfiledPracticeStorageMigrationObjectPort
         implements PracticeStorageMigrationObjectPort {
     private final StorageProfileObjectStore profiles;
     private final AssetStorageService authoring;
-    private final PracticePdfStorageService pdfs;
     private final SpeakingAudioStorage speaking;
 
     public ProfiledPracticeStorageMigrationObjectPort(
             StorageProfileObjectStore profiles,
             AssetStorageService authoring,
-            PracticePdfStorageService pdfs,
             SpeakingAudioStorage speaking) {
         this.profiles = profiles;
         this.authoring = authoring;
-        this.pdfs = pdfs;
         this.speaking = speaking;
     }
 
@@ -39,7 +35,7 @@ public class ProfiledPracticeStorageMigrationObjectPort
         }
         return switch (claim.logicalType()) {
             case LECTURER_ASSET -> authoring.load(null, claim.sourceStorageKey()).getInputStream();
-            case PDF_IMPORT_SESSION -> pdfs.open(null, claim.sourceStorageKey());
+            case PDF_IMPORT_SESSION -> throw retiredPdfMigration();
             case SPEAKING_MEDIA -> speaking.open(null, claim.sourceStorageKey());
         };
     }
@@ -69,7 +65,7 @@ public class ProfiledPracticeStorageMigrationObjectPort
         }
         switch (claim.logicalType()) {
             case LECTURER_ASSET -> authoring.delete(null, claim.sourceStorageKey());
-            case PDF_IMPORT_SESSION -> pdfs.delete(null, claim.sourceStorageKey());
+            case PDF_IMPORT_SESSION -> throw retiredPdfMigration();
             case SPEAKING_MEDIA -> speaking.delete(null, claim.sourceStorageKey());
         }
     }
@@ -81,8 +77,12 @@ public class ProfiledPracticeStorageMigrationObjectPort
         }
         return switch (claim.logicalType()) {
             case LECTURER_ASSET -> authoring.exists(null, claim.sourceStorageKey());
-            case PDF_IMPORT_SESSION -> pdfs.existsLegacy(claim.sourceStorageKey());
+            case PDF_IMPORT_SESSION -> throw retiredPdfMigration();
             case SPEAKING_MEDIA -> speaking.exists(null, claim.sourceStorageKey());
         };
+    }
+
+    private static IllegalStateException retiredPdfMigration() {
+        return new IllegalStateException("PDF_IMPORT_SESSION_MIGRATION_RETIRED");
     }
 }

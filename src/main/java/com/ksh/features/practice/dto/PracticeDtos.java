@@ -451,43 +451,6 @@ public final class PracticeDtos {
         }
     }
 
-    public record PracticeDraftQuestion(Integer questionNo, String questionType,
-                                        String prompt, List<String> options,
-                                        String optionsText,
-                                        String answerKey, String explanation,
-                                        BigDecimal points) {
-    }
-
-    public record PracticeDraftGroup(
-        String groupLabel,
-        Integer questionFrom,
-        Integer questionTo,
-        String instruction,
-        String audioUrl,
-        String exampleBoxJson,
-        List<PracticeDraftQuestion> questions
-    ) {
-    }
-
-    public record PracticePdfDraftView(String title, String description,
-                                       String skill,
-                                       String scope, Long classId,
-                                       String sourcePdfPath,
-                                       String metadataJson,
-                                       List<PracticeDraftGroup> groups,
-                                       String originalFilename) {
-        @Override
-        public List<PracticeDraftGroup> groups() {
-            return groups == null ? List.of() : groups;
-        }
-
-        public List<PracticeDraftQuestion> questions() {
-            return groups().stream()
-                    .flatMap(g -> g.questions().stream())
-                    .toList();
-        }
-    }
-
     public record PracticeSetView(PracticeSetRow set,
                                   List<PracticeQuestionGroupRow> groups,
                                   List<SectionView> sections,
@@ -960,9 +923,6 @@ public final class PracticeDtos {
                                         ProgressAvailability identityAvailability,
                                         ProgressExclusionReason identityReason,
                                         ProgressNumericFact scoreFact) {
-    }
-
-    public record PracticePdfImportResult(Long setId, String title, int questionCount) {
     }
 
     public record SpeakingMediaUploadResponse(

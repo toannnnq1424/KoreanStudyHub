@@ -2568,14 +2568,29 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void testUploadAllowedForLecturer() throws Exception {
-        mockMvc.perform(get("/practice/manage/import"))
+        com.ksh.entities.PracticeDraft importDraft = draftRepository.saveAndFlush(
+                new com.ksh.entities.PracticeDraft(
+                        "Nháp Text/PDF",
+                        "",
+                        "GLOBAL",
+                        null,
+                        "DRAFT",
+                        lecturer.getId(),
+                        "{\"sections\":[{\"title\":\"Phần Đọc\","
+                                + "\"skill\":\"READING\",\"testNo\":1,"
+                                + "\"lessonCode\":\"R1\"}]}"));
+        mockMvc.perform(get("/practice/manage/import")
+                        .param("draftId", importDraft.getId().toString())
+                        .param("testNo", "1")
+                        .param("skill", "READING")
+                        .param("lessonCode", "R1"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/manage/import-wizard"));
 
-        // Check legacy upload redirect
+        // The targetless legacy bookmark is retired instead of opening a
+        // half-configured Basic import surface.
         mockMvc.perform(get("/practice/manage/upload"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/manage/import"));
+                .andExpect(status().isNotFound());
     }
 
     @Test

@@ -45,7 +45,6 @@ public final class PracticeRoutes {
     public static final String LEGACY_SUBMISSION_RESULT = "/submissions/{submissionId}";
     public static final String LEGACY_SUBMISSION_RE_EVALUATE = "/submissions/{submissionId}/re-evaluate";
     public static final String PROFILE = "/profile";
-    public static final String MANAGE_UPLOAD = "/manage/upload";
     public static final String MANAGE_MANUAL = "/manage/manual";
 
     private PracticeRoutes() {

@@ -99,9 +99,9 @@ class PracticeAim8CompatibilityStaticContractTest {
         assertThat(pdf)
                 .contains(
                         "/pdf-authoring/candidates",
-                        "/import-sessions/{sessionId}/generate",
                         "candidateService.createOrReuse", "reviewUrl")
                 .doesNotContain(
+                        "/import-sessions/",
                         "PracticeDraftRepository", "setDraftJson(",
                         "PracticePdfDraftAssembler", "PracticeImportDraftService");
         assertThat(Files.exists(javaPath(
@@ -223,8 +223,6 @@ class PracticeAim8CompatibilityStaticContractTest {
                 "src/main/resources/templates/practice/manage/excel-import.html");
         String basicTemplate = read(
                 "src/main/resources/templates/practice/manage/import-wizard.html");
-        String advancedTemplate = read(
-                "src/main/resources/templates/practice/manage/import-workspace.html");
         String reviewTemplate = read(
                 "src/main/resources/templates/practice/manage/"
                         + "candidate-review.html");
@@ -233,11 +231,14 @@ class PracticeAim8CompatibilityStaticContractTest {
                 "@PostMapping(value = \"/import\"", "reviewUrl");
         assertThat(pdfController).contains(
                 "@PostMapping(value = \"/pdf-authoring/candidates\"",
-                "@PostMapping(\"/import-sessions/{sessionId}/generate\")",
-                "reviewUrl");
-        assertThat(excelTemplate + basicTemplate + advancedTemplate)
+                "reviewUrl")
+                .doesNotContain("/import-sessions/");
+        assertThat(excelTemplate + basicTemplate)
                 .contains("payload.reviewUrl")
                 .doesNotContain("create-manual-draft", "attach-to-draft");
+        assertThat(Files.exists(ROOT.resolve(
+                "src/main/resources/templates/practice/manage/import-workspace.html")))
+                .isFalse();
         assertThat(reviewTemplate).contains(
                 "practice/manage/fragments/draft-preview :: modal",
                 "/js/practice/manage-draft-preview.js");

@@ -374,8 +374,7 @@ class PracticePdfAuthoringOutputValidatorTest {
                         "TEXT_SPAN", "source-1", null,
                         SOURCE.length(), SOURCE)),
                 Map.of("trust", "UNTRUSTED_SOURCE_CONTENT"),
-                List.of(),
-                null);
+                List.of());
     }
 
     private static final String SOURCE =

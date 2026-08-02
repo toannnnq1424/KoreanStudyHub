@@ -140,7 +140,7 @@ public final class PracticePdfAuthoringJsonContract {
         return object(
                 List.of("kind", "sourceId"),
                 props(
-                        "kind", enumString("TEXT_SPAN", "PAGE", "REGION"),
+                        "kind", enumString("TEXT_SPAN", "PAGE"),
                         "sourceId", text(1, 200),
                         "pageNumber", integer(1, null),
                         "start", integer(0, null),

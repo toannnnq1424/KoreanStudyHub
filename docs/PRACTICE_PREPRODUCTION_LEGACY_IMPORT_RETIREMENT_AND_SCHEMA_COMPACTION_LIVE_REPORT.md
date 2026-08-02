@@ -4,9 +4,9 @@ Recorded: `2026-08-02`
 
 Program: `PRACTICE_PREPRODUCTION_LEGACY_IMPORT_RETIREMENT_AND_SCHEMA_COMPACTION`
 
-Current slice: `CLEAN_CUT_2_EXCEL_REPLACEMENT_AND_RETIREMENT`
+Current slice: `CLEAN_CUT_3_PDF_WORKSPACE_RETIREMENT`
 
-Status: `CLEAN_CUT_1_AND_CLEAN_CUT_2_ACCEPTED__LOCAL_COMMIT_PENDING__CLEAN_CUT_3_NOT_STARTED`
+Status: `CLEAN_CUT_3_IMPLEMENTED__COORDINATOR_AUDIT_PENDING__CLEAN_CUT_4_NOT_STARTED`
 
 ## 1. Checkpoint and authority
 
@@ -72,12 +72,12 @@ contract freeze; it does not rewrite the historical evidence.
   provider API-console/documentation links are excluded.
 - Automated validation must make real calls `AI/R2/STT/TTS = 0/0/0/0`.
 - CLEAN_CUT_1 through CLEAN_CUT_5 use this one worktree and coordinator-owned
-  branch. The coordinator accepted CLEAN_CUT_1 and then explicitly held its
-  sole report uncommitted; after CLEAN_CUT_2 audit the coordinator alone may
-  create one local commit containing CLEAN_CUT_1 + CLEAN_CUT_2. Later slices
-  return to one audited local commit per slice. There is no inter-slice merge,
-  push or PR. Only after CLEAN_CUT_5 and consolidated green evidence may the
-  coordinator push the full chain and merge one PR.
+  branch. After auditing both slices, the coordinator created the single local
+  CLEAN_CUT_1 + CLEAN_CUT_2 commit
+  `d02be7843c8fd77a72600121f8bc4f1e31a9ae76`. Later slices return to one
+  coordinator-created audited local commit per slice. There is no inter-slice
+  merge, push or PR. Only after CLEAN_CUT_5 and consolidated green evidence may
+  the coordinator push the full chain and merge one PR.
 
 ## 2. Classification vocabulary
 
@@ -649,7 +649,8 @@ Work:
 6. run Basic PDF/Text, candidate, editor/preview/publish, auth/ownership,
    route/template/JS/static and no-real-call regression.
 
-Stop after coordinator audit and exactly one local CLEAN_CUT_3 commit. Do not
+Stop at the completed CLEAN_CUT_3 checkpoint for coordinator audit. The
+coordinator alone may then create exactly one local CLEAN_CUT_3 commit. Do not
 operate on a shared database and do not begin CLEAN_CUT_4 in the same audit step.
 
 ### CLEAN_CUT_4 — Storage/schema compaction and residual ownership cleanup
@@ -840,9 +841,9 @@ retired endpoints/selectors/handlers.
 ### 13.6 CLEAN_CUT_2 checkpoint
 
 `CLEAN_CUT_2_EXCEL_REPLACEMENT_AND_RETIREMENT` is complete and accepted by the
-coordinator. `CLEAN_CUT_3` has not started. There is no migration or schema
-change in this slice, and no shared database or object storage operation was
-performed. The coordinator alone may commit the uncommitted CLEAN_CUT_1 report
+coordinator. At that C2 checkpoint `CLEAN_CUT_3` had not started. There is no
+migration or schema change in this slice, and no shared database or object
+storage operation was performed. The coordinator alone may commit the uncommitted CLEAN_CUT_1 report
 and all CLEAN_CUT_2 changes together after acceptance; this task must not
 commit, push, open a PR, merge or begin PDF retirement.
 
@@ -864,4 +865,215 @@ working tree before the local commit:
 - no database, object store or real AI/R2/STT/TTS provider was contacted.
 
 Verdict: `CLEAN_CUT_1_AND_CLEAN_CUT_2_ACCEPTED_FOR_ONE_LOCAL_COMMIT`.
-`CLEAN_CUT_3` remains not started until that commit exists.
+`CLEAN_CUT_3` was held until that commit existed.
+
+The coordinator then created that one local commit:
+`d02be7843c8fd77a72600121f8bc4f1e31a9ae76 refactor(practice): retire legacy
+Excel authoring paths`. It was not pushed, merged or used to open a PR.
+
+## 14. CLEAN_CUT_3 implementation and exit evidence
+
+### 14.1 Start checkpoint
+
+The PDF slice began only after the coordinator-owned C1+C2 commit existed:
+
+| Check | Observed value | Result |
+|---|---|---|
+| branch | `codex/practice-clean-cut-legacy-retirement-schema-compaction` | PASS |
+| `HEAD` | `d02be7843c8fd77a72600121f8bc4f1e31a9ae76` | PASS |
+| worktree before C3 edits | clean | PASS |
+| local `main` | `0361372f44843e4410602e1482c05c6f5dedef49` | PASS |
+| `origin/main` | `0361372f44843e4410602e1482c05c6f5dedef49` | PASS |
+
+This task did not create a task, worktree or branch and did not commit, push,
+open a PR or merge. No shared database, shared bucket or shared upload root was
+read, scanned, mutated or deleted.
+
+### 14.2 Request-local Basic Text/PDF replacement
+
+The retained surface is one target-aware page opened only from a selected
+canonical draft section:
+
+```text
+editor exact draft/section action
+  -> GET /practice/manage/import?draftId&testNo&skill&lessonCode
+  -> exact EDIT authorization + target resolution
+  -> bounded Text or in-memory PDF extraction
+  -> immutable PRACTICE_PDF_AUTHORING request snapshot
+  -> purpose-bound structured generation + V84 execution audit
+  -> independent strict output validation
+  -> persistent PDF_AI candidate only
+  -> review -> explicit apply -> canonical draft
+```
+
+The replacement preserves the following contracts:
+
+- `PracticeImportTargetService` requires exact draft `EDIT` authority and
+  resolves the target only from the authorized draft snapshot. Candidate POST
+  rechecks exact `draftId/testNo/skill/lessonCode`; mismatches fail closed.
+- Text is normalized and bounded. PDF requires a non-empty `.pdf` upload with
+  exact `application/pdf`, at most `20 MiB`, a `%PDF-` header, a valid PDFBox
+  document, a valid page interval, the configured selected-page ceiling and
+  the configured total character ceiling.
+- The raw PDF SHA-256 digest, selected page evidence, evidence digest, page
+  numbers, source metadata and target are carried in the immutable request
+  context. The live source-ref vocabulary is now exactly `TEXT_SPAN`/`PAGE`;
+  the unreachable Advanced `REGION` vocabulary is removed. Source text remains
+  untrusted data, never an instruction.
+- The upload stream and PDF document are closed by try-with-resources. No
+  application temp file or storage object is created. The bounded byte buffer
+  is zeroed in `finally`, including success, parse/contract error and request
+  cancellation unwinding; there is no root/bucket scan or delete path.
+- The request remains exact-purpose `PRACTICE_PDF_AUTHORING`. Binding revision
+  `0` is accepted; negative/unavailable identities fail closed; provider/profile/
+  model authority is rechecked after generation.
+- Provider JSON Schema is supplied to the structured-generation port and
+  `PracticePdfAuthoringOutputValidator` independently rejects unknown fields,
+  forbidden evaluation data, wrong skill/type, wrong digest/operation,
+  unrequested evidence and invalid typed answer/Writing/Speaking authority.
+- `PracticePdfAuthoringCandidateAssembler` is the sole persistence step and
+  writes only a `PDF_AI` authoring candidate. The controller has no
+  `PracticeDraftRepository`, draft JSON setter or direct draft write. Review,
+  stale/replay checks, explicit apply and publish remain canonical.
+- The V84 purpose execution audit remains owned by
+  `PracticeControlPlaneStructuredGenerationAdapter` for start/success/failure/
+  cancellation. The older PDF-session `PracticeAiRequestAudit` dual write is
+  removed.
+
+### 14.3 Retired Advanced/session runtime graph
+
+The entire Advanced PDF workspace production graph was removed:
+
+- workspace/history/session/page-range/save/cancel/delete/extracted-text/
+  annotation/payload-preview/generate routes and their DTOs;
+- `import-workspace.html`, recent-session cards, broken rename, PDF.js authoring
+  CDN, region/crop/page snapshot UI, session-only asset tab and every associated
+  selector/handler;
+- session, page-extraction, region-annotation, temporary section/group draft
+  and legacy request-audit entities and repositories;
+- session storage, extraction, preview, crop, region, payload-preview,
+  snapshot, generation claim/lease, scheduler cleanup and legacy audit services;
+- old unused `PracticePdfDraftView`, `PracticePdfImportResult`,
+  `PracticeDraftGroup` and `PracticeDraftQuestion` DTOs/imports; and
+- Advanced-only PDF config keys for regions, rendered pixels, image byte
+  budgets and generation leases.
+
+Production source scans now have zero mapping/query/reference to
+`practice_pdf_import_sessions`, `practice_pdf_page_extractions`,
+`practice_pdf_region_annotations`, `practice_pdf_import_section_drafts`,
+`practice_pdf_import_group_drafts`, `practice_ai_request_audits`, their retired
+entity types or PDF provenance columns. Historical V1-V85 migration bytes
+remain unchanged. The V85 `PDF_IMPORT_SESSION` migration-job enum identity stays
+readable as a rollback tombstone, but every execution port rejects it with
+`PDF_IMPORT_SESSION_MIGRATION_RETIRED` and contains no PDF session table/object
+operation.
+
+`LecturerAsset` no longer maps the session/region/page/crop provenance columns.
+PDF-session repository/query/update/promote/unlink and migration-object shapes
+are gone. The reduced shared asset controller retains only authenticated,
+owner-filtered asset list/delete and exact authorized draft link. Manual
+uploads, private material content, material library lifecycle and canonical
+draft references remain active.
+
+### 14.4 Route/UI/static and Admin disposition
+
+| Surface after C3 | Disposition/evidence |
+|---|---|
+| `GET /practice/manage/import` | KEEP; requires exact `draftId/testNo/skill/lessonCode`, never falls back to another section, and renders the Basic page; stale targets return stable 400 |
+| `POST /practice/manage/pdf-authoring/candidates` | KEEP; exact target recheck, Text/PDF-only, candidate response/review URL only |
+| `GET /practice/manage/assets` | KEEP; canonical editor consumer |
+| `DELETE /practice/manage/assets/{assetId}` | KEEP; canonical editor/library lifecycle consumer and owner check |
+| `POST /practice/manage/drafts/{draftId}/assets` | KEEP; canonical editor asset link with draft/asset authorization |
+| `GET /practice/manage/upload` | RETIRE; the targetless compatibility redirect was removed and now resolves as 404 |
+| all `/practice/manage/import-sessions/**` and workspace routes | RETIRE; no controller mapping or production consumer remains |
+
+The dashboard targetless PDF card is removed. The editor Text/PDF action is
+hidden until an exact section is selected and then receives the exact draft,
+test, skill and lesson context. Production Practice scans have zero Advanced workspace,
+recent-session, targetless redirect, PDF.js authoring CDN, stale fetch, dead
+session tab or retired selector/handler reference. Unrelated learner PDF viewer
+and non-Practice Font Awesome CDN consumers are outside this ownership graph and
+remain untouched.
+
+`StorageProfileAdminService.referenceCount` no longer queries PDF sessions.
+Storage migration identity/port code can deserialize the historical PDF-session
+logical type but cannot query, copy, update or delete a PDF session row/object.
+Practice AI/R2 remain separate data planes; Admin remains the control plane.
+
+### 14.5 Schema and rollback/read freeze
+
+No migration, schema or V1-V85 source was added, removed or edited. The physical
+PDF tables, FKs, indexes and `lecturer_assets` provenance columns frozen in
+Section 9.3 therefore still exist for the moment. The C3 runtime deliberately
+does not map or query any of them, which is the required rollback/read boundary
+before a C4 forward migration may remove them. V83 `PDF_AI` candidates and V84
+purpose execution audits remain readable; there is no row/object preservation
+or copy plan because the authorized environment contains only disposable test
+data.
+
+C4 still must refresh the full inventory, migration maximum and disposable-
+catalog preflight before naming any `V86+` migration. This C3 checkpoint does
+not authorize a shared-database operation or any schema drop.
+
+### 14.6 Validation evidence
+
+- `bash ./mvnw -q -Denforcer.skip=true -DskipTests test-compile`: PASS. The
+  current host has JDK 26 while the repository enforcer requires JDK 17; source
+  and repository toolchain configuration were not changed.
+- focused request-local builder, target/auth, controller, orchestrator/binding,
+  strict output, candidate, asset ownership, Admin count and static compatibility
+  plus retained storage-migration rollback contracts: PASS, `16` classes /
+  `83` tests / `0` failures / `0` errors.
+- three touched PDF/editor methods in
+  `PracticePhase11AuthoringUiContractTest`: PASS, `3/3`.
+- the complete `PracticePhase11AuthoringUiContractTest` probe ran `20` tests
+  with exactly one failure: the coordinator-confirmed pre-existing text-glyph
+  arrow in `practice/result-detail-writing.html`. That file has zero diff from
+  `d02be784`; all C3-owned PDF/editor methods above pass independently.
+- `git diff --check`: PASS.
+- production runtime retired table/column/entity scan: zero matches outside
+  immutable migrations; the only retained PDF migration-job type is the
+  fail-closed V85 tombstone above. Practice route/template/JS/static retirement
+  scan: zero matches.
+- a DB-backed integration probe is intentionally not treated as runnable in
+  this unconfigured worktree: the repository-wide guard rejects missing
+  `TEST_DB_URL` before any connection. The changed integration fixture now opens
+  Basic import with an owned exact target and expects the retired targetless
+  bookmark to return 404. Disposable fresh/upgrade/rollback catalogs remain C5
+  consolidated work.
+- real external calls during implementation and validation:
+  `AI/R2/STT/TTS = 0/0/0/0`.
+
+### 14.7 CLEAN_CUT_3 checkpoint
+
+`CLEAN_CUT_3_PDF_WORKSPACE_RETIREMENT` is implemented and ready for coordinator
+audit. `HEAD` remains the accepted C1+C2 commit; all C3 changes, including this
+report update, are intentionally uncommitted. No shared database or object
+storage was touched, and no real provider call occurred.
+
+`CLEAN_CUT_4` has not started. The coordinator alone may create one local C3
+commit after acceptance; this task must not commit, push, open a PR, merge or
+begin storage/schema compaction.
+
+### 14.8 Coordinator acceptance evidence
+
+The coordinator independently audited the complete CLEAN_CUT_3 working tree
+before the local commit:
+
+- `git diff --check`: PASS;
+- JDK 17 focused request-local PDF/target/auth/controller/orchestrator/strict
+  output/candidate/asset/Admin/storage-migration/static union: `16` suites,
+  `83/83`, `0` failures, `0` errors;
+- the three touched editor/PDF/icon contract methods in
+  `PracticePhase11AuthoringUiContractTest`: `3/3`, `0` failures, `0` errors;
+- production scans found no mapping, query or runtime reference to the six
+  retired PDF tables/entities outside immutable migrations; the V85
+  `PDF_IMPORT_SESSION` logical identity remains only as a readable fail-closed
+  tombstone;
+- route/template/static scans found no retained Advanced workspace/session,
+  targetless redirect, PDF.js authoring or retired selector/handler consumer;
+- no migration, schema or historical V1-V85 file changed; and
+- no database, object store or real AI/R2/STT/TTS provider was contacted.
+
+Verdict: `CLEAN_CUT_3_ACCEPTED_FOR_ONE_LOCAL_COMMIT`. The commit is coordinator
+owned, remains local and does not authorize a push, PR or merge.

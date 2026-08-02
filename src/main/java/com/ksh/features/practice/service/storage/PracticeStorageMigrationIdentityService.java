@@ -44,7 +44,8 @@ public class PracticeStorageMigrationIdentityService {
         }
         int updated = switch (job.getLogicalType()) {
             case LECTURER_ASSET -> updateLecturerAsset(job);
-            case PDF_IMPORT_SESSION -> updatePdfSession(job);
+            case PDF_IMPORT_SESSION -> throw new IllegalStateException(
+                    "PDF_IMPORT_SESSION_MIGRATION_RETIRED");
             case SPEAKING_MEDIA -> updateSpeakingMedia(job);
         };
         if (updated != 1) {
@@ -67,20 +68,6 @@ public class PracticeStorageMigrationIdentityService {
                 """, job.getTargetProfileCode().name(), job.getTargetStorageProvider().name(),
                 job.getTargetStorageKey(), job.getLogicalId(), job.getSourceStorageKey(),
                 nullableName(job), nullableName(job), job.getExpectedSize(), job.getExpectedSha256());
-    }
-
-    private int updatePdfSession(PracticeStorageMigrationJob job) {
-        requireTypeProfile(job, PracticeStorageMigrationLogicalType.PDF_IMPORT_SESSION);
-        return jdbc.update("""
-                UPDATE practice_pdf_import_sessions
-                   SET storage_profile_code = ?, stored_pdf_path = ?,
-                       updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ? AND stored_pdf_path = ?
-                   AND ((? IS NULL AND storage_profile_code IS NULL)
-                        OR storage_profile_code = ?)
-                """, job.getTargetProfileCode().name(), job.getTargetStorageKey(),
-                job.getLogicalId(), job.getSourceStorageKey(),
-                nullableName(job), nullableName(job));
     }
 
     private int updateSpeakingMedia(PracticeStorageMigrationJob job) {

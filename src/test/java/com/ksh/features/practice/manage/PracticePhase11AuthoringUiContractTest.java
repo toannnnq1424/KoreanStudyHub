@@ -56,7 +56,9 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("id=\"excel-import-action\""));
         assertTrue(editor.contains("id=\"pdf-import-action\""));
         assertTrue(editor.contains("`/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`"));
-        assertTrue(editor.contains(": '/practice/manage/import';"));
+        assertTrue(editor.contains("+ `&skill=${encodeURIComponent(section.skill)}`"));
+        assertFalse(editor.contains(": '/practice/manage/import';"));
+        assertTrue(editor.contains("pdfAction.removeAttribute('href')"));
         assertTrue(editor.contains("id=\"q-source-trace\""));
         assertTrue(editor.contains("get('preview') === '1'"));
         assertTrue(editor.contains("onclick=\"handleEditorToolNavigation(event)\""));
@@ -106,7 +108,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains(
                 "const payload = await editorJsonFetch(\n"
                         + "        `/practice/manage/drafts/${DRAFT_ID}/preview`"));
-        assertTrue(editor.contains("const assets = await editorJsonFetch(url"));
+        assertTrue(editor.contains(
+                "const assets = await editorJsonFetch('/practice/manage/assets'"));
         assertTrue(editor.contains("async function linkEditorImageAsset(assetId)"));
         assertTrue(editor.contains(
                 "`/practice/manage/drafts/${DRAFT_ID}/assets`"));
@@ -518,87 +521,24 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
-    void pdfWorkspaceDefaultsToGuidedModeAndProtectsRawDebugTabs() throws Exception {
-        String workspace = read("src/main/resources/templates/practice/manage/import-workspace.html");
+    void advancedPdfWorkspaceIsRetiredAndBasicSurfaceIsTargetAware() throws Exception {
         String wizard = read("src/main/resources/templates/practice/manage/import-wizard.html");
-        assertTrue(wizard.contains("th:if=\"${pdfImportError != null}\""));
-        assertTrue(wizard.contains("role=\"alert\""));
-
-        assertTrue(workspace.contains("id=\"mode-guided\""));
-        assertTrue(workspace.contains("id=\"mode-advanced\""));
-        assertTrue(workspace.contains("Không gian nhập PDF | KSH"));
-        assertTrue(workspace.contains("Xem trước ảnh cắt"));
-        assertTrue(workspace.contains("<option value=\"SPEAKING\">Nói</option>"));
-        assertTrue(workspace.contains("Nhà cung cấp: chưa gọi"));
-        assertTrue(workspace.contains(
-                "`Nhà cung cấp: ${opts.provider || 'điểm cuối OpenAI/Gemini'}`"));
-        assertTrue(workspace.contains("Mã yêu cầu: -"));
-        assertTrue(workspace.contains(
-                "`Mã yêu cầu: ${opts.requestId || lastAiRequestId}`"));
-        assertTrue(workspace.contains("Đã cắt ảnh"));
-        assertTrue(workspace.contains("Ảnh cắt từ PDF"));
-        assertTrue(workspace.contains("Đích nhập: Bài kiểm tra"));
-        assertFalse(workspace.contains("PDF Import Workspace"));
-        assertFalse(workspace.contains("Crop Preview"));
-        assertFalse(workspace.contains("Provider: chưa gọi"));
-        assertFalse(workspace.contains("Request ID: -"));
-        assertFalse(workspace.contains("Đã crop"));
-        assertFalse(workspace.contains("Khi crop một vùng IMAGE_ASSET"));
-        assertFalse(workspace.contains("`Test ${"));
+        assertFalse(Files.exists(Path.of(
+                "src/main/resources/templates/practice/manage/import-workspace.html")));
         assertTrue(wizard.contains("Không gian giảng viên"));
-        assertTrue(wizard.contains("Bài kiểm tra và phần kỹ năng"));
+        assertTrue(wizard.contains("Phần đích"));
         assertTrue(wizard.contains("|Bài kiểm tra ${section.testNo}"));
-        assertFalse(wizard.contains("Lecturer Workspace"));
-        assertFalse(wizard.contains(">Test và phần kỹ năng<"));
-        assertFalse(wizard.contains("|Test ${section.testNo}"));
-        assertTrue(workspace.contains("FULL_SELECTED_PAGES"));
-        assertFalse(workspace.contains("hasAnyRole('LEADER','ADMIN')"));
-        assertFalse(workspace.contains("data.privilegedDetails"));
-        assertFalse(workspace.contains("JSON kỹ thuật"));
-        assertFalse(workspace.contains("Request JSON"));
-        assertTrue(workspace.contains("renderRegionSpecificFields(type, ann || {}, true)"));
-        assertTrue(workspace.contains("id=\"region-destination-summary\""));
-        assertTrue(workspace.contains("Cách AI đọc tài liệu"));
-        assertTrue(workspace.contains("function openLearnerPreview()"));
-        assertTrue(workspace.contains("id=\"tool-draw\""));
-        assertTrue(workspace.contains("title=\"Khoanh vùng để cắt ảnh (D)\""));
-        assertFalse(workspace.contains("advanced-only\" id=\"tool-draw\""));
-        assertTrue(workspace.contains("{ s: 'select', d: 'draw', h: 'pan' }"));
-        assertTrue(workspace.contains(
-                "input, textarea, select, button, a, [role=\"tab\"]"));
-        assertTrue(workspace.contains("if (e.defaultPrevented) return"));
-        assertTrue(workspace.contains(
-                "#ai-status-popover[aria-hidden=\"false\"]"));
-        assertTrue(workspace.contains(
-                "aria-controls=\"ai-status-popover\" aria-expanded=\"false\""));
-        assertTrue(workspace.contains("function openAiStatusPopover(options = {})"));
-        assertTrue(workspace.contains("function closeAiStatusPopover(options = {})"));
-        assertTrue(workspace.contains("announceAiStatus(`Phân tích AI thất bại."));
-        assertTrue(workspace.contains("event.stopPropagation()"));
-        assertTrue(wizard.contains(
-                "type=\"button\" id=\"dropzone\" class=\"import-dropzone\""));
-        assertTrue(wizard.contains("aria-controls=\"file-input\""));
-        assertTrue(wizard.contains("function setImportLoading(loading)"));
-        assertTrue(wizard.contains("form.setAttribute('aria-busy', 'true')"));
-        assertTrue(wizard.contains("@media (max-width: 768px)"));
-        assertTrue(wizard.contains("@media (prefers-reduced-motion: reduce)"));
-        assertTrue(wizard.contains(
-                "id=\"loading-overlay\" role=\"status\""));
-        assertTrue(workspace.contains("function findCurrentRegionCropAsset(assets, annotation)"));
-        assertTrue(workspace.contains("sameCoordinate(asset.cropX, annotation.xRatio)"));
-        assertFalse(workspace.contains("assets.find(a => a.sourceRegionId ==="));
-        assertFalse(workspace.contains("Hybrid - Khuyên dùng"));
-        assertFalse(workspace.contains("📁"));
-        assertFalse(workspace.contains("📂"));
-        assertFalse(workspace.contains("🎯"));
+        assertTrue(wizard.contains("id=\"basic-pdf-file\""));
+        assertTrue(wizard.contains("Tối đa 20 MiB"));
+        assertTrue(wizard.contains("Không lưu PDF"));
+        assertTrue(wizard.contains("candidate review"));
+        assertTrue(wizard.contains("window.location.assign(payload.reviewUrl)"));
+        assertTrue(wizard.contains("@media (max-width:760px)"));
+        assertFalse(wizard.contains("import-sessions"));
+        assertFalse(wizard.contains("advanced-authoring"));
+        assertFalse(wizard.contains("pdfjsLib"));
         assertFalse(wizard.contains("authoringCatalog.templates"));
         assertFalse(wizard.contains("name=\"examTemplateCode\""));
-        assertTrue(wizard.contains("@{/practice/manage/create}"));
-        assertFalse(wizard.contains("@{/practice/manage/manual}"));
-        assertTrue(wizard.contains("id=\"target-section\"")
-                || wizard.contains("id=\"target-skill\""));
-        assertFalse(wizard.contains("value=\"EXTENDED_PRACTICE\""));
-        assertFalse(wizard.contains("value=\"GENERAL_KOREAN\""));
     }
 
     @Test
@@ -1016,8 +956,6 @@ class PracticePhase11AuthoringUiContractTest {
                 "src/main/resources/templates/practice/fragments/icons.html");
         String editor = read(
                 "src/main/resources/templates/practice/manage/editor.html");
-        String importWorkspace = read(
-                "src/main/resources/templates/practice/manage/import-workspace.html");
         String catalog = read(
                 "src/main/resources/templates/practice/index.html");
         String playerSpeaking = read(
@@ -1036,17 +974,13 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(icons.contains("th:fragment=\"chevronLeft\""));
         assertTrue(icons.contains("th:fragment=\"chevronRight\""));
         assertFragmentUsageAtLeast(editor, "moreVertical", 1, "editor");
-        assertFragmentUsageAtLeast(editor, "close", 2, "editor");
-        assertFragmentUsageAtLeast(
-                importWorkspace, "moreVertical", 1, "import workspace");
-        assertFragmentUsageAtLeast(
-                importWorkspace, "close", 4, "import workspace");
+        assertFragmentUsageAtLeast(editor, "close", 1, "editor");
+        assertFalse(Files.exists(Path.of(
+                "src/main/resources/templates/practice/manage/import-workspace.html")));
         assertFragmentUsageAtLeast(catalog, "chevronLeft", 2, "catalog");
         assertFragmentUsageAtLeast(catalog, "chevronRight", 2, "catalog");
         assertFragmentUsageAtLeast(
                 playerSpeaking, "close", 1, "Speaking player");
-        assertFragmentUsageAtLeast(
-                importWizard, "chevronRight", 1, "import wizard");
         assertFragmentUsageAtLeast(result, "chevronLeft", 1, "Result");
         for (String detail : typedDetails) {
             assertFragmentUsageAtLeast(

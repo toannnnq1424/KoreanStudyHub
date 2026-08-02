@@ -14,12 +14,6 @@ public class LecturerAsset {
     @Column(name = "owner_lecturer_id", nullable = false)
     private Long ownerLecturerId;
 
-    @Column(name = "source_import_session_id")
-    private Long sourceImportSessionId;
-
-    @Column(name = "source_region_id")
-    private Long sourceRegionId;
-
     @Column(name = "storage_provider", nullable = false)
     private String storageProvider = "LOCAL";
 
@@ -60,22 +54,7 @@ public class LecturerAsset {
     private String sha256;
 
     @Column(name = "source_type", nullable = false)
-    private String sourceType = "PDF_REGION";
-
-    @Column(name = "source_page_number")
-    private Integer sourcePageNumber;
-
-    @Column(name = "crop_x")
-    private Double cropX;
-
-    @Column(name = "crop_y")
-    private Double cropY;
-
-    @Column(name = "crop_width")
-    private Double cropWidth;
-
-    @Column(name = "crop_height")
-    private Double cropHeight;
+    private String sourceType = "MANUAL_UPLOAD";
 
     @Column(name = "lecturer_note")
     private String lecturerNote;
@@ -118,22 +97,6 @@ public class LecturerAsset {
 
     public void setOwnerLecturerId(Long ownerLecturerId) {
         this.ownerLecturerId = ownerLecturerId;
-    }
-
-    public Long getSourceImportSessionId() {
-        return sourceImportSessionId;
-    }
-
-    public void setSourceImportSessionId(Long sourceImportSessionId) {
-        this.sourceImportSessionId = sourceImportSessionId;
-    }
-
-    public Long getSourceRegionId() {
-        return sourceRegionId;
-    }
-
-    public void setSourceRegionId(Long sourceRegionId) {
-        this.sourceRegionId = sourceRegionId;
     }
 
     public String getStorageProvider() {
@@ -246,46 +209,6 @@ public class LecturerAsset {
 
     public void setSourceType(String sourceType) {
         this.sourceType = sourceType;
-    }
-
-    public Integer getSourcePageNumber() {
-        return sourcePageNumber;
-    }
-
-    public void setSourcePageNumber(Integer sourcePageNumber) {
-        this.sourcePageNumber = sourcePageNumber;
-    }
-
-    public Double getCropX() {
-        return cropX;
-    }
-
-    public void setCropX(Double cropX) {
-        this.cropX = cropX;
-    }
-
-    public Double getCropY() {
-        return cropY;
-    }
-
-    public void setCropY(Double cropY) {
-        this.cropY = cropY;
-    }
-
-    public Double getCropWidth() {
-        return cropWidth;
-    }
-
-    public void setCropWidth(Double cropWidth) {
-        this.cropWidth = cropWidth;
-    }
-
-    public Double getCropHeight() {
-        return cropHeight;
-    }
-
-    public void setCropHeight(Double cropHeight) {
-        this.cropHeight = cropHeight;
     }
 
     public String getLecturerNote() {
