@@ -117,6 +117,26 @@ class PracticeAuthoringCandidateServiceTest {
         assertThatThrownBy(() -> service.updateReview(
                 new ReviewUpdateCommand(
                         candidate.getId(), 101L, 9L,
+                        "sha256:" + candidate.getContentDigest(),
+                        PracticeAuthoringCandidateTestFixtures
+                                .readingGroups(objectMapper, true), true)))
+                .isInstanceOf(PracticeAuthoringCandidateException.class)
+                .extracting("code")
+                .isEqualTo("CANDIDATE_VERSION_CONFLICT");
+        verify(candidateRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void staleReviewDigestFailsEvenWhenVersionStillMatches() {
+        PracticeAuthoringCandidate candidate =
+                PracticeAuthoringCandidateTestFixtures.readyCandidate(objectMapper);
+        when(candidateRepository.findByIdAndOwnerId(
+                candidate.getId(), 101L)).thenReturn(Optional.of(candidate));
+
+        assertThatThrownBy(() -> service.updateReview(
+                new ReviewUpdateCommand(
+                        candidate.getId(), 101L, candidate.getLockVersion(),
+                        "sha256:" + "b".repeat(64),
                         PracticeAuthoringCandidateTestFixtures
                                 .readingGroups(objectMapper, true), true)))
                 .isInstanceOf(PracticeAuthoringCandidateException.class)
@@ -161,10 +181,46 @@ class PracticeAuthoringCandidateServiceTest {
         assertThatThrownBy(() -> service.updateReview(
                 new ReviewUpdateCommand(
                         candidate.getId(), 101L, candidate.getLockVersion(),
+                        "sha256:" + candidate.getContentDigest(),
                         edited, false)))
                 .isInstanceOf(PracticeAuthoringCandidateException.class)
                 .extracting("code")
                 .isEqualTo("CANDIDATE_SOURCE_REFERENCE_CHANGED");
+        verify(candidateRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void readyCandidateCannotBeMarkedReadyAgain() {
+        PracticeAuthoringCandidate candidate =
+                PracticeAuthoringCandidateTestFixtures.readyCandidate(objectMapper);
+        when(candidateRepository.findByIdAndOwnerId(
+                candidate.getId(), 101L)).thenReturn(Optional.of(candidate));
+
+        assertThatThrownBy(() -> service.markReady(
+                candidate.getId(), 101L, candidate.getLockVersion(),
+                "sha256:" + candidate.getContentDigest()))
+                .isInstanceOf(PracticeAuthoringCandidateException.class)
+                .extracting("code")
+                .isEqualTo("CANDIDATE_NOT_READY");
+        verify(candidateRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void appliedCandidateCannotBeRejectedAgain() {
+        PracticeAuthoringCandidate candidate =
+                PracticeAuthoringCandidateTestFixtures.readyCandidate(objectMapper);
+        candidate.markApplied(
+                candidate.getCandidateJson(), 1,
+                java.time.LocalDateTime.of(2026, 8, 2, 0, 1));
+        when(candidateRepository.findByIdAndOwnerId(
+                candidate.getId(), 101L)).thenReturn(Optional.of(candidate));
+
+        assertThatThrownBy(() -> service.reject(
+                candidate.getId(), 101L, candidate.getLockVersion(),
+                "sha256:" + candidate.getContentDigest()))
+                .isInstanceOf(PracticeAuthoringCandidateException.class)
+                .extracting("code")
+                .isEqualTo("CANDIDATE_NOT_REVIEWABLE");
         verify(candidateRepository, never()).saveAndFlush(any());
     }
 

@@ -455,6 +455,9 @@ class PracticePhase11AuthoringUiContractTest {
         String playerCss = read("src/main/resources/static/css/practice/player.css");
         String editorCss = read("src/main/resources/static/css/practice/manage-editor.css");
         String authoringContract = read("src/main/resources/static/js/practice/manage-authoring-contract.js");
+        String preview = read("src/main/resources/static/js/practice/manage-draft-preview.js");
+        String previewTemplate = read(
+                "src/main/resources/templates/practice/manage/fragments/draft-preview.html");
 
         String typeChange = editor.substring(editor.indexOf("function handleQuestionTypeChange()"),
                 editor.indexOf("function getCircledNumber"));
@@ -484,11 +487,13 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(player.contains("data-blank-number=${blankStat.count}"));
         assertTrue(playerJs.contains("exam-inline-blank-number"));
         assertTrue(playerCss.contains(".exam-inline-blank-number"));
-        assertTrue(editor.contains("id=\"preview-writing-prompts\""));
-        assertTrue(editor.contains("preview-writing-answer-card"));
-        assertTrue(editor.contains("preview-speaking-state"));
-        assertTrue(editor.contains("preview-speaking-panel"));
-        assertTrue(editor.contains("preview-fill-slot"));
+        assertTrue(editor.contains(
+                "practice/manage/fragments/draft-preview :: modal"));
+        assertTrue(previewTemplate.contains("id=\"preview-writing-prompts\""));
+        assertTrue(preview.contains("preview-writing-answer-card"));
+        assertTrue(preview.contains("preview-speaking-state"));
+        assertTrue(preview.contains("preview-speaking-panel"));
+        assertTrue(preview.contains("preview-fill-slot"));
         assertTrue(authoringContract.contains("const canonicalBlanks = Array.isArray(canonicalContent.blanks)"));
         assertTrue(authoringContract.contains("candidate.blankId === blank.id"));
         assertTrue(authoringContract.contains("Array.from(answer.acceptedValues)"));
@@ -633,7 +638,9 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("SELECTED_TEST_NO"));
         assertTrue(excel.contains("SELECTED_SKILL"));
         assertTrue(excel.contains("SELECTED_LESSON_CODE"));
-        assertTrue(excel.contains("Đã tạo authoring candidate"));
+        assertTrue(excel.contains(
+                "Máy chủ chưa trả về route rà soát candidate hợp lệ."));
+        assertTrue(excel.contains("window.location.assign(result.reviewUrl)"));
         assertFalse(excel.contains("window.location.href = result.redirectUrl"));
         assertTrue(excel.contains("row.detail?.groupImageReference"));
         assertTrue(excel.contains("row.correctAnswer"));
@@ -1205,7 +1212,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains(
                 "lang=\"${promptLanguage}\""));
         assertTrue(editor.contains(
-                "['ko', 'vi'].includes(q.questionContent.languageTag)"));
+                "['ko', 'vi'].includes(question.questionContent.languageTag)"));
         assertTrue(authoringContract.contains(
                 "q.promptLanguageTag = canonicalContent.languageTag"));
         assertTrue(authoringContract.contains("content.languageTag = languageTag"));

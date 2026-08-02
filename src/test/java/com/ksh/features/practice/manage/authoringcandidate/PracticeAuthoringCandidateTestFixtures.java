@@ -139,6 +139,24 @@ final class PracticeAuthoringCandidateTestFixtures {
         return candidate;
     }
 
+    static PracticeAuthoringCandidate reviewingCandidate(ObjectMapper mapper) {
+        LocalDateTime created = LocalDateTime.of(2026, 8, 2, 0, 0);
+        ObjectNode envelope = candidateEnvelope(mapper, true);
+        envelope.put("state", "REVIEWING");
+        envelope.put("warningsAcknowledged", false);
+        String json = envelope.toString();
+        PracticeAuthoringCandidate candidate = new PracticeAuthoringCandidate(
+                CANDIDATE_ID, 101L, SourceKind.QUICK_EXCEL,
+                "practice-quick-excel-v1", SOURCE_DIGEST, "upload-1",
+                "reading.xlsx", SourceOperation.NONE,
+                5001L, 1, "READING", "R1", 0,
+                json, CONTENT_DIGEST, created, created.plusDays(7));
+        candidate.markNormalized(json, CONTENT_DIGEST, created);
+        candidate.markValidated(json, CONTENT_DIGEST, created);
+        candidate.beginReview(json, created);
+        return candidate;
+    }
+
     static PracticeDraft targetDraft(int version) {
         PracticeDraft draft = new PracticeDraft(
                 "Reading", "", "GLOBAL", null, "DRAFT", 101L,

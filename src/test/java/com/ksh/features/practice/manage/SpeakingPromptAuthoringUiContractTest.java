@@ -593,30 +593,24 @@ class SpeakingPromptAuthoringUiContractTest {
         String editor = read("src/main/resources/templates/practice/manage/editor.html");
         String javascript = read(
                 "src/main/resources/static/js/practice/manage-speaking-prompt-authoring.js");
+        String preview = read(
+                "src/main/resources/static/js/practice/manage-draft-preview.js");
         String previewRegion = between(
-                editor,
+                preview,
                 "if (item.skill === 'SPEAKING')",
-                "let qImageHtml = ''");
+                "const fillBlank = ['FILL_BLANK', 'GAP_FILL']");
 
         assertThat(editor).contains(
-                "id=\"speaking-play-limit-control\"",
-                "${requiresAudio",
-                "presentationSteps.includes('PROMPT_PLAYBACK')")
+                "id=\"speaking-play-limit-control\"")
                 .doesNotContain(
                         "const deliveryMode = delivery.deliveryMode",
                         "deliveryMode === 'text_only'");
         assertThat(previewRegion).contains(
                 "const requiresAudio = steps.includes('PROMPT_PLAYBACK')",
-                "const promptAudioTile = requiresAudio",
-                "class=\"preview-speaking-audio\"",
-                "<span>Âm thanh đề bài</span>",
-                "const promptAudio = !requiresAudio",
-                "${requiresAudio",
-                "${promptAudioTile}");
-        assertThat(previewRegion.indexOf(
-                "const promptAudioTile = requiresAudio"))
-                .isLessThan(previewRegion.indexOf(
-                        "class=\"preview-speaking-audio\""));
+                "element('div', 'preview-speaking-audio')",
+                "element('span', '', 'Âm thanh đề bài')",
+                "if (requiresAudio)",
+                "presentation?.promptAudioReference");
         assertThat(javascript).contains(
                 "function renderDeliveryControls()",
                 "playLimitControl.hidden = textOnly",

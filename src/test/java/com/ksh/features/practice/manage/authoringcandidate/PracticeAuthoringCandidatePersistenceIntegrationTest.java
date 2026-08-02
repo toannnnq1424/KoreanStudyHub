@@ -53,6 +53,8 @@ class PracticeAuthoringCandidatePersistenceIntegrationTest {
     @Autowired
     private PracticeAuthoringCandidateService candidateService;
     @Autowired
+    private PracticeAuthoringCandidatePreviewService previewService;
+    @Autowired
     private EntityManager entityManager;
     @Autowired
     private ObjectMapper objectMapper;
@@ -222,7 +224,8 @@ class PracticeAuthoringCandidatePersistenceIntegrationTest {
         var created = candidateService.createOrReuse(command);
         var reused = candidateService.createOrReuse(command);
         var ready = candidateService.markReady(
-                created.candidateId(), ownerId, created.version());
+                created.candidateId(), ownerId, created.version(),
+                created.contentDigest());
 
         assertThat(created.state()).isEqualTo(CandidateState.REVIEWING);
         assertThat(reused.candidateId()).isEqualTo(created.candidateId());
@@ -233,6 +236,48 @@ class PracticeAuthoringCandidatePersistenceIntegrationTest {
                 WHERE target_draft_id = ? AND source_revision = ?
                 """, Integer.class, draft.getId(),
                 "db-service-" + draft.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void realLearnerPreviewUsesReadLocksAndDoesNotMutateCandidateOrDraft() {
+        Long ownerId = authorizedLecturer();
+        PracticeDraft draft = draftRepository.saveAndFlush(new PracticeDraft(
+                "AIM-4 learner preview", "", "GLOBAL", null, "DRAFT",
+                ownerId, PracticeAuthoringCandidateTestFixtures.targetDraft(0)
+                .getDraftJson()));
+        CreateCommand command = new CreateCommand(
+                ownerId,
+                new SourceSnapshot(
+                        SourceKind.QUICK_EXCEL,
+                        "practice-quick-excel-v1",
+                        "sha256:" + PracticeAuthoringCandidateTestFixtures
+                                .SOURCE_DIGEST,
+                        "db-preview-" + draft.getId(),
+                        "reading.xlsx", SourceOperation.NONE, null),
+                new TargetRoute(draft.getId(), 1, "READING", "R1"),
+                PracticeAuthoringCandidateTestFixtures
+                        .readingGroups(objectMapper, true));
+        var created = candidateService.createOrReuse(command);
+        PracticeAuthoringCandidate before = candidateRepository
+                .findById(created.candidateId()).orElseThrow();
+        String beforeCandidateJson = before.getCandidateJson();
+        String beforeDraftJson = draft.getDraftJson();
+
+        var preview = previewService.preview(
+                created.candidateId(), ownerId,
+                created.version(), created.contentDigest());
+
+        assertThat(preview.baseDraftVersion()).isEqualTo(draft.getVersion());
+        assertThat(preview.delivery().sections()).hasSize(1);
+        assertThat(preview.delivery().sections().get(0).groups()).hasSize(1);
+        PracticeAuthoringCandidate after = candidateRepository
+                .findById(created.candidateId()).orElseThrow();
+        PracticeDraft afterDraft = draftRepository.findById(draft.getId())
+                .orElseThrow();
+        assertThat(after.getLockVersion()).isEqualTo(created.version());
+        assertThat(after.getCandidateJson()).isEqualTo(beforeCandidateJson);
+        assertThat(afterDraft.getVersion()).isEqualTo(draft.getVersion());
+        assertThat(afterDraft.getDraftJson()).isEqualTo(beforeDraftJson);
     }
 
     private Long authorizedLecturer() {
