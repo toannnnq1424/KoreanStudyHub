@@ -148,18 +148,10 @@ public class PracticePdfRegionService {
 
                 if (current == null) {
                     LecturerAsset asset = cropService.cropRegion(
-                            session.getStoredPdfPath(),
-                            ann.getPageNumber(),
-                            ann.getxRatio(),
-                            ann.getyRatio(),
-                            ann.getWidthRatio(),
-                            ann.getHeightRatio(),
-                            "WITH_PADDING",
-                            16,
-                            userId,
-                            session.getId(),
-                            ann.getId()
-                    );
+                            session, ann.getPageNumber(),
+                            ann.getxRatio(), ann.getyRatio(), ann.getWidthRatio(),
+                            ann.getHeightRatio(), "WITH_PADDING", 16,
+                            userId, session.getId(), ann.getId());
 
                     // If marked for library save, promote immediately
                     if (Boolean.TRUE.equals(ann.getSaveToAssetLibrary())) {

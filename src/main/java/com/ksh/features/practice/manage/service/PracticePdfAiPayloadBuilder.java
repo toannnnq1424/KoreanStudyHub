@@ -196,10 +196,10 @@ public class PracticePdfAiPayloadBuilder {
             // Extract region text
             if (Boolean.TRUE.equals(rPayload.getSendText()) && ("HYBRID".equalsIgnoreCase(strategy) || "REGION_ONLY".equalsIgnoreCase(strategy))) {
                 try {
-                    com.ksh.features.practice.manage.service.PracticePdfTextExtractionService areaTextExtractor =
-                            new com.ksh.features.practice.manage.service.PracticePdfTextExtractionService();
-                    String extractedText = areaTextExtractor.extractRegionText(pdfPath, ann.getPageNumber(),
-                            ann.getxRatio(), ann.getyRatio(), ann.getWidthRatio(), ann.getHeightRatio());
+                    String extractedText = pageExtractionService.extractRegionText(
+                            session, ann.getPageNumber(), ann.getxRatio(), ann.getyRatio(),
+                            ann.getWidthRatio(), ann.getHeightRatio());
+                    if (extractedText == null) extractedText = "";
                     rPayload.setOcrText(extractedText);
                     if (extractedText.length()
                             > limits.maxTextCharacters() - totalSelectedChars) {
@@ -226,9 +226,10 @@ public class PracticePdfAiPayloadBuilder {
                         asset = match.get();
                     } else {
                         // Perform crop and store
-                        asset = cropService.cropRegion(pdfPath, ann.getPageNumber(),
-                                ann.getxRatio(), ann.getyRatio(), ann.getWidthRatio(), ann.getHeightRatio(),
-                                "WITH_PADDING", 16, session.getUploaderId(), sessionId, ann.getId());
+                        asset = cropService.cropRegion(
+                                session, ann.getPageNumber(), ann.getxRatio(), ann.getyRatio(),
+                                ann.getWidthRatio(), ann.getHeightRatio(), "WITH_PADDING", 16,
+                                session.getUploaderId(), sessionId, ann.getId());
                     }
 
                     // Promote temporary data key representation
@@ -239,7 +240,10 @@ public class PracticePdfAiPayloadBuilder {
                         throw new IllegalArgumentException(
                                 "Ảnh crop vượt ngân sách kích thước an toàn.");
                     }
-                    try (InputStream in = assetStorage.load(asset.getStorageKey()).getInputStream()) {
+                    try (InputStream in = (asset.getStorageProfileCode() == null
+                            ? assetStorage.load(asset.getStorageKey())
+                            : assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey()))
+                            .getInputStream()) {
                         byte[] bytes = in.readNBytes(
                                 Math.toIntExact(limits.maxImageBytes() + 1L));
                         if (bytes.length > limits.maxImageBytes()) {

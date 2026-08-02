@@ -9,19 +9,20 @@ import org.apache.pdfbox.text.PDFTextStripperByArea;
 import org.springframework.stereotype.Service;
 
 import java.awt.geom.Rectangle2D;
-import java.io.File;
 import java.io.IOException;
 
 @Service
 public class PracticePdfTextExtractionService {
 
-    public String extractPageRangeText(String pdfPath, int startPage, int endPage) throws IOException {
-        File file = new File(pdfPath);
-        if (!file.exists()) {
-            throw new java.io.FileNotFoundException("File PDF không tồn tại.");
-        }
+    private final com.ksh.features.practice.pdf.PracticePdfStorageService storageService;
 
-        try (PDDocument doc = Loader.loadPDF(file)) {
+    public PracticePdfTextExtractionService(
+            com.ksh.features.practice.pdf.PracticePdfStorageService storageService) {
+        this.storageService = storageService;
+    }
+
+    public String extractPageRangeText(String pdfPath, int startPage, int endPage) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(storageService.readBytes(null, pdfPath))) {
             int total = doc.getNumberOfPages();
             int start = Math.max(1, Math.min(startPage, total));
             int end = Math.max(start, Math.min(endPage, total));
@@ -35,12 +36,7 @@ public class PracticePdfTextExtractionService {
 
     public String extractRegionText(String pdfPath, int pageNumber, double xRatio, double yRatio,
                                     double wRatio, double hRatio) throws IOException {
-        File file = new File(pdfPath);
-        if (!file.exists()) {
-            throw new java.io.FileNotFoundException("File PDF không tồn tại.");
-        }
-
-        try (PDDocument doc = Loader.loadPDF(file)) {
+        try (PDDocument doc = Loader.loadPDF(storageService.readBytes(null, pdfPath))) {
             if (pageNumber < 1 || pageNumber > doc.getNumberOfPages()) {
                 throw new IllegalArgumentException("Số trang " + pageNumber + " vượt quá phạm vi PDF.");
             }

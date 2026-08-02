@@ -3,5 +3,6 @@ package com.ksh.entities;
 public enum PracticeSpeakingMediaCleanupErrorCode {
     PROVIDER_UNSUPPORTED,
     INVALID_STORAGE_IDENTITY,
-    DELETE_FAILED
+    DELETE_FAILED,
+    STORAGE_DELETE_UNCONFIRMED
 }

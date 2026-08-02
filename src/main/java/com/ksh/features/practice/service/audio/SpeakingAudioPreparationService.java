@@ -29,9 +29,13 @@ public class SpeakingAudioPreparationService {
         try {
             SpeakingAudioInspection inspection = inspector.inspect(temporary.getPrivatePath());
             validateMimeHint(clientMimeType, inspection.canonicalMimeType());
-            String finalKey = storage.promoteTemporary(temporary.getStorageKey());
+            String finalKey = temporary.getStorageProfileCode() == null
+                    ? storage.promoteTemporary(null, temporary.getStorageKey())
+                    : temporary.getStorageKey();
             return new PreparedSpeakingAudio(
-                    PracticeSpeakingStorageProvider.LOCAL,
+                    temporary.getStorageProvider(),
+                    temporary.getStorageProfileCode(),
+                    temporary.getStorageKey(),
                     finalKey,
                     inspection.canonicalMimeType(),
                     inspection.container(),
@@ -41,8 +45,10 @@ public class SpeakingAudioPreparationService {
                     temporary.getSha256()
             );
         } catch (RuntimeException ex) {
-            storage.delete(temporary.getStorageKey());
+            storage.delete(temporary.getStorageProfileCode(), temporary.getStorageKey());
             throw ex;
+        } finally {
+            temporary.discardInspectionCopy();
         }
     }
 

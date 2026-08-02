@@ -18,6 +18,7 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
 
     interface PlaybackAuthorizationProjection {
         PracticeSpeakingStorageProvider getStorageProvider();
+        default String getStorageProfileCode() { return null; }
         String getStorageKey();
         String getMimeType();
         Long getByteSize();
@@ -29,6 +30,7 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
         Long getQuestionId();
         Long getLockVersion();
         PracticeSpeakingStorageProvider getStorageProvider();
+        default String getStorageProfileCode() { return null; }
         String getStorageKey();
         String getMimeType();
         Long getByteSize();
@@ -44,6 +46,12 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
             Long id, Long attemptId, Long questionId);
 
     boolean existsByStorageProviderAndStorageKey(PracticeSpeakingStorageProvider storageProvider, String storageKey);
+
+    boolean existsByStorageProfileCodeAndStorageKey(String storageProfileCode, String storageKey);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from PracticeSpeakingMedia m where m.id = :mediaId")
+    Optional<PracticeSpeakingMedia> findByIdForUpdate(@Param("mediaId") Long mediaId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from PracticeSpeakingMedia m where m.attemptId = :attemptId order by m.id asc")
@@ -62,6 +70,7 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
 
     @Query("""
             select m.storageProvider as storageProvider,
+                   m.storageProfileCode as storageProfileCode,
                    m.storageKey as storageKey,
                    m.mimeType as mimeType,
                    m.byteSize as byteSize
@@ -88,6 +97,7 @@ public interface PracticeSpeakingMediaRepository extends JpaRepository<PracticeS
                    m.questionId as questionId,
                    m.lockVersion as lockVersion,
                    m.storageProvider as storageProvider,
+                   m.storageProfileCode as storageProfileCode,
                    m.storageKey as storageKey,
                    m.mimeType as mimeType,
                    m.byteSize as byteSize,

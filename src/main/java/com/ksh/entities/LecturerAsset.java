@@ -23,6 +23,9 @@ public class LecturerAsset {
     @Column(name = "storage_provider", nullable = false)
     private String storageProvider = "LOCAL";
 
+    @Column(name = "storage_profile_code", length = 40)
+    private String storageProfileCode;
+
     @Column(name = "storage_key", nullable = false)
     private String storageKey;
 
@@ -139,6 +142,14 @@ public class LecturerAsset {
 
     public void setStorageProvider(String storageProvider) {
         this.storageProvider = storageProvider;
+    }
+
+    public String getStorageProfileCode() {
+        return storageProfileCode;
+    }
+
+    public void setStorageProfileCode(String storageProfileCode) {
+        this.storageProfileCode = storageProfileCode;
     }
 
     public String getStorageKey() {

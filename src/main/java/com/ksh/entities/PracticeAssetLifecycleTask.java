@@ -24,6 +24,9 @@ public class PracticeAssetLifecycleTask {
     @Column(name = "asset_id")
     private Long assetId;
 
+    @Column(name = "storage_profile_code", length = 40)
+    private String storageProfileCode;
+
     @Column(nullable = false, length = 40)
     private String operation;
 
@@ -59,7 +62,14 @@ public class PracticeAssetLifecycleTask {
 
     public PracticeAssetLifecycleTask(Long assetId, String operation,
                                       String sourceStorageKey, String targetStorageKey) {
+        this(assetId, null, operation, sourceStorageKey, targetStorageKey);
+    }
+
+    public PracticeAssetLifecycleTask(Long assetId, String storageProfileCode,
+                                      String operation, String sourceStorageKey,
+                                      String targetStorageKey) {
         this.assetId = assetId;
+        this.storageProfileCode = storageProfileCode;
         this.operation = operation;
         this.sourceStorageKey = sourceStorageKey;
         this.targetStorageKey = targetStorageKey;
@@ -106,6 +116,7 @@ public class PracticeAssetLifecycleTask {
 
     public Long getId() { return id; }
     public Long getAssetId() { return assetId; }
+    public String getStorageProfileCode() { return storageProfileCode; }
     public String getOperation() { return operation; }
     public String getSourceStorageKey() { return sourceStorageKey; }
     public String getTargetStorageKey() { return targetStorageKey; }

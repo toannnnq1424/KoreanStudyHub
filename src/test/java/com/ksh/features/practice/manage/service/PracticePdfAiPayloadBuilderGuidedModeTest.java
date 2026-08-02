@@ -126,7 +126,7 @@ class PracticePdfAiPayloadBuilderGuidedModeTest {
         when(assets.findBySourceImportSessionId(9L))
                 .thenReturn(List.of());
         when(crop.cropRegion(
-                "/tmp/custom.pdf",
+                session,
                 1,
                 0.1d,
                 0.1d,

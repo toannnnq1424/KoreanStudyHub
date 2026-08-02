@@ -34,6 +34,9 @@ public class PracticeSpeakingMedia {
     @Column(name = "storage_provider", nullable = false, length = 32)
     private PracticeSpeakingStorageProvider storageProvider;
 
+    @Column(name = "storage_profile_code", length = 40)
+    private String storageProfileCode;
+
     @Column(name = "storage_key", nullable = false, length = 512)
     private String storageKey;
 
@@ -78,6 +81,7 @@ public class PracticeSpeakingMedia {
     private PracticeSpeakingMedia(Long attemptId,
                                   Long questionId,
                                   PracticeSpeakingStorageProvider storageProvider,
+                                  String storageProfileCode,
                                   String storageKey,
                                   String mimeType,
                                   String container,
@@ -88,6 +92,7 @@ public class PracticeSpeakingMedia {
         this.attemptId = attemptId;
         this.questionId = questionId;
         this.storageProvider = storageProvider;
+        this.storageProfileCode = storageProfileCode;
         this.storageKey = storageKey;
         this.mimeType = mimeType;
         this.container = container;
@@ -109,8 +114,54 @@ public class PracticeSpeakingMedia {
                                               Long durationMs,
                                               String contentHash) {
         return new PracticeSpeakingMedia(
-                attemptId, questionId, storageProvider, storageKey, mimeType, container, codec, byteSize, durationMs,
-                contentHash);
+                attemptId, questionId, storageProvider, null, storageKey,
+                mimeType, container, codec, byteSize, durationMs, contentHash);
+    }
+
+    public static PracticeSpeakingMedia ready(Long attemptId,
+                                              Long questionId,
+                                              PracticeSpeakingStorageProvider storageProvider,
+                                              String storageProfileCode,
+                                              String storageKey,
+                                              String mimeType,
+                                              String container,
+                                              String codec,
+                                              Long byteSize,
+                                              Long durationMs,
+                                              String contentHash) {
+        return new PracticeSpeakingMedia(
+                attemptId, questionId, storageProvider, storageProfileCode, storageKey,
+                mimeType, container, codec, byteSize, durationMs, contentHash);
+    }
+
+    public static PracticeSpeakingMedia temporary(Long attemptId,
+                                                  Long questionId,
+                                                  PracticeSpeakingStorageProvider storageProvider,
+                                                  String storageProfileCode,
+                                                  String storageKey,
+                                                  String mimeType,
+                                                  String container,
+                                                  String codec,
+                                                  Long byteSize,
+                                                  Long durationMs,
+                                                  String contentHash) {
+        PracticeSpeakingMedia media = new PracticeSpeakingMedia(
+                attemptId, questionId, storageProvider, storageProfileCode, storageKey,
+                mimeType, container, codec, byteSize, durationMs, contentHash);
+        media.status = PracticeSpeakingMediaStatus.UNREFERENCED_TEMPORARY;
+        return media;
+    }
+
+    public void promoteToReady(PracticeSpeakingStorageProvider provider,
+                               String profileCode,
+                               String readyStorageKey) {
+        if (status != PracticeSpeakingMediaStatus.UNREFERENCED_TEMPORARY) {
+            throw new IllegalStateException("Only temporary speaking media can be promoted.");
+        }
+        storageProvider = java.util.Objects.requireNonNull(provider, "provider");
+        storageProfileCode = java.util.Objects.requireNonNull(profileCode, "profileCode");
+        storageKey = java.util.Objects.requireNonNull(readyStorageKey, "readyStorageKey");
+        status = PracticeSpeakingMediaStatus.READY;
     }
 
     public void markSuperseded() {
@@ -128,17 +179,32 @@ public class PracticeSpeakingMedia {
         if (status == PracticeSpeakingMediaStatus.DELETED) {
             return;
         }
-        if (status != PracticeSpeakingMediaStatus.READY && status != PracticeSpeakingMediaStatus.SUPERSEDED) {
+        if (status != PracticeSpeakingMediaStatus.READY
+                && status != PracticeSpeakingMediaStatus.SUPERSEDED
+                && status != PracticeSpeakingMediaStatus.DELETION_PENDING
+                && status != PracticeSpeakingMediaStatus.UNREFERENCED_TEMPORARY) {
             throw new IllegalStateException("Speaking media cannot be deleted from current state.");
         }
         status = PracticeSpeakingMediaStatus.DELETED;
         this.deletedAt = java.util.Objects.requireNonNull(deletedAt, "deletedAt");
     }
 
+    public void markDeletionPending() {
+        if (status == PracticeSpeakingMediaStatus.DELETION_PENDING
+                || status == PracticeSpeakingMediaStatus.DELETED) return;
+        if (status != PracticeSpeakingMediaStatus.READY
+                && status != PracticeSpeakingMediaStatus.SUPERSEDED
+                && status != PracticeSpeakingMediaStatus.UNREFERENCED_TEMPORARY) {
+            throw new IllegalStateException("Speaking media cannot enter deletion pending.");
+        }
+        status = PracticeSpeakingMediaStatus.DELETION_PENDING;
+    }
+
     public Long getId() { return id; }
     public Long getAttemptId() { return attemptId; }
     public Long getQuestionId() { return questionId; }
     public PracticeSpeakingStorageProvider getStorageProvider() { return storageProvider; }
+    public String getStorageProfileCode() { return storageProfileCode; }
     public String getStorageKey() { return storageKey; }
     public String getMimeType() { return mimeType; }
     public String getContainer() { return container; }

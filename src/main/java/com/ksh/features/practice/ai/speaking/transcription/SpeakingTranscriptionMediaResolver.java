@@ -43,7 +43,8 @@ public class SpeakingTranscriptionMediaResolver {
         }
 
         var selected = rows.get(0);
-        if (selected.getStorageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
+        if (selected.getStorageProfileCode() == null
+                && selected.getStorageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
             return unavailable(SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE);
         }
         if (!allowedMime(selected.getMimeType())
@@ -55,7 +56,10 @@ public class SpeakingTranscriptionMediaResolver {
             return unavailable(SpeakingTranscriptionErrorCategory.UNSUPPORTED_MEDIA);
         }
         try {
-            if (!storage.exists(selected.getStorageKey())) {
+            boolean exists = selected.getStorageProfileCode() == null
+                    ? storage.exists(selected.getStorageKey())
+                    : storage.exists(selected.getStorageProfileCode(), selected.getStorageKey());
+            if (!exists) {
                 return unavailable(SpeakingTranscriptionErrorCategory.AUDIO_UNAVAILABLE);
             }
         } catch (RuntimeException ex) {
@@ -71,7 +75,7 @@ public class SpeakingTranscriptionMediaResolver {
                 selected.getByteSize(),
                 selected.getDurationMs(),
                 properties.language(),
-                () -> open(selected.getStorageKey())));
+                () -> open(selected.getStorageProfileCode(), selected.getStorageKey())));
     }
 
     public SpeakingTranscriptionResult textFallback(String text) {
@@ -92,9 +96,11 @@ public class SpeakingTranscriptionMediaResolver {
                 false);
     }
 
-    private InputStream open(String storageKey) throws IOException {
+    private InputStream open(String storageProfileCode, String storageKey) throws IOException {
         try {
-            return storage.open(storageKey);
+            return storageProfileCode == null
+                    ? storage.open(storageKey)
+                    : storage.open(storageProfileCode, storageKey);
         } catch (SpeakingAudioValidationException ex) {
             throw new IOException("Speaking audio object is unavailable", ex);
         }

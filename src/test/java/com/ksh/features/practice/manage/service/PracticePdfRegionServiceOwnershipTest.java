@@ -80,7 +80,7 @@ class PracticePdfRegionServiceOwnershipTest {
         when(annotationRepository.save(annotation)).thenReturn(annotation);
         when(assetService.getSessionAssets(100L, 7L)).thenReturn(List.of(stale));
         when(cropService.cropRegion(
-                "stored/exam.pdf", 1, 0.15, 0.25, 0.35, 0.45,
+                session, 1, 0.15, 0.25, 0.35, 0.45,
                 "WITH_PADDING", 16, 7L, 100L, 500L))
                 .thenReturn(fresh);
 
@@ -88,7 +88,7 @@ class PracticePdfRegionServiceOwnershipTest {
 
         verify(assetService).deleteAsset(900L, 7L);
         verify(cropService).cropRegion(
-                "stored/exam.pdf", 1, 0.15, 0.25, 0.35, 0.45,
+                session, 1, 0.15, 0.25, 0.35, 0.45,
                 "WITH_PADDING", 16, 7L, 100L, 500L);
     }
 
@@ -115,7 +115,7 @@ class PracticePdfRegionServiceOwnershipTest {
         when(annotationRepository.save(annotation)).thenReturn(annotation);
         when(assetService.getSessionAssets(100L, 7L)).thenReturn(List.of());
         when(cropService.cropRegion(
-                "stored/exam.pdf", 1, 0.1, 0.2, 0.3, 0.4,
+                session, 1, 0.1, 0.2, 0.3, 0.4,
                 "WITH_PADDING", 16, 7L, 100L, 500L))
                 .thenReturn(fresh);
 

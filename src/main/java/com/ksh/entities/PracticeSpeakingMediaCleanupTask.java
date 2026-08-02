@@ -31,9 +31,15 @@ public class PracticeSpeakingMediaCleanupTask {
     @Column(name = "cleanup_reason", nullable = false, length = 40)
     private PracticeSpeakingMediaCleanupReason cleanupReason;
 
+    @Column(name = "media_id")
+    private Long mediaId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "storage_provider", nullable = false, length = 32)
     private PracticeSpeakingStorageProvider storageProvider;
+
+    @Column(name = "storage_profile_code", length = 40)
+    private String storageProfileCode;
 
     @Column(name = "storage_key", nullable = false, length = 512)
     private String storageKey;
@@ -99,6 +105,24 @@ public class PracticeSpeakingMediaCleanupTask {
         task.nextAttemptAt = require(nextAttemptAt, "nextAttemptAt");
         task.status = PracticeSpeakingMediaCleanupStatus.PENDING;
         task.attemptCount = 0L;
+        return task;
+    }
+
+    public static PracticeSpeakingMediaCleanupTask pendingExact(
+            PracticeSpeakingMediaCleanupReason cleanupReason,
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey,
+            LocalDateTime dueAt,
+            LocalDateTime nextAttemptAt) {
+        PracticeSpeakingMediaCleanupTask task = pending(
+                cleanupReason, storageProvider, storageKey, dueAt, nextAttemptAt);
+        if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+            throw new IllegalArgumentException("storageProfileCode is invalid.");
+        }
+        task.mediaId = mediaId;
+        task.storageProfileCode = storageProfileCode;
         return task;
     }
 
@@ -181,7 +205,9 @@ public class PracticeSpeakingMediaCleanupTask {
         return new CleanupProcessingSnapshot(
                 id,
                 lockVersion,
+                mediaId,
                 storageProvider,
+                storageProfileCode,
                 storageKey,
                 status,
                 claimToken,
@@ -252,7 +278,9 @@ public class PracticeSpeakingMediaCleanupTask {
 
     public Long getId() { return id; }
     public PracticeSpeakingMediaCleanupReason getCleanupReason() { return cleanupReason; }
+    public Long getMediaId() { return mediaId; }
     public PracticeSpeakingStorageProvider getStorageProvider() { return storageProvider; }
+    public String getStorageProfileCode() { return storageProfileCode; }
     public String getStorageKey() { return storageKey; }
     public LocalDateTime getDueAt() { return dueAt; }
     public LocalDateTime getNextAttemptAt() { return nextAttemptAt; }

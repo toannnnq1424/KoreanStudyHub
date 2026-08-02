@@ -64,6 +64,7 @@ public class PracticeAssetOrphanReconciler {
         assetRepository.save(asset);
         taskRepository.save(new PracticeAssetLifecycleTask(
                 assetId,
+                asset.getStorageProfileCode(),
                 PracticeAssetLifecycleTask.DELETE,
                 asset.getStorageKey(),
                 null));
