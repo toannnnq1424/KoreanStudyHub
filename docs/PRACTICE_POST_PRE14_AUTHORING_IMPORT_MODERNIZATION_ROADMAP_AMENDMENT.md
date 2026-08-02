@@ -2,7 +2,7 @@
 
 Recorded: `2026-08-02`
 
-Status: `AIM_0_CLOSED_AIM_1_CONTRACT_FROZEN`
+Status: `AIM_2_CANDIDATE_FOUNDATION_COORDINATOR_AUDIT_GREEN`
 
 Epic: `POST_PRE14_AUTHORING_IMPORT_MODERNIZATION`
 
@@ -21,6 +21,12 @@ merge:       Merge pull request #55 from
 
 Both the PR #55 merge commit and refreshed `origin/main` are ancestors of the
 working snapshot. No stale local `main` checkout was used.
+
+AIM-2 started from the later exact PR #56 merge commit
+`813a54d7c5d2a02cc4cc1bf2213085db3907dfea`. Before any AIM-2 edit, detached
+`HEAD` and refreshed `origin/main` were both verified at that SHA with a clean
+working tree. PR #56 contains the merged AIM-0/AIM-1 contract freeze; this
+newer baseline supersedes the preparation SHA above for implementation work.
 
 The final Pre-14 evidence is accepted as one closed gate:
 
@@ -53,7 +59,8 @@ PRE_PHASE_14_PRODUCTION_CORRECTNESS_GATE — CLOSED_MERGED
   -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION
        -> AIM-0 roadmap amendment and merged-code baseline — CLOSED
        -> AIM-1 contract freeze — CLOSED
-       -> AIM-2 through AIM-8 implementation slices — NOT_STARTED
+       -> AIM-2 candidate foundation — COORDINATOR_AUDIT_GREEN
+       -> AIM-3 through AIM-8 implementation slices — NOT_STARTED
   -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_CONSOLIDATED_GATE
   -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 Manual UAT & Release Hardening
@@ -215,7 +222,8 @@ Only that green gate hands off to `PRE_PHASE_15_RELEASE_CLOSURE_GATE`.
 ```text
 AIM-0 roadmap/baseline:                         CLOSED
 AIM-1 architecture/contract freeze:             CLOSED
-production implementation AIM-2..AIM-8:    NOT_STARTED
+production implementation AIM-2:           COORDINATOR_AUDIT_GREEN
+production implementation AIM-3..AIM-8:    NOT_STARTED
 real AI/STT/TTS/storage provider calls:      0/0/0/0
 direct-audio/acoustic data created:                 0
 shared AI/storage runtime merge:                    0
@@ -236,7 +244,94 @@ Validation recorded on `2026-08-02`:
   V73, V74 and V75. AIM-1 intentionally leaves the migration number unassigned
   for AIM-2's integrated-chain reconciliation.
 
-Handoff: start AIM-2 from the integrated commit containing this contract,
-refresh `origin/main`, preserve the file ownership table above, and stop on any
-product decision that changes a frozen schema, supported Quick Excel family,
-purpose code, storage profile, apply atomicity or direct-audio boundary.
+## 10. AIM-2 candidate foundation checkpoint
+
+Recorded on `2026-08-02` from exact PR #56 merge baseline
+`813a54d7c5d2a02cc4cc1bf2213085db3907dfea`.
+
+### 10.1 Approved migration reconciliation
+
+The integrated main tree combined two previously valid parent migration lines
+at V73-V75. The coordinator's repository/environment audit found `40` local
+schemas, but no schema with a retained/deployed/canonical obligation for the
+former-main V73-V79 identities. GitHub evidence was deployments `0`,
+environments `0` and workflows `0`. The user therefore approved the formal
+classification `NO_RETAINED_DEPLOYED_CANONICAL_DATABASE_OBLIGATION`, with an
+explicit ban on deleting, repairing, reusing or mutating old databases.
+
+Practice V73-V75 remain unchanged. The former-main line was renamed by the
+approved constant `+3` offset, preserving its dependency order and exact SQL
+bytes:
+
+| Final identity | Preserved SHA-256 |
+|---|---|
+| `V76__practice_evaluation_contract_identity_capacity.sql` | `f07c0ea1a78f2dc467e5eb82e03c2de698c3e6a4be3450181fcd5a4e6e153922` |
+| `V77__discovery_ai_editorial.sql` | `eef20a33ba0a5a04e51a3c038066bbfb04c402dd89cdc39ca32aa652f5af98b8` |
+| `V78__news_run_traceability.sql` | `5fb8c6efa3e32e5f4a1bfae0874e01b98ac63194b0741005d348917d30524618` |
+| `V79__backfill_news_ai_run_trace.sql` | `6439f7ea24f882fb7da7125017cc929e25db96016511bbdf0aec2cf13c892ee6` |
+| `V80__class_approval_lifecycle.sql` | `6640bec6daebb1afd226b49bb9ae87509a5f97418c8c7c04a684e8581abf35fa` |
+| `V81__seed_ai_flashcard_generator_prompt.sql` | `7da3da706dda38b1c2b16ce25e086644e3db1dfb374f4541bc5f24b7fbedd435` |
+| `V82__refine_ai_generation_prompts.sql` | `5b81c392ce68cfe603bad71b1f9cd07d2170e9d155f7f39af3a50729753431a1` |
+
+The resulting chain is exactly `83/83`, unique and continuous from V1 through
+V83. AIM-2 owns the single new additive migration
+`V83__practice_authoring_candidate_foundation.sql`; it creates only the
+persistent candidate and apply-event ledger tables. No Flyway repair,
+destructive database action or old-database mutation occurred.
+
+### 10.2 Candidate/apply implementation
+
+The new exclusively AIM-2-owned
+`features/practice/manage/authoringcandidate/**` package now provides:
+
+- persistent candidate and apply-event entities/repositories, immutable
+  owner/source/target/base-version snapshots, stable candidate/group/question
+  identities, at-least-seven-day configurable expiry and JPA optimistic lock;
+- server-owned canonical normalization with NFC/LF text handling, strict typed
+  codec reconstruction, nested unknown-field removal and exact JSON Pointer
+  issues, plus source/target/type/skill/authority validation;
+- review lifecycle, warning acknowledgement, content digest recalculation,
+  owner authorization and fail-closed stale candidate versions; and
+- candidate-first/draft-second pessimistic locking, in-memory exact-section
+  projection, canonical draft normalization/validation, one-draft atomic apply
+  and a unique replay ledger. An exact replay returns its recorded result;
+  stale target versions and canonical blockers persist only a conflict/rejected
+  event and leave the draft unchanged.
+
+No existing production owner was changed. AIM-3 Quick detection/template,
+AIM-4 UI/learner preview, AIM-5 provider binding/calls, AIM-6 storage profiles,
+AIM-7 PDF workspace/provider changes, Pre-15/direct-audio/acoustic work and
+shared AI/storage rewrites remain absent.
+
+### 10.3 Deterministic evidence
+
+Java 17 evidence is green:
+
+- AIM-2 unit/static-focused tests: `22/22`;
+- existing canonical draft contract/validator/service regressions: `46/46`;
+- fresh disposable catalog
+  `ksh_test_aim2_candidate_foundation_fresh`: Flyway `83/83`, Hibernate/JPA
+  startup/schema mapping and persistence/optimistic-lock/candidate-service/
+  real atomic replay integration `4/4`;
+- separate disposable catalog
+  `ksh_test_aim2_candidate_foundation_upgrade_final`: authoritative Practice V75
+  lineage `75/75` (`1/1`), followed by exact reconciled V76-V83 upgrade and
+  application integration `4/4` on the final schema; and
+- `git diff --check`, migration hash/continuity guards and static no-go scans
+  are green. Provider/storage/STT/TTS calls are `0/0/0/0`; acoustic fixtures,
+  production JavaScript/UI files and AIM-3+ runtime entry points added are `0`.
+
+The named final-evidence catalogs remain isolated in the dedicated disposable
+AIM-2 MySQL container. The earlier exploratory
+`ksh_test_aim2_candidate_foundation_upgrade` catalog is retained there too;
+none was dropped or used to mutate an older local schema.
+
+The coordinator independently repeated the Java 17 unit/regression gates and
+the fresh V1-V83 plus V75-to-V83 integration paths on two additional disposable
+catalogs. A first fresh harness attempt failed before V1 because its scoped
+test user lacked the legacy V1 `CREATE DATABASE` privilege; that catalog was
+retained without repair or deletion, and the corrected least-privilege rerun
+passed without changing production code or migration SQL.
+
+Handoff: package and merge AIM-2, verify refreshed `origin/main`, archive its
+implementation task, then open AIM-3 Quick Excel v1 from the exact merge commit.

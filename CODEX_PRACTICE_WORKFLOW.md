@@ -15,12 +15,17 @@ recorded in
 `docs/PRACTICE_POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_ROADMAP_AMENDMENT.md`,
 `docs/decisions/0012-practice-authoring-import-modernization-boundaries.md` and
 `docs/architecture/practice/PRACTICE_AUTHORING_IMPORT_MODERNIZATION_CONTRACT.md`.
+PR #56 subsequently merged that AIM-0/AIM-1 authority into `origin/main` at
+`813a54d7c5d2a02cc4cc1bf2213085db3907dfea`. AIM-2 started only after clean
+detached `HEAD == origin/main` proof at that exact merge commit.
 
 Authoritative remaining sequence:
 
 ```text
 Pre-14 CLOSED_MERGED
-  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION (AIM-2..AIM-8)
+  -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION
+       -> AIM-2 candidate foundation — coordinator audit green
+       -> AIM-3..AIM-8 — not started
   -> POST_PRE14_AUTHORING_IMPORT_MODERNIZATION_CONSOLIDATED_GATE
   -> PRE_PHASE_15_RELEASE_CLOSURE_GATE
   -> Phase 15 Manual UAT & Release Hardening
@@ -29,7 +34,7 @@ Pre-14 CLOSED_MERGED
 ```
 
 This overlay supersedes lower historical wording that routes directly from
-Pre-14 to Pre-15. It does not reopen Pre-14, authorize AIM-2+ implementation,
+Pre-14 to Pre-15. It does not reopen Pre-14, authorize AIM-3+ implementation,
 or move direct-audio/acoustic Speaking out of its Pre-15 dependencies.
 
 ## Current Phase 13H overlay — 2026-07-28
@@ -3458,8 +3463,17 @@ MD_STATUS_UPDATE_REQUIRES_PERMISSION
 | 2026-07-28 | Phase 13G Responsive, Accessibility And Performance | COMPLETE_FOCUSED_GATE_GREEN | CLOSED_VERIFIED_MERGED | `68f3801214a741688499f9091f6821a03d5f8e0b`; PR #27 merge `4f09dd9faa22d3aec5d11dd40c7a82144664ea4a`; PR #28/main merge `2549438c1a327b6932dc78d5284d7feaf5daf628` | The full 56-path snapshot received three fresh `ACCEPT_STATIC` verdicts. The first consolidated run exposed one stale icon contract and four nested-Mockito test-helper errors; one grouped test-only correction and the permitted exact rerun passed `82/82` on JDK 17. Fresh MySQL V56 proof returned `56/56/0/1/7`, cleanup absence `0`, and PREP/KSH static image audit `52/52`. No full suite, browser/device journey, standalone startup, Docker or provider call ran. | The four Phase 13G commits `74a3026`, `85c61ab`, `81d78e8`, `68f3801` remain intact. The trees at the 13G head and both merge commits were verified byte-identical. Practice-specific and project-wide/Admin AI/storage remain operational and separate. | Open only the separate Phase 13H stabilization/visual/journey unit from exact main SHA `2549438`; do not rerun Phase 13G publication. |
 | 2026-07-28 | Phase 13H Stabilization, Visual And Journey Gate | PHASE_13G_CLOSED_VERIFIED_MERGED | IMPLEMENTATION_AUDIT_OPEN | branch `codex/practice-phase13h-stabilization-gate`; baseline `2549438c1a327b6932dc78d5284d7feaf5daf628` | Entry branch/HEAD/main/origin-main ancestry, untouched sidecar stash and excluded user paths were verified. Mandatory authority documents and the full stash patch were read before implementation. No consolidated Phase 13H validation is claimed yet. | Own reproducible Java 17, dated dependency/SBOM/reachability evidence, PRE-10..13, candidate COMP-20/dead-resource proof, migration validation safeguards and the final provider-disabled automated/browser/device journey matrix. | Complete read-only audits, freeze the 13H implementation inventory, implement once, declare `READY_FOR_PHASE_VALIDATION`, then execute one consolidated gate. |
 | 2026-08-02 | Post-Pre-14 Authoring/Import Modernization AIM-0/AIM-1 | PRE14_CLOSED_MERGED_PR_55 | AIM_0_CLOSED_AIM_1_CONTRACT_FROZEN | `origin/main@3dfab18ae308005c018c9066256bb7c79b686e8e` | Refreshed HEAD/origin-main ancestry; accepted the 48-row ledger at 12 MATCH/36 PARTIAL/0 MISSING; Draft 2020-12 schemas and R/L/W/S/Advanced/PDF examples passed; negative evaluation-field checks, exact 24-column/six-purpose/three-profile/static roadmap checks and `git diff --check` passed. No Java, SQL, runtime config, real provider call or acoustic fixture was created. | Inserted the epic and consolidated gate before Pre-15; froze one-sheet Quick, shared persistent candidate/idempotent apply, Practice-owned AI/storage data planes with Admin control planes, strict PDF authoring JSON, canonical preview/editor reuse, additive compatibility/rollback and unchanged direct-audio deferral. Pre-existing Flyway V73-V75 version collisions are recorded, not edited or assigned around. | Integrate the AIM-0/AIM-1 documentation, refresh `origin/main`, then open AIM-2 only. Preserve the frozen no-go boundaries and stop for product approval if a contract identity changes. |
+| 2026-08-02 | Post-Pre-14 Authoring/Import Modernization AIM-2 Candidate Foundation | AIM_0_CLOSED_AIM_1_CONTRACT_FROZEN_PR_56 | AIM_2_COORDINATOR_AUDIT_GREEN | exact baseline `origin/main@813a54d7c5d2a02cc4cc1bf2213085db3907dfea`; branch `codex/practice-aim2-candidate-foundation` | User-approved no-obligation reconciliation preserved Practice V73-V75 and byte-identical renamed former-main V76-V82; chain proof is 83/83 unique/continuous and V83 is the one additive AIM-2 migration. Java 17 passed 22/22 AIM-2 unit/static tests, 46/46 canonical draft regressions, fresh V1-V83 Flyway/Hibernate/persistence/candidate-service/real apply replay 4/4, plus a separate authoritative V75 1/1 and V76-V83 upgrade/application 4/4. The coordinator independently repeated those gates on two additional disposable catalogs; the first fresh harness attempt failed only because its scoped test user lacked the legacy V1 `CREATE DATABASE` privilege, and was retained without repair or deletion. GitHub deployments/environments/workflows are 0/0/0; 40 inventoried local schemas created no retained/deployed/canonical obligation. No old DB was repaired, reused, mutated or deleted. | Added only the candidate entity/repositories/services/normalizer/validator/projector/apply ledger package, exact owner/source/target/version snapshots, stable IDs/digest/expiry/optimistic locking, field-addressable issues and atomic idempotent apply. No existing production owner, UI/JavaScript, provider/storage/PDF/direct-audio/acoustic path changed. | Package and merge AIM-2, verify refreshed `origin/main`, then open AIM-3 Quick Excel v1 from that exact merge commit. |
 
 ## Current Required Next Action
+
+> **Current-source supersession (`2026-08-02`, AIM-2):** PR #56 merged the
+> frozen AIM-0/AIM-1 authority at exact `origin/main@813a54d7`. AIM-2 Candidate
+> Foundation is now `COORDINATOR_AUDIT_GREEN` in the implementation tree
+> described by Section 10 of the roadmap amendment. The current action is to
+> package and merge AIM-2, verify refreshed `origin/main`, then open AIM-3 from
+> that exact merge commit. The older
+> AIM-0/AIM-1 handoff immediately below is retained as history.
 
 > **Current-source supersession (`2026-08-02`, post-Pre-14):** Pre-14 is
 > `CLOSED_MERGED` by PR #55 at `origin/main@3dfab18a`. AIM-0 and AIM-1 of
