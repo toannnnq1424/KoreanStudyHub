@@ -15,6 +15,7 @@ import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.dto.PracticeDtos;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
 import com.ksh.features.practice.repository.PracticeSetVersionRepository;
@@ -93,19 +94,27 @@ public class ExplanationInputFactory {
                 section.getInstructions()));
 
         String provenance = provenance(group);
-        AssessmentStimulus stimulus = skill == AssessmentSkill.READING
-                ? AssessmentStimulus.readingPassage(
-                        sanitizeEvidenceText(firstNonBlank(group == null ? null : group.getPassageText(),
-                                firstNonBlank(group == null ? null : group.getInstruction(),
-                                        section.getInstructions()))),
-                        provenance)
-                : AssessmentStimulus.listeningAudio(
-                        null,
-                        sanitizeEvidenceText(firstNonBlank(
-                                group == null ? null : group.getTranscriptText(),
-                                group == null ? null : group.getInstruction())),
-                        provenance,
-                        transcriptApproved(group));
+        String immutablePrompt = sanitizeEvidenceText(question.getPrompt());
+        AssessmentStimulus stimulus;
+        if (skill == AssessmentSkill.READING
+                && group != null
+                && !blank(group.getPassageText())) {
+            stimulus = AssessmentStimulus.readingPassage(
+                    sanitizeEvidenceText(group.getPassageText()),
+                    provenance);
+        } else if (skill == AssessmentSkill.LISTENING
+                && group != null
+                && !blank(group.getTranscriptText())) {
+            stimulus = AssessmentStimulus.listeningAudio(
+                    null,
+                    sanitizeEvidenceText(group.getTranscriptText()),
+                    provenance,
+                    transcriptApproved(group));
+        } else {
+            stimulus = AssessmentStimulus.standalonePrompt(
+                    immutablePrompt,
+                    provenance);
+        }
 
         List<RuntimeMedia> runtimeMedia = collectMedia(content, question, group, section);
         List<ExplanationArtifactInput.MediaDescriptor> descriptors = new ArrayList<>();
@@ -139,11 +148,17 @@ public class ExplanationInputFactory {
         AssessmentStimulus sanitizedStimulus = new AssessmentStimulus(
                 stimulus.schemaVersion(), stimulus.type(), stimulus.passageText(),
                 stimulus.transcriptText(), null, stimulus.provenance(), stimulus.approved());
+        ObjectiveExplanationStrategyRegistry.Selection explanationStrategy =
+                ObjectiveExplanationStrategyRegistry.requireSelection(
+                        type,
+                        question.getExplanationStrategyRegistryVersion(),
+                        question.getExplanationStrategyCode(),
+                        question.getExplanationStrategyVersion());
         ExplanationArtifactInput input = new ExplanationArtifactInput(
                 ExplanationArtifactInput.SCHEMA_VERSION,
                 skill,
                 type,
-                sanitizeEvidenceText(question.getPrompt()),
+                immutablePrompt,
                 instruction,
                 sanitizedContent,
                 sanitizedAnswerSpec,
@@ -151,6 +166,7 @@ public class ExplanationInputFactory {
                 sanitizeEvidenceText(question.getExplanation()),
                 optionLabelMode,
                 ReadingListeningExplanationClient.EXPLANATION_LANGUAGE,
+                explanationStrategy,
                 descriptors,
                 readinessIssue);
         ExplanationFingerprint fingerprint = fingerprintBuilder.build(input);
@@ -161,7 +177,7 @@ public class ExplanationInputFactory {
                 question.getQuestionNo(),
                 skill,
                 type,
-                sanitizeEvidenceText(question.getPrompt()),
+                immutablePrompt,
                 instruction,
                 sanitizedContent,
                 sanitizedAnswerSpec,
@@ -169,7 +185,8 @@ public class ExplanationInputFactory {
                 sanitizedStimulus,
                 sanitizeEvidenceText(question.getExplanation()),
                 input.explanationLanguage(),
-                optionLabelMode);
+                optionLabelMode,
+                explanationStrategy);
         return new PreparedExplanation(input, fingerprint, context, runtimeMedia);
     }
 
@@ -233,7 +250,8 @@ public class ExplanationInputFactory {
         }
 
         QuestionContent sanitizedContent = new QuestionContent(
-                content.schemaVersion(), options, blanks, null, null, null);
+                content.schemaVersion(), options, blanks, null, null, null,
+                null, content.languageTag());
         AnswerSpec sanitizedAnswerSpec = new AnswerSpec(
                 answerSpec.schemaVersion(),
                 answerSpec.questionType(),

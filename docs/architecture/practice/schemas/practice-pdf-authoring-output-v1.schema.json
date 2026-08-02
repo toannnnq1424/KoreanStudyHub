@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-pdf-authoring-output-v1.schema.json",
+  "title": "KSH Practice PDF authoring output v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "sourceDigest", "groups", "warnings"],
+  "properties": {
+    "schemaVersion": { "const": "practice-pdf-authoring-output-v1" },
+    "operation": { "enum": ["EXTRACT", "GENERATE"] },
+    "sourceDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/group" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "messageVi", "sourceRefs"],
+        "properties": {
+          "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,100}$" },
+          "messageVi": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "sourceRefs": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/sourceRef" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceGroupId", "label", "instruction", "stimulus", "sourceRefs", "questions"],
+      "properties": {
+        "sourceGroupId": { "$ref": "#/$defs/stableId" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "instruction": { "type": "string", "maxLength": 4000 },
+        "stimulus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "passageText", "transcriptText", "sourceRefs"],
+          "properties": {
+            "type": { "enum": ["NONE", "READING_PASSAGE", "LISTENING_AUDIO"] },
+            "passageText": { "type": "string", "maxLength": 1000000 },
+            "transcriptText": { "type": "string", "maxLength": 1000000 },
+            "sourceRefs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/sourceRef" }
+            }
+          }
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceRef" }
+        },
+        "questions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/question" }
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceQuestionId",
+        "questionType",
+        "prompt",
+        "points",
+        "questionContent",
+        "answerSpec",
+        "sourceRefs",
+        "confidence"
+      ],
+      "properties": {
+        "sourceQuestionId": { "$ref": "#/$defs/stableId" },
+        "questionType": {
+          "enum": [
+            "SINGLE_CHOICE",
+            "MULTIPLE_ANSWER",
+            "TRUE_FALSE_NOT_GIVEN",
+            "FILL_BLANK",
+            "MATCHING",
+            "ESSAY",
+            "SPEAKING"
+          ]
+        },
+        "essayTaskType": { "enum": ["Q51", "Q52", "Q53", "Q54"] },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 100000 },
+        "points": { "type": "number", "exclusiveMinimum": 0 },
+        "explanationVi": { "type": "string", "maxLength": 100000 },
+        "questionContent": {
+          "$ref": "practice-authoring-candidate-v1.schema.json#/$defs/questionContent"
+        },
+        "answerSpec": {
+          "$ref": "practice-authoring-candidate-v1.schema.json#/$defs/answerSpec"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/sourceRef" }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "sourceId"],
+      "properties": {
+        "kind": { "enum": ["TEXT_SPAN", "PAGE", "REGION"] },
+        "sourceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "pageNumber": { "type": "integer", "minimum": 1 },
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,80}$"
+    }
+  }
+}

@@ -1,12 +1,15 @@
 package com.ksh.features.practice.ai.speaking;
 
 import com.ksh.features.practice.ai.media.AiImageEvidence;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.features.practice.ai.media.AiQuestionImageResolver;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionClient;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionMediaResolver;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionRequest;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionResult;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
+import com.ksh.features.practice.ai.transport.PracticeAiCapability;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
 import com.ksh.features.practice.manage.speaking.SpeakingPromptEvaluationContextService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +32,7 @@ public class SpeakingEvaluationApplicationService {
     private final SpeakingEvaluatorProperties evaluatorProperties;
     private final AiQuestionImageResolver imageResolver;
     private final SpeakingPromptEvaluationContextService promptContextService;
+    private final PracticeStructuredGenerationPort structuredGeneration;
     private final boolean textFallbackEnabled;
 
     public SpeakingEvaluationApplicationService(
@@ -41,7 +46,7 @@ public class SpeakingEvaluationApplicationService {
     ) {
         this(mediaResolver, transcriptionClient, orchestrator, reusePolicy,
                 transcriptionProperties, evaluatorProperties, null, null,
-                textFallbackEnabled);
+                null, textFallbackEnabled);
     }
 
     public SpeakingEvaluationApplicationService(
@@ -56,7 +61,7 @@ public class SpeakingEvaluationApplicationService {
     ) {
         this(mediaResolver, transcriptionClient, orchestrator, reusePolicy,
                 transcriptionProperties, evaluatorProperties, imageResolver,
-                null, textFallbackEnabled);
+                null, null, textFallbackEnabled);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -69,6 +74,7 @@ public class SpeakingEvaluationApplicationService {
             SpeakingEvaluatorProperties evaluatorProperties,
             AiQuestionImageResolver imageResolver,
             SpeakingPromptEvaluationContextService promptContextService,
+            PracticeStructuredGenerationPort structuredGeneration,
             @Value("${app.practice.speaking-evaluator.text-fallback-enabled:false}") boolean textFallbackEnabled
     ) {
         this.mediaResolver = mediaResolver;
@@ -79,20 +85,23 @@ public class SpeakingEvaluationApplicationService {
         this.evaluatorProperties = evaluatorProperties;
         this.imageResolver = imageResolver;
         this.promptContextService = promptContextService;
+        this.structuredGeneration = structuredGeneration;
         this.textFallbackEnabled = textFallbackEnabled;
     }
 
     public boolean enabled() {
+        if (structuredGeneration != null) {
+            return transcriptionAuthorityAvailable()
+                    && evaluatorAuthorityAvailable()
+                    && evaluatorVersionPinsCurrent();
+        }
         return transcriptionProperties.enabled()
                 && evaluatorProperties.enabled()
                 && "openai".equals(
                         transcriptionProperties.provider())
-                && "openai-compatible".equals(
-                        evaluatorProperties.provider())
                 && transcriptionProperties.apiKey() != null
                 && !transcriptionProperties.apiKey().isBlank()
-                && evaluatorProperties.apiKey() != null
-                && !evaluatorProperties.apiKey().isBlank()
+                && evaluatorAuthorityAvailable()
                 && evaluatorVersionPinsCurrent();
     }
 
@@ -116,13 +125,14 @@ public class SpeakingEvaluationApplicationService {
                 transcriptionProperties.allowedMimeTypes().stream()
                         .sorted()
                         .collect(Collectors.joining(",")),
+                transcriptionBindingIdentity(),
                 Boolean.toString(evaluatorProperties.enabled()),
-                "evaluator-api-key-present="
-                        + (evaluatorProperties.apiKey() != null
-                        && !evaluatorProperties.apiKey().isBlank()),
-                evaluatorProperties.provider(),
-                evaluatorProperties.baseUrl(),
-                evaluatorProperties.model(),
+                "evaluator-authority-available="
+                        + evaluatorAuthorityAvailable(),
+                evaluatorProvider(),
+                evaluatorBindingIdentity(),
+                evaluatorBaseUrl(),
+                evaluatorModel(),
                 evaluatorProperties.timeout().toString(),
                 Integer.toString(evaluatorProperties.maxRetries()),
                 evaluatorProperties.promptVersion(),
@@ -142,6 +152,102 @@ public class SpeakingEvaluationApplicationService {
                 evaluatorProperties.rubricVersion())
                 && SpeakingPromptRules.SCHEMA_VERSION.equals(
                 evaluatorProperties.schemaVersion());
+    }
+
+    private String transcriptionBindingIdentity() {
+        SpeakingTranscriptionClient.ProviderIdentity identity =
+                transcriptionClient.identity();
+        if (identity == null) {
+            return "UNBOUND";
+        }
+        return identity.providerProfileCode()
+                + ":binding-revision=" + identity.bindingRevision()
+                + ":profile-revision=" + identity.providerProfileRevision()
+                + ":model=" + identity.model()
+                + ":available=" + identity.available();
+    }
+
+    private boolean transcriptionAuthorityAvailable() {
+        SpeakingTranscriptionClient.ProviderIdentity identity =
+                transcriptionClient.identity();
+        return identity != null
+                && identity.available()
+                && identity.model() != null
+                && !identity.model().isBlank();
+    }
+
+    private String transcriptionModel() {
+        SpeakingTranscriptionClient.ProviderIdentity identity =
+                transcriptionClient.identity();
+        return identity == null || identity.model() == null
+                || identity.model().isBlank()
+                ? transcriptionProperties.model()
+                : identity.model();
+    }
+
+    private boolean evaluatorAuthorityAvailable() {
+        if (structuredGeneration == null) {
+            return Set.of(
+                            "openai-primary",
+                            "openai-compatible")
+                    .contains(evaluatorProperties.provider())
+                    && evaluatorProperties.apiKey() != null
+                    && !evaluatorProperties.apiKey().isBlank()
+                    && evaluatorProperties.model() != null
+                    && !evaluatorProperties.model().isBlank();
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
+        return identity != null
+                && Set.of(
+                        "OPENAI_COMPATIBLE",
+                        "openai-primary",
+                        "openai-compatible")
+                        .contains(identity.provider())
+                && identity.available()
+                && identity.model() != null
+                && !identity.model().isBlank();
+    }
+
+    private String evaluatorProvider() {
+        if (structuredGeneration == null) {
+            return evaluatorProperties.provider();
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
+        return identity == null ? "" : identity.provider();
+    }
+
+    private String evaluatorBindingIdentity() {
+        if (structuredGeneration == null) {
+            return "LEGACY_TEST_ONLY";
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
+        return identity == null
+                ? "UNBOUND"
+                : identity.providerProfileCode()
+                        + ":binding-revision=" + identity.bindingRevision()
+                        + ":profile-revision=" + identity.providerProfileRevision();
+    }
+
+    private String evaluatorModel() {
+        if (structuredGeneration == null) {
+            return evaluatorProperties.model();
+        }
+        PracticeStructuredGenerationPort.ProviderIdentity identity =
+                structuredGeneration.identity(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION);
+        return identity == null ? "" : identity.model();
+    }
+
+    private String evaluatorBaseUrl() {
+        return structuredGeneration == null
+                ? evaluatorProperties.baseUrl()
+                : "PRACTICE_STRUCTURED_GENERATION_PORT";
     }
 
     private static String sha256(String value) {
@@ -189,8 +295,8 @@ public class SpeakingEvaluationApplicationService {
                             promptContext.promptContextContractIdentity(),
                             null,
                             null,
-                            transcriptionProperties.model(),
-                            evaluatorProperties.model(),
+                            transcriptionModel(),
+                            evaluatorModel(),
                             evaluatorProperties.promptVersion(),
                             evaluatorProperties.rubricVersion(),
                             evaluatorProperties.schemaVersion());
@@ -215,8 +321,8 @@ public class SpeakingEvaluationApplicationService {
                 promptContext.promptContextContractIdentity(),
                 request.mediaId(),
                 request.mediaVersion(),
-                transcriptionProperties.model(),
-                evaluatorProperties.model(),
+                transcriptionModel(),
+                evaluatorModel(),
                 evaluatorProperties.promptVersion(),
                 evaluatorProperties.rubricVersion(),
                 evaluatorProperties.schemaVersion());
@@ -250,7 +356,7 @@ public class SpeakingEvaluationApplicationService {
                 promptContext.promptContextFingerprint(),
                 promptContext.promptContextContractIdentity(),
                 input.textFallbackAnswer(),
-                evaluatorProperties.model(),
+                evaluatorModel(),
                 evaluatorProperties.promptVersion(),
                 evaluatorProperties.rubricVersion(),
                 evaluatorProperties.schemaVersion());

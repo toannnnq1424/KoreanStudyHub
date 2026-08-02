@@ -7,6 +7,7 @@ import com.ksh.entities.PracticeSpeakingMediaCleanupStatus;
 import com.ksh.entities.PracticeSpeakingMediaCleanupTask;
 import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaCleanupTaskRepository;
+import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,14 +30,17 @@ public class PracticeSpeakingMediaCleanupTaskService {
     private final PracticeSpeakingMediaCleanupTaskRepository repository;
     private final Clock clock;
     private final java.time.Duration leaseDuration;
+    private final PracticeSpeakingMediaRepository mediaRepository;
 
     @Autowired
     public PracticeSpeakingMediaCleanupTaskService(
             PracticeSpeakingMediaCleanupTaskRepository repository,
+            PracticeSpeakingMediaRepository mediaRepository,
             ObjectProvider<Clock> clockProvider,
             @Value("${app.practice.speaking-media.cleanup-lease-duration:PT5M}")
             java.time.Duration leaseDuration) {
-        this(repository, clockProvider.getIfAvailable(Clock::systemUTC), leaseDuration);
+        this(repository, mediaRepository,
+                clockProvider.getIfAvailable(Clock::systemUTC), leaseDuration);
     }
 
     PracticeSpeakingMediaCleanupTaskService(
@@ -49,7 +53,16 @@ public class PracticeSpeakingMediaCleanupTaskService {
             PracticeSpeakingMediaCleanupTaskRepository repository,
             Clock clock,
             java.time.Duration leaseDuration) {
+        this(repository, null, clock, leaseDuration);
+    }
+
+    PracticeSpeakingMediaCleanupTaskService(
+            PracticeSpeakingMediaCleanupTaskRepository repository,
+            PracticeSpeakingMediaRepository mediaRepository,
+            Clock clock,
+            java.time.Duration leaseDuration) {
         this.repository = repository;
+        this.mediaRepository = mediaRepository;
         this.clock = clock;
         this.leaseDuration = boundedLease(leaseDuration);
     }
@@ -66,6 +79,17 @@ public class PracticeSpeakingMediaCleanupTaskService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public Long enqueueSupersededRetention(
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey) {
+        return enqueueExact(PracticeSpeakingMediaCleanupReason.SUPERSEDED_RETENTION,
+                mediaId, storageProvider, storageProfileCode, storageKey,
+                now().plusHours(24));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public Long enqueueLogicalDelete(
             PracticeSpeakingStorageProvider storageProvider,
             String storageKey) {
@@ -74,6 +98,16 @@ public class PracticeSpeakingMediaCleanupTaskService {
                 storageProvider,
                 storageKey,
                 now());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Long enqueueLogicalDelete(
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey) {
+        return enqueueExact(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE,
+                mediaId, storageProvider, storageProfileCode, storageKey, now());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -85,6 +119,35 @@ public class PracticeSpeakingMediaCleanupTaskService {
                 storageProvider,
                 storageKey,
                 now());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Long enqueueCompensationOrphan(
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey) {
+        return enqueueExact(PracticeSpeakingMediaCleanupReason.ACTIVATION_COMPENSATION,
+                null, storageProvider, storageProfileCode, storageKey, now());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Long enqueueTemporaryExpiry(
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey) {
+        return enqueueExact(PracticeSpeakingMediaCleanupReason.TEMPORARY_EXPIRY,
+                mediaId, storageProvider, storageProfileCode, storageKey,
+                now().plusHours(24));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Long enqueuePromotedTemporaryCleanup(
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey) {
+        return enqueueExact(PracticeSpeakingMediaCleanupReason.ACTIVATION_COMPENSATION,
+                null, storageProvider, storageProfileCode, storageKey, now());
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -99,6 +162,19 @@ public class PracticeSpeakingMediaCleanupTaskService {
                 PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT,
                 storageProvider,
                 storageKey,
+                discardedAt.plusHours(24));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Long enqueueDiscardAttempt(
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey,
+            LocalDateTime discardedAt) {
+        if (discardedAt == null) throw new IllegalArgumentException("discardedAt is required.");
+        return enqueueExact(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT,
+                mediaId, storageProvider, storageProfileCode, storageKey,
                 discardedAt.plusHours(24));
     }
 
@@ -125,6 +201,19 @@ public class PracticeSpeakingMediaCleanupTaskService {
         }
         String token = UUID.randomUUID().toString().replace("-", "");
         task.claim(task.getLockVersion(), token, claimedAt.plus(leaseDuration));
+        if (task.getMediaId() != null && mediaRepository != null) {
+            mediaRepository.findByIdForUpdate(task.getMediaId())
+                    .ifPresent(media -> {
+                        if (!java.util.Objects.equals(media.getStorageProfileCode(),
+                                task.getStorageProfileCode())
+                                || !java.util.Objects.equals(media.getStorageKey(),
+                                task.getStorageKey())) {
+                            throw new IllegalStateException("Cleanup media identity changed.");
+                        }
+                        media.markDeletionPending();
+                        mediaRepository.save(media);
+                    });
+        }
         repository.saveAndFlush(task);
         return Optional.of(task.toProcessingSnapshot());
     }
@@ -139,14 +228,38 @@ public class PracticeSpeakingMediaCleanupTaskService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public PracticeSpeakingMediaCleanupStatus confirmPhysicalDeletion(
+            CleanupProcessingSnapshot claim) {
+        PracticeSpeakingMediaCleanupTask task = loadForClaim(claim);
+        if (task.getMediaId() != null) {
+            if (mediaRepository == null) {
+                throw new IllegalStateException("Speaking media repository is unavailable.");
+            }
+            var media = mediaRepository.findByIdForUpdate(task.getMediaId())
+                    .orElseThrow(() -> new IllegalStateException("Speaking media is unavailable."));
+            if (!java.util.Objects.equals(media.getStorageProfileCode(), task.getStorageProfileCode())
+                    || !java.util.Objects.equals(media.getStorageKey(), task.getStorageKey())) {
+                throw new IllegalStateException("Cleanup media identity changed.");
+            }
+            media.markDeleted(now());
+            mediaRepository.save(media);
+        }
+        task.markCompleted(claim.lockVersion(), claim.claimToken(), now());
+        return task.getStatus();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PracticeSpeakingMediaCleanupStatus markRetry(
             CleanupProcessingSnapshot claim,
             PracticeSpeakingMediaCleanupErrorCode errorCode) {
         PracticeSpeakingMediaCleanupTask task = loadForClaim(claim);
         LocalDateTime nextAttemptAt = now().plus(
                 backoff(claim.attemptCount() == null ? 0L : claim.attemptCount()));
-        task.markRetry(
-                claim.lockVersion(), claim.claimToken(), errorCode, nextAttemptAt);
+        if (claim.attemptCount() != null && claim.attemptCount() >= 7L) {
+            task.markTerminal(claim.lockVersion(), claim.claimToken(), errorCode, now());
+        } else {
+            task.markRetry(claim.lockVersion(), claim.claimToken(), errorCode, nextAttemptAt);
+        }
         return task.getStatus();
     }
 
@@ -165,6 +278,23 @@ public class PracticeSpeakingMediaCleanupTaskService {
                          String storageKey,
                          LocalDateTime dueAt) {
         return enqueue(reason, storageProvider, storageKey, dueAt, dueAt);
+    }
+
+    private Long enqueueExact(
+            PracticeSpeakingMediaCleanupReason reason,
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey,
+            LocalDateTime dueAt) {
+        PracticeSpeakingMediaCleanupTask.pendingExact(reason, mediaId,
+                storageProvider, storageProfileCode, storageKey, dueAt, dueAt);
+        repository.insertOrKeepExistingExact(reason.name(), mediaId,
+                storageProvider.name(), storageProfileCode, storageKey, dueAt, dueAt);
+        return repository.findByStorageProfileCodeAndStorageKey(
+                        storageProfileCode, storageKey)
+                .orElseThrow(() -> new IllegalStateException("Cleanup task was not persisted."))
+                .getId();
     }
 
     private Long enqueue(PracticeSpeakingMediaCleanupReason reason,

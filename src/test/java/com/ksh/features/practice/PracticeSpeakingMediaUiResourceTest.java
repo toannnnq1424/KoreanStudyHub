@@ -65,6 +65,8 @@ class PracticeSpeakingMediaUiResourceTest {
                 "step === \"PROMPT_PLAYBACK\"",
                 "step === \"PREPARATION\"",
                 "step === \"RECORDING\"",
+                "currentQuestion.languageTag === \"vi\" ? \"vi\" : \"ko\"",
+                "promptText.lang",
                 "showAction(\"Phát đề bài\"",
                 "promptAudioState.hidden = true",
                 "stopMicrophone();\n    resetAudio();",
@@ -145,10 +147,12 @@ class PracticeSpeakingMediaUiResourceTest {
                 StandardCharsets.UTF_8);
 
         assertThat(webConfig).contains("/uploads/**");
-        assertThat(applicationProperties).contains("app.upload.dir=${UPLOAD_DIR:uploads}");
+        assertThat(applicationProperties)
+                .contains("app.data.dir=${KSH_DATA_DIR:${user.home}/.ksh}")
+                .contains("app.upload.dir=${UPLOAD_DIR:${app.data.dir}/uploads}");
         assertThat(audioProperties)
                 .contains("@Value(\"${app.practice.speaking-audio.local-root:private-storage/practice-speaking-audio}\")")
-                .contains("@Value(\"${app.upload.dir:uploads}\")");
+                .contains("@Value(\"${app.upload.dir:${user.home}/.ksh/uploads}\")");
         assertThat(audioProperties).contains("publicUploadRoot");
         assertThat(audioProperties).contains("privateLocalRoot");
     }

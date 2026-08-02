@@ -10,7 +10,7 @@
 
 .prd-objective-body {
   --prd-objective-header: 52px;
-  --prd-objective-bottom-nav: 112px;
+  --prd-objective-bottom-nav: 104px;
   --prd-objective-workspace-top: var(--prd-objective-header);
   overflow: hidden;
   background: #f4f6fb;
@@ -31,6 +31,67 @@
 .prd-objective-body .prd-back-btn,
 .prd-objective-body .prd-complete-btn {
   min-height: 34px;
+}
+
+.prd-objective-body .prd-objective-helper-toggle,
+.prd-objective-body .prd-objective-material-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #dfe4ed;
+  border-radius: 7px;
+  background: #fff;
+  color: #5f697b;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.prd-objective-body .prd-objective-helper-toggle svg,
+.prd-objective-body .prd-objective-material-pin svg,
+.prd-objective-body .prd-objective-helper header button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.prd-objective-body .prd-objective-helper-toggle:focus-visible,
+.prd-objective-body .prd-objective-material-pin:focus-visible,
+.prd-objective-body .prd-objective-helper header button:focus-visible {
+  outline: 3px solid rgba(63, 115, 255, .24);
+  outline-offset: 2px;
+}
+
+.prd-objective-body .prd-objective-source-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.prd-objective-body .prd-objective-source-toolbar h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.prd-objective-body .prd-objective-material-pin[aria-pressed="true"] {
+  border-color: #3f73ff;
+  background: #eef3ff;
+  color: #315fcf;
+}
+
+.prd-objective-body .prd-objective-material-pin[aria-pressed="true"] svg {
+  fill: currentColor;
 }
 
 .prd-objective-body .prd-objective-option-stack,
@@ -158,8 +219,13 @@
 
 .prd-objective-body .prd-objective-group-nav > li {
   position: relative;
-  flex: 1 1 260px;
+  flex: 0 0 220px;
   min-width: 220px;
+  transition: flex-basis 160ms ease;
+}
+
+.prd-objective-body .prd-objective-group-nav > li.is-active {
+  flex-basis: min(520px, calc(100vw - 64px));
 }
 
 .prd-objective-body .prd-objective-group-link {
@@ -185,7 +251,18 @@
 .prd-objective-body .prd-objective-group-nav .prd-objective-nav-list {
   display: flex;
   gap: 6px;
+  width: 100%;
+  max-width: 100%;
   margin-top: 7px;
+  padding: 0 0 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.prd-objective-body .prd-objective-group-nav .prd-objective-nav-list > li {
+  flex: 0 0 auto;
 }
 
 .prd-objective-body .prd-objective-group-nav .prd-objective-nav-list a {
@@ -233,6 +310,324 @@
   line-height: 1.4;
 }
 
+.prd-objective-body .prd-objective-typed-strategy {
+  display: grid;
+  gap: 12px;
+}
+
+.prd-objective-body .prd-objective-typed-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.prd-objective-body .prd-objective-typed-header > span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef3ff;
+  color: #315fd6;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.prd-objective-body .prd-objective-typed-header h5,
+.prd-objective-body .prd-objective-typed-header p {
+  margin: 0;
+}
+
+.prd-objective-body .prd-objective-typed-header h5 {
+  color: #1d2638;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.prd-objective-body .prd-objective-typed-header p {
+  margin-top: 3px;
+  color: #6a7488;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.prd-objective-body .prd-objective-typed-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid #dbe3f2;
+  border-radius: 10px;
+  background: #fff;
+  overscroll-behavior-x: contain;
+}
+
+.prd-objective-body .prd-objective-typed-scroll:focus-visible {
+  outline: 3px solid rgba(63, 115, 255, 0.3);
+  outline-offset: 2px;
+}
+
+.prd-objective-body .prd-objective-typed-table,
+.prd-objective-body .prd-objective-not-given-boundary,
+.prd-objective-body .prd-objective-fill-strategy,
+.prd-objective-body .prd-objective-keyword-bridge,
+.prd-objective-body .prd-objective-elimination {
+  min-width: 540px;
+  border: 1px solid #dbe3f2;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.prd-objective-body .prd-objective-typed-scroll .prd-objective-typed-table {
+  border: 0;
+  border-radius: 0;
+}
+
+.prd-objective-body .prd-objective-typed-context {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #dbe3f2;
+  background: #f5f7fb;
+}
+
+.prd-objective-body .prd-objective-typed-context strong {
+  color: #273246;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.prd-objective-body .prd-objective-typed-context span {
+  color: #6a7488;
+  font-size: 10px;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.prd-objective-body .prd-objective-typed-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  border-bottom: 1px solid #e6eaf1;
+}
+
+.prd-objective-body .prd-objective-typed-row > * {
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  line-height: 1.55;
+}
+
+.prd-objective-body .prd-objective-typed-row > * + * {
+  border-left: 1px solid #e6eaf1;
+}
+
+.prd-objective-body .prd-objective-typed-row.is-heading {
+  background: #fbfcfe;
+  color: #657086;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.prd-objective-body .prd-objective-typed-row.is-three-column {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.prd-objective-body .prd-objective-typed-row mark,
+.prd-objective-body .prd-objective-keyword-bridge mark,
+.prd-objective-body .prd-objective-bilingual-steps mark {
+  background: #fff2a8;
+  color: #25314a;
+}
+
+.prd-objective-body .prd-objective-typed-evidence-cell article,
+.prd-objective-body .prd-objective-typed-evidence-cell blockquote {
+  margin: 0;
+}
+
+.prd-objective-body .prd-objective-typed-evidence-cell article + article {
+  margin-top: 8px;
+}
+
+.prd-objective-body .prd-objective-typed-evidence-cell blockquote,
+.prd-objective-body .prd-objective-not-given-boundary blockquote {
+  padding-left: 9px;
+  border-left: 3px solid #3f73ff;
+  color: #24304a;
+  font-style: normal;
+}
+
+.prd-objective-body .prd-objective-typed-translation-title {
+  display: block;
+  padding: 7px 12px;
+  border-bottom: 1px solid #e6eaf1;
+  background: #f5f8ff;
+  color: #3b5fa9;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.prd-objective-body .prd-objective-typed-row.is-translation {
+  color: #59657a;
+  font-size: 11px;
+}
+
+.prd-objective-body .prd-objective-typed-row.is-translation p {
+  margin: 0;
+}
+
+.prd-objective-body .prd-objective-typed-row.is-translation p + p {
+  margin-top: 6px;
+}
+
+.prd-objective-body .prd-objective-typed-decision {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  background: #eef4ff;
+  color: #274f9e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.prd-objective-body .prd-objective-typed-decision span + span::before {
+  content: " · ";
+}
+
+.prd-objective-body .prd-objective-full-source {
+  padding: 12px;
+  border: 1px solid #dbe3f2;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-full-source-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 10px;
+  color: #697386;
+  font-size: 10px;
+}
+
+.prd-objective-body .prd-objective-full-source-legend strong,
+.prd-objective-body .prd-objective-full-source-evidence strong {
+  text-decoration: underline;
+  text-decoration-color: #3f73ff;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.prd-objective-body .prd-objective-full-source-text {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8f9fc;
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.prd-objective-body .prd-objective-full-source-evidence {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.prd-objective-body .prd-objective-full-source-evidence article {
+  display: grid;
+  gap: 4px;
+}
+
+.prd-objective-body .prd-objective-full-source-evidence em {
+  color: #59657a;
+  font-size: 11px;
+}
+
+.prd-objective-body .prd-objective-elimination-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  border-bottom: 1px solid #e6eaf1;
+}
+
+.prd-objective-body .prd-objective-elimination-row:last-child {
+  border-bottom: 0;
+}
+
+.prd-objective-body .prd-objective-elimination-row > span {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.prd-objective-body .prd-objective-elimination-row > span + span {
+  flex-direction: column;
+  border-left: 1px solid #e6eaf1;
+}
+
+.prd-objective-body .prd-objective-elimination-row.is-kept > span:last-child {
+  color: #23723a;
+  background: #f2fbf5;
+}
+
+.prd-objective-body .prd-objective-elimination-row.is-rejected > span:last-child {
+  color: #ad3142;
+  background: #fff6f7;
+}
+
+.prd-objective-body .prd-objective-elimination-row small {
+  color: inherit;
+  line-height: 1.45;
+}
+
+.prd-objective-body .prd-objective-not-given-boundary,
+.prd-objective-body .prd-objective-fill-strategy,
+.prd-objective-body .prd-objective-keyword-bridge {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.prd-objective-body .prd-objective-fill-strategy .prd-objective-typed-row > div,
+.prd-objective-body .prd-objective-keyword-bridge .prd-objective-typed-row > * {
+  display: grid;
+  gap: 5px;
+}
+
+.prd-objective-body .prd-objective-bilingual-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.prd-objective-body .prd-objective-bilingual-steps li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #dbe3f2;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-bilingual-steps li > b {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 50%;
+  background: #3f73ff;
+  color: #fff;
+}
+
+.prd-objective-body .prd-objective-bilingual-steps li > div {
+  display: grid;
+  gap: 5px;
+  line-height: 1.55;
+}
+
 @media (min-width: 981px) {
   .prd-objective-body .prd-objective-shell {
     --prd-objective-panel-gap: 11px;
@@ -248,11 +643,11 @@
 
   .prd-objective-body .prd-objective-shell[data-objective-skill="LISTENING"] {
     --prd-objective-workspace-top: 94px;
-    --prd-objective-bottom-nav: 123px;
+    --prd-objective-bottom-nav: 112px;
   }
 
   .prd-objective-body .prd-objective-shell[data-objective-skill="READING"] {
-    --prd-objective-bottom-nav: 72px;
+    --prd-objective-bottom-nav: 104px;
   }
 
   .prd-objective-body .prd-objective-shell > .prd-boundary-hero {
@@ -345,12 +740,6 @@
     scrollbar-gutter: stable;
   }
 
-  .prd-objective-body .prd-objective-sources > h2 {
-    margin: 0 0 12px;
-    font-size: 16px;
-    line-height: 1.35;
-  }
-
   .prd-objective-body .prd-objective-source-text {
     padding: 14px 16px;
     border: 0;
@@ -365,15 +754,26 @@
   }
 
   .prd-objective-body .prd-objective-review {
-    padding-top: 99px;
+    padding-top: 0;
     overflow-y: auto;
     scrollbar-gutter: stable;
   }
 
   .prd-objective-body .prd-objective-question {
-    min-height: 100%;
-    padding: 18px 20px 28px;
+    min-height: 0;
+    padding: 24px 24px 32px;
+    border: 0;
     border-radius: 0;
+    box-shadow: none;
+  }
+
+  .prd-objective-body .prd-objective-question + .prd-objective-question {
+    margin-top: 28px;
+  }
+
+  .prd-objective-body .prd-objective-question:focus {
+    outline: 0;
+    box-shadow: inset 3px 0 #9cb7ff;
   }
 
   .prd-objective-body .prd-objective-question-header {
@@ -494,20 +894,21 @@
     position: fixed;
     z-index: 90;
     top: var(--prd-objective-header);
-    right: 0;
-    left: 0;
+    right: calc(49.3% + 6px);
+    left: 14px;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 16px;
-    width: 100%;
+    width: auto;
     height: 42px;
     margin: 0;
-    padding: 5px 24px;
-    border: 0;
+    padding: 5px 12px;
+    border: 1px solid #e7eaf1;
+    border-top: 0;
     border-bottom: 1px solid #e7eaf1;
     border-radius: 0;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.98);
     box-shadow: none;
   }
 
@@ -531,12 +932,11 @@
     height: var(--prd-objective-bottom-nav);
     max-height: none;
     margin: 0;
-    padding: 10px 24px;
+    padding: 8px 24px 7px;
     border: 0;
     border-top: 1px solid #e4e7ee;
     background: #fff;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: hidden;
   }
 
   .prd-objective-body .prd-question-rail > h2 {
@@ -550,7 +950,14 @@
 
 @media (max-width: 980px) {
   .prd-objective-body {
+    --prd-objective-bottom-nav: 116px;
     overflow: auto;
+    padding-bottom: calc(var(--prd-objective-bottom-nav) + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(var(--prd-objective-bottom-nav) + 16px);
+  }
+
+  .prd-objective-body .prd-objective-shell {
+    margin-bottom: 0;
   }
 
   .prd-objective-body .prd-objective-group-panel {
@@ -568,9 +975,56 @@
     display: block;
   }
 
+  .prd-objective-body .prd-question-rail {
+    position: fixed;
+    z-index: 100;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: block;
+    width: 100%;
+    height: calc(var(--prd-objective-bottom-nav) + env(safe-area-inset-bottom));
+    max-height: none;
+    margin: 0;
+    padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+    border: 0;
+    border-top: 1px solid #e4e7ee;
+    background: #fff;
+    box-shadow: 0 -8px 22px rgba(27, 45, 78, 0.08);
+    overflow: hidden;
+  }
+
+  .prd-objective-body .prd-question-rail > h2 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
   .prd-objective-body .prd-objective-group-nav {
+    height: 100%;
     overflow-x: auto;
-    padding-bottom: 4px;
+    overflow-y: hidden;
+    padding: 0 0 4px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .prd-objective-body .prd-objective-group-nav > li {
+    flex: 0 0 min(260px, calc(100vw - 32px));
+    min-width: min(220px, calc(100vw - 32px));
+  }
+
+  .prd-objective-body .prd-objective-group-link {
+    min-height: 44px;
+    padding: 7px 12px;
+    line-height: 1.3;
+  }
+
+  .prd-objective-body .prd-objective-group-nav .prd-objective-nav-list {
+    margin-top: 6px;
   }
 
   .prd-objective-body .prd-objective-sources,
@@ -579,6 +1033,16 @@
     grid-row: auto;
     width: 100%;
     max-height: none;
+  }
+
+  .prd-objective-body .prd-objective-group-panel.is-material-pinned .prd-objective-sources {
+    position: sticky;
+    z-index: 30;
+    top: var(--prd-objective-header);
+    max-height: 42dvh;
+    overflow: auto;
+    border-color: #b9c9f8;
+    box-shadow: 0 10px 24px rgba(27, 45, 78, .12);
   }
 
   .prd-objective-body .prd-objective-source > header {
@@ -600,6 +1064,10 @@
 }
 
 @media (max-width: 420px) {
+  .prd-objective-body {
+    --prd-objective-bottom-nav: 108px;
+  }
+
   .prd-objective-body .prd-objective-option-main {
     grid-template-columns: 32px minmax(0, 1fr);
     gap: 7px 10px;
@@ -635,5 +1103,938 @@
   .prd-objective-body .prd-objective-option-explanation > p,
   .prd-objective-body .prd-objective-option-explanation > .prd-objective-inline-evidence {
     padding-left: 54px;
+  }
+}
+
+/* Pre-14 convergence: one quiet explanation frame; evidence owns the
+   hierarchy without stacking saturated cards inside saturated cards. */
+.prd-objective-body .prd-objective-explanation {
+  border-color: #d9e0eb;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.prd-objective-body .prd-objective-explanation-heading {
+  min-height: 46px;
+  padding: 10px 14px;
+}
+
+.prd-objective-body .prd-objective-explanation-heading h4 {
+  color: #315fcf;
+  font-size: 13px;
+}
+
+.prd-objective-body .prd-objective-explanation > .prd-objective-unavailable,
+.prd-objective-body .prd-objective-explanation-body {
+  padding: 14px;
+  border-top-color: #edf0f5;
+}
+
+.prd-objective-body .prd-objective-typed-header > span {
+  background: #f1f4f9;
+  color: #59709b;
+}
+
+.prd-objective-body .prd-objective-typed-scroll,
+.prd-objective-body .prd-objective-typed-table,
+.prd-objective-body .prd-objective-not-given-boundary,
+.prd-objective-body .prd-objective-fill-strategy,
+.prd-objective-body .prd-objective-keyword-bridge,
+.prd-objective-body .prd-objective-elimination {
+  border-color: #e2e7ef;
+  border-radius: 7px;
+}
+
+.prd-objective-body .prd-objective-typed-context,
+.prd-objective-body .prd-objective-typed-row.is-heading {
+  background: #fafbfc;
+}
+
+.prd-objective-body .prd-objective-typed-row,
+.prd-objective-body .prd-objective-typed-row > * + *,
+.prd-objective-body .prd-objective-typed-translation-title {
+  border-color: #edf0f4;
+}
+
+.prd-objective-body .prd-objective-typed-decision {
+  background: #f6f8fc;
+  color: #3d5f9e;
+}
+
+.prd-objective-body .prd-objective-unanswered-notice {
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border: 1px solid #f5c2c7;
+  border-radius: 8px;
+  background: #fff7f7;
+  color: #a33a43;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.prd-objective-body .prd-objective-transcript-note {
+  margin: -2px 0 10px;
+  color: #758095;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.prd-objective-body .prd-objective-answer-table {
+  table-layout: fixed;
+  border: 1px solid #e2e7ef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  font-size: 12px;
+}
+
+.prd-objective-body .prd-objective-answer-table caption {
+  padding: 0 0 8px;
+  color: #697386;
+  font-size: 11px;
+}
+
+.prd-objective-body .prd-objective-answer-table th,
+.prd-objective-body .prd-objective-answer-table td {
+  border-color: #edf0f4;
+  padding: 10px 12px;
+}
+
+.prd-objective-body .prd-objective-answer-table th:first-child {
+  width: 43%;
+}
+
+.prd-objective-body .prd-objective-answer-table tr.is-correct,
+.prd-objective-body .prd-objective-answer-table tr.is-incorrect {
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-answer-table tr.is-correct td:last-child {
+  background: #f2faf3;
+  color: #23723a;
+}
+
+.prd-objective-body .prd-objective-answer-table tr.is-incorrect td:last-child {
+  background: #fff5f6;
+  color: #b42339;
+}
+
+.prd-objective-body .prd-objective-blank-ordinal {
+  margin-bottom: 4px;
+  color: #315fcf;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.prd-objective-body .prd-objective-tfng dl {
+  display: grid;
+  grid-template-columns: 1.35fr 0.8fr 0.8fr;
+  gap: 0;
+  margin: 0;
+  border: 1px solid #e2e7ef;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-tfng dl > div {
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 0;
+}
+
+.prd-objective-body .prd-objective-tfng dl > div + div {
+  border-left: 1px solid #edf0f4;
+}
+
+.prd-objective-body .prd-objective-explanation-body,
+.prd-objective-body .prd-objective-typed-strategy {
+  gap: 10px;
+}
+
+.prd-objective-body .prd-objective-typed-scroll,
+.prd-objective-body .prd-objective-typed-scroll .prd-objective-typed-table,
+.prd-objective-body .prd-objective-full-source,
+.prd-objective-body .prd-objective-not-given-boundary,
+.prd-objective-body .prd-objective-fill-strategy,
+.prd-objective-body .prd-objective-keyword-bridge,
+.prd-objective-body .prd-objective-elimination {
+  border-color: #e6eaf1;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.prd-objective-body .prd-objective-typed-scroll {
+  border: 0;
+}
+
+.prd-objective-body .prd-objective-typed-scroll .prd-objective-typed-table {
+  border: 1px solid #e6eaf1;
+}
+
+.prd-objective-body .prd-objective-typed-row.is-fill-analysis {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.9fr) minmax(0, 1.15fr);
+}
+
+.prd-objective-body .prd-objective-fill-evidence article,
+.prd-objective-body .prd-objective-fill-evidence blockquote,
+.prd-objective-body .prd-objective-fill-evidence p {
+  margin: 0;
+}
+
+.prd-objective-body .prd-objective-fill-evidence blockquote {
+  padding-left: 9px;
+  border-left: 3px solid #3f73ff;
+  color: #24304a;
+  font-style: normal;
+}
+
+.prd-objective-body .prd-objective-fill-evidence p {
+  margin-top: 7px;
+  color: #637087;
+  font-size: 11px;
+}
+
+@media (min-width: 981px) {
+  .prd-objective-body .prd-objective-shell > .prd-boundary-hero {
+    display: none;
+  }
+
+  .prd-objective-body .prd-question-rail {
+    position: fixed;
+    z-index: 80;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: var(--prd-objective-bottom-nav);
+    padding: 8px 20px 7px;
+    border: 0;
+    border-top: 1px solid #edf0f5;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: 0 -8px 22px rgba(27, 45, 78, 0.06);
+    overflow: hidden;
+  }
+
+  .prd-objective-body .prd-objective-group-nav {
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 3px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .prd-objective-body .prd-objective-group-nav > li {
+    flex: 0 0 clamp(260px, 31vw, 440px);
+    min-width: 260px;
+  }
+
+  .prd-objective-body .prd-objective-group-nav > li.is-active {
+    flex-basis: clamp(260px, 31vw, 440px);
+  }
+
+  .prd-objective-body .prd-objective-group-link {
+    min-height: 34px;
+    padding: 6px 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  .prd-objective-body .prd-objective-group-link.is-active,
+  .prd-objective-body .prd-objective-group-link[aria-current="location"] {
+    border-color: #3f73ff;
+    box-shadow: none;
+  }
+
+  .prd-objective-body .prd-objective-group-nav .prd-objective-nav-list {
+    display: flex;
+    margin-top: 6px;
+  }
+
+  .prd-objective-body .prd-objective-group-nav .prd-objective-nav-list a {
+    min-width: 26px;
+    height: 25px;
+    padding: 0 6px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  .prd-objective-body .prd-objective-answer-table,
+  .prd-objective-body .prd-objective-answer-table thead,
+  .prd-objective-body .prd-objective-answer-table tbody,
+  .prd-objective-body .prd-objective-answer-table tr,
+  .prd-objective-body .prd-objective-answer-table th,
+  .prd-objective-body .prd-objective-answer-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .prd-objective-body .prd-objective-answer-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .prd-objective-body .prd-objective-answer-table td::before,
+  .prd-objective-body .prd-objective-answer-table th::before {
+    display: block;
+    margin-bottom: 4px;
+    color: #758095;
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .prd-objective-body .prd-objective-tfng dl,
+  .prd-objective-body .prd-objective-typed-row.is-fill-analysis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .prd-objective-body .prd-objective-tfng dl > div + div,
+  .prd-objective-body .prd-objective-typed-row.is-fill-analysis > * + * {
+    border-top: 1px solid #edf0f4;
+    border-left: 0;
+  }
+}
+
+/* The bottom rail navigates immutable source groups only. Question chips made
+   the rail needlessly tall and competed with responsive content. */
+.prd-objective-body {
+  --prd-objective-bottom-nav: 62px;
+}
+
+.prd-objective-body .prd-question-rail {
+  height: calc(var(--prd-objective-bottom-nav) + env(safe-area-inset-bottom));
+  padding: 5px 18px calc(5px + env(safe-area-inset-bottom));
+}
+
+.prd-objective-body .prd-objective-group-nav {
+  width: 100%;
+  height: 100%;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.prd-objective-body .prd-objective-group-nav > li,
+.prd-objective-body .prd-objective-group-nav > li.is-active {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.prd-objective-body .prd-objective-group-link {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+
+.prd-objective-body .prd-objective-group-link.is-active,
+.prd-objective-body .prd-objective-group-link[aria-current="location"] {
+  border-bottom-color: #3f73ff;
+  box-shadow: none;
+}
+
+/* Keep the PREP matrix inside the review pane on desktop. On compact screens
+   the same square grid remains intact and scrolls horizontally. */
+.prd-objective-body .prd-objective-matching-explanation .prd-objective-typed-context,
+.prd-objective-body .prd-objective-matching-explanation-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.prd-objective-body .prd-objective-matching-explanation-row > *,
+.prd-objective-body .prd-objective-matching-evidence,
+.prd-objective-body .prd-objective-matching-evidence article,
+.prd-objective-body .prd-objective-matching-evidence blockquote,
+.prd-objective-body .prd-objective-matching-evidence p {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.prd-objective-body .prd-objective-matching-explanation .prd-objective-typed-context strong {
+  flex: 0 1 auto;
+}
+
+.prd-objective-body .prd-objective-matching-explanation .prd-objective-typed-context span {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 980px) {
+  .prd-objective-body {
+    --prd-objective-bottom-nav: 64px;
+  }
+
+  .prd-objective-body .prd-question-rail {
+    padding-inline: 8px;
+  }
+
+  .prd-objective-body .prd-objective-group-nav {
+    gap: 4px;
+  }
+
+  .prd-objective-body .prd-objective-group-link {
+    padding-inline: 6px;
+    font-size: 11px;
+  }
+
+  .prd-objective-body .prd-objective-matching-explanation .prd-objective-typed-context,
+  .prd-objective-body .prd-objective-matching-explanation-row {
+    width: auto;
+    min-width: 720px;
+  }
+}
+
+/* Gate B: PREP uses one square ruled grid for answer comparison. */
+.prd-objective-body .prd-objective-answer-table,
+.prd-objective-body .prd-objective-typed-scroll .prd-objective-typed-table {
+  border: 1px solid #1f2937;
+  border-collapse: collapse;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.prd-objective-body .prd-objective-typed-scroll,
+.prd-objective-body .prd-objective-typed-table,
+.prd-objective-body .prd-objective-elimination,
+.prd-objective-body .prd-objective-not-given-boundary,
+.prd-objective-body .prd-objective-fill-strategy,
+.prd-objective-body .prd-objective-keyword-bridge {
+  border-radius: 0;
+}
+
+.prd-objective-body .prd-objective-answer-table th,
+.prd-objective-body .prd-objective-answer-table td,
+.prd-objective-body .prd-objective-typed-row,
+.prd-objective-body .prd-objective-typed-row > * + *,
+.prd-objective-body .prd-objective-typed-translation-title {
+  border-color: #1f2937;
+}
+
+.prd-objective-body .prd-objective-answer-table th,
+.prd-objective-body .prd-objective-answer-table td {
+  border-radius: 0 !important;
+}
+
+.prd-objective-body .prd-objective-matching-explanation {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid #1f2937;
+  border-radius: 0;
+  background: #fff;
+  overscroll-behavior-x: contain;
+}
+
+.prd-objective-body .prd-objective-matching-explanation .prd-objective-typed-context,
+.prd-objective-body .prd-objective-matching-explanation-row {
+  min-width: 800px;
+}
+
+.prd-objective-body .prd-objective-matching-explanation-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .85fr) minmax(130px, .7fr)
+    minmax(210px, 1.2fr) minmax(230px, 1.25fr);
+  border-bottom: 1px solid #1f2937;
+}
+
+.prd-objective-body .prd-objective-matching-explanation-row:last-child {
+  border-bottom: 0;
+}
+
+.prd-objective-body .prd-objective-matching-explanation-row > * {
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+.prd-objective-body .prd-objective-matching-explanation-row > * + * {
+  border-left: 1px solid #1f2937;
+}
+
+.prd-objective-body .prd-objective-matching-explanation-row.is-heading {
+  background: #f5f7fb;
+  color: #4f5b70;
+  font-size: 10px;
+  letter-spacing: .04em;
+}
+
+.prd-objective-body .prd-objective-matching-explanation-row > div:nth-child(2) {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.prd-objective-body .prd-objective-matching-evidence article,
+.prd-objective-body .prd-objective-matching-evidence blockquote,
+.prd-objective-body .prd-objective-matching-evidence p {
+  margin: 0;
+}
+
+.prd-objective-body .prd-objective-matching-evidence blockquote {
+  padding-left: 9px;
+  border-left: 3px solid #3f73ff;
+  font-style: normal;
+}
+
+.prd-objective-body .prd-objective-matching-evidence p {
+  margin-top: 6px;
+  color: #5f6a7e;
+  font-size: 11px;
+}
+
+.prd-objective-body .prd-objective-option-status svg,
+.prd-objective-body .prd-objective-match-state svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.prd-objective-body .prd-objective-match-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.prd-objective-body .prd-objective-match-state.is-correct {
+  color: #238636;
+}
+
+.prd-objective-body .prd-objective-match-state.is-incorrect {
+  color: #c6283d;
+}
+
+.prd-objective-helper {
+  position: fixed;
+  z-index: 220;
+  top: 0;
+  right: 0;
+  width: min(390px, 92vw);
+  height: 100dvh;
+  padding: 20px;
+  background: #fff;
+  box-shadow: -16px 0 36px rgba(21, 32, 55, .18);
+  transform: translateX(104%);
+  transition: transform 180ms ease;
+}
+
+.prd-objective-helper.is-open {
+  transform: translateX(0);
+}
+
+.prd-objective-helper header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5e9f1;
+}
+
+.prd-objective-helper h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.prd-objective-helper header button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: #f4f6fa;
+  color: #525d70;
+  cursor: pointer;
+}
+
+.prd-objective-helper-content {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+}
+
+.prd-objective-helper-content p {
+  display: grid;
+  grid-template-columns: 14px auto minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  margin: 0;
+  color: #5e687b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.prd-objective-helper-content p:nth-last-child(-n + 2) {
+  display: block;
+}
+
+.prd-objective-helper-content p > span {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 50%;
+}
+
+.prd-objective-helper-content .is-blue { background: #3f73ff; }
+.prd-objective-helper-content .is-green { background: #2f9e37; }
+.prd-objective-helper-content .is-red { background: #ef4056; }
+
+.prd-objective-helper-backdrop {
+  position: fixed;
+  z-index: 210;
+  inset: 0;
+  border: 0;
+  background: rgba(18, 27, 44, .28);
+}
+
+.prd-objective-body.is-objective-helper-open {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prd-objective-helper {
+    transition: none;
+  }
+}
+
+/* Gate B visual recertification: PREP keeps the detail canvas white and every
+   explanatory comparison in one continuous square ruled grid. */
+.prd-objective-body {
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-explanation {
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  overflow: visible;
+}
+
+.prd-objective-body .prd-objective-explanation-heading {
+  min-height: 44px;
+  padding: 9px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.prd-objective-body .prd-objective-explanation-heading h4 {
+  color: #315fcf;
+  font-size: 14px;
+}
+
+.prd-objective-body .prd-objective-explanation > .prd-objective-unavailable,
+.prd-objective-body .prd-objective-explanation-body {
+  padding: 14px 0 0;
+  border-top: 0;
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-typed-header {
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 0;
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-typed-header > span {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #315fcf;
+  line-height: 1.5;
+}
+
+.prd-objective-body .prd-objective-typed-scroll,
+.prd-objective-body .prd-objective-typed-table,
+.prd-objective-body .prd-objective-not-given-boundary,
+.prd-objective-body .prd-objective-fill-strategy,
+.prd-objective-body .prd-objective-keyword-bridge,
+.prd-objective-body .prd-objective-elimination,
+.prd-objective-body .prd-objective-matching-explanation {
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.prd-objective-body .prd-objective-typed-scroll {
+  border: 0;
+}
+
+.prd-objective-body .prd-objective-typed-scroll .prd-objective-typed-table,
+.prd-objective-body .prd-objective-not-given-boundary,
+.prd-objective-body .prd-objective-fill-strategy,
+.prd-objective-body .prd-objective-keyword-bridge,
+.prd-objective-body .prd-objective-elimination,
+.prd-objective-body .prd-objective-matching-explanation,
+.prd-objective-body .prd-objective-answer-table,
+.prd-objective-body .prd-objective-tfng dl {
+  border: 1px solid #1f2937;
+  border-radius: 0;
+  background: #fff;
+  overflow: visible;
+}
+
+.prd-objective-body .prd-objective-typed-context,
+.prd-objective-body .prd-objective-typed-row.is-heading,
+.prd-objective-body .prd-objective-typed-translation-title,
+.prd-objective-body .prd-objective-matching-explanation-row.is-heading,
+.prd-objective-body .prd-objective-typed-decision {
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-typed-context,
+.prd-objective-body .prd-objective-typed-row,
+.prd-objective-body .prd-objective-typed-row > * + *,
+.prd-objective-body .prd-objective-typed-translation-title,
+.prd-objective-body .prd-objective-elimination-row,
+.prd-objective-body .prd-objective-elimination-row > span + span,
+.prd-objective-body .prd-objective-matching-explanation-row,
+.prd-objective-body .prd-objective-matching-explanation-row > * + *,
+.prd-objective-body .prd-objective-tfng dl > div + div,
+.prd-objective-body .prd-objective-answer-table th,
+.prd-objective-body .prd-objective-answer-table td {
+  border-color: #1f2937;
+}
+
+.prd-objective-body .prd-objective-typed-context {
+  border-bottom: 1px solid #1f2937;
+}
+
+.prd-objective-body .prd-objective-typed-decision {
+  color: #315fcf;
+}
+
+.prd-objective-body .prd-objective-answer-block {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.prd-objective-body .prd-objective-answer-table {
+  min-width: 560px;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.prd-objective-body .prd-objective-answer-table tr.is-correct td:last-child,
+.prd-objective-body .prd-objective-answer-table tr.is-incorrect td:last-child {
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-audio-dock {
+  grid-template-columns: minmax(118px, auto) minmax(0, 1fr);
+  gap: 8px;
+  padding-right: 10px;
+  padding-left: 10px;
+  background: #fff;
+}
+
+.prd-objective-body .prd-objective-audio-dock strong {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.prd-objective-body .prd-objective-audio-dock audio {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  .prd-objective-body .prd-objective-answer-table {
+    display: table;
+    width: 100%;
+  }
+
+  .prd-objective-body .prd-objective-answer-table thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .prd-objective-body .prd-objective-answer-table tbody {
+    display: table-row-group;
+  }
+
+  .prd-objective-body .prd-objective-answer-table tr {
+    display: table-row;
+  }
+
+  .prd-objective-body .prd-objective-answer-table th,
+  .prd-objective-body .prd-objective-answer-table td {
+    display: table-cell;
+    width: auto;
+  }
+
+  .prd-objective-body .prd-objective-answer-table td::before,
+  .prd-objective-body .prd-objective-answer-table th::before {
+    display: none;
+  }
+
+  .prd-objective-body .prd-objective-tfng dl > div + div,
+  .prd-objective-body .prd-objective-typed-row.is-fill-analysis > * + * {
+    border-top-color: #1f2937;
+  }
+
+  .prd-objective-body .prd-objective-audio-dock {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .prd-objective-body .prd-objective-audio-dock strong {
+    white-space: normal;
+  }
+}
+
+/* Objective Reading/Listening uses the same bounded draggable two-pane seam as
+   the subjective detail screens. */
+.prd-objective-splitter {
+  display: none;
+}
+
+@media (min-width: 981px) {
+  .prd-objective-body .prd-objective-shell[data-objective-skill="READING"],
+  .prd-objective-body .prd-objective-shell[data-objective-skill="LISTENING"] {
+    --prd-objective-bottom-nav: 62px;
+  }
+
+  .prd-objective-body .prd-objective-group-panel {
+    --prd-objective-split: 50%;
+    grid-template-columns: minmax(0, var(--prd-objective-split)) 12px minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .prd-objective-body .prd-objective-splitter {
+    position: relative;
+    z-index: 6;
+    display: grid;
+    width: 12px;
+    min-width: 12px;
+    height: 100%;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    cursor: col-resize;
+    touch-action: none;
+  }
+
+  .prd-objective-body .prd-objective-splitter::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    border-left: 1px solid #dbe2ec;
+    content: "";
+  }
+
+  .prd-objective-body .prd-objective-splitter > span {
+    position: relative;
+    display: grid;
+    width: 26px;
+    height: 30px;
+    place-items: center;
+    border: 1px solid #d4dce8;
+    border-radius: 7px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(31, 41, 55, .1);
+  }
+
+  .prd-objective-body .prd-objective-splitter > span::before {
+    content: "‹›";
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: -2px;
+  }
+
+  .prd-objective-body .prd-objective-splitter:hover > span,
+  .prd-objective-body .prd-objective-splitter:focus-visible > span,
+  .prd-objective-body .prd-objective-splitter.is-dragging > span {
+    border-color: #3f73ff;
+    color: #315fcf;
+  }
+
+  .prd-objective-body .prd-objective-splitter:focus-visible {
+    outline: 3px solid rgba(63, 115, 255, .24);
+    outline-offset: -1px;
+  }
+
+  .prd-objective-body .prd-objective-shell.is-source-empty .prd-objective-splitter {
+    display: none;
+  }
+}
+
+/* Final order-sensitive containment: the original matching matrix declared an
+   800px floor later in the cascade. Desktop must instead fit the live pane. */
+@media (min-width: 981px) {
+  .prd-objective-body .prd-objective-matching-explanation {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .prd-objective-body .prd-objective-matching-explanation .prd-objective-typed-context,
+  .prd-objective-body .prd-objective-matching-explanation-row {
+    width: 100%;
+    min-width: 600px;
+  }
+
+  .prd-objective-body .prd-objective-matching-explanation-row {
+    grid-template-columns: minmax(110px, .85fr) minmax(105px, .7fr)
+      minmax(170px, 1.2fr) minmax(190px, 1.25fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .prd-objective-body .prd-objective-matching-explanation .prd-objective-typed-context,
+  .prd-objective-body .prd-objective-matching-explanation-row {
+    width: auto;
+    min-width: 720px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prd-objective-body .prd-objective-splitter > span {
+    transition: none;
   }
 }

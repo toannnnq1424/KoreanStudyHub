@@ -12,7 +12,7 @@ import java.util.List;
 public class SpeakingProviderRolloutReadiness {
 
     public static final String ALLOWED_TRANSCRIPTION_PROVIDER = "openai";
-    public static final String ALLOWED_EVALUATOR_PROVIDER = "openai-compatible";
+    public static final String ALLOWED_EVALUATOR_PROVIDER = "openai-primary";
 
     private final SpeakingTranscriptionProperties transcriptionProperties;
     private final SpeakingEvaluatorProperties evaluatorProperties;
@@ -51,7 +51,7 @@ public class SpeakingProviderRolloutReadiness {
         if (!ALLOWED_EVALUATOR_PROVIDER.equals(evaluatorProperties.provider())) {
             issues.add(AiReadinessIssue.blocker(
                     "UNSUPPORTED_SPEAKING_EVALUATOR_PROVIDER",
-                    "8F-A chỉ cho phép OpenAI-compatible evaluator path hiện tại.",
+                    "8F-A chỉ cho phép Practice OPENAI_PRIMARY evaluator path hiện tại.",
                     "8F-A"));
         }
         if (transcriptionEnabled && transcriptionProperties.apiKey().isBlank()) {

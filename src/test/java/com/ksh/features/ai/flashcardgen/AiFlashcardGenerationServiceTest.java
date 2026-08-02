@@ -2,7 +2,6 @@ package com.ksh.features.ai.flashcardgen;
 
 import com.ksh.features.ai.client.AiClient;
 import com.ksh.features.ai.log.AiRequestLogger;
-import com.ksh.features.ai.questiongen.DocumentTextExtractor;
 import com.ksh.features.flashcards.support.DeckAccessResolver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +25,7 @@ import static org.mockito.Mockito.when;
 class AiFlashcardGenerationServiceTest {
 
     @Mock DeckAccessResolver accessResolver;
-    @Mock DocumentTextExtractor textExtractor;
+    @Mock KoreanFlashcardMaterialSelector materialSelector;
     @Mock AiFlashcardPromptBuilder promptBuilder;
     @Mock AiFlashcardResponseParser responseParser;
     @Mock AiClient aiClient;
@@ -41,7 +40,7 @@ class AiFlashcardGenerationServiceTest {
                 3L, 7L, null, "private material",
                 new AiFlashcardGenDtos.GenerateRequest(10, "tiếng việt")));
 
-        verify(textExtractor, never()).normalizePastedText(any());
+        verify(materialSelector, never()).select(any(), any());
         verify(aiClient, never()).chatJsonObject(any(), any(), anyInt(),
                 any(), any());
     }
@@ -52,7 +51,7 @@ class AiFlashcardGenerationServiceTest {
         var request = new AiFlashcardGenDtos.GenerateRequest(10, "tiếng việt");
         var rows = List.of(new AiFlashcardGenDtos.GeneratedCardRow("A", "B"));
 
-        when(textExtractor.normalizePastedText("material")).thenReturn("material");
+        when(materialSelector.select(null, "material")).thenReturn("material");
         when(promptBuilder.systemPrompt()).thenReturn("system");
         when(promptBuilder.userMessage(request, "material")).thenReturn("user");
         when(aiClient.chatJsonObject("system", "user", 1200, 3L,
@@ -63,16 +62,66 @@ class AiFlashcardGenerationServiceTest {
 
         assertEquals(1, result.count());
         assertEquals(rows, result.cards());
-        InOrder order = inOrder(accessResolver, textExtractor, aiClient, responseParser);
+        InOrder order = inOrder(accessResolver, materialSelector, aiClient, responseParser);
         order.verify(accessResolver).requireOwner(7L, 3L);
-        order.verify(textExtractor).normalizePastedText("material");
+        order.verify(materialSelector).select(null, "material");
         order.verify(aiClient).chatJsonObject("system", "user", 1200, 3L,
                 AiRequestLogger.SOURCE_FLASHCARD_GEN);
         order.verify(responseParser).parse("{json}");
     }
 
+    @Test
+    void retriesOnce_without_provider_json_mode_when_first_reply_is_malformed() {
+        AiFlashcardGenerationService service = service();
+        var request = new AiFlashcardGenDtos.GenerateRequest(5, "tiếng việt");
+        var rows = List.of(new AiFlashcardGenDtos.GeneratedCardRow("문화", "văn hóa"));
+
+        when(materialSelector.select(null, "material")).thenReturn("material");
+        when(promptBuilder.systemPrompt()).thenReturn("system");
+        when(promptBuilder.userMessage(request, "material")).thenReturn("user");
+        when(aiClient.chatJsonObject("system", "user", 600, 3L,
+                AiRequestLogger.SOURCE_FLASHCARD_GEN)).thenReturn("bad reply");
+        when(responseParser.parse("bad reply"))
+                .thenThrow(new IllegalArgumentException("invalid"));
+        when(promptBuilder.retrySystemPrompt()).thenReturn("retry system");
+        when(promptBuilder.retryUserMessage(request, "material")).thenReturn("retry user");
+        when(aiClient.chat("retry system", "retry user", 600, 3L,
+                AiRequestLogger.SOURCE_FLASHCARD_GEN)).thenReturn("{fixed}");
+        when(responseParser.parse("{fixed}")).thenReturn(rows);
+
+        var result = service.generate(3L, 7L, null, "material", request);
+
+        assertEquals(rows, result.cards());
+        verify(aiClient).chatJsonObject("system", "user", 600, 3L,
+                AiRequestLogger.SOURCE_FLASHCARD_GEN);
+        verify(aiClient).chat("retry system", "retry user", 600, 3L,
+                AiRequestLogger.SOURCE_FLASHCARD_GEN);
+    }
+
+    @Test
+    void caps_provider_output_to_the_requested_number_of_cards() {
+        AiFlashcardGenerationService service = service();
+        var request = new AiFlashcardGenDtos.GenerateRequest(2, "tiếng việt");
+        var rows = List.of(
+                new AiFlashcardGenDtos.GeneratedCardRow("문화센터", "trung tâm văn hóa"),
+                new AiFlashcardGenDtos.GeneratedCardRow("교류 행사", "sự kiện giao lưu"),
+                new AiFlashcardGenDtos.GeneratedCardRow("참가 신청", "đăng ký tham gia"));
+
+        when(materialSelector.select(null, "material")).thenReturn("material");
+        when(promptBuilder.systemPrompt()).thenReturn("system");
+        when(promptBuilder.userMessage(request, "material")).thenReturn("user");
+        when(aiClient.chatJsonObject("system", "user", 240, 3L,
+                AiRequestLogger.SOURCE_FLASHCARD_GEN)).thenReturn("{json}");
+        when(responseParser.parse("{json}")).thenReturn(rows);
+
+        var result = service.generate(3L, 7L, null, "material", request);
+
+        assertEquals(2, result.count());
+        assertEquals(rows.subList(0, 2), result.cards());
+    }
+
     private AiFlashcardGenerationService service() {
         return new AiFlashcardGenerationService(
-                accessResolver, textExtractor, promptBuilder, responseParser, aiClient);
+                accessResolver, materialSelector, promptBuilder, responseParser, aiClient);
     }
 }

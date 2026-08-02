@@ -22,12 +22,17 @@ import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.AssessmentScoringEngine;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.LearnerAnswer;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailPayload;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailCapabilityCode;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailCapabilityState;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveFillBlankDetail;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveImageEvidenceRef;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveMatchingDetail;
+import com.ksh.features.practice.dto.PracticeDtos.ObjectiveMultipleAnswerDetail;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveOptionState;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveOptionResult;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveQuestionDetail;
@@ -55,11 +60,13 @@ import static org.mockito.Mockito.when;
 class ObjectiveResultDetailTypeNativeContractTest {
 
     @Test
-    void objectiveQuestionDtoDiscriminatorIsSealedToTheThreeCanonicalTypes() {
+    void objectiveQuestionDtoDiscriminatorIsSealedToTheFiveCanonicalTypes() {
         assertThat(ObjectiveQuestionDetail.class.getPermittedSubclasses())
                 .extracting(Class::getSimpleName)
                 .containsExactlyInAnyOrder(
                         "ObjectiveSingleChoiceDetail",
+                        "ObjectiveMultipleAnswerDetail",
+                        "ObjectiveMatchingDetail",
                         "ObjectiveFillBlankDetail",
                         "ObjectiveTfngDetail");
         assertThat(ObjectiveImageEvidenceRef.class.getRecordComponents())
@@ -100,7 +107,7 @@ class ObjectiveResultDetailTypeNativeContractTest {
     }
 
     @Test
-    void objectiveDetailUsesExactlyThreeTypedDiscriminatorsAndBackendAnswerAuthority() {
+    void objectiveDetailUsesFiveTypedDiscriminatorsAndBackendAnswerAuthority() {
         AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
         QuestionExplanationReadService explanations = mock(QuestionExplanationReadService.class);
         ObjectiveResultPresenter presenter = new ObjectiveResultPresenter(
@@ -116,6 +123,10 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 102L, 1002L, 2, "FILL_BLANK", "Điền vào chỗ trống.");
         PracticeQuestionVersion tfng = question(
                 103L, 1003L, 3, "TRUE_FALSE_NOT_GIVEN", "서울은 한국의 수도이다.");
+        PracticeQuestionVersion multiple = question(
+                104L, 1004L, 4, "MULTIPLE_ANSWER", "맞는 것을 모두 고르십시오.");
+        PracticeQuestionVersion matching = question(
+                105L, 1005L, 5, "MATCHING", "각 설명을 항목과 연결하십시오.");
 
         QuestionContent singleContent = new QuestionContent(
                 QuestionContent.SCHEMA_VERSION,
@@ -174,6 +185,54 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 Map.of(),
                 null);
 
+        QuestionContent multipleContent = new QuestionContent(
+                QuestionContent.SCHEMA_VERSION,
+                List.of(
+                        new QuestionContent.Option("multi-a", "아침에 공부합니다."),
+                        new QuestionContent.Option("multi-b", "밤에 수영합니다."),
+                        new QuestionContent.Option("multi-c", "책을 읽습니다.")),
+                List.of());
+        AnswerSpec multipleSpec = new AnswerSpec(
+                AnswerSpec.SCHEMA_VERSION,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                List.of("multi-a", "multi-c"),
+                null,
+                List.of(),
+                ScoringPolicyCode.ALL_OR_NOTHING);
+        LearnerAnswer multipleAnswer = new LearnerAnswer(
+                LearnerAnswer.SCHEMA_VERSION,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                List.of("multi-a", "multi-b"),
+                null,
+                Map.of(),
+                null);
+
+        QuestionContent matchingContent = new QuestionContent(
+                QuestionContent.SCHEMA_VERSION,
+                List.of(
+                        new QuestionContent.Option("match-a", "서울"),
+                        new QuestionContent.Option("match-b", "부산"),
+                        new QuestionContent.Option("match-c", "제주")),
+                List.of(
+                        new QuestionContent.Blank("target-1", "대한민국의 수도"),
+                        new QuestionContent.Blank("target-2", "한라산이 있는 섬")));
+        AnswerSpec matchingSpec = new AnswerSpec(
+                AnswerSpec.SCHEMA_VERSION,
+                CanonicalQuestionType.MATCHING,
+                List.of(),
+                null,
+                List.of(
+                        new AnswerSpec.BlankAnswer("target-1", List.of("match-a")),
+                        new AnswerSpec.BlankAnswer("target-2", List.of("match-c"))),
+                ScoringPolicyCode.NORMALIZED_EXACT);
+        LearnerAnswer matchingAnswer = new LearnerAnswer(
+                LearnerAnswer.SCHEMA_VERSION,
+                CanonicalQuestionType.MATCHING,
+                List.of(),
+                null,
+                Map.of("target-1", "match-b", "target-2", "match-c"),
+                null);
+
         when(codec.readQuestionContent("content-101", CanonicalQuestionType.SINGLE_CHOICE))
                 .thenReturn(singleContent);
         when(codec.readAnswerSpec("answer-101", singleContent)).thenReturn(singleSpec);
@@ -187,6 +246,23 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 .thenReturn(tfngContent);
         when(codec.readAnswerSpec("answer-103", tfngContent)).thenReturn(tfngSpec);
         when(codec.readLearnerAnswer("{learner-tfng}")).thenReturn(tfngAnswer);
+        when(codec.readQuestionContent(
+                "content-104", CanonicalQuestionType.MULTIPLE_ANSWER))
+                .thenReturn(multipleContent);
+        when(codec.readAnswerSpec("answer-104", multipleContent))
+                .thenReturn(multipleSpec);
+        when(codec.readLearnerAnswer("{learner-multiple}"))
+                .thenReturn(multipleAnswer);
+        when(codec.readQuestionContent("content-105", CanonicalQuestionType.MATCHING))
+                .thenReturn(matchingContent);
+        when(codec.readAnswerSpec("answer-105", matchingContent))
+                .thenReturn(matchingSpec);
+        when(codec.readLearnerAnswer("{learner-matching}"))
+                .thenReturn(matchingAnswer);
+        when(explanations.readObjective(104L, CanonicalQuestionType.MULTIPLE_ANSWER))
+                .thenReturn(Optional.empty());
+        when(explanations.readObjective(105L, CanonicalQuestionType.MATCHING))
+                .thenReturn(Optional.empty());
 
         TextEvidence evidence = new TextEvidence(
                 "e1", "TEXT_SPAN", "ANSWER_RATIONALE", "PASSAGE",
@@ -195,8 +271,12 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 .thenReturn(Optional.of(new ObjectiveExplanationArtifact(
                         "v3",
                         CanonicalQuestionType.SINGLE_CHOICE,
+                        ObjectiveExplanationStrategyRegistry.CURRENT_REGISTRY_VERSION,
+                        "EXACT_EVIDENCE_ONLY",
+                        ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION,
                         "Nghĩa",
                         "Lý do đúng",
+                        List.of(),
                         List.of(evidence),
                         List.of(new EvidenceTranslation("e1", "Seoul")),
                         new SingleChoiceExplanation(
@@ -211,8 +291,12 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 .thenReturn(Optional.of(new ObjectiveExplanationArtifact(
                         "v3",
                         CanonicalQuestionType.FILL_BLANK,
+                        ObjectiveExplanationStrategyRegistry.CURRENT_REGISTRY_VERSION,
+                        "FILL_SLOT_GRAMMAR_ANALYSIS",
+                        ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION,
                         "Nghĩa",
                         "Lý do",
+                        List.of(),
                         List.of(evidence),
                         List.of(),
                         new FillBlankExplanation(List.of(new BlankExplanation(
@@ -228,8 +312,12 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 .thenReturn(Optional.of(new ObjectiveExplanationArtifact(
                         "v3",
                         CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
+                        ObjectiveExplanationStrategyRegistry.CURRENT_REGISTRY_VERSION,
+                        "TFNG_CONTRADICTION_TABLE",
+                        ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION,
                         "Nghĩa",
                         "Lý do",
+                        List.of(),
                         List.of(evidence),
                         List.of(),
                         new TfngExplanation(
@@ -241,11 +329,13 @@ class ObjectiveResultDetailTypeNativeContractTest {
                         203L)));
 
         PracticeResultContext context = context(
-                List.of(single, fill, tfng),
+                List.of(single, fill, tfng, multiple, matching),
                 Map.of(
                         "1001", "{learner-single}",
                         "1002", "{learner-fill}",
-                        "1003", "{learner-tfng}"));
+                        "1003", "{learner-tfng}",
+                        "1004", "{learner-multiple}",
+                        "1005", "{learner-matching}"));
         PracticeAttemptResultView overview = mock(PracticeAttemptResultView.class);
         when(overview.payload()).thenReturn(new ObjectiveResultPayload(List.of()));
         when(overview.score()).thenReturn(score());
@@ -255,10 +345,12 @@ class ObjectiveResultDetailTypeNativeContractTest {
         ObjectiveDetailPayload detail = (ObjectiveDetailPayload) presenter.presentDetail(
                 context, overview, null);
 
-        assertThat(detail.questions()).hasSize(3);
+        assertThat(detail.questions()).hasSize(5);
         assertThat(detail.questions().get(0)).isInstanceOf(ObjectiveSingleChoiceDetail.class);
         assertThat(detail.questions().get(1)).isInstanceOf(ObjectiveFillBlankDetail.class);
         assertThat(detail.questions().get(2)).isInstanceOf(ObjectiveTfngDetail.class);
+        assertThat(detail.questions().get(3)).isInstanceOf(ObjectiveMultipleAnswerDetail.class);
+        assertThat(detail.questions().get(4)).isInstanceOf(ObjectiveMatchingDetail.class);
         ObjectiveSingleChoiceDetail singleDetail =
                 (ObjectiveSingleChoiceDetail) detail.questions().get(0);
         assertThat(singleDetail.options()).extracting(option -> option.optionId())
@@ -291,26 +383,74 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 .containsExactly("TRUE", "NOT_GIVEN");
         assertThat(tfngDetail.alternatives()).extracting(alternative -> alternative.labelVi())
                 .containsExactly("Đúng", "Không có thông tin");
+        ObjectiveMultipleAnswerDetail multipleDetail =
+                (ObjectiveMultipleAnswerDetail) detail.questions().get(3);
+        assertThat(multipleDetail.options())
+                .filteredOn(option -> option.state() == ObjectiveOptionState.SELECTED_INCORRECT)
+                .extracting(ObjectiveOptionResult::optionId)
+                .containsExactly("multi-b");
+        assertThat(multipleDetail.options())
+                .filteredOn(ObjectiveOptionResult::correct)
+                .extracting(ObjectiveOptionResult::optionId)
+                .containsExactly("multi-a", "multi-c");
+        ObjectiveMatchingDetail matchingDetail =
+                (ObjectiveMatchingDetail) detail.questions().get(4);
+        assertThat(matchingDetail.matches())
+                .extracting(match -> match.correct())
+                .containsExactly(false, true);
+        assertThat(matchingDetail.matches().get(0).learnerCandidateLabel())
+                .isEqualTo("B");
+        assertThat(matchingDetail.matches().get(0).officialCandidateLabel())
+                .isEqualTo("A");
         assertThat(detail.sourceGroups()).singleElement().satisfies(source ->
-                assertThat(source.questionVersionIds()).containsExactly(101L, 102L, 103L));
+                assertThat(source.questionVersionIds())
+                        .containsExactly(101L, 102L, 103L, 104L, 105L));
         assertThat(detail.groups()).singleElement().satisfies(group -> {
             assertThat(group.legacyFallback()).isTrue();
             assertThat(group.displayLabel()).isEqualTo(
                     "Nhóm dữ liệu cũ chưa phân nhóm");
-            assertThat(group.questions()).hasSize(3);
+            assertThat(group.questions()).hasSize(5);
         });
         assertThat(detail.constructRegistryState()).isEqualTo(
                 "DEFERRED_PRE_PHASE_14_REGISTRY");
+        assertThat(detail.capabilities())
+                .extracting(capability -> capability.code())
+                .containsExactlyInAnyOrder(
+                        ObjectiveDetailCapabilityCode.MULTIPLE_ANSWER,
+                        ObjectiveDetailCapabilityCode.MATCHING,
+                        ObjectiveDetailCapabilityCode.PINNED_SHARED_MATERIAL,
+                        ObjectiveDetailCapabilityCode.LOCAL_HELPER_DRAWER);
+        assertThat(detail.capabilities())
+                .allSatisfy(capability -> {
+                    assertThat(capability.state()).isEqualTo(
+                            ObjectiveDetailCapabilityState.AVAILABLE);
+                    assertThat(capability.reasonVi()).isBlank();
+                });
 
         ObjectiveSourceGroup source = detail.sourceGroups().get(0);
         assertThat(source.provenanceLabelVi()).isEqualTo("Nguồn đề đã khóa");
         assertThat(source.provenanceLabelKo()).isEqualTo("잠긴 출제 자료");
+
+        PracticeResultContext unansweredExtendedTypes = context(
+                List.of(multiple, matching),
+                Map.of());
+        ObjectiveDetailPayload unansweredDetail = (ObjectiveDetailPayload)
+                presenter.presentDetail(unansweredExtendedTypes, overview, null);
+        assertThat(unansweredDetail.questions()).hasSize(2);
+        assertThat(((ObjectiveMultipleAnswerDetail) unansweredDetail.questions().get(0))
+                .unanswered()).isTrue();
+        assertThat(unansweredDetail.questions().get(0).core().scoreState())
+                .isEqualTo("NOT_ANSWERED");
+        assertThat(unansweredDetail.questions().get(1).core().scoreState())
+                .isEqualTo("NOT_ANSWERED");
+
         assertThatThrownBy(() -> new ObjectiveDetailPayload(
                 detail.score(),
                 detail.answers(),
                 detail.feedback(),
                 detail.summary(),
                 List.of(detail.groups().get(0), detail.groups().get(0)),
+                detail.capabilities(),
                 detail.constructRegistryState(),
                 detail.constructRegistryNote()))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -427,6 +567,10 @@ class ObjectiveResultDetailTypeNativeContractTest {
                         == ObjectiveOptionState.UNSELECTED_INCORRECT)
                 .hasSize(1);
         assertThat(unanswered.options()).noneMatch(option -> option.learnerSelected());
+        assertThat(unanswered.answered()).isFalse();
+        assertThat(unanswered.unanswered()).isTrue();
+        assertThat(selectedCorrect.answered()).isTrue();
+        assertThat(selectedCorrect.unanswered()).isFalse();
     }
 
     @Test

@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Set;
 
 import static com.ksh.common.IConstant.MSG_EXAM_CONTENT_TOO_LARGE;
+import static com.ksh.common.IConstant.MSG_EXAM_DURATION_INVALID;
+import static com.ksh.common.IConstant.MSG_EXAM_DURATION_REQUIRED;
+import static com.ksh.common.IConstant.MSG_EXAM_FIXED_WINDOW_REQUIRED;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_TYPE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_TYPE_REQUIRED;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_URL_REQUIRED;
@@ -18,7 +21,11 @@ import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_URL_SCHEME;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_YOUTUBE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_NEEDS_CLASS;
 import static com.ksh.common.IConstant.MSG_EXAM_NEEDS_QUESTIONS;
+import static com.ksh.common.IConstant.MSG_EXAM_STATUS_INVALID;
+import static com.ksh.common.IConstant.MSG_EXAM_TIME_MODE_INVALID;
+import static com.ksh.common.IConstant.MSG_EXAM_TIME_RANGE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_TITLE_BLANK;
+import static com.ksh.common.IConstant.MSG_EXAM_TYPE_INVALID;
 import static com.ksh.common.IConstant.MSG_MCQ_ONE_CORRECT;
 import static com.ksh.common.IConstant.MSG_OPTION_CONTENT_BLANK;
 import static com.ksh.common.IConstant.MSG_QUESTION_CONTENT_BLANK;
@@ -27,15 +34,22 @@ import static com.ksh.common.IConstant.MSG_QUESTION_NEEDS_OPTIONS;
 
 /**
  * Validates a lecturer exam form before any persistence. Rules: title + class
- * required, at least one question, each question needs ≥2 options and ≥1 correct,
- * and an MCQ needs exactly one correct option. Optional media fields must be
- * both empty or both set with a type-consistent URL. Throws
+ * required, and a publishable exam needs at least one question. An empty DRAFT
+ * is allowed so the lecturer can persist the shell before generating questions
+ * with AI. Every present question needs ≥2 options and ≥1 correct, and an MCQ
+ * needs exactly one correct option. Optional media fields must be both empty or
+ * both set with a type-consistent URL. Throws
  * {@link IllegalArgumentException} (→ 400 / field toast) on the first violation.
  */
 public final class ExamFormValidator {
 
     private static final Set<String> ALLOWED_MEDIA_TYPES = Set.of(
             Test.MEDIA_TYPE_YOUTUBE, Test.MEDIA_TYPE_VIDEO, Test.MEDIA_TYPE_AUDIO);
+    private static final Set<String> ALLOWED_TYPES = Set.of(Test.TYPE_MOCK, Test.TYPE_MODULE);
+    private static final Set<String> ALLOWED_STATUSES = Set.of(
+            Test.STATUS_DRAFT, Test.STATUS_PUBLISHED, Test.STATUS_ARCHIVED);
+    private static final Set<String> ALLOWED_TIME_MODES = Set.of(
+            Test.TIME_MODE_FIXED_WINDOW, Test.TIME_MODE_INDIVIDUAL);
 
     private ExamFormValidator() {
         // utility holder
@@ -49,13 +63,44 @@ public final class ExamFormValidator {
         if (form.classId() == null) {
             throw new IllegalArgumentException(MSG_EXAM_NEEDS_CLASS);
         }
+        if (!ALLOWED_TYPES.contains(form.type())) {
+            throw new IllegalArgumentException(MSG_EXAM_TYPE_INVALID);
+        }
+        if (!ALLOWED_STATUSES.contains(form.status())) {
+            throw new IllegalArgumentException(MSG_EXAM_STATUS_INVALID);
+        }
+        if (!ALLOWED_TIME_MODES.contains(form.timeMode())) {
+            throw new IllegalArgumentException(MSG_EXAM_TIME_MODE_INVALID);
+        }
+        validateTiming(form);
         validateMedia(form.mediaType(), form.mediaUrl());
-        List<QuestionForm> questions = form.questions();
-        if (questions == null || questions.isEmpty()) {
+        List<QuestionForm> questions = form.questions() == null ? List.of() : form.questions();
+        if (questions.isEmpty() && !Test.STATUS_DRAFT.equals(form.status())) {
             throw new IllegalArgumentException(MSG_EXAM_NEEDS_QUESTIONS);
         }
         for (QuestionForm q : questions) {
             validateQuestion(q);
+        }
+    }
+
+    private static void validateTiming(ExamForm form) {
+        Integer duration = form.durationMinutes();
+        if (duration != null && (duration < 1 || duration > 600)) {
+            throw new IllegalArgumentException(MSG_EXAM_DURATION_INVALID);
+        }
+        if (form.startAt() != null && form.endAt() != null
+                && !form.endAt().isAfter(form.startAt())) {
+            throw new IllegalArgumentException(MSG_EXAM_TIME_RANGE_INVALID);
+        }
+        if (!Test.STATUS_PUBLISHED.equals(form.status())) {
+            return;
+        }
+        if (Test.TIME_MODE_FIXED_WINDOW.equals(form.timeMode())
+                && (form.startAt() == null || form.endAt() == null)) {
+            throw new IllegalArgumentException(MSG_EXAM_FIXED_WINDOW_REQUIRED);
+        }
+        if (Test.TIME_MODE_INDIVIDUAL.equals(form.timeMode()) && duration == null) {
+            throw new IllegalArgumentException(MSG_EXAM_DURATION_REQUIRED);
         }
     }
 

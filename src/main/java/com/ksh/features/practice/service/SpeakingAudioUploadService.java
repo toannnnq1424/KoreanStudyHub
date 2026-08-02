@@ -47,6 +47,11 @@ public class SpeakingAudioUploadService {
         mediaService.validateUploadTargetForOwner(userId, attemptId, questionId);
         PreparedSpeakingAudio prepared = preparationService.prepare(input, declaredSize, clientMime);
 
+        if (prepared.requiresProfilePromotion()) {
+            return uploadProfiledTemporary(
+                    userId, attemptId, questionId, prepared);
+        }
+
         SpeakingMediaActivationResult activated;
         try {
             activated = mediaService.activateValidatedMediaForOwner(
@@ -59,6 +64,34 @@ public class SpeakingAudioUploadService {
         return safeUploadResult(attemptId, activated);
     }
 
+    private SpeakingAudioUploadResult uploadProfiledTemporary(
+            Long userId,
+            Long attemptId,
+            Long questionId,
+            PreparedSpeakingAudio prepared) {
+        Long temporaryMediaId;
+        try {
+            temporaryMediaId = mediaService.registerUnreferencedTemporaryForOwner(
+                    userId, attemptId, questionId, prepared.temporaryDescriptor());
+        } catch (RuntimeException registrationFailure) {
+            compensatePreparedObject(prepared);
+            throw registrationFailure;
+        }
+
+        String readyKey = storage.promoteTemporary(
+                prepared.storageProfileCode(), prepared.temporaryStorageKey());
+        SpeakingMediaActivationResult activated;
+        try {
+            activated = mediaService.promoteTemporaryForOwner(
+                    userId, attemptId, questionId, temporaryMediaId,
+                    prepared.temporaryStorageKey(), prepared.readyDescriptor(readyKey));
+        } catch (RuntimeException activationFailure) {
+            enqueueProfileOrphanBestEffort(prepared, readyKey);
+            throw activationFailure;
+        }
+        return safeUploadResult(attemptId, activated);
+    }
+
     public SpeakingAudioDeletionResult deleteForOwner(
             Long userId,
             Long attemptId,
@@ -66,12 +99,14 @@ public class SpeakingAudioUploadService {
             Long mediaId) {
         SpeakingMediaDeletionResult deleted = mediaService.markDeletedForOwner(
                 userId, attemptId, questionId, mediaId);
-        processCleanupTaskBestEffort(deleted.cleanupTaskId());
+        boolean physicallyCompleted = processCleanupTaskBestEffort(deleted.cleanupTaskId());
         return new SpeakingAudioDeletionResult(
                 deleted.mediaId(),
                 attemptId,
                 questionId,
-                deleted.status(),
+                physicallyCompleted
+                        ? PracticeSpeakingMediaStatus.DELETED
+                        : deleted.status(),
                 deleted.cleanupTaskId() != null);
     }
 
@@ -101,20 +136,41 @@ public class SpeakingAudioUploadService {
         }
     }
 
-    private void processCleanupTaskBestEffort(Long cleanupTaskId) {
+    private boolean processCleanupTaskBestEffort(Long cleanupTaskId) {
         if (cleanupTaskId == null) {
-            return;
+            return false;
         }
         try {
-            cleanupProcessor.processTaskNow(cleanupTaskId);
+            var result = cleanupProcessor.processTaskNow(cleanupTaskId);
+            return result != null
+                    && result.outcome()
+                    == PracticeSpeakingMediaCleanupProcessor.CleanupTaskProcessingResult.Outcome.COMPLETED;
         } catch (RuntimeException ignored) {
             log.warn(PHYSICAL_DELETE_FAILURE_EVENT);
+            return false;
         }
     }
 
     private void enqueueCompensationOrphanBestEffort(PreparedSpeakingAudio prepared) {
         try {
-            cleanupTaskService.enqueueCompensationOrphan(prepared.storageProvider(), prepared.storageKey());
+            if (prepared.storageProfileCode() == null) {
+                cleanupTaskService.enqueueCompensationOrphan(
+                        prepared.storageProvider(), prepared.storageKey());
+            } else {
+                cleanupTaskService.enqueueCompensationOrphan(
+                        prepared.storageProvider(), prepared.storageProfileCode(),
+                        prepared.storageKey());
+            }
+        } catch (RuntimeException ignored) {
+            log.warn(CLEANUP_INTENT_FAILURE_EVENT);
+        }
+    }
+
+    private void enqueueProfileOrphanBestEffort(
+            PreparedSpeakingAudio prepared, String readyKey) {
+        try {
+            cleanupTaskService.enqueueCompensationOrphan(
+                    prepared.storageProvider(), prepared.storageProfileCode(), readyKey);
         } catch (RuntimeException ignored) {
             log.warn(CLEANUP_INTENT_FAILURE_EVENT);
         }

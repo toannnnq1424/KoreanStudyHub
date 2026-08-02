@@ -4,6 +4,7 @@ import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentSkill;
 import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
 
 import java.util.List;
@@ -20,10 +21,11 @@ public record ExplanationArtifactInput(
         String teacherExplanation,
         String optionLabelMode,
         String explanationLanguage,
+        ObjectiveExplanationStrategyRegistry.Selection explanationStrategy,
         List<MediaDescriptor> media,
         String readinessIssue
 ) {
-    public static final String SCHEMA_VERSION = "rl-explanation-input-v2";
+    public static final String SCHEMA_VERSION = "rl-explanation-input-v3";
 
     public ExplanationArtifactInput {
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
@@ -42,6 +44,12 @@ public record ExplanationArtifactInput(
         explanationLanguage = explanationLanguage == null || explanationLanguage.isBlank()
                 ? "vi"
                 : explanationLanguage;
+        ObjectiveExplanationStrategyRegistry.requireAllowed(
+                questionType,
+                explanationStrategy,
+                stimulus,
+                questionContent,
+                answerSpec);
         media = media == null ? List.of() : List.copyOf(media);
     }
 

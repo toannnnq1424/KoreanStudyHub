@@ -35,6 +35,12 @@ public class PracticeQuestionGroup {
     @Column(name = "stimulus_type", length = 40)
     private String stimulusType;
 
+    @Column(name = "stimulus_language_tag", nullable = false, length = 8)
+    private String stimulusLanguageTag = "ko";
+
+    @Column(name = "instruction_language_tag", nullable = false, length = 8)
+    private String instructionLanguageTag = "vi";
+
     @Column(name = "passage_text", columnDefinition = "LONGTEXT")
     private String passageText;
 
@@ -107,12 +113,30 @@ public class PracticeQuestionGroup {
     }
 
     public String getStimulusType() { return stimulusType; }
+    public String getStimulusLanguageTag() { return stimulusLanguageTag; }
+    public String getInstructionLanguageTag() { return instructionLanguageTag; }
     public String getPassageText() { return passageText; }
     public String getTranscriptText() { return transcriptText; }
     public String getImageUrl() { return imageUrl; }
     public String getStimulusProvenanceJson() { return stimulusProvenanceJson; }
 
     public void setStimulusType(String stimulusType) { this.stimulusType = stimulusType; }
+    public void setStimulusLanguageTag(String stimulusLanguageTag) {
+        this.stimulusLanguageTag = requireLanguageTag(stimulusLanguageTag);
+    }
+    public void setInstructionLanguageTag(String instructionLanguageTag) {
+        this.instructionLanguageTag = requireLanguageTag(instructionLanguageTag);
+    }
+
+    private static String requireLanguageTag(String languageTag) {
+        String normalized = languageTag == null
+                ? ""
+                : languageTag.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("ko", "vi").contains(normalized)) {
+            throw new IllegalArgumentException("Language tag must be ko or vi.");
+        }
+        return normalized;
+    }
     public void setPassageText(String passageText) { this.passageText = passageText; }
     public void setTranscriptText(String transcriptText) { this.transcriptText = transcriptText; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }

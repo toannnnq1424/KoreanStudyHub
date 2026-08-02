@@ -1,6 +1,11 @@
 package com.ksh.features.practice.manage.speaking;
 
+import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
+import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneException;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
+import com.ksh.features.practice.ai.controlplane.PracticeAiResolvedBinding;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -40,6 +45,7 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
     private Duration retryMaxDelay = Duration.ofMinutes(5);
     private Stt stt = new Stt();
     private Tts tts = new Tts();
+    private PracticeAiBindingResolver bindingResolver;
 
     @Override
     public void afterPropertiesSet() {
@@ -57,8 +63,8 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
                 manualRetryCooldown,
                 retryInitialDelay,
                 retryMaxDelay);
-        SttConfig currentStt = sttConfig();
-        TtsConfig currentTts = ttsConfig();
+        SttConfig currentStt = stt.toConfig();
+        TtsConfig currentTts = tts.toConfig();
         Duration maximumCallEnvelope = maximum(
                 currentStt.connectTimeout().plus(currentStt.readTimeout()),
                 currentTts.connectTimeout().plus(currentTts.readTimeout()));
@@ -72,16 +78,83 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
     }
 
     SttConfig sttConfig() {
-        return stt.toConfig();
+        SttConfig local = stt.toConfig();
+        if (bindingResolver == null) {
+            return local;
+        }
+        try {
+            PracticeAiResolvedBinding binding = bindingResolver.resolve(
+                    PracticeAiPurpose.PRACTICE_SPEAKING_STT);
+            return new SttConfig(
+                    true,
+                    "openai",
+                    binding.baseUrl().toString(),
+                    binding.credentialSecret(),
+                    binding.snapshot().model(),
+                    local.language(),
+                    binding.snapshot().purpose().name(),
+                    binding.snapshot().retentionCode(),
+                    binding.snapshot().bindingRevision(),
+                    binding.snapshot().providerProfileRevision(),
+                    Math.min(local.maxInputBytes(),
+                            binding.snapshot().limits().maxRequestBytes()),
+                    local.maxInputDuration(),
+                    binding.snapshot().limits().connectTimeout(),
+                    binding.snapshot().limits().readTimeout(),
+                    local.allowedMimeTypes());
+        } catch (PracticeAiControlPlaneException exception) {
+            return local;
+        }
     }
 
     TtsConfig ttsConfig() {
-        return tts.toConfig();
+        TtsConfig local = tts.toConfig();
+        if (bindingResolver == null) {
+            return local;
+        }
+        try {
+            PracticeAiResolvedBinding binding = bindingResolver.resolve(
+                    PracticeAiPurpose.PRACTICE_SPEAKING_TTS);
+            return new TtsConfig(
+                    true,
+                    "openai",
+                    binding.baseUrl().toString(),
+                    binding.credentialSecret(),
+                    binding.snapshot().model(),
+                    local.language(),
+                    local.voice(),
+                    local.speed(),
+                    local.outputFormat(),
+                    local.maxInputCharacters(),
+                    binding.snapshot().purpose().name(),
+                    binding.snapshot().retentionCode(),
+                    binding.snapshot().bindingRevision(),
+                    binding.snapshot().providerProfileRevision(),
+                    Math.min(local.maxOutputBytes(),
+                            binding.snapshot().limits().maxResponseBytes()),
+                    local.maxOutputDuration(),
+                    binding.snapshot().limits().connectTimeout(),
+                    binding.snapshot().limits().readTimeout(),
+                    local.allowedOutputFormats(),
+                    local.allowedOutputMimeTypes());
+        } catch (PracticeAiControlPlaneException exception) {
+            return local;
+        }
     }
 
     void requireOperational(SpeakingPromptAiContract.Operation operation) {
         if (!workerEnabled) {
             throw unavailable();
+        }
+        if (bindingResolver != null) {
+            try {
+                bindingResolver.resolve(operation == SpeakingPromptAiContract.Operation.STT
+                        ? PracticeAiPurpose.PRACTICE_SPEAKING_STT
+                        : PracticeAiPurpose.PRACTICE_SPEAKING_TTS);
+                return;
+            } catch (PracticeAiControlPlaneException exception) {
+                throw unavailable();
+            }
         }
         if (operation == SpeakingPromptAiContract.Operation.STT) {
             SttConfig config = sttConfig();
@@ -92,6 +165,11 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
         TtsConfig config = ttsConfig();
         requireOpenAi(config.enabled(), config.provider(), config.baseUrl(),
                 config.apiKey(), config.model());
+    }
+
+    @Autowired(required = false)
+    void setBindingResolver(PracticeAiBindingResolver bindingResolver) {
+        this.bindingResolver = bindingResolver;
     }
 
     public int getMaxAttempts() {
@@ -222,6 +300,8 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
                     language,
                     purposeCode,
                     retentionCode,
+                    -1L,
+                    -1L,
                     maxInputBytes,
                     maxInputDuration,
                     connectTimeout,
@@ -296,6 +376,8 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
                     maxInputCharacters,
                     purposeCode,
                     retentionCode,
+                    -1L,
+                    -1L,
                     maxOutputBytes,
                     maxOutputDuration,
                     connectTimeout,
@@ -401,6 +483,8 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
             String language,
             String purposeCode,
             String retentionCode,
+            long bindingRevision,
+            long providerProfileRevision,
             long maxInputBytes,
             Duration maxInputDuration,
             Duration connectTimeout,
@@ -420,8 +504,11 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
             apiKey = secret(apiKey, false, "STT API key");
             model = configuredText(model, false, "STT model", 128);
             language = code(language, "STT language", 32);
-            purposeCode = code(purposeCode, "STT purpose code", 64);
-            retentionCode = code(retentionCode, "STT retention code", 64);
+            purposeCode = exactPurpose(purposeCode, "STT purpose code");
+            retentionCode = exactPurpose(retentionCode, "STT retention code");
+            if (bindingRevision < -1 || providerProfileRevision < -1) {
+                throw new IllegalArgumentException("STT binding revisions are invalid");
+            }
             maxInputBytes = bytes(maxInputBytes, "STT max input bytes");
             maxInputDuration = duration(
                     maxInputDuration, Duration.ofSeconds(1), MAX_AUTHORING_AUDIO_DURATION,
@@ -468,6 +555,8 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
             int maxInputCharacters,
             String purposeCode,
             String retentionCode,
+            long bindingRevision,
+            long providerProfileRevision,
             long maxOutputBytes,
             Duration maxOutputDuration,
             Duration connectTimeout,
@@ -475,6 +564,32 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
             Set<String> allowedOutputFormats,
             Set<String> allowedOutputMimeTypes
     ) {
+        TtsConfig(
+                boolean enabled,
+                String provider,
+                String baseUrl,
+                String apiKey,
+                String model,
+                String language,
+                String voice,
+                BigDecimal speed,
+                String outputFormat,
+                int maxInputCharacters,
+                String purposeCode,
+                String retentionCode,
+                long maxOutputBytes,
+                Duration maxOutputDuration,
+                Duration connectTimeout,
+                Duration readTimeout,
+                Set<String> allowedOutputFormats,
+                Set<String> allowedOutputMimeTypes) {
+            this(enabled, provider, baseUrl, apiKey, model, language, voice,
+                    speed, outputFormat, maxInputCharacters, purposeCode,
+                    retentionCode, -1L, -1L, maxOutputBytes,
+                    maxOutputDuration, connectTimeout, readTimeout,
+                    allowedOutputFormats, allowedOutputMimeTypes);
+        }
+
         public TtsConfig {
             provider = code(provider, "TTS provider", 64);
             baseUrl = endpoint(baseUrl, false, "TTS base URL");
@@ -489,8 +604,11 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
                     1,
                     SpeakingPromptAiContract.MAX_PROMPT_TEXT_CHARS,
                     "TTS max input characters");
-            purposeCode = code(purposeCode, "TTS purpose code", 64);
-            retentionCode = code(retentionCode, "TTS retention code", 64);
+            purposeCode = exactPurpose(purposeCode, "TTS purpose code");
+            retentionCode = exactPurpose(retentionCode, "TTS retention code");
+            if (bindingRevision < -1 || providerProfileRevision < -1) {
+                throw new IllegalArgumentException("TTS binding revisions are invalid");
+            }
             maxOutputBytes = bytes(maxOutputBytes, "TTS max output bytes");
             maxOutputDuration = duration(
                     maxOutputDuration, Duration.ofSeconds(1), MAX_AUTHORING_AUDIO_DURATION,
@@ -585,6 +703,14 @@ public class SpeakingPromptAuthoringAiProperties implements InitializingBean {
         String normalized = configuredText(value, true, label, maximumLength)
                 .toLowerCase(Locale.ROOT);
         if (!normalized.matches("[a-z0-9][a-z0-9._-]*")) {
+            throw new IllegalArgumentException(label + " is not a bounded code");
+        }
+        return normalized;
+    }
+
+    private static String exactPurpose(String value, String label) {
+        String normalized = configuredText(value, true, label, 64);
+        if (!normalized.matches("[A-Za-z][A-Za-z0-9_]{1,63}")) {
             throw new IllegalArgumentException(label + " is not a bounded code");
         }
         return normalized;

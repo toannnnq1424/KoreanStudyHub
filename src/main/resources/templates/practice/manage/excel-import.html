@@ -18,9 +18,13 @@
 
     <section class="excel-import-form">
       <div class="excel-template-row">
-        <span></span>
-        <a id="download-template" class="btn-action btn-sec"
-           th:href="@{/practice/manage/excel/template}">Tải tệp mẫu</a>
+        <span>Quick v1 dùng đúng một sheet; Advanced v2 giữ nguyên định dạng đầy đủ hiện tại.</span>
+        <div class="excel-preview-actions">
+          <a id="download-quick-template" class="btn-action btn-sec"
+             th:href="@{/practice/manage/excel/template/quick-v1}">Tải mẫu Quick v1</a>
+          <a id="download-template" class="btn-action btn-sec"
+             th:href="@{/practice/manage/excel/template}">Tải mẫu Advanced v2</a>
+        </div>
       </div>
 
       <label class="form-label" for="excel-file">Tệp XLSX</label>
@@ -229,6 +233,7 @@
 <script th:inline="javascript">
   const LINKED_DRAFT_ID = /*[[${draftId}]]*/ null;
   const SELECTED_TEST_NO = /*[[${testNo}]]*/ null;
+  const SELECTED_SKILL = /*[[${skill}]]*/ null;
   const SELECTED_LESSON_CODE = /*[[${lessonCode}]]*/ null;
   const fileInput = document.getElementById('excel-file');
   const mediaFileInput = document.getElementById('excel-media-files');
@@ -319,6 +324,7 @@
     body.append('file', fileInput.files[0]);
     body.append('draftId', LINKED_DRAFT_ID);
     body.append('testNo', SELECTED_TEST_NO);
+    body.append('skill', SELECTED_SKILL);
     body.append('lessonCode', SELECTED_LESSON_CODE);
     if (mediaOverrides) body.append('mediaOverrides', JSON.stringify(mediaOverrides));
     const headers = {
@@ -917,9 +923,14 @@
     confirmImportButton.textContent = 'Đang tải media...';
     try {
       const mediaOverrides = await uploadPendingMedia();
-      confirmImportButton.textContent = 'Đang nhập...';
+      confirmImportButton.textContent = 'Đang tạo candidate...';
       const result = await submit('import', mediaOverrides);
-      window.location.href = result.redirectUrl;
+      previewModal.close();
+      if (!result.reviewUrl || !result.reviewUrl.startsWith(
+        '/practice/manage/authoring-candidates/')) {
+        throw new Error('Máy chủ chưa trả về route rà soát candidate hợp lệ.');
+      }
+      window.location.assign(result.reviewUrl);
     } catch (error) {
       confirmImportButton.disabled = false;
       confirmImportButton.textContent = originalLabel;

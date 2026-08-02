@@ -102,7 +102,49 @@ class PracticeKoreanFontPreferenceControllerTest {
     }
 
     @Test
-    void postRequiresAuthenticationStudentRoleAndCsrf() throws Exception {
+    void lecturerViewAndUpdateUseLecturerAccountPreference()
+            throws Exception {
+        when(userIdResolver.resolve(any())).thenReturn(74L);
+        when(preferenceService.read(74L)).thenReturn(
+                new PracticeKoreanFontPreferenceService.Snapshot(
+                        74L,
+                        PracticeKoreanFont.GOWUN_DODUM,
+                        PracticeKoreanFontSize.EXTRA_LARGE,
+                        2));
+
+        mockMvc.perform(get("/practice/preferences")
+                        .with(user(principal(74L, Role.LECTURER))))
+                .andExpect(status().isOk())
+                .andExpect(view().name("practice/preferences"))
+                .andExpect(model().attribute(
+                        "practiceKoreanFont",
+                        "GOWUN_DODUM"))
+                .andExpect(model().attribute(
+                        "practiceKoreanFontSize",
+                        "EXTRA_LARGE"))
+                .andExpect(model().attribute(
+                        "practiceKoreanFontAccountId",
+                        74L));
+
+        mockMvc.perform(post("/practice/preferences/korean-font")
+                        .with(user(principal(74L, Role.LECTURER)))
+                        .with(csrf())
+                        .param("koreanFont", "GOWUN_DODUM")
+                        .param("koreanFontSize", "EXTRA_LARGE")
+                        .param("schemaVersion", "2"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/preferences"));
+
+        verify(preferenceService).update(
+                74L,
+                PracticeKoreanFont.GOWUN_DODUM,
+                PracticeKoreanFontSize.EXTRA_LARGE,
+                2);
+    }
+
+    @Test
+    void postRequiresAuthenticationAllowedRoleAndCsrfAndRejectsGovernanceRoles()
+            throws Exception {
         mockMvc.perform(post("/practice/preferences/korean-font")
                         .with(csrf())
                         .param("koreanFont", "NANUM_GOTHIC")
@@ -119,6 +161,21 @@ class PracticeKoreanFontPreferenceControllerTest {
 
         mockMvc.perform(post("/practice/preferences/korean-font")
                         .with(user(principal(74L, Role.LECTURER)))
+                        .param("koreanFont", "NANUM_GOTHIC")
+                        .param("koreanFontSize", "DEFAULT")
+                        .param("schemaVersion", "2"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/practice/preferences/korean-font")
+                        .with(user(principal(75L, Role.LEADER)))
+                        .with(csrf())
+                        .param("koreanFont", "NANUM_GOTHIC")
+                        .param("koreanFontSize", "DEFAULT")
+                        .param("schemaVersion", "2"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/practice/preferences/korean-font")
+                        .with(user(principal(76L, Role.ADMIN)))
                         .with(csrf())
                         .param("koreanFont", "NANUM_GOTHIC")
                         .param("koreanFontSize", "DEFAULT")

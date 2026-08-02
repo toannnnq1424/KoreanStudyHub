@@ -12,6 +12,7 @@ import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.LearnerAnswer;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,46 @@ class ReadingListeningExplanationClientTest {
         assertTrue(logs.contains("skill=READING"));
     }
 
+    @Test
+    void matchingValidatorRequiresExactTargetCoverageAndOfficialCandidates() {
+        ReadingListeningExplanationClient client =
+                new ReadingListeningExplanationClient(
+                        TestPracticeStructuredGenerationPort.unavailable(
+                                "test", "safe-model"),
+                        new ObjectMapper());
+        ExplanationContext context = matchingContext();
+        String valid = """
+                {
+                  "schemaVersion":"v4",
+                  "strategyRegistryVersion":"rl-explanation-strategy-registry-v2",
+                  "strategyCode":"MATCHING_MATRIX",
+                  "strategyVersion":"v1",
+                  "questionType":"MATCHING",
+                  "explanation":{
+                    "textEvidenceRefs":[{
+                      "evidenceId":"e1","kind":"TEXT_SPAN",
+                      "purpose":"ANSWER_RATIONALE","sourceRole":"PASSAGE",
+                      "exactQuoteKo":"서울","startOffset":0,"endOffset":2
+                    }],
+                    "imageEvidenceRefs":[],
+                    "relevantTranslations":[],
+                    "strategyBlock":{"targetExplanations":[
+                      {"claimId":"c1","targetId":"blank_1","candidateOptionId":"option_1","reasonVi":"Thủ đô là Seoul.","evidenceIds":["e1"]},
+                      {"claimId":"c2","targetId":"blank_2","candidateOptionId":"option_2","reasonVi":"Đối chiếu đúng nhãn.","evidenceIds":["e1"]}
+                    ]}
+                  }
+                }
+                """;
+
+        assertTrue(client.cleanAndValidateJson(valid, context, List.of()) != null);
+        assertTrue(client.cleanAndValidateJson(
+                valid.replace(
+                        "\"targetId\":\"blank_2\",\"candidateOptionId\":\"option_2\"",
+                        "\"targetId\":\"blank_2\",\"candidateOptionId\":\"option_1\""),
+                context,
+                List.of()) == null);
+    }
+
     private static ExplanationContext context() {
         CanonicalQuestionType type = CanonicalQuestionType.SINGLE_CHOICE;
         QuestionContent content = new QuestionContent(
@@ -92,7 +133,63 @@ class ReadingListeningExplanationClientTest {
                         "TEACHER"),
                 "stored explanation",
                 "vi",
-                "NUMERIC");
+                "NUMERIC",
+                ObjectiveExplanationStrategyRegistry.requireSelection(
+                        type,
+                        ObjectiveExplanationStrategyRegistry.REGISTRY_VERSION,
+                        ObjectiveExplanationStrategyRegistry.Code
+                                .EVIDENCE_ONLY.name(),
+                        ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION));
+    }
+
+    private static ExplanationContext matchingContext() {
+        CanonicalQuestionType type = CanonicalQuestionType.MATCHING;
+        QuestionContent content = new QuestionContent(
+                QuestionContent.SCHEMA_VERSION,
+                List.of(
+                        new QuestionContent.Option("option_1", "서울"),
+                        new QuestionContent.Option("option_2", "제주")),
+                List.of(
+                        new QuestionContent.Blank("blank_1", "수도"),
+                        new QuestionContent.Blank("blank_2", "섬")));
+        AnswerSpec answerSpec = new AnswerSpec(
+                AnswerSpec.SCHEMA_VERSION,
+                type,
+                List.of(),
+                null,
+                List.of(
+                        new AnswerSpec.BlankAnswer("blank_1", List.of("option_1")),
+                        new AnswerSpec.BlankAnswer("blank_2", List.of("option_2"))),
+                ScoringPolicyCode.NORMALIZED_EXACT);
+        return new ExplanationContext(
+                ExplanationContext.SCHEMA_VERSION,
+                2L,
+                20L,
+                2,
+                AssessmentSkill.READING,
+                type,
+                "각 설명을 연결하십시오.",
+                "A–H에서 고르십시오.",
+                content,
+                answerSpec,
+                new LearnerAnswer(
+                        LearnerAnswer.SCHEMA_VERSION,
+                        type,
+                        List.of(),
+                        null,
+                        Map.of(),
+                        null),
+                AssessmentStimulus.readingPassage(
+                        "서울 근거",
+                        "TEACHER"),
+                "Giải thích của giáo viên",
+                "vi",
+                "LATIN",
+                ObjectiveExplanationStrategyRegistry.requireSelection(
+                        type,
+                        ObjectiveExplanationStrategyRegistry.CURRENT_REGISTRY_VERSION,
+                        ObjectiveExplanationStrategyRegistry.Code.MATCHING_MATRIX.name(),
+                        ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION));
     }
 
     private static String captureLogs(Class<?> loggerClass, Runnable action) {

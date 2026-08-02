@@ -9,11 +9,13 @@ import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.tests.dto.TestDtos.ClassTestsView;
 import com.ksh.features.tests.dto.TestDtos.ExamListRow;
 import com.ksh.features.tests.dto.TestDtos.StudentExamList;
+import com.ksh.features.tests.dto.TestDtos.StudentTestDetail;
 import com.ksh.features.tests.entity.Test;
 import com.ksh.features.tests.entity.TestAttempt;
 import com.ksh.features.tests.repository.TestAttemptRepository;
 import com.ksh.features.tests.repository.TestRepository;
 import com.ksh.features.tests.support.TestAccessQueries;
+import com.ksh.features.tests.support.TestAccessResolver;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,19 +43,22 @@ public class TestCatalogService {
     private final TestRepository testRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
+    private final TestAccessResolver accessResolver;
 
     public TestCatalogService(TestAccessQueries accessQueries,
                               TestAttemptRepository attemptRepository,
                               ClassRepository classRepository,
                               TestRepository testRepository,
                               EnrollmentRepository enrollmentRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              TestAccessResolver accessResolver) {
         this.accessQueries = accessQueries;
         this.attemptRepository = attemptRepository;
         this.classRepository = classRepository;
         this.testRepository = testRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.userRepository = userRepository;
+        this.accessResolver = accessResolver;
     }
 
     /**
@@ -113,13 +119,69 @@ public class TestCatalogService {
                 lecturerName, normalized, rows);
     }
 
+    /**
+     * Loads the class-exam landing page without creating an attempt. The
+     * student starts the timer only after explicitly submitting the start form.
+     */
+    @Transactional(readOnly = true)
+    public StudentTestDetail detailForStudent(Long testId, Long userId) {
+        Test test = accessResolver.requireViewable(testId, userId);
+        List<TestAttempt> attempts =
+                attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(testId, userId);
+        TestAttempt open = attempts.stream().filter(TestAttempt::isInProgress).findFirst().orElse(null);
+        TestAttempt completed = attempts.stream().filter(a -> !a.isInProgress()).findFirst().orElse(null);
+        boolean singleAttemptCompleted = !test.isPractice() && completed != null;
+        LocalDateTime now = LocalDateTime.now();
+
+        String availability;
+        boolean canStart = false;
+        boolean canResume = false;
+        if (singleAttemptCompleted) {
+            // Old deployments may already contain a completed attempt plus a
+            // second open attempt. The one-attempt rule wins: never expose a
+            // resume action for that legacy duplicate.
+            availability = "COMPLETED";
+        } else if (open != null) {
+            availability = "IN_PROGRESS";
+            canResume = true;
+        } else if (test.getStartAt() != null && now.isBefore(test.getStartAt())) {
+            availability = "UPCOMING";
+        } else if (test.getEndAt() != null && !now.isBefore(test.getEndAt())) {
+            availability = "CLOSED";
+        } else if (Test.TIME_MODE_FIXED_WINDOW.equals(test.getTimeMode())
+                && test.getEndAt() == null) {
+            availability = "INVALID_CONFIG";
+        } else if (test.isIndividualTimer()
+                && (test.getDurationMinutes() == null || test.getDurationMinutes() <= 0)) {
+            availability = "INVALID_CONFIG";
+        } else {
+            availability = "AVAILABLE";
+            canStart = true;
+        }
+
+        TestAttempt shownAttempt = singleAttemptCompleted ? completed : open;
+        String className = test.getClassId() == null ? null
+                : classRepository.findById(test.getClassId()).map(ClassEntity::getName).orElse(null);
+        return new StudentTestDetail(
+                test.getId(), test.getTitle(), test.getDescription(),
+                test.getClassId(), className, test.getType(), test.getTimeMode(),
+                test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
+                test.getTotalQuestions() == null ? 0 : test.getTotalQuestions(),
+                availability,
+                shownAttempt == null ? null : shownAttempt.getId(),
+                shownAttempt == null ? null : shownAttempt.getStatus(),
+                singleAttemptCompleted ? scorePercent(completed) : null,
+                canStart, canResume, singleAttemptCompleted);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private ExamListRow toRow(Test t, String className, List<TestAttempt> attempts) {
         String lastStatus = attempts.isEmpty() ? null : attempts.get(0).getStatus();
         Integer bestPercent = bestScorePercent(attempts);
         return new ExamListRow(t.getId(), t.getTitle(), t.getType(), t.getStatus(), className,
-                t.isPractice(), t.getDurationMinutes(), t.getTimeMode(), t.getEndAt(),
+                t.isPractice(), t.getDurationMinutes(), t.getTimeMode(),
+                t.getStartAt(), t.getEndAt(),
                 t.getTotalQuestions() == null ? 0 : t.getTotalQuestions(),
                 lastStatus, bestPercent);
     }
@@ -137,6 +199,15 @@ public class TestCatalogService {
             if (best == null || pct > best) best = pct;
         }
         return best;
+    }
+
+    private Integer scorePercent(TestAttempt attempt) {
+        if (attempt.getScore() == null || attempt.getTotalPoints() == null
+                || attempt.getTotalPoints().signum() <= 0) {
+            return null;
+        }
+        return attempt.getScore().multiply(BigDecimal.valueOf(100))
+                .divide(attempt.getTotalPoints(), 0, RoundingMode.HALF_UP).intValue();
     }
 
     private Map<Long, List<TestAttempt>> attemptsByTest(Long userId, List<Test> exams) {

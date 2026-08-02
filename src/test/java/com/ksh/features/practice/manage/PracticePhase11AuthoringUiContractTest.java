@@ -33,11 +33,13 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("/js/practice/manage-draft-preview.js"));
         assertFalse(editor.contains("/js/practice/manage-editor.js"));
         for (String type : List.of(
-                "SINGLE_CHOICE", "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")) {
+                "SINGLE_CHOICE", "MULTIPLE_ANSWER", "MATCHING",
+                "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")) {
             assertTrue(editor.contains(type) || contract.contains(type), "Missing editor type " + type);
         }
         assertFalse(editor.contains("MULTIPLE_CHOICE"));
-        assertFalse(editor.contains("MATCHING"));
+        assertTrue(editor.contains("data-matching-question")
+                || editor.contains("id=\"matching-area\""));
         assertTrue(contract.contains("question-content-v1"));
         assertTrue(contract.contains("answer-spec-v1"));
         assertTrue(contract.contains("correctOptionIds"));
@@ -73,7 +75,10 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(editor.contains("[PracticeEditor] state before"));
         assertFalse(editor.contains("[PracticeEditor] state after"));
         assertTrue(contract.contains("question-content-v1"));
-        assertFalse(editor.contains("['READING', 'LISTENING'].includes(section.skill)"));
+        assertTrue(editor.contains(
+                "['READING', 'LISTENING'].includes(section.skill)"));
+        assertTrue(editor.contains("id=\"q-explanation-strategy\""));
+        assertTrue(editor.contains("objective-explanation-editorial"));
         assertTrue(editor.contains("id=\"speaking-prompt-audio-dropzone\""));
         assertTrue(editor.contains("id=\"q-speak-play-limit\""));
         assertTrue(editor.contains("function uploadSpeakingPromptAudio(file)"));
@@ -116,9 +121,19 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains(
                 "aria-label=\"Kiểm tra chất lượng đề — di chuột hoặc dùng nút Kiểm tra để mở\""));
         assertTrue(editor.contains(
-                "aria-label=\"Cấu trúc đề — di chuột hoặc dùng nút menu để mở rộng\""));
+                "aria-label=\"Cấu trúc đề — dùng nút menu để mở hoặc thu gọn\""));
         assertTrue(editor.contains("class=\"toolbar-title-block\""));
         assertTrue(editor.contains("class=\"toolbar-actions-scroll\""));
+        assertTrue(editor.contains("Chưa thể xuất bản:"));
+        assertTrue(editor.contains("firstBlocking?.content"));
+        assertTrue(editor.contains("INITIAL_PUBLISH_BLOCKERS"));
+        assertTrue(editor.contains("latestPublishBlockers"));
+        assertTrue(editor.contains("mergePublishBlockers(data.validation)"));
+        assertTrue(editor.contains("/publish-blockers`"));
+        assertTrue(editor.contains("await refreshPublishBlockers();"));
+        assertTrue(editor.contains("if (!strategyCode)"));
+        assertTrue(editor.contains(
+                "objectiveEditorialStateByQuestion.delete(question.clientId)"));
         assertTrue(editor.contains("class=\"toolbar-action-label\""));
         assertTrue(editor.contains("class=\"validation-handle\""));
         assertTrue(editor.contains("id=\"validation-panel-trigger\""));
@@ -128,7 +143,9 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editor.contains("onclick=\"toggleStructurePanel(event)\""));
         assertTrue(editor.contains(
                 "class=\"tree-row-content\" role=\"button\" tabindex=\"0\""));
-        assertTrue(editor.contains("onpointerdown=\"setStructurePanelOpen(true); this.focus()\""));
+        assertTrue(editor.contains("onpointerdown=\"this.focus()\""));
+        assertFalse(editor.contains(
+                "onpointerdown=\"setStructurePanelOpen(true); this.focus()\""));
         assertTrue(editor.contains("onkeydown=\"handleTreeRowKey("));
         assertTrue(editor.contains("class=\"q-summary-prompt\""));
         assertFalse(editor.contains("width: 450px"));
@@ -158,18 +175,22 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editorCss.contains("width: clamp(252px, 20vw, 280px)"));
         assertTrue(editorCss.contains("grid-template-rows: 62px 54px"));
         assertTrue(editorCss.contains(".toolbar-actions-scroll"));
+        assertTrue(editorCss.contains("margin-left: auto"));
+        assertTrue(editorCss.contains("justify-content: flex-end"));
         assertTrue(editorCss.contains("gap: 0"));
         assertTrue(editorCss.contains("overflow-x: auto"));
+        assertTrue(editorCss.contains("@media (max-width: 1180px)"));
         assertTrue(editorCss.contains("@media (max-width: 900px)"));
         assertTrue(editorCss.contains("@media (max-width: 620px)"));
         assertTrue(editorCss.contains(".panel-structure.is-expanded > .tree-wrapper"));
         assertTrue(editorCss.contains("width: 72px"));
-        assertTrue(editorCss.contains("calc(100vw - 72px)"));
-        assertTrue(editorCss.contains("width: min(300px, calc(100vw - 72px))"));
+        assertTrue(editorCss.contains("calc(100vw - 20px)"));
+        assertTrue(editorCss.contains("width: min(320px, calc(100vw - 20px))"));
         assertTrue(editorCss.contains(".tree-meta-text"));
         assertTrue(editorCss.contains("text-overflow: ellipsis"));
         assertTrue(editorCss.contains(
-                ".panel-structure:not(:hover):not(.is-expanded) .tree-text-title"));
+                ".panel-structure:not(.is-expanded) .tree-text-title"));
+        assertFalse(editorCss.contains(".panel-structure:hover"));
         assertTrue(editorCss.contains(".tree-row.active .tree-actions"));
         assertTrue(editorCss.contains("transform: translateX(100%)"));
         assertTrue(editorCss.contains(".validation-handle"));
@@ -187,6 +208,8 @@ class PracticePhase11AuthoringUiContractTest {
     @Test
     void responsiveEditorKeepsTitleAndStructureReadableWithoutChangingValidationOverlay()
             throws Exception {
+        String editor = read(
+                "src/main/resources/templates/practice/manage/editor.html");
         String editorCss = read(
                 "src/main/resources/static/css/practice/manage-editor.css");
         String breadcrumbRule = between(
@@ -197,7 +220,9 @@ class PracticePhase11AuthoringUiContractTest {
                 editorCss, ".panel-structure {", ".panel-header {");
         String treeMetaRule = between(
                 editorCss, ".tree-meta-text {", "/* circular badge for question numbers */");
-        String mediumRules = between(
+        String compactToolbarRules = between(
+                editorCss, "@media (max-width: 1180px) {", "@media (max-width: 900px) {");
+        String structureDrawerRules = between(
                 editorCss, "@media (max-width: 900px) {", "@media (max-width: 620px) {");
         String mobileRules = between(
                 editorCss, "@media (max-width: 620px) {", "@media (prefers-reduced-motion: reduce) {");
@@ -219,14 +244,32 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(treeMetaRule.contains("overflow: hidden"));
         assertTrue(treeMetaRule.contains("text-overflow: ellipsis"));
 
-        assertTrue(mediumRules.contains(".breadcrumb-text"));
-        assertTrue(mediumRules.contains("display: none"));
-        assertTrue(mediumRules.contains(".draft-title-input"));
-        assertTrue(mediumRules.contains("width: 100%"));
-        assertTrue(mobileRules.contains("width: 72px"));
-        assertTrue(mobileRules.contains(
-                "width: min(300px, calc(100vw - 72px))"));
-        assertTrue(mobileRules.contains(".panel-structure.is-expanded > .tree-wrapper"));
+        assertTrue(compactToolbarRules.contains(".breadcrumb-text"));
+        assertTrue(compactToolbarRules.contains("display: none"));
+        assertTrue(compactToolbarRules.contains(".draft-title-input"));
+        assertTrue(compactToolbarRules.contains("width: 100%"));
+        assertTrue(structureDrawerRules.contains("width: 72px"));
+        assertTrue(structureDrawerRules.contains(
+                "width: min(320px, calc(100vw - 20px))"));
+        assertTrue(structureDrawerRules.contains(
+                ".panel-structure.is-expanded > .tree-wrapper"));
+        assertTrue(mobileRules.contains("grid-template-rows: 56px 52px"));
+        assertTrue(editor.contains(
+                "window.matchMedia('(max-width: 900px)')"));
+        assertFalse(editor.contains(
+                "window.matchMedia('(max-width: 620px)')"));
+        assertTrue(editor.contains(
+                "if (editorPanel) {\n"
+                        + "      editorPanel.scrollTop = 0;\n"
+                        + "      editorPanel.scrollLeft = 0;\n"
+                        + "    }"));
+        assertTrue(editor.contains(
+                "document.documentElement.scrollTop = 0;"));
+        assertTrue(editor.contains(
+                "document.body.scrollTop = 0;"));
+        assertTrue(editorCss.contains(
+                "html {\n  height: 100%;\n  overflow: hidden;"));
+        assertTrue(editorCss.contains("height: 100dvh"));
 
         assertTrue(validationRule.contains("position: fixed"));
         assertTrue(validationRule.contains("transform: translateX(100%)"));
@@ -412,6 +455,9 @@ class PracticePhase11AuthoringUiContractTest {
         String playerCss = read("src/main/resources/static/css/practice/player.css");
         String editorCss = read("src/main/resources/static/css/practice/manage-editor.css");
         String authoringContract = read("src/main/resources/static/js/practice/manage-authoring-contract.js");
+        String preview = read("src/main/resources/static/js/practice/manage-draft-preview.js");
+        String previewTemplate = read(
+                "src/main/resources/templates/practice/manage/fragments/draft-preview.html");
 
         String typeChange = editor.substring(editor.indexOf("function handleQuestionTypeChange()"),
                 editor.indexOf("function getCircledNumber"));
@@ -419,6 +465,13 @@ class PracticePhase11AuthoringUiContractTest {
                 < typeChange.indexOf("renderFillBlanks(q)"));
         assertTrue(typeChange.contains("if (previousType !== type)"));
         assertTrue(typeChange.contains("if (type === 'FILL_BLANK') q.fillBlanks = []"));
+        assertTrue(typeChange.contains(
+                "q.prompt = fillBlankPromptDisplay(q.prompt);\n"
+                        + "        q.fillBlanks = [];"));
+        assertTrue(typeChange.indexOf(
+                "syncQuestionContract(q)")
+                < typeChange.indexOf(
+                        "refreshExplanationStrategyField(section, q)"));
         assertTrue(editor.contains("id=\"fill-prompt-composer\""));
         assertTrue(editor.contains("contenteditable=\"true\""));
         assertTrue(editor.contains("function renderFillPromptComposer(q)"));
@@ -434,19 +487,28 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(player.contains("data-blank-number=${blankStat.count}"));
         assertTrue(playerJs.contains("exam-inline-blank-number"));
         assertTrue(playerCss.contains(".exam-inline-blank-number"));
-        assertTrue(editor.contains("id=\"preview-writing-prompts\""));
-        assertTrue(editor.contains("preview-writing-answer-card"));
-        assertTrue(editor.contains("preview-speaking-state"));
-        assertTrue(editor.contains("preview-speaking-panel"));
-        assertTrue(editor.contains("preview-fill-slot"));
+        assertTrue(editor.contains(
+                "practice/manage/fragments/draft-preview :: modal"));
+        assertTrue(previewTemplate.contains("id=\"preview-writing-prompts\""));
+        assertTrue(preview.contains("preview-writing-answer-card"));
+        assertTrue(preview.contains("preview-speaking-state"));
+        assertTrue(preview.contains("preview-speaking-panel"));
+        assertTrue(preview.contains("preview-fill-slot"));
         assertTrue(authoringContract.contains("const canonicalBlanks = Array.isArray(canonicalContent.blanks)"));
         assertTrue(authoringContract.contains("candidate.blankId === blank.id"));
         assertTrue(authoringContract.contains("Array.from(answer.acceptedValues)"));
         assertTrue(authoringContract.contains("Array.isArray(canonicalContent.options) ? canonicalContent.options : []"));
         assertTrue(authoringContract.contains("Array.isArray(previousSpec.correctOptionIds)"));
         assertTrue(authoringContract.contains("previousSpec.correctValue || ''"));
-        assertTrue(authoringContract.contains("q.answer = { type: 'SINGLE', value: legacyValue }"));
+        assertTrue(authoringContract.contains("type === 'MULTIPLE_ANSWER' ? 'MULTIPLE' : 'SINGLE'"));
         assertTrue(authoringContract.contains("q.answer = { type: 'TFNG', value: answer.correctValue || '' }"));
+        assertTrue(authoringContract.contains("function initializeWritingBlanks(q, definitions)"));
+        assertTrue(authoringContract.contains("WRITING_LEGACY_READ_ONLY_MODE"));
+        assertTrue(authoringContract.contains("responseMode: WRITING_BLANK_RESPONSE_MODE"));
+        assertTrue(authoringContract.contains("acceptedAnswers: normalizeWritingAcceptedAnswers"));
+        assertTrue(authoringContract.contains("'/' and ';' are ordinary answer characters"));
+        assertFalse(authoringContract.contains("answerKey.split('/')"));
+        assertFalse(authoringContract.contains("answerKey.split(';')"));
         assertTrue(editor.contains("q.questionContent && Array.isArray(q.questionContent.options)"));
         assertTrue(editorCss.contains(".preview-writing-answer-card"));
         assertTrue(editorCss.contains(".preview-speaking-state"));
@@ -540,7 +602,8 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
-    void excelImportSurfaceIncludesRowPreviewAndAutomaticValidRowImport() throws Exception {
+    void excelImportSurfaceIncludesRowPreviewAndCandidateHandoff()
+            throws Exception {
         String excel = read("src/main/resources/templates/practice/manage/excel-import.html");
         String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
 
@@ -550,7 +613,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("Tệp XLSX"));
         assertTrue(excel.contains("Với câu Nói"));
         assertTrue(excel.contains("Âm thanh câu hỏi"));
-        assertTrue(excel.contains("Tải tệp mẫu"));
+        assertTrue(excel.contains("Tải mẫu Quick v1"));
+        assertTrue(excel.contains("Tải mẫu Advanced v2"));
         assertTrue(excel.contains("Ảnh/âm thanh đi kèm"));
         assertTrue(excel.contains("Xem trước Excel"));
         assertTrue(excel.contains("Bài kiểm tra / Phần"));
@@ -572,7 +636,12 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("câu hợp lệ"));
         assertFalse(excel.contains("templateCode"));
         assertTrue(excel.contains("SELECTED_TEST_NO"));
+        assertTrue(excel.contains("SELECTED_SKILL"));
         assertTrue(excel.contains("SELECTED_LESSON_CODE"));
+        assertTrue(excel.contains(
+                "Máy chủ chưa trả về route rà soát candidate hợp lệ."));
+        assertTrue(excel.contains("window.location.assign(result.reviewUrl)"));
+        assertFalse(excel.contains("window.location.href = result.redirectUrl"));
         assertTrue(excel.contains("row.detail?.groupImageReference"));
         assertTrue(excel.contains("row.correctAnswer"));
         assertTrue(excel.contains("row.importedQuestionNo"));
@@ -1116,6 +1185,248 @@ class PracticePhase11AuthoringUiContractTest {
                 .toString();
     }
 
+    @Test
+    void lecturerOwnsLanguageTagsForQuestionInstructionAndSharedStimulusRegions()
+            throws Exception {
+        String editor = read("src/main/resources/templates/practice/manage/editor.html");
+        String authoringContract = read(
+                "src/main/resources/static/js/practice/manage-authoring-contract.js");
+
+        assertTrue(editor.contains("id=\"q-prompt-language\""));
+        assertTrue(editor.contains("id=\"grp-instruction-language\""));
+        assertTrue(editor.contains("id=\"grp-stimulus-language\""));
+        assertTrue(editor.contains("id=\"korean-font-preference-action\""));
+        assertTrue(editor.contains("th:href=\"@{/practice/preferences}\""));
+        assertTrue(editor.contains("target=\"_blank\""));
+        assertTrue(editor.contains("function syncEditorLanguageAttributes()"));
+        assertTrue(editor.contains("instruction.lang = instructionLanguage"));
+        assertTrue(editor.contains("stimulus.lang = stimulusLanguage"));
+        assertTrue(editor.contains("questionPrompt.lang = promptLanguage"));
+        assertTrue(editor.contains("fillComposer.lang = promptLanguage"));
+        assertTrue(editor.contains("input.lang = promptLanguage"));
+        assertTrue(editor.contains("class=\"opt-text-input\" lang=\"${promptLanguage}\""));
+        assertTrue(editor.contains("schemaVersion: 'practice-stimulus-v2'"));
+        assertTrue(editor.contains("languageTag: grp.stimulusLanguageTag"));
+        assertTrue(editor.contains(
+                "instructionLanguageTag: grp.instructionLanguageTag"));
+        assertTrue(editor.contains(
+                "lang=\"${promptLanguage}\""));
+        assertTrue(editor.contains(
+                "['ko', 'vi'].includes(question.questionContent.languageTag)"));
+        assertTrue(authoringContract.contains(
+                "q.promptLanguageTag = canonicalContent.languageTag"));
+        assertTrue(authoringContract.contains("content.languageTag = languageTag"));
+    }
+
+    @Test
+    void managedStrategyChooserAndEveryActivePreviewUseAccessiblePrepVisualGrammar()
+            throws Exception {
+        String editor = read("src/main/resources/templates/practice/manage/editor.html");
+        String css = read("src/main/resources/static/css/practice/manage-editor.css");
+
+        assertTrue(editor.contains("popover.setAttribute('role', 'dialog')"));
+        assertTrue(editor.contains("list.setAttribute('role', 'listbox')"));
+        assertTrue(editor.contains("state?.popover?.contains(event.target)"));
+        assertTrue(editor.contains("const availableHeight = Math.max(72,"));
+        assertTrue(editor.contains("options[nextIndex].scrollIntoView"));
+        for (String key : List.of(
+                "ArrowDown", "ArrowUp", "Home", "End", "Escape", "Tab")) {
+            assertTrue(editor.contains("event.key === '" + key + "'"));
+        }
+
+        for (String renderer : List.of(
+                "EXACT_EVIDENCE_ONLY",
+                "FULL_SOURCE_INLINE_HIGHLIGHT",
+                "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+                "MCQ_OPTION_ELIMINATION",
+                "EVIDENCE_AND_ELIMINATION",
+                "TFNG_CONTRADICTION_TABLE",
+                "NOT_GIVEN_BOUNDARY",
+                "FILL_SLOT_GRAMMAR_ANALYSIS",
+                "KEYWORD_PARAPHRASE_BRIDGE",
+                "BILINGUAL_STEP_BY_STEP")) {
+            assertTrue(editor.contains(renderer), "Missing renderer preview " + renderer);
+        }
+        assertTrue(editor.contains("objective-preview__prep-table"));
+        assertTrue(editor.contains("objective-preview__prep-translation-title"));
+        assertTrue(editor.contains("objective-preview__answer-span"));
+        assertTrue(editor.contains("objective-preview__elimination-reasons"));
+        assertTrue(editor.contains("function previewFullText"));
+        assertTrue(editor.contains("function objectivePreviewTableRegion"));
+        assertTrue(editor.contains("class=\"objective-preview__table-scroll\""));
+        assertTrue(editor.contains("role=\"region\""));
+        assertTrue(editor.contains("tabindex=\"0\""));
+        assertTrue(editor.contains("question.answerSpec.correctOptionIds"));
+        assertTrue(editor.contains(
+                "function objectivePreviewOptionAuthority(question)"));
+        assertTrue(editor.contains(
+                "Preview không suy đoán từ dữ liệu"));
+        assertTrue(editor.contains("objectivePreviewOptions(question)"));
+        assertTrue(editor.contains("objectivePreviewBlanks(question)"));
+        assertTrue(editor.contains("class=\"objective-preview__keyword\""));
+        assertTrue(editor.contains("class=\"objective-preview__unsupported\""));
+        String previewRenderer = between(
+                editor,
+                "function objectiveStrategyPreviewMarkup",
+                "function renderObjectiveStrategyPreview");
+        assertFalse(previewRenderer.contains("slice(0, 3)"));
+        assertFalse(previewRenderer.contains("meta.rendererCode}</span>"));
+        assertFalse(previewRenderer.contains("Mô phỏng · 0 lần gọi AI"));
+        assertTrue(previewRenderer.contains("${fullSource}"));
+        assertTrue(previewRenderer.contains("${eliminationRows}"));
+        assertTrue(previewRenderer.contains("objective-preview__decision"));
+        assertTrue(previewRenderer.contains(
+                "Nguồn xác nhận trực tiếp nội dung mệnh đề."));
+        assertTrue(previewRenderer.contains(
+                "Nguồn nêu điều ngược lại với mệnh đề."));
+        assertTrue(previewRenderer.contains(
+                "Nguồn không thiết lập phần claim bổ sung."));
+        assertTrue(previewRenderer.contains(
+                "Evidence xác nhận đầy đủ mệnh đề; loại FALSE và NOT GIVEN."));
+        assertTrue(previewRenderer.contains(
+                "Evidence mâu thuẫn trực tiếp với mệnh đề; loại TRUE và NOT GIVEN."));
+        assertTrue(previewRenderer.contains(
+                "Nguồn không xác nhận cũng không phủ định chi tiết bổ sung; loại TRUE và FALSE."));
+        assertTrue(css.contains(".objective-preview__prep-table"));
+        assertTrue(css.contains("border: 1.5px solid #171717"));
+        assertTrue(css.contains("background: #fff229"));
+        assertTrue(css.contains(".objective-preview__answer-span"));
+        assertTrue(css.contains("text-decoration: underline"));
+        assertTrue(css.contains("color: #4273d9"));
+        assertTrue(css.contains(".objective-preview__table-scroll"));
+        assertTrue(css.contains("overflow-wrap: anywhere"));
+        assertTrue(css.contains("container-type: inline-size"));
+        assertTrue(css.contains("@container objective-editorial"));
+        assertTrue(css.contains("scrollbar-gutter: stable"));
+        assertTrue(css.contains(".objective-preview__unsupported"));
+        assertTrue(css.contains(".managed-select__list"));
+        assertTrue(css.contains("overscroll-behavior: contain"));
+    }
+
+    @Test
+    void objectiveStrategyPreviewFailsClosedAndKeepsTypedLayoutsDistinct()
+            throws Exception {
+        String editor = read("src/main/resources/templates/practice/manage/editor.html");
+        String css = read("src/main/resources/static/css/practice/manage-editor.css");
+        String previewRenderer = functionBody(
+                editor, "objectiveStrategyPreviewMarkup");
+        String safeText = functionBody(editor, "objectivePreviewSafeText");
+        String tfngDecision = functionBody(
+                editor, "objectivePreviewTfngDecision");
+        String setTfngCorrect = functionBody(
+                editor, "setTfngCorrect");
+        String sourceLanguage = functionBody(
+                editor, "objectivePreviewSourceLanguage");
+        String optionAuthority = functionBody(
+                editor, "objectivePreviewOptionAuthority");
+        String matchingAuthority = functionBody(
+                editor, "objectivePreviewMatchingAuthority");
+        String blankAuthority = functionBody(
+                editor, "objectivePreviewBlanks");
+        String groupPreview = functionBody(
+                editor, "previewGroupExplanationStrategy");
+
+        assertTrue(tfngDecision.contains("question.answerSpec.correctValue"));
+        assertTrue(tfngDecision.contains(": null"));
+        assertFalse(tfngDecision.contains(
+                "question && question.answer && question.answer.value"));
+        assertFalse(tfngDecision.contains("question && question.answerKey"));
+        assertTrue(setTfngCorrect.indexOf(
+                "syncQuestionContract(q)")
+                < setTfngCorrect.indexOf(
+                        "renderObjectiveStrategyPreview(q)"));
+        assertFalse(previewRenderer.contains(
+                "notGiven ? 'NOT_GIVEN' : 'FALSE'"));
+        assertTrue(previewRenderer.contains("if (!decision)"));
+        assertTrue(previewRenderer.contains(
+                "objective-preview__invalid-answer-authority"));
+
+        assertTrue(safeText.contains("objectivePreviewBlanks(question)"));
+        assertTrue(safeText.contains("if (!ordinalByBlankId.has(blankId))"));
+        assertTrue(safeText.contains(
+                "String.fromCharCode(123, 123) + 'blank:'"));
+        assertTrue(safeText.contains(
+                ".includes(unresolvedBlankPrefix)"));
+        assertTrue(safeText.contains("return null"));
+        assertFalse(safeText.contains(
+                "ordinalByBlankId.set(blankId, nextOrdinal)"));
+        assertFalse(safeText.contains("nextOrdinal"));
+        assertTrue(previewRenderer.contains(
+                "objective-preview__invalid-blank-token"));
+        assertTrue(previewRenderer.contains(
+                "normalizedObjectiveQuestionType(question) === 'FILL_BLANK'"));
+        assertTrue(blankAuthority.contains("acceptedValues.length === 0"));
+        assertTrue(blankAuthority.contains(
+                "contentBlanks.length !== answerBlanks.length"));
+        assertTrue(blankAuthority.contains(
+                "!seenContentIds.has(blankId)"));
+
+        assertTrue(optionAuthority.contains(
+                "type === 'SINGLE_CHOICE'"));
+        assertTrue(optionAuthority.contains(
+                "correctOptionIds.length === 1"));
+        assertTrue(optionAuthority.contains(
+                "type === 'MULTIPLE_ANSWER'"));
+        assertTrue(optionAuthority.contains(
+                "correctOptionIds.length >= 2"));
+        assertTrue(optionAuthority.contains(
+                "new Set(optionIds).size !== optionIds.length"));
+        assertTrue(optionAuthority.contains(
+                "correctOptionIds.some(value => !optionIds.includes(value))"));
+        assertFalse(optionAuthority.contains("question.answerKey"));
+        assertFalse(optionAuthority.contains("option.correct"));
+        assertTrue(matchingAuthority.contains(
+                "normalizedObjectiveQuestionType(question) !== 'MATCHING'"));
+        assertTrue(matchingAuthority.contains(
+                "answers.length !== blanks.length"));
+        assertTrue(matchingAuthority.contains(
+                "accepted.length !== 1"));
+        assertTrue(matchingAuthority.contains(
+                "!optionIds.includes(accepted[0])"));
+        assertTrue(previewRenderer.contains(
+                "const optionAuthority = objectivePreviewOptionAuthority(question)"));
+        assertTrue(previewRenderer.contains(
+                "Preview không suy đoán từ dữ liệu"));
+
+        assertTrue(previewRenderer.contains(
+                "meta.rendererCode === 'TFNG_CONTRADICTION_TABLE'"));
+        assertTrue(previewRenderer.contains(
+                "meta.rendererCode === 'NOT_GIVEN_BOUNDARY'"));
+        assertTrue(previewRenderer.contains(
+                "objective-preview__tfng-contradiction"));
+        assertTrue(previewRenderer.contains(
+                "objective-preview__not-given-boundary"));
+        assertFalse(previewRenderer.contains(
+                "['TFNG_CONTRADICTION_TABLE', 'NOT_GIVEN_BOUNDARY']"));
+
+        assertTrue(previewRenderer.contains(
+                "meta.rendererCode === 'MCQ_OPTION_ELIMINATION'"));
+        assertTrue(previewRenderer.contains(
+                "meta.rendererCode === 'EVIDENCE_AND_ELIMINATION'"));
+        assertTrue(previewRenderer.contains(
+                "meta.rendererCode === 'MATCHING_MATRIX'"));
+        assertTrue(previewRenderer.contains(
+                "objective-preview__mcq-elimination"));
+        assertTrue(previewRenderer.contains(
+                "objective-preview__evidence-elimination"));
+        assertTrue(previewRenderer.contains(
+                "objectivePreviewMatchingAuthority(question)"));
+        assertFalse(previewRenderer.contains(
+                "['MCQ_OPTION_ELIMINATION', 'EVIDENCE_AND_ELIMINATION']"));
+
+        assertTrue(sourceLanguage.contains("group.stimulusLanguageTag"));
+        assertTrue(sourceLanguage.contains("group.stimulus.languageTag"));
+        assertTrue(sourceLanguage.contains("['ko', 'vi'].includes"));
+        assertTrue(previewRenderer.contains(
+                "const sourceLanguage = objectivePreviewSourceLanguage(group)"));
+        assertTrue(previewRenderer.contains("lang=\"${sourceLanguage}\""));
+
+        assertTrue(groupPreview.contains(
+                "objective-preview__group-container"));
+        assertTrue(css.contains(".objective-preview__group-container"));
+        assertTrue(css.contains("container-type: inline-size"));
+    }
+
     private static boolean hasUtf8Bom(byte[] bytes) {
         return bytes.length >= 3
                 && (bytes[0] & 0xFF) == 0xEF
@@ -1154,6 +1465,28 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(startIndex >= 0, "Missing start marker: " + start);
         assertTrue(endIndex > startIndex, "Missing end marker: " + end);
         return source.substring(startIndex, endIndex);
+    }
+
+    private static String functionBody(String source, String functionName) {
+        String marker = "function " + functionName;
+        int markerIndex = source.indexOf(marker);
+        assertTrue(markerIndex >= 0, "Missing function: " + functionName);
+        int openingBrace = source.indexOf('{', markerIndex + marker.length());
+        assertTrue(openingBrace >= 0, "Missing function body: " + functionName);
+        int depth = 0;
+        for (int index = openingBrace; index < source.length(); index++) {
+            char current = source.charAt(index);
+            if (current == '{') {
+                depth++;
+            } else if (current == '}') {
+                depth--;
+                if (depth == 0) {
+                    return source.substring(openingBrace + 1, index);
+                }
+            }
+        }
+        assertTrue(false, "Unclosed function body: " + functionName);
+        return "";
     }
 
     private static String read(String path) throws Exception {

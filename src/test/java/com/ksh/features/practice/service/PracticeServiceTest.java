@@ -18,6 +18,8 @@ import com.ksh.entities.PracticePublishedVersion;
 import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
+import com.ksh.features.practice.ai.writing.WritingContractTestFixtures;
+import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingContractTrust;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
@@ -265,6 +267,29 @@ class PracticeServiceTest {
 
         assertEquals(1, view.groups().size());
         assertNull(view.groups().get(0).audioUrl());
+    }
+
+    @Test
+    void getPracticeAllowsBuiltInDeterministicListeningGroupAudio() {
+        PracticeSet set = new PracticeSet(
+                "Title", "Desc", "LISTENING", "GLOBAL", null, null, null,
+                "PUBLISHED", 1L);
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+
+        PracticeQuestionGroup group = mock(PracticeQuestionGroup.class);
+        when(group.getId()).thenReturn(100L);
+        when(group.getGroupLabel()).thenReturn("1");
+        when(group.getAudioUrl()).thenReturn(
+                "/audio/practice/listening-speaker-check.wav");
+        when(groupRepository.findBySetIdOrderByDisplayOrderAsc(1L))
+                .thenReturn(List.of(group));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L))
+                .thenReturn(List.of());
+
+        PracticeSetView view = practiceService.getPractice(1L);
+
+        assertEquals("/audio/practice/listening-speaker-check.wav",
+                view.groups().get(0).audioUrl());
     }
 
     @Test
@@ -1724,7 +1749,11 @@ class PracticeServiceTest {
         Map<String, String> form = Map.of("answer_101", "3", "other_field", "value");
         practiceService.saveInProgressAnswers(99L, 2L, form);
 
-        assertEquals("{\"101\":\"3\"}", attempt.getAnswersJson());
+        assertEquals(
+                "{\"schemaVersion\":\"practice-attempt-answers.v2\","
+                        + "\"responses\":{\"101\":{\"responseMode\":\"TEXT\","
+                        + "\"text\":\"3\"}}}",
+                attempt.getAnswersJson());
         verify(attemptRepository).saveAndFlush(attempt);
     }
 
@@ -2088,10 +2117,10 @@ class PracticeServiceTest {
         assertFalse(classification.succeeded());
         assertTrue(classification.retryable());
         assertEquals(
-                PracticeAttemptEvaluationOutcome.UNAVAILABLE,
+                PracticeAttemptEvaluationOutcome.FAILED,
                 classification.terminalStatus());
         assertEquals(
-                "EVALUATION_UNAVAILABLE",
+                "SPEAKING_EVALUATION_FAILED",
                 classification.errorCode());
     }
 
@@ -2917,7 +2946,8 @@ class PracticeServiceTest {
                         BigDecimal.valueOf(45.0)));
         JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
         assertEquals(oldNonTarget, feedback.get("102"));
-        assertEquals("new", feedback.get("103").path("summary").asText());
+        assertEquals(24.0,
+                feedback.get("103").path("raw_score").asDouble());
         assertTrue(feedback.get("103").isObject());
         assertFalse(feedback.get("103").isTextual());
         verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), eq(WritingTaskType.Q53));
@@ -2966,21 +2996,17 @@ class PracticeServiceTest {
     }
 
     @Test
-    void testWritingQuestionReEvaluateConvertsLegacyFlatSingleEssayToCurrentMap() throws Exception {
-        PracticeAttempt attempt = arrangeSingleEssayWritingQuestionReEvaluationAttempt(
+    void testWritingQuestionReEvaluateBlocksLegacyFlatSingleEssayBeforeEvaluator() {
+        arrangeSingleEssayWritingQuestionReEvaluationAttempt(
                 "{\"102\":\"A1\"}",
                 "{\"raw_score\":6.0,\"raw_score_max\":10.0,\"student_text\":\"A1\"}");
-        when(evaluationClient.evaluate(eq(2L), eq("Q1"), eq("A1"), eq(true), any()))
-                .thenReturn(currentWritingFeedback(
-                        WritingTaskType.Q51, "8", "new"));
 
-        practiceService.reEvaluateQuestion(99L, 102L, 2L);
+        assertThrows(PracticeAttemptConflictException.class,
+                () -> practiceService.reEvaluateQuestion(
+                        99L, 102L, 2L));
 
-        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
-        assertTrue(feedback.has("102"));
-        assertFalse(feedback.has("raw_score"));
-        assertEquals("new", feedback.get("102").path("summary").asText());
-        assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
+        verifyNoInteractions(evaluationClient);
+        verify(attemptRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -3283,31 +3309,33 @@ class PracticeServiceTest {
             String rawScore,
             String summary
     ) {
-        BigDecimal maximum = switch (taskType) {
-            case Q51, Q52 -> BigDecimal.TEN;
-            case Q53 -> BigDecimal.valueOf(30);
-            case Q54 -> BigDecimal.valueOf(50);
-        };
-        com.fasterxml.jackson.databind.node.ObjectNode node =
-                objectMapper.createObjectNode();
-        node.put("raw_score", new BigDecimal(rawScore));
-        node.put("raw_score_max", maximum);
-        node.put("task_type", taskType.name());
-        node.put("engine", "KSH_WRITING_EVALUATOR_V2");
-        node.put("scoring_contract", "TASK_NATIVE_RUBRIC_V1");
-        node.put(
-                "policy_bundle_id",
-                "KSH_WRITING_POLICY_BUNDLE_V2");
-        node.put("evaluation_status", "EVALUATED");
-        node.put("evaluation_source", "PROVIDER");
-        node.put("evaluation_reason", "NONE");
-        node.put("evaluation_retryable", false);
-        node.put("score_available", true);
-        node.put("summary", summary);
-        node.set(
-                "rubric_scores",
-                objectMapper.createArrayNode());
-        return node.toString();
+        int requested = new BigDecimal(rawScore).intValueExact();
+        int maximum = WritingScoringPolicy.rubricFor(
+                taskType.name()).totalMaxScore();
+        int boundedScore = Math.max(0, Math.min(requested, maximum));
+        String learnerAnswer =
+                WritingContractTestFixtures.scoreBearingLearnerAnswer(
+                        taskType.name(), boundedScore);
+        String normalized = WritingContractTestFixtures.normalizedFeedback(
+                objectMapper,
+                taskType.name(),
+                learnerAnswer,
+                envelope -> WritingContractTestFixtures.applyRawScore(
+                        envelope,
+                        taskType.name(),
+                        learnerAnswer,
+                        boundedScore));
+        if (requested >= 0 && requested <= maximum) {
+            return normalized;
+        }
+        try {
+            var node = (com.fasterxml.jackson.databind.node.ObjectNode)
+                    objectMapper.readTree(normalized);
+            node.put("raw_score", requested);
+            return node.toString();
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     private String currentWritingInvalid(
@@ -3341,7 +3369,7 @@ class PracticeServiceTest {
         node.put("engine", "KSH_WRITING_EVALUATOR_STATUS");
         node.put(
                 "policy_bundle_id",
-                "KSH_WRITING_POLICY_BUNDLE_V2");
+                "KSH_WRITING_POLICY_BUNDLE_V3");
         node.put("evaluation_status", status);
         node.put("evaluation_source", "PROVIDER");
         node.put("evaluation_reason", reason);

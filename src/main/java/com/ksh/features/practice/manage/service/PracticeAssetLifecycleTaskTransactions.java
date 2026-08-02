@@ -51,7 +51,8 @@ public class PracticeAssetLifecycleTaskTransactions {
         if (PracticeAssetLifecycleTask.DELETE.equals(task.getOperation())
                 && task.getAssetId() != null) {
             AssetDeleteDecision decision = lockAssetDeleteCandidate(
-                    task.getAssetId(), task.getSourceStorageKey());
+                    task.getAssetId(), task.getStorageProfileCode(),
+                    task.getSourceStorageKey());
             if (decision.terminal()) {
                 task.markCompleted();
                 taskRepository.save(task);
@@ -67,6 +68,7 @@ public class PracticeAssetLifecycleTaskTransactions {
             return new ClaimedDelete(
                     task.getId(),
                     task.getAssetId(),
+                    task.getStorageProfileCode(),
                     task.getOperation(),
                     decision.asset().getStorageKey(),
                     claimToken);
@@ -74,7 +76,7 @@ public class PracticeAssetLifecycleTaskTransactions {
         if (task.getSourceStorageKey() == null
                 || task.getSourceStorageKey().isBlank()
                 || hasRetainedStorageKeyRow(
-                        assetRepository.findByStorageKeyForUpdate(
+                        lockStorageRows(task.getStorageProfileCode(),
                                 task.getSourceStorageKey()))) {
             task.markCompleted();
             taskRepository.save(task);
@@ -86,6 +88,7 @@ public class PracticeAssetLifecycleTaskTransactions {
         return new ClaimedDelete(
                 task.getId(),
                 task.getAssetId(),
+                task.getStorageProfileCode(),
                 task.getOperation(),
                 task.getSourceStorageKey(),
                 claimToken);
@@ -111,7 +114,8 @@ public class PracticeAssetLifecycleTaskTransactions {
         if (PracticeAssetLifecycleTask.DELETE.equals(claim.operation())
                 && claim.assetId() != null) {
             AssetDeleteDecision decision = lockAssetDeleteCandidate(
-                    claim.assetId(), claim.storageKey());
+                    claim.assetId(), claim.storageProfileCode(),
+                    claim.storageKey());
             if (decision.terminal()) {
                 task.markCompleted();
                 taskRepository.save(task);
@@ -126,7 +130,7 @@ public class PracticeAssetLifecycleTaskTransactions {
         if (claim.storageKey() == null
                 || claim.storageKey().isBlank()
                 || hasRetainedStorageKeyRow(
-                        assetRepository.findByStorageKeyForUpdate(
+                        lockStorageRows(claim.storageProfileCode(),
                                 claim.storageKey()))) {
             task.markCompleted();
             taskRepository.save(task);
@@ -145,6 +149,7 @@ public class PracticeAssetLifecycleTaskTransactions {
      */
     private AssetDeleteDecision lockAssetDeleteCandidate(
             Long candidateId,
+            String storageProfileCode,
             String storageKey) {
         if (candidateId == null
                 || storageKey == null
@@ -152,7 +157,7 @@ public class PracticeAssetLifecycleTaskTransactions {
             return AssetDeleteDecision.invalid();
         }
         java.util.List<LecturerAsset> lockedAssets =
-                assetRepository.findByStorageKeyForUpdate(storageKey);
+                lockStorageRows(storageProfileCode, storageKey);
         LecturerAsset candidate = lockedAssets.stream()
                 .filter(asset -> java.util.Objects.equals(
                         candidateId, asset.getId()))
@@ -162,7 +167,9 @@ public class PracticeAssetLifecycleTaskTransactions {
                 || !"DELETION_PENDING".equalsIgnoreCase(
                         candidate.getStatus())
                 || !java.util.Objects.equals(
-                        candidate.getStorageKey(), storageKey)) {
+                        candidate.getStorageKey(), storageKey)
+                || !java.util.Objects.equals(
+                        candidate.getStorageProfileCode(), storageProfileCode)) {
             return AssetDeleteDecision.invalid();
         }
         for (LecturerAsset asset : lockedAssets) {
@@ -175,6 +182,14 @@ public class PracticeAssetLifecycleTaskTransactions {
             }
         }
         return AssetDeleteDecision.allowed(candidate);
+    }
+
+    private java.util.List<LecturerAsset> lockStorageRows(
+            String storageProfileCode, String storageKey) {
+        return storageProfileCode == null
+                ? assetRepository.findByStorageKeyForUpdate(storageKey)
+                : assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
+                        storageProfileCode, storageKey);
     }
 
     private void deferRetainedStorageKey(
@@ -266,8 +281,16 @@ public class PracticeAssetLifecycleTaskTransactions {
     public record ClaimedDelete(
             Long taskId,
             Long assetId,
+            String storageProfileCode,
             String operation,
             String storageKey,
             String claimToken) {
+        public ClaimedDelete(Long taskId,
+                             Long assetId,
+                             String operation,
+                             String storageKey,
+                             String claimToken) {
+            this(taskId, assetId, null, operation, storageKey, claimToken);
+        }
     }
 }

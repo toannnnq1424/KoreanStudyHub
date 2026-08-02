@@ -71,6 +71,12 @@
   min-height: calc(100vh - 64px - 80px);
 }
 
+/* A class without chapters still owns a complete class shell. The missing
+   course outline removes only the right rail, never the class navigation. */
+.student-lessons-grid.is-empty {
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
 @media (max-width: 1199px) {
   .student-lessons-grid {
     grid-template-columns: 240px 1fr;
@@ -581,7 +587,31 @@ a.student-lessons-nav-item:hover {
 
 .student-lessons-empty-class {
   margin: 0;
-  border-bottom: 1px solid var(--shub-border);
+  border: 1px solid var(--shub-border);
+  border-radius: 14px;
+  max-width: 620px;
+  width: 100%;
+}
+
+.student-lessons-empty-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: calc(100vh - 64px - 80px);
+  padding-top: clamp(48px, 10vh, 112px);
+}
+
+.student-lessons-empty-class h2 {
+  margin: 0 0 var(--space-2);
+  color: var(--shub-text);
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.student-lessons-empty-class span {
+  display: block;
+  margin-top: var(--space-2);
+  line-height: 1.6;
 }
 
 .student-lessons-empty-icon {

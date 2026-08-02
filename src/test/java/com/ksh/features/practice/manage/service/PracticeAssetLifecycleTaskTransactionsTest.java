@@ -20,6 +20,49 @@ import static org.mockito.Mockito.when;
 class PracticeAssetLifecycleTaskTransactionsTest {
 
     @Test
+    void profileCodedCleanupLocksOnlyTheExactProfileAndKey() throws Exception {
+        PracticeAssetLifecycleTaskRepository tasks =
+                mock(PracticeAssetLifecycleTaskRepository.class);
+        LecturerAssetRepository assets = mock(LecturerAssetRepository.class);
+        PracticeAssetReferenceGuard guard = mock(PracticeAssetReferenceGuard.class);
+        PracticeAssetLifecycleTaskTransactions transactions =
+                new PracticeAssetLifecycleTaskTransactions(tasks, assets, guard);
+        PracticeAssetLifecycleTask task = new PracticeAssetLifecycleTask(
+                9L, "PRACTICE_AUTHORING", PracticeAssetLifecycleTask.DELETE,
+                "lecturer-assets/shared.png", null);
+        set(task, "id", 1L);
+        LecturerAsset asset = asset(9L, "lecturer-assets/shared.png");
+        asset.setStorageProfileCode("PRACTICE_AUTHORING");
+        when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", "lecturer-assets/shared.png"))
+                .thenReturn(List.of(asset));
+        when(guard.isRetained(9L)).thenReturn(false);
+
+        org.junit.jupiter.api.Assertions.assertNotNull(transactions.claim(1L));
+
+        verify(assets).findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", "lecturer-assets/shared.png");
+        verify(assets, never()).findByStorageKeyForUpdate(
+                "lecturer-assets/shared.png");
+    }
+
+    @Test
+    void legacyLifecycleReservationQueryCannotMatchProfileCodedTasks()
+            throws Exception {
+        org.springframework.data.jpa.repository.Query query =
+                PracticeAssetLifecycleTaskRepository.class
+                        .getMethod("findActiveBySourceStorageKeyForUpdate", String.class)
+                        .getAnnotation(org.springframework.data.jpa.repository.Query.class);
+
+        org.junit.jupiter.api.Assertions.assertNotNull(query);
+        org.junit.jupiter.api.Assertions.assertTrue(query.value()
+                .replaceAll("\\s+", " ")
+                .toLowerCase(java.util.Locale.ROOT)
+                .contains("t.storageprofilecode is null"));
+    }
+
+    @Test
     void dueQueueOrdersByEligibilityBeforeStableIdToPreventDeferralStarvation()
             throws Exception {
         org.springframework.data.jpa.repository.Query query =

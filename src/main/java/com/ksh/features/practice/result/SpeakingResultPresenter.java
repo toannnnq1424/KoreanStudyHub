@@ -19,9 +19,11 @@ import com.ksh.features.practice.dto.PracticeDtos.ResultDetailDiagnosticFinding;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailFilterChip;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPolarity;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailSpanMembership;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScoreCriterion;
 import com.ksh.features.practice.dto.PracticeDtos.ResultEvaluationBand;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
+import com.ksh.features.practice.dto.PracticeDtos.ResultPerformanceLevel;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingAnswerArtifact;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingActionPlanView;
@@ -29,14 +31,17 @@ import com.ksh.features.practice.dto.PracticeDtos.SpeakingCriterionResult;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingDiagnosticGroup;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingEvidenceView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingOverviewFindingView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingPhraseRewriteView;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingQuestionPerformance;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingResultPayload;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingSubmetricPerformance;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingTaskDetail;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingTeacherSampleView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingUpgradeView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
-import com.ksh.features.practice.dto.PracticeDtos.WritingFindingView;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +65,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     private static final String AI_CONTRACT = "speaking_ai_v1";
     private static final String MIXED_CONTRACT = "speaking_mixed_v1";
     private static final String FEEDBACK_BY_QUESTION = "speaking_feedback_by_question";
+    private static final String TEACHER_SAMPLES_BY_QUESTION =
+            "speaking_teacher_samples_by_question";
     private static final String ESSAY_FEEDBACK_BY_QUESTION = "essay_feedback_by_question";
 
     private final ObjectMapper objectMapper;
@@ -119,7 +126,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         boolean unsupportedContract = hasUnsupportedContract(root);
         List<SegmentFeedback> segments = new ArrayList<>();
         List<SegmentFeedback> lowConfidenceSegments = new ArrayList<>();
-        List<LegacyEssayFeedback> legacyEssayFeedbacks = new ArrayList<>();
         long legacyEssayQuestionCount = questions.stream()
                 .filter(question -> "ESSAY".equals(question.getQuestionType()))
                 .count();
@@ -149,8 +155,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 switch (legacyEssayFeedbackState(node, feedback, contract)) {
                     case "READY" -> {
                         // Historical ESSAY rows remain readable as compatibility
-                        // copy, but they are not verified Speaking evidence.
-                        legacyEssayFeedbacks.add(new LegacyEssayFeedback(feedback));
+                        // state, but its prose is not verified Speaking evidence
+                        // and must not be promoted into learner-facing claims.
                         legacyUnverified++;
                         unscorable++;
                     }
@@ -249,6 +255,23 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         }
         String evidenceNote = evidenceNote(
                 profileState, evidenceMode, contractTrust, holisticAvailable);
+        List<SpeakingOverviewFindingView> strengths =
+                overviewFindings(
+                        segments,
+                        ResultDetailPolarity.STRENGTH);
+        List<SpeakingOverviewFindingView> needsImprovement =
+                overviewFindings(
+                        segments,
+                        ResultDetailPolarity.NEEDS_IMPROVEMENT);
+        List<SpeakingQuestionPerformance> questionPerformance =
+                questionPerformance(
+                        context,
+                        questions,
+                        segments,
+                        lowConfidenceSegments,
+                        transcriptOnlyCapability);
+        List<SpeakingSubmetricPerformance> submetricPerformance =
+                submetricPerformance(strengths, needsImprovement, criteria);
 
         SpeakingResultPayload payload = new SpeakingResultPayload(
                 displayScore,
@@ -257,14 +280,14 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 profileState,
                 evidenceMode,
                 evidenceNote,
-                mergeUnique(uniqueText(segments, TextKind.SUMMARY),
-                        legacyEssayText(legacyEssayFeedbacks, TextKind.SUMMARY)),
-                mergeUnique(uniqueText(segments, TextKind.STRENGTH),
-                        legacyEssayText(legacyEssayFeedbacks, TextKind.STRENGTH)),
-                mergeUnique(uniqueText(segments, TextKind.NEED),
-                        legacyEssayText(legacyEssayFeedbacks, TextKind.NEED)),
-                actionPlan(segments),
+                derivedOverviewSummaries(
+                        segments, strengths, needsImprovement),
+                strengths,
+                needsImprovement,
+                actionPlan(needsImprovement),
                 criteria,
+                submetricPerformance,
+                questionPerformance,
                 evaluatorCapability,
                 evidenceContractVersion,
                 policyBundleId,
@@ -406,8 +429,9 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         }
         DiagnosticState diagnosticState = diagnosticState(
                 evaluationState, currentEvidence, resolved);
+        List<SpeakingDiagnosticGroup> diagnosticGroups = detailGroups(resolved);
         List<SpeakingTextSegment> transcriptSegments = transcriptSegments(
-                selectedFeedback, currentEvidence, authoritativeTranscript);
+                diagnosticGroups, currentEvidence, authoritativeTranscript);
 
         return new SpeakingDetailPayload(
                 selectedFeedbackAvailability(evaluationState),
@@ -428,16 +452,48 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 diagnosticScopeNoteKo(),
                 diagnosticState.noteVi(),
                 diagnosticState.noteKo(),
-                detailGroups(resolved),
+                diagnosticGroups,
                 detailUpgrade(
                         selected.getQuestionId(),
                         selectedFeedback,
                         currentEvidence,
-                        authoritativeTranscript));
+                        authoritativeTranscript),
+                teacherSample(root, selected.getQuestionId()));
+    }
+
+    private static SpeakingTeacherSampleView teacherSample(
+            JsonNode root,
+            Long questionId
+    ) {
+        JsonNode samplesByQuestion = root == null
+                ? null
+                : root.get(TEACHER_SAMPLES_BY_QUESTION);
+        JsonNode sample = samplesByQuestion == null
+                || !samplesByQuestion.isObject()
+                || questionId == null
+                ? null
+                : samplesByQuestion.get(String.valueOf(questionId));
+        if (sample == null || !sample.isObject()
+                || !"ksh-speaking-teacher-sample-v1".equals(
+                sample.path("contractVersion").asText(null))
+                || !"TEACHER_AUTHORED".equals(
+                sample.path("source").asText(null))
+                || !"LECTURER".equals(
+                sample.path("authorRole").asText(null))
+                || sample.path("fixtureId").asText("").isBlank()
+                || sample.path("content").asText("").isBlank()) {
+            return SpeakingTeacherSampleView.unavailable();
+        }
+        return new SpeakingTeacherSampleView(
+                sample.path("content").asText(),
+                "AVAILABLE",
+                "TEACHER_AUTHORED",
+                "LECTURER",
+                sample.path("fixtureId").asText());
     }
 
     private static List<SpeakingTextSegment> transcriptSegments(
-            SpeakingEvaluationResult feedback,
+            List<SpeakingDiagnosticGroup> diagnosticGroups,
             boolean currentEvidence,
             String authoritativeTranscript
     ) {
@@ -446,71 +502,70 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 : authoritativeTranscript;
         List<SpeakingTextSegment> fallback =
                 List.of(SpeakingTextSegment.plain(transcript));
-        if (!currentEvidence
-                || feedback == null
-                || !feedback.profileAvailable()
-                || feedback.evidenceMode() != SpeakingEvidenceMode.TRANSCRIPT_ONLY
-                || transcript.isBlank()
-                || feedback.transcriptAnnotations().isEmpty()) {
+        if (!currentEvidence || transcript.isBlank()
+                || diagnosticGroups == null || diagnosticGroups.isEmpty()) {
             return fallback;
         }
-
-        List<ResolvedTextAnnotation> resolved = new ArrayList<>();
-        Set<String> identities = new LinkedHashSet<>();
-        for (SpeakingEvaluationResult.TranscriptAnnotation annotation
-                : feedback.transcriptAnnotations()) {
-            if (annotation == null) {
-                return fallback;
-            }
-            String annotationType = normalizedAnnotationType(annotation);
-            if ("advisory".equals(annotationType)
-                    || "WHOLE_ANSWER".equals(annotation.evidenceScope())) {
+        List<ResultDetailDiagnosticFinding> findings = diagnosticGroups.stream()
+                .flatMap(group -> java.util.stream.Stream.concat(
+                        group.strengths().stream(),
+                        group.needsImprovement().stream()))
+                .filter(finding -> "TEXT_SPAN".equals(finding.evidenceScope()))
+                .filter(finding -> finding.startOffset() != null
+                        && finding.endOffset() != null
+                        && finding.startOffset() >= 0
+                        && finding.endOffset() > finding.startOffset()
+                        && finding.endOffset() <= transcript.length()
+                        && transcript.substring(
+                        finding.startOffset(), finding.endOffset())
+                        .equals(finding.evidence()))
+                .sorted(Comparator
+                        .comparing(ResultDetailDiagnosticFinding::startOffset)
+                        .thenComparing(ResultDetailDiagnosticFinding::endOffset)
+                        .thenComparing(ResultDetailDiagnosticFinding::findingId))
+                .toList();
+        if (findings.isEmpty()) {
+            return fallback;
+        }
+        java.util.SortedSet<Integer> boundaries = new java.util.TreeSet<>();
+        boundaries.add(0);
+        boundaries.add(transcript.length());
+        findings.forEach(finding -> {
+            boundaries.add(finding.startOffset());
+            boundaries.add(finding.endOffset());
+        });
+        List<SpeakingTextSegment> segments = new ArrayList<>();
+        List<Integer> points = List.copyOf(boundaries);
+        for (int index = 0; index < points.size() - 1; index++) {
+            int start = points.get(index);
+            int end = points.get(index + 1);
+            if (start == end) {
                 continue;
             }
-            ResolvedTextAnnotation candidate = resolveTextAnnotation(
-                    transcript, annotation, annotationType);
-            if (candidate == null
-                    || !identities.add(candidate.start() + ":"
-                    + candidate.end() + ":" + candidate.descriptorId())) {
-                return fallback;
+            List<ResultDetailDiagnosticFinding> active = findings.stream()
+                    .filter(finding -> finding.startOffset() <= start
+                            && finding.endOffset() >= end)
+                    .toList();
+            String text = transcript.substring(start, end);
+            if (active.isEmpty()) {
+                segments.add(SpeakingTextSegment.plain(text));
+                continue;
             }
-            resolved.add(candidate);
-        }
-        if (resolved.isEmpty()) {
-            return fallback;
-        }
-        resolved.sort(Comparator
-                .comparingInt(ResolvedTextAnnotation::start)
-                .thenComparingInt(ResolvedTextAnnotation::end)
-                .thenComparing(ResolvedTextAnnotation::descriptorId));
-
-        int previousEnd = 0;
-        for (ResolvedTextAnnotation annotation : resolved) {
-            if (annotation.start() < previousEnd) {
-                return fallback;
-            }
-            previousEnd = annotation.end();
-        }
-
-        List<SpeakingTextSegment> segments = new ArrayList<>();
-        int cursor = 0;
-        for (ResolvedTextAnnotation annotation : resolved) {
-            if (annotation.start() > cursor) {
-                segments.add(SpeakingTextSegment.plain(
-                        transcript.substring(cursor, annotation.start())));
-            }
+            ResultDetailDiagnosticFinding primary = active.get(0);
+            List<ResultDetailSpanMembership> memberships = active.stream()
+                    .map(ResultDetailDiagnosticFinding::spanMembership)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
             segments.add(new SpeakingTextSegment(
-                    transcript.substring(annotation.start(), annotation.end()),
+                    text,
                     true,
-                    annotation.polarity().name(),
-                    annotation.descriptorId(),
-                    annotation.featureId(),
-                    annotation.explanationVi(),
-                    annotation.correctionKo()));
-            cursor = annotation.end();
-        }
-        if (cursor < transcript.length()) {
-            segments.add(SpeakingTextSegment.plain(transcript.substring(cursor)));
+                    primary.polarity().name(),
+                    primary.findingId(),
+                    primary.descriptorId(),
+                    primary.featureId(),
+                    primary.explanationVi(),
+                    primary.correctionKo(),
+                    memberships));
         }
         return segments.isEmpty() ? fallback : List.copyOf(segments);
     }
@@ -571,6 +626,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 annotation.startOffset(),
                 annotation.endOffset(),
                 polarity,
+                annotation.findingId(),
                 descriptor.id(),
                 annotation.subCriterionId().trim(),
                 annotation.explanationVi().trim(),
@@ -609,7 +665,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                     "",
                     "NAVIGATION_ONLY",
                     "NAVIGATION_ONLY",
-                    null);
+                    null,
+                    questionLanguageTag(question));
         }
         String answer = context.answers().getOrDefault(
                 String.valueOf(question.getQuestionId()), "");
@@ -658,9 +715,55 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 submissionText,
                 submissionState,
                 evaluationState,
-                currentEvidence && feedback.profileAvailable()
-                        ? transcriptGroundedText(feedback.overallSummary())
-                        : null);
+                verifiedTaskSummary(feedback, currentEvidence),
+                questionLanguageTag(question));
+    }
+
+    private String questionLanguageTag(PracticeQuestionVersion question) {
+        String json = question.getQuestionContentJson();
+        if (json == null || json.isBlank()) {
+            return "ko";
+        }
+        JsonNode content = readTree(json);
+        if (content == null || !content.isObject()) {
+            return "ko";
+        }
+        JsonNode languageNode = content.get("languageTag");
+        if (languageNode == null || languageNode.isNull()
+                || languageNode.asText("").isBlank()) {
+            return "ko";
+        }
+        String languageTag = languageNode.asText().trim()
+                .toLowerCase(java.util.Locale.ROOT);
+        if (!Set.of("ko", "vi").contains(languageTag)) {
+            throw new IllegalStateException(
+                    "Speaking question has invalid immutable languageTag: "
+                            + question.getQuestionId());
+        }
+        return languageTag;
+    }
+
+    private static String verifiedTaskSummary(
+            SpeakingEvaluationResult feedback,
+            boolean currentEvidence) {
+        if (!currentEvidence
+                || feedback == null
+                || !feedback.profileAvailable()) {
+            return null;
+        }
+        long evidenceCount = feedback.evidence().stream()
+                .filter(evidence ->
+                        evidence.source()
+                                == SpeakingEvidenceSource.TRANSCRIPT)
+                .count();
+        int findingCount = feedback.strengths().size()
+                + feedback.needsImprovement().size();
+        return "Đã xác minh "
+                + evidenceCount
+                + " bằng chứng bản chép lời và "
+                + findingCount
+                + " nhận xét nguyên tử cho câu này. "
+                + "Tiêu chí âm học chưa chấm.";
     }
 
     private SpeakingMediaView selectedMedia(
@@ -850,7 +953,9 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                     score,
                     maxScore,
                     availability,
-                    criterion.ordinal() + 1));
+                    criterion.ordinal() + 1,
+                    null,
+                    row == null ? null : row.feedback()));
         }
         return List.copyOf(result);
     }
@@ -886,14 +991,24 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             sequence++;
             ResultDetailDiagnosticFinding diagnostic = new ResultDetailDiagnosticFinding(
                     questionId,
-                    "S-" + questionId + "-" + sequence,
+                    finding.findingId(),
+                    finding.evidenceId(),
                     descriptor.id(),
+                    finding.subCriterionId(),
                     polarity,
                     descriptor.parentCriterionId(),
                     descriptor.applicability(),
                     evidenceAvailability,
                     finding.evidenceScope(),
                     finding.evidence(),
+                    finding.startOffset(),
+                    finding.endOffset(),
+                    finding.occurrenceIndex(),
+                    finding.occurrenceCount(),
+                    finding.normalization(),
+                    finding.sourceHash(),
+                    finding.operation(),
+                    sequence,
                     finding.explanationVi(),
                     finding.correction());
             target.add(new ResolvedDiagnostic(family, descriptor, diagnostic));
@@ -904,18 +1019,47 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     private static List<SpeakingDiagnosticGroup> detailGroups(
             List<ResolvedDiagnostic> diagnostics
     ) {
-        Map<String, List<ResolvedDiagnostic>> grouped = new LinkedHashMap<>();
-        diagnostics.stream()
+        Map<String, Integer> scopedCounts = new LinkedHashMap<>();
+        List<ResolvedDiagnostic> scopedDiagnostics = diagnostics.stream()
                 .sorted(Comparator
                         .comparingInt((ResolvedDiagnostic row) ->
                                 row.family().stableOrder())
-                        .thenComparingInt(row -> row.definition().stableOrder()))
-                .forEach(row -> grouped.computeIfAbsent(
-                        row.family().code(), ignored -> new ArrayList<>()).add(row));
-        return grouped.values().stream().map(rows -> {
-            ResultDetailDescriptorRegistry.SpeakingFamily family =
-                    rows.get(0).family();
-            List<ResultDetailFilterChip> chips = detailChips(rows);
+                        .thenComparingInt(row -> row.definition().stableOrder())
+                        .thenComparing(row -> row.finding().startOffset(),
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(row -> row.finding().findingId()))
+                .map(row -> {
+                    String key = row.definition().id()
+                            + ":" + row.finding().polarity().name();
+                    int number = scopedCounts.merge(key, 1, Integer::sum);
+                    return new ResolvedDiagnostic(
+                            row.family(), row.definition(),
+                            row.finding().withScopedDisplayNumber(number));
+                })
+                .toList();
+        List<ResultDetailDescriptorRegistry.SpeakingCatalogEntry> catalog =
+                java.util.stream.Stream.concat(
+                        ResultDetailDescriptorRegistry.speakingCatalog(
+                                ResultDetailPolarity.STRENGTH).stream(),
+                        ResultDetailDescriptorRegistry.speakingCatalog(
+                                ResultDetailPolarity.NEEDS_IMPROVEMENT).stream())
+                        .toList();
+        Map<String, ResultDetailDescriptorRegistry.SpeakingFamily> families =
+                new LinkedHashMap<>();
+        catalog.stream()
+                .sorted(Comparator.comparingInt(entry ->
+                        entry.family().stableOrder()))
+                .forEach(entry -> families.putIfAbsent(
+                        entry.family().code(), entry.family()));
+        return families.values().stream().map(family -> {
+            List<ResolvedDiagnostic> rows = scopedDiagnostics.stream()
+                    .filter(row -> family.code().equals(row.family().code()))
+                    .toList();
+            List<ResultDetailDescriptorRegistry.SpeakingCatalogEntry>
+                    familyCatalog = catalog.stream()
+                    .filter(entry -> family.code().equals(entry.family().code()))
+                    .toList();
+            List<ResultDetailFilterChip> chips = detailChips(rows, familyCatalog);
             return new SpeakingDiagnosticGroup(
                     family.code(),
                     family.labelVi(),
@@ -947,9 +1091,14 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     }
 
     private static List<ResultDetailFilterChip> detailChips(
-            List<ResolvedDiagnostic> diagnostics
+            List<ResolvedDiagnostic> diagnostics,
+            List<ResultDetailDescriptorRegistry.SpeakingCatalogEntry> catalog
     ) {
         Map<String, ChipCount> counts = new LinkedHashMap<>();
+        for (ResultDetailDescriptorRegistry.SpeakingCatalogEntry entry : catalog) {
+            counts.put(entry.definition().id(), new ChipCount(
+                    entry.definition(), entry.polarity(), 0, "NO_FINDING"));
+        }
         for (ResolvedDiagnostic resolved : diagnostics) {
             counts.compute(resolved.definition().id(), (ignored, current) ->
                     current == null
@@ -961,7 +1110,9 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                             : current.incremented(resolved.finding().evidenceAvailability()));
         }
         return counts.values().stream()
-                .sorted(Comparator.comparingInt(value -> value.definition().stableOrder()))
+                .sorted(Comparator
+                        .comparingInt((ChipCount value) -> value.count() == 0 ? 1 : 0)
+                        .thenComparingInt(value -> value.definition().stableOrder()))
                 .map(value -> new ResultDetailFilterChip(
                         value.definition().id(),
                         value.definition().labelVi(),
@@ -1146,9 +1297,18 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             }
             String key = normalizeKey(finding.evidence())
                     + "|" + normalizeKey(finding.correction());
+            ResultDetailDescriptorRegistry.Definition descriptor =
+                    ResultDetailDescriptorRegistry.speaking(
+                            finding.criterion(), finding.subCriterionId(),
+                            ResultDetailPolarity.NEEDS_IMPROVEMENT);
+            if (descriptor == null || !present(finding.findingId())) {
+                continue;
+            }
             unique.putIfAbsent(
                     key,
                     new SpeakingPhraseRewriteView(
+                            finding.findingId(),
+                            descriptor.id(),
                             finding.evidence(),
                             finding.correction(),
                             finding.explanationVi()));
@@ -1240,6 +1400,139 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 .min(criterion.maxScore());
     }
 
+    private static List<SpeakingQuestionPerformance> questionPerformance(
+            PracticeResultContext context,
+            List<PracticeQuestionVersion> questions,
+            List<SegmentFeedback> segments,
+            List<SegmentFeedback> lowConfidenceSegments,
+            boolean transcriptOnlyCapability
+    ) {
+        Map<Long, SegmentFeedback> readyByQuestion = segments.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        SegmentFeedback::questionId,
+                        value -> value,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+        Set<Long> lowConfidenceQuestionIds = lowConfidenceSegments.stream()
+                .map(SegmentFeedback::questionId)
+                .collect(java.util.stream.Collectors.toCollection(
+                        LinkedHashSet::new));
+        Map<Long, String> groupLabels = context.snapshot().groups() == null
+                ? Map.of()
+                : context.snapshot().groups().stream()
+                .filter(group -> group.getId() != null)
+                .collect(java.util.stream.Collectors.toMap(
+                        group -> group.getId(),
+                        group -> present(group.getGroupLabel())
+                                ? group.getGroupLabel()
+                                : "Phần Nói",
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+        List<SpeakingQuestionPerformance> result = new ArrayList<>();
+        for (PracticeQuestionVersion question : questions) {
+            // Per-question performance is only authoritative for canonical
+            // Speaking tasks published in the immutable snapshot. Historical
+            // ESSAY compatibility rows remain visible in legacy detail, but
+            // must never be promoted into a scored Speaking overview panel.
+            if (!"SPEAKING".equals(question.getQuestionType())) {
+                continue;
+            }
+            SegmentFeedback segment = readyByQuestion.get(question.getQuestionId());
+            String answer = context.answers().getOrDefault(
+                    String.valueOf(question.getQuestionId()), "");
+            String availability;
+            if (segment != null) {
+                availability = "READY";
+            } else if (lowConfidenceQuestionIds.contains(question.getQuestionId())) {
+                availability = "LOW_CONFIDENCE";
+            } else if (!present(answer)) {
+                availability = "NOT_ANSWERED";
+            } else {
+                availability = "UNAVAILABLE";
+            }
+            List<SpeakingCriterionResult> questionCriteria = criteria(
+                    segment == null ? List.of() : List.of(segment),
+                    1,
+                    "LEGACY_UNVERIFIED".equals(availability) ? 1 : 0,
+                    transcriptOnlyCapability);
+            int displayNumber = question.getQuestionNo() == null
+                    ? result.size() + 1
+                    : question.getQuestionNo();
+            String groupLabel = question.getGroupVersionId() == null
+                    ? "Phần Nói"
+                    : groupLabels.getOrDefault(
+                            question.getGroupVersionId(), "Phần Nói");
+            result.add(new SpeakingQuestionPerformance(
+                    question.getQuestionId(),
+                    displayNumber,
+                    "Câu Nói " + displayNumber,
+                    groupLabel,
+                    availability,
+                    questionCriteria));
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<SpeakingSubmetricPerformance> submetricPerformance(
+            List<SpeakingOverviewFindingView> strengths,
+            List<SpeakingOverviewFindingView> needsImprovement,
+            List<SpeakingCriterionResult> criteria
+    ) {
+        Map<String, SpeakingCriterionResult> criteriaById = criteria.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        SpeakingCriterionResult::criterionId,
+                        value -> value,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+        Map<String, List<SpeakingOverviewFindingView>> findingsBySubcriterion =
+                java.util.stream.Stream.concat(
+                                strengths.stream(), needsImprovement.stream())
+                        .collect(java.util.stream.Collectors.groupingBy(
+                                SpeakingOverviewFindingView::subcriterionId,
+                                LinkedHashMap::new,
+                                java.util.stream.Collectors.toList()));
+        List<SpeakingSubmetricPerformance> result = new ArrayList<>();
+        for (Map.Entry<String, List<SpeakingOverviewFindingView>> entry
+                : findingsBySubcriterion.entrySet()) {
+            List<SpeakingOverviewFindingView> findings = entry.getValue();
+            SpeakingOverviewFindingView first = findings.get(0);
+            SpeakingRubricCriterion parent =
+                    SpeakingRubricCriterion.fromExternalId(first.criterionId());
+            ResultDetailDescriptorRegistry.Definition definition =
+                    ResultDetailDescriptorRegistry.speaking(
+                            parent,
+                            entry.getKey(),
+                            "STRENGTH".equals(first.polarity())
+                                    ? ResultDetailPolarity.STRENGTH
+                                    : ResultDetailPolarity.NEEDS_IMPROVEMENT);
+            SpeakingCriterionResult criterion =
+                    criteriaById.get(first.criterionId());
+            if (parent == null || definition == null
+                    || criterion == null || !criterion.scored()) {
+                continue;
+            }
+            int strengthCount = (int) findings.stream()
+                    .filter(finding -> "STRENGTH".equals(finding.polarity()))
+                    .count();
+            int improvementCount = findings.size() - strengthCount;
+            List<Long> questionIds = findings.stream()
+                    .map(SpeakingOverviewFindingView::questionId)
+                    .distinct()
+                    .toList();
+            ResultPerformanceLevel anchorLevel = criterion.performanceLevel();
+            result.add(new SpeakingSubmetricPerformance(
+                    entry.getKey(),
+                    definition.labelVi(),
+                    criterion.criterionId(),
+                    criterion.label(),
+                    anchorLevel,
+                    strengthCount,
+                    improvementCount,
+                    questionIds));
+        }
+        return List.copyOf(result);
+    }
+
     private static String criterionSummary(
             SpeakingEvaluationResult feedback,
             SpeakingRubricCriterion criterion) {
@@ -1252,83 +1545,153 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 .orElse(null);
     }
 
-    private static List<String> uniqueText(List<SegmentFeedback> segments, TextKind kind) {
-        LinkedHashSet<String> values = new LinkedHashSet<>();
+    private static List<String> derivedOverviewSummaries(
+            List<SegmentFeedback> segments,
+            List<SpeakingOverviewFindingView> strengths,
+            List<SpeakingOverviewFindingView> needsImprovement
+    ) {
+        if (segments.isEmpty()) {
+            return List.of();
+        }
+        long evidenceCount = segments.stream()
+                .flatMap(segment -> segment.feedback().evidence().stream())
+                .map(SpeakingEvaluationResult.Evidence::evidenceId)
+                .filter(SpeakingResultPresenter::present)
+                .distinct()
+                .count();
+        return List.of(
+                "Đã xác minh "
+                        + segments.size()
+                        + " phần trả lời từ "
+                        + evidenceCount
+                        + " vùng bằng chứng trong bản chép lời; "
+                        + strengths.size()
+                        + " điểm mạnh và "
+                        + needsImprovement.size()
+                        + " điểm cần cải thiện có liên kết bằng chứng. "
+                        + "Độ lưu loát và Phát âm/Thể hiện chưa thể chấm "
+                        + "khi chưa có bằng chứng âm học.");
+    }
+
+    private static List<SpeakingOverviewFindingView> overviewFindings(
+            List<SegmentFeedback> segments,
+            ResultDetailPolarity polarity
+    ) {
+        Map<String, SpeakingOverviewFindingView> unique =
+                new LinkedHashMap<>();
         for (SegmentFeedback segment : segments) {
             SpeakingEvaluationResult feedback = segment.feedback();
-            switch (kind) {
-                case SUMMARY -> addTranscriptGrounded(values, feedback.overallSummary());
-                case STRENGTH -> {
-                    feedback.majorStrengths().forEach(value -> addTranscriptGrounded(values, value));
-                    feedback.strengths().forEach(item -> addTranscriptGrounded(
-                            values, item.explanationVi()));
-                }
-                case NEED -> {
-                    feedback.majorNeedsImprovement().forEach(value -> addTranscriptGrounded(values, value));
-                    feedback.needsImprovement().forEach(item -> addTranscriptGrounded(
-                            values, item.explanationVi()));
+            List<SpeakingEvaluationResult.FeedbackItem> findings =
+                    polarity == ResultDetailPolarity.STRENGTH
+                            ? feedback.strengths()
+                            : feedback.needsImprovement();
+            for (SpeakingEvaluationResult.FeedbackItem finding : findings) {
+                SpeakingOverviewFindingView view =
+                        overviewFinding(
+                                segment.questionId(),
+                                feedback,
+                                finding,
+                                polarity);
+                if (view != null) {
+                    unique.putIfAbsent(
+                            segment.questionId()
+                                    + "|"
+                                    + view.findingId(),
+                            view);
                 }
             }
         }
-        return List.copyOf(values);
+        return List.copyOf(unique.values());
     }
 
-    private static List<String> legacyEssayText(
-            List<LegacyEssayFeedback> feedbacks,
-            TextKind kind) {
-        LinkedHashSet<String> values = new LinkedHashSet<>();
-        for (LegacyEssayFeedback legacy : feedbacks) {
-            WritingFeedbackView feedback = legacy.feedback();
-            switch (kind) {
-                case SUMMARY -> addTranscriptGrounded(
-                        values, firstPresent(feedback.summaryVi(), feedback.summary()));
-                case STRENGTH -> feedback.strengths().stream()
-                        .map(SpeakingResultPresenter::findingText)
-                        .forEach(value -> addTranscriptGrounded(values, value));
-                case NEED -> feedback.needsImprovement().stream()
-                        .map(SpeakingResultPresenter::findingText)
-                        .forEach(value -> addTranscriptGrounded(values, value));
-            }
+    private static SpeakingOverviewFindingView overviewFinding(
+            Long questionId,
+            SpeakingEvaluationResult feedback,
+            SpeakingEvaluationResult.FeedbackItem finding,
+            ResultDetailPolarity polarity
+    ) {
+        String transcript = authoritativeTranscript(feedback);
+        if (questionId == null
+                || finding == null
+                || finding.criterion() == null
+                || !finding.criterion().transcriptGrounded()
+                || acousticSubcriterion(finding.subCriterionId())
+                || finding.evidenceSource()
+                != SpeakingEvidenceSource.TRANSCRIPT
+                || !"TEXT_SPAN".equals(finding.evidenceScope())
+                || !present(finding.findingId())
+                || !present(finding.evidenceId())
+                || !present(finding.subCriterionId())
+                || !present(finding.evidence())
+                || !present(finding.normalization())
+                || !present(finding.sourceHash())
+                || !present(finding.explanationVi())
+                || !transcriptGroundedClaim(finding.explanationVi())
+                || finding.startOffset() == null
+                || finding.startOffset() < 0
+                || finding.endOffset() == null
+                || finding.endOffset() <= finding.startOffset()
+                || finding.endOffset() > transcript.length()
+                || !transcript.startsWith(
+                        finding.evidence(),
+                        finding.startOffset())
+                || finding.endOffset()
+                != finding.startOffset() + finding.evidence().length()
+                || finding.occurrenceIndex() == null
+                || finding.occurrenceIndex() < 1
+                || finding.occurrenceCount() == null
+                || finding.occurrenceCount()
+                < finding.occurrenceIndex()
+                || (polarity == ResultDetailPolarity.STRENGTH
+                && present(finding.correction()))
+                || (polarity
+                == ResultDetailPolarity.NEEDS_IMPROVEMENT
+                && !present(finding.correction()))) {
+            return null;
         }
-        return List.copyOf(values);
+        return new SpeakingOverviewFindingView(
+                questionId,
+                finding.findingId(),
+                finding.evidenceId(),
+                finding.criterion().id(),
+                finding.subCriterionId(),
+                polarity.name(),
+                finding.evidence(),
+                finding.startOffset(),
+                finding.endOffset(),
+                finding.occurrenceIndex(),
+                finding.occurrenceCount(),
+                finding.normalization(),
+                finding.sourceHash(),
+                finding.explanationVi(),
+                finding.correction());
     }
 
-    private static String findingText(WritingFindingView finding) {
-        return firstPresent(finding.explanationVi(), finding.correction());
-    }
-
-    private static List<String> mergeUnique(List<String> first, List<String> second) {
-        LinkedHashSet<String> values = new LinkedHashSet<>(first);
-        values.addAll(second);
-        return List.copyOf(values);
-    }
-
-    private static List<SpeakingActionPlanView> actionPlan(List<SegmentFeedback> segments) {
+    private static List<SpeakingActionPlanView> actionPlan(
+            List<SpeakingOverviewFindingView> needsImprovement
+    ) {
         Map<String, SpeakingActionPlanView> unique = new LinkedHashMap<>();
-        for (SegmentFeedback segment : segments) {
-            for (SpeakingEvaluationResult.ActionPlanItem item : segment.feedback().actionPlan()) {
-                if (item.criterion() == null
-                        || !item.criterion().transcriptGrounded()
-                        || acousticSubcriterion(item.subCriterionId())
-                        || !transcriptGroundedClaim(item.title())
-                        || !transcriptGroundedClaim(item.instruction())
-                        || !transcriptGroundedClaim(item.reason())
-                        || (!present(item.title()) && !present(item.instruction()))) {
-                    continue;
-                }
-                SpeakingActionPlanView view = new SpeakingActionPlanView(
-                        item.criterion() == null ? null : item.criterion().id(),
-                        item.subCriterionId(),
-                        item.title(),
-                        item.instruction(),
-                        item.reason(),
-                        item.priority());
-                String key = String.join("|",
-                        normalizeKey(item.title()),
-                        normalizeKey(item.instruction()),
-                        normalizeKey(item.subCriterionId()));
-                unique.putIfAbsent(key, view);
-            }
+        for (SpeakingOverviewFindingView finding : needsImprovement) {
+            String instruction = "Luyện thay “"
+                    + finding.exactText()
+                    + "” bằng “"
+                    + finding.correctionKo()
+                    + "” trong ngữ cảnh tương tự.";
+            SpeakingActionPlanView view =
+                    new SpeakingActionPlanView(
+                            finding.criterionId(),
+                            finding.subcriterionId(),
+                            finding.findingId(),
+                            finding.evidenceId(),
+                            "Luyện lại vùng cần cải thiện",
+                            instruction,
+                            finding.explanationVi(),
+                            "HIGH");
+            unique.putIfAbsent(
+                    finding.questionId()
+                            + "|"
+                            + finding.findingId(),
+                    view);
         }
         return unique.values().stream().limit(4).toList();
     }
@@ -1599,18 +1962,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         return value != null && !value.isBlank();
     }
 
-    private static void add(Set<String> values, String value) {
-        if (present(value)) {
-            values.add(value.trim());
-        }
-    }
-
-    private static void addTranscriptGrounded(Set<String> values, String value) {
-        if (transcriptGroundedClaim(value)) {
-            add(values, value);
-        }
-    }
-
     private static String transcriptGroundedText(String value) {
         return transcriptGroundedClaim(value) ? value : null;
     }
@@ -1649,8 +2000,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     private record SegmentFeedback(Long questionId, SpeakingEvaluationResult feedback) {
     }
 
-    private record LegacyEssayFeedback(WritingFeedbackView feedback) {
-    }
 
     private record CriterionEvidence(BigDecimal weightedScore, String summary) {
     }
@@ -1666,6 +2015,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             int start,
             int end,
             ResultDetailPolarity polarity,
+            String findingId,
             String descriptorId,
             String featureId,
             String explanationVi,
@@ -1687,16 +2037,13 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             String evidenceAvailability
     ) {
         private ChipCount incremented(String nextEvidenceAvailability) {
-            String merged = evidenceAvailability.equals(nextEvidenceAvailability)
+            String merged = count == 0
+                    ? nextEvidenceAvailability
+                    : evidenceAvailability.equals(nextEvidenceAvailability)
                     ? evidenceAvailability
                     : "MIXED_EVIDENCE_AVAILABLE";
             return new ChipCount(definition, polarity, count + 1, merged);
         }
     }
 
-    private enum TextKind {
-        SUMMARY,
-        STRENGTH,
-        NEED
-    }
 }

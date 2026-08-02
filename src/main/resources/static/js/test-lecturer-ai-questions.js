@@ -217,6 +217,10 @@
                 });
             });
         }
+        if (new URLSearchParams(window.location.search).get('openAi') === '1') {
+            panel.hidden = false;
+            if (textEl) textEl.focus();
+        }
     }
 
     if (window.LfForm && typeof window.LfForm.mount === 'function') {

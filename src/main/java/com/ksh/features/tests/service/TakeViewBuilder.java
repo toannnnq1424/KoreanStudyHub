@@ -44,6 +44,7 @@ public class TakeViewBuilder {
         long remaining = ExamDeadline.remainingSeconds(test, attempt, LocalDateTime.now());
         return new TakeView(attempt.getId(), test.getId(), test.getTitle(),
                 test.getDescription(), test.getTimeMode(), remaining,
+                ExamDeadline.deadlineEpochMillis(test, attempt),
                 test.getMediaType(), test.getMediaUrl(), mediaEmbedUrl(test), views);
     }
 

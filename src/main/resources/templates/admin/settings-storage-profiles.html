@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Admin | Storage profiles', ~{::link.page-css})}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
+<div class="class-detail-layout">
+    <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+    <main class="col">
+        <nav class="settings-breadcrumb"><a th:href="@{/admin/settings}">Cài đặt hệ thống</a><span class="sep">/</span><span>Storage profiles</span></nav>
+        <h1 class="detail-title">Storage profiles</h1>
+        <p class="detail-sub">Ba identity cố định. Practice không fallback sang GENERAL_UPLOADS; profile bị thiếu, tắt hoặc cấu hình R2 không đầy đủ sẽ dừng ghi.</p>
+        <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
+             th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
+        <section class="admin-list-panel">
+            <div class="admin-list-table-scroll">
+                <table class="admin-list-table">
+                    <thead><tr><th>Profile</th><th>Backend</th><th>Bucket / endpoint</th><th>Prefix cố định</th><th>Revision</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                    <tbody>
+                    <tr th:each="profile : ${profiles}">
+                        <td><strong th:text="${profile.profileCode}">PRACTICE_AUTHORING</strong></td>
+                        <td th:text="${profile.backend}">LOCAL</td>
+                        <td><span th:text="${#strings.isEmpty(profile.bucket) ? '—' : profile.bucket}">—</span><br><span class="field-hint" th:text="${#strings.isEmpty(profile.endpoint) ? '' : profile.endpoint}"></span></td>
+                        <td th:text="${profile.keyPrefix}">practice-authoring</td>
+                        <td th:text="${profile.revision}">0</td>
+                        <td th:text="${profile.enabled ? 'ACTIVE' : 'DISABLED'}">ACTIVE</td>
+                        <td>
+                            <a class="btn-ghost" th:href="@{'/admin/settings/storage-profiles/' + ${profile.profileCode} + '/edit'}">Sửa</a>
+                            <form method="post" th:action="@{'/admin/settings/storage-profiles/' + ${profile.profileCode} + '/toggle'}" style="display:inline">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                                <input type="hidden" name="revision" th:value="${profile.revision}">
+                                <button class="btn-ghost" type="submit" th:text="${profile.enabled ? 'Tắt' : 'Bật'}">Tắt</button>
+                            </form>
+                            <form th:if="${!profile.enabled}" method="post" th:action="@{'/admin/settings/storage-profiles/' + ${profile.profileCode} + '/delete'}" style="display:inline">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                                <input type="hidden" name="revision" th:value="${profile.revision}">
+                                <button class="btn-ghost" type="submit">Xóa nếu chưa tham chiếu</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:each="code : ${missingCodes}">
+                        <td><strong th:text="${code}">PROFILE</strong></td><td colspan="5">MISSING — mọi ghi dùng identity này đều fail closed.</td>
+                        <td><a class="btn-ghost" th:href="@{'/admin/settings/storage-profiles/' + ${code} + '/new'}">Tạo lại</a></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>

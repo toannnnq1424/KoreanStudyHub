@@ -1,5 +1,6 @@
 package com.ksh.features.practice.ai.speaking;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SpeakingEvaluationReusePolicyTest {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final SpeakingEvaluationReusePolicy policy = new SpeakingEvaluationReusePolicy();
 
     @Test
@@ -408,6 +410,46 @@ class SpeakingEvaluationReusePolicyTest {
                 || status == SpeakingEvaluationStatus.MOCK_EVALUATED
                 || source == SpeakingEvaluationSource.LEGACY
                 || source == SpeakingEvaluationSource.MOCK;
+        boolean successfulCurrentContract =
+                status == SpeakingEvaluationStatus.EVALUATED
+                        || status
+                        == SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED;
+        if (!legacy && successfulCurrentContract) {
+            String effectiveTranscript = actuallyHeardTranscript == null
+                    ? "저는 학생입니다." : actuallyHeardTranscript;
+            String finalPromptVersion = promptVersion;
+            String finalRubricVersion = rubricVersion;
+            String finalSchemaVersion = schemaVersion;
+            return SpeakingEvaluationTestFixtures.currentResult(
+                    OBJECT_MAPPER,
+                    effectiveTranscript,
+                    new BigDecimal("16"),
+                    json -> {
+                        json.put("evaluation_status", status.name());
+                        json.put("source", source.name());
+                        json.put("model", evaluatorModel);
+                        if (transcriptionModel == null) {
+                            json.putNull("transcription_model");
+                        } else {
+                            json.put("transcription_model",
+                                    transcriptionModel);
+                        }
+                        json.put("prompt_version", finalPromptVersion);
+                        json.put("rubric_version", finalRubricVersion);
+                        json.put("schema_version", finalSchemaVersion);
+                        if (mediaId == null) {
+                            json.putNull("audio_media_id");
+                        } else {
+                            json.put("audio_media_id", mediaId);
+                        }
+                        if (mediaVersion == null) {
+                            json.putNull("media_version");
+                        } else {
+                            json.put("media_version", mediaVersion);
+                        }
+                        json.put("retryable", retryable);
+                    });
+        }
         return new SpeakingEvaluationResult(
                 status,
                 scoreAvailable,

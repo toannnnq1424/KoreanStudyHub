@@ -25,8 +25,8 @@
       <div class="import-page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
         <div>
           <span style="font-size:0.75rem; font-weight:700; color:#687389; text-transform:uppercase; letter-spacing:0.05em;">Không gian giảng viên</span>
-          <h1 style="font-size:1.8rem; font-weight:800; color:#172033; margin:4px 0 0 0;">Nhập đề thi từ PDF</h1>
-          <p style="font-size:0.88rem; color:#687389; margin:4px 0 0 0;">Chọn nơi cần nhập, kiểm tra các trang PDF rồi để AI tạo bản nháp cho giáo viên duyệt.</p>
+          <h1 style="font-size:1.8rem; font-weight:800; color:#172033; margin:4px 0 0 0;">Biên soạn từ Text hoặc PDF</h1>
+          <p style="font-size:0.88rem; color:#687389; margin:4px 0 0 0;">Tạo candidate để rà soát; bản nháp chỉ thay đổi sau khi giảng viên bấm áp dụng.</p>
         </div>
         <div>
           <form method="post" th:action="@{/practice/manage/create}">
@@ -43,6 +43,93 @@
            th:text="${pdfImportError}">
         Bản nháp chưa có phần kỹ năng để nhập PDF.
       </div>
+
+      <section id="basic-authoring" class="import-card"
+               style="background:#fff; border:1px solid #D9E2F2; border-radius:16px; padding:28px; margin-bottom:24px; box-shadow:0 4px 12px rgba(0,0,0,0.02);">
+        <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:20px;">
+          <div>
+            <span style="font-size:0.72rem; font-weight:800; color:#3559DC; text-transform:uppercase; letter-spacing:.06em;">Basic</span>
+            <h2 style="margin:4px 0; font-size:1.2rem; color:#172033;">Text/PDF → candidate có thể chỉnh sửa</h2>
+            <p style="margin:0; color:#687389; font-size:.84rem;">EXTRACT lấy cấu trúc có sẵn; GENERATE thiết kế câu mới theo yêu cầu và evidence nguồn.</p>
+          </div>
+        </div>
+
+        <div th:unless="${draftId != null}" role="alert"
+             style="padding:14px 16px; border-radius:10px; background:#FFF8E8; border:1px solid #F2D18A; color:#7A4B00; font-size:.86rem;">
+          Basic cần một phần đích trong bản nháp hiện có. Hãy mở công cụ này từ màn biên soạn; Advanced vẫn dùng được để chuẩn bị vùng/trang PDF.
+        </div>
+
+        <form id="basic-authoring-form" th:if="${draftId != null}" onsubmit="submitBasicAuthoring(event)"
+              style="display:grid; gap:16px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 2fr; gap:12px;">
+            <label style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+              Nguồn
+              <select id="basic-source-type" onchange="updateBasicSource()" style="padding:11px; border:1px solid #D8E0EE; border-radius:8px; background:#fff;">
+                <option value="TEXT">Text</option>
+                <option value="PDF">PDF</option>
+              </select>
+            </label>
+            <label style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+              Thao tác
+              <select id="basic-operation" style="padding:11px; border:1px solid #D8E0EE; border-radius:8px; background:#fff;">
+                <option value="EXTRACT">EXTRACT</option>
+                <option value="GENERATE">GENERATE</option>
+              </select>
+            </label>
+            <label style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+              Phần đích
+              <select id="basic-target-section" style="padding:11px; border:1px solid #D8E0EE; border-radius:8px; background:#fff;">
+                <option th:each="section : ${pdfImportContext.sections}"
+                        th:attr="data-test-no=${section.testNo},data-skill=${section.skill},data-lesson-code=${section.lessonCode}"
+                        th:selected="${section.testNo == pdfImportContext.selected.testNo && section.lessonCode == pdfImportContext.selected.lessonCode}"
+                        th:text="|Bài kiểm tra ${section.testNo} · ${section.lessonCode} · ${section.title}|">Bài kiểm tra 1 · R1 · Phần Đọc</option>
+              </select>
+            </label>
+          </div>
+
+          <label id="basic-text-block" style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+            Nội dung Text không đáng tin cậy
+            <textarea id="basic-source-text" rows="8" maxlength="1000000"
+                      placeholder="Dán bài đọc, transcript, câu hỏi hoặc nội dung nguồn tại đây..."
+                      style="resize:vertical; padding:12px; border:1px solid #D8E0EE; border-radius:8px; font:inherit;"></textarea>
+          </label>
+
+          <div id="basic-pdf-block" hidden style="display:none; grid-template-columns:2fr 1fr 1fr; gap:12px; align-items:end;">
+            <label style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+              Tệp PDF (private PRACTICE_AUTHORING)
+              <input id="basic-pdf-file" type="file" accept="application/pdf"
+                     style="padding:10px; border:1px solid #D8E0EE; border-radius:8px; background:#fff;">
+            </label>
+            <label style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+              Trang đầu
+              <input id="basic-start-page" type="number" min="1" value="1"
+                     style="padding:11px; border:1px solid #D8E0EE; border-radius:8px;">
+            </label>
+            <label style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+              Trang cuối (để trống = hết)
+              <input id="basic-end-page" type="number" min="1"
+                     style="padding:11px; border:1px solid #D8E0EE; border-radius:8px;">
+            </label>
+          </div>
+
+          <label style="display:grid; gap:6px; font-size:.8rem; font-weight:700; color:#475467;">
+            Yêu cầu của giảng viên
+            <textarea id="basic-lecturer-request" rows="3" maxlength="10000"
+                      placeholder="Ví dụ: tạo 5 câu đọc hiểu, ưu tiên từ vựng TOPIK II..."
+                      style="resize:vertical; padding:12px; border:1px solid #D8E0EE; border-radius:8px; font:inherit;"></textarea>
+          </label>
+          <div id="basic-authoring-status" role="status" aria-live="polite" style="min-height:20px; color:#475467; font-size:.84rem;"></div>
+          <button id="basic-authoring-submit" type="submit"
+                  style="justify-self:start; background:#3559DC; color:#fff; border:0; border-radius:10px; padding:12px 20px; font-weight:800; cursor:pointer;">
+            Tạo candidate để rà soát
+          </button>
+        </form>
+      </section>
+
+      <details id="advanced-authoring" open style="margin-bottom:24px;">
+        <summary style="cursor:pointer; font-size:1rem; font-weight:800; color:#172033; margin-bottom:16px;">
+          Advanced — phạm vi trang, crop và region workspace
+        </summary>
 
       <div class="import-content-grid" style="display: grid; grid-template-columns: 7fr 5fr; gap: 32px;">
         
@@ -200,6 +287,8 @@
 
       </div>
 
+      </details>
+
     </div>
   </main>
 </div>
@@ -291,7 +380,75 @@
 
 <script th:inline="javascript">
   const LINKED_IMPORT_CONTEXT = /*[[${pdfImportContext}]]*/ null;
+  const BASIC_DRAFT_ID = /*[[${draftId}]]*/ null;
   let selectedFile = null;
+
+  function updateBasicSource() {
+    const pdf = document.getElementById('basic-source-type')?.value === 'PDF';
+    const textBlock = document.getElementById('basic-text-block');
+    const pdfBlock = document.getElementById('basic-pdf-block');
+    if (!textBlock || !pdfBlock) return;
+    textBlock.hidden = pdf;
+    textBlock.style.display = pdf ? 'none' : 'grid';
+    pdfBlock.hidden = !pdf;
+    pdfBlock.style.display = pdf ? 'grid' : 'none';
+  }
+
+  function selectedBasicTarget() {
+    const option = document.getElementById('basic-target-section')?.selectedOptions[0];
+    return {
+      testNo: Number(option?.dataset.testNo || 0),
+      skill: option?.dataset.skill || '',
+      lessonCode: option?.dataset.lessonCode || ''
+    };
+  }
+
+  async function submitBasicAuthoring(event) {
+    event.preventDefault();
+    const submit = document.getElementById('basic-authoring-submit');
+    const status = document.getElementById('basic-authoring-status');
+    const sourceType = document.getElementById('basic-source-type').value;
+    const target = selectedBasicTarget();
+    const formData = new FormData();
+    formData.append('sourceType', sourceType);
+    formData.append('operation', document.getElementById('basic-operation').value);
+    formData.append('lecturerRequest', document.getElementById('basic-lecturer-request').value);
+    formData.append('draftId', String(BASIC_DRAFT_ID));
+    formData.append('testNo', String(target.testNo));
+    formData.append('skill', target.skill);
+    formData.append('lessonCode', target.lessonCode);
+    if (sourceType === 'TEXT') {
+      formData.append('sourceText', document.getElementById('basic-source-text').value);
+    } else {
+      const file = document.getElementById('basic-pdf-file').files[0];
+      if (!file) {
+        status.textContent = 'Vui lòng chọn tệp PDF.';
+        return;
+      }
+      formData.append('file', file);
+      formData.append('startPage', document.getElementById('basic-start-page').value || '1');
+      const endPage = document.getElementById('basic-end-page').value;
+      if (endPage) formData.append('endPage', endPage);
+    }
+    const token = document.querySelector('meta[name="_csrf"]').content;
+    const header = document.querySelector('meta[name="_csrf_header"]').content;
+    submit.disabled = true;
+    status.textContent = 'Đang kiểm tra purpose, nguồn và tạo candidate...';
+    try {
+      const response = await fetch('/practice/manage/pdf-authoring/candidates', {
+        method: 'POST', headers: { [header]: token }, body: formData
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || payload.message || payload.code || 'Không thể tạo candidate.');
+      status.textContent = 'Candidate đã tạo. Đang mở màn rà soát...';
+      window.location.href = payload.reviewUrl;
+    } catch (error) {
+      status.textContent = error.message;
+      submit.disabled = false;
+    }
+  }
+
+  updateBasicSource();
 
   function setImportLoading(loading) {
     const overlay = document.getElementById('loading-overlay');

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "practice-pdf-authoring-output-v1",
+  "operation": "EXTRACT",
+  "sourceDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "groups": [
+    {
+      "sourceGroupId": "pdf_group_1",
+      "label": "Đọc hiểu thông báo",
+      "instruction": "Đọc đoạn văn và chọn đáp án đúng.",
+      "stimulus": {
+        "type": "READING_PASSAGE",
+        "passageText": "박물관은 화요일부터 일요일까지 문을 엽니다.",
+        "transcriptText": "",
+        "sourceRefs": [
+          {
+            "kind": "TEXT_SPAN",
+            "sourceId": "page-2-span-10",
+            "pageNumber": 2,
+            "start": 120,
+            "end": 150
+          }
+        ]
+      },
+      "sourceRefs": [
+        {
+          "kind": "PAGE",
+          "sourceId": "page-2",
+          "pageNumber": 2
+        }
+      ],
+      "questions": [
+        {
+          "sourceQuestionId": "pdf_q_1",
+          "questionType": "SINGLE_CHOICE",
+          "prompt": "박물관은 언제 문을 닫습니까?",
+          "points": 1,
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [
+              { "id": "opt_A", "text": "월요일" },
+              { "id": "opt_B", "text": "화요일" },
+              { "id": "opt_C", "text": "토요일" },
+              { "id": "opt_D", "text": "일요일" }
+            ],
+            "blanks": [],
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "SINGLE_CHOICE",
+            "correctOptionIds": ["opt_A"],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "ALL_OR_NOTHING"
+          },
+          "sourceRefs": [
+            {
+              "kind": "TEXT_SPAN",
+              "sourceId": "page-2-span-10",
+              "pageNumber": 2,
+              "start": 120,
+              "end": 150
+            }
+          ],
+          "confidence": 0.98
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

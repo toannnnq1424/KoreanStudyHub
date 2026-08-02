@@ -143,7 +143,8 @@ class WritingEvaluationClientTest {
         String prompt = WritingPromptRules.buildUnifiedPrompt("Q53", false);
         assertTrue(prompt.contains("RUBRIC SCORES"));
         assertTrue(prompt.contains("STRENGTHS & NEEDS"));
-        assertTrue(prompt.contains("KHÔNG trả score, raw_score, raw_score_max"));
+        assertTrue(prompt.contains(
+                "Không tự trả về score tổng, total_score, raw_score"));
     }
 
     @Test
@@ -159,9 +160,9 @@ class WritingEvaluationClientTest {
         assertNotNull(WritingPromptRules.PROMPT_VERSION);
         assertNotNull(WritingPromptRules.RUBRIC_VERSION);
         assertNotNull(WritingPromptRules.EVALUATION_SCHEMA_VERSION);
-        assertEquals("v6.0", WritingPromptRules.PROMPT_VERSION);
-        assertEquals("v4.2", WritingPromptRules.RUBRIC_VERSION);
-        assertEquals("v5.0", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
+        assertEquals("v7.3", WritingPromptRules.PROMPT_VERSION);
+        assertEquals("v5.2", WritingPromptRules.RUBRIC_VERSION);
+        assertEquals("v6.1", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
     }
 
     @Test
@@ -209,20 +210,77 @@ class WritingEvaluationClientTest {
         List<String> q51 = WritingEvaluationClient.allowedRubric("Q51").stream()
                 .map(row -> (String) row.get("criterionId"))
                 .toList();
+        List<String> q52 = WritingEvaluationClient.allowedRubric("Q52").stream()
+                .map(row -> (String) row.get("criterionId"))
+                .toList();
+        List<String> q53 = WritingEvaluationClient.allowedRubric("Q53").stream()
+                .map(row -> (String) row.get("criterionId"))
+                .toList();
         List<String> q54 = WritingEvaluationClient.allowedRubric("Q54").stream()
                 .map(row -> (String) row.get("criterionId"))
                 .toList();
 
-        assertTrue(q51.contains("W_CLOZE_CONTEXT_FIT"));
-        assertFalse(q51.contains("W_CLEAR_THESIS_OR_MAIN_IDEA"));
-        assertFalse(q51.contains("W_WON_GO_JI"));
-        assertTrue(q54.contains("W_CLEAR_THESIS_OR_MAIN_IDEA"));
-        assertFalse(q54.contains("W_Q53_DATA_FLOW_ISSUES"));
-        assertTrue(WritingEvaluationClient.allowedRubric("Q53").stream()
-                .allMatch(row -> row.containsKey("category")
-                        && row.containsKey("allowedSubtypes")
-                        && row.containsKey("exactScoringCriterionId")
-                        && row.containsKey("evidenceScopes")));
+        assertThat(q51)
+                .hasSize(16)
+                .containsExactlyInAnyOrder(
+                        "W_ACCURATE_SPELLING_SPACING",
+                        "W_FORMAL_REGISTER_CONSISTENCY",
+                        "W_FORMAL_VOCABULARY_USAGE",
+                        "W_NATURAL_KOREAN_EXPRESSIONS",
+                        "W_CLOZE_CONTEXT_FIT",
+                        "W_CONNECTIVE_ENDING_ACCURACY",
+                        "W_SENTENCE_COMPLETION_NATURALNESS",
+                        "W_CLOZE_GRAMMAR_COMPATIBILITY",
+                        "W_CLOZE_REGISTER_MATCH",
+                        "W_VOCABULARY_ERRORS",
+                        "W_GRAMMAR_ERRORS",
+                        "W_PARTICLE_ERRORS",
+                        "W_AWKWARD_UNNATURAL_EXPRESSIONS",
+                        "W_SENTENCE_STRUCTURE_ISSUES",
+                        "W_REGISTER_CONSISTENCY_ISSUES",
+                        "W_SPELLING_SPACING_ERRORS");
+        assertThat(q52).containsExactlyElementsOf(q51);
+        assertThat(q53)
+                .hasSize(25)
+                .contains(
+                        "W_LENGTH_REQUIREMENT_MET",
+                        "W_TASK_REQUIREMENT_COVERAGE",
+                        "W_LOGICAL_ORGANIZATION",
+                        "W_ACCURATE_DATA_DESCRIPTION",
+                        "W_TASK_REQUIREMENT_MISSING",
+                        "W_Q53_DATA_FLOW_ISSUES")
+                .doesNotContain(
+                        "W_CLEAR_THESIS_OR_MAIN_IDEA",
+                        "W_RELEVANT_EXAMPLES_OR_REASONS",
+                        "W_FABRICATED_OR_INACCURATE_DATA",
+                        "W_WON_GO_JI");
+        assertThat(q54)
+                .hasSize(27)
+                .contains(
+                        "W_LENGTH_REQUIREMENT_MET",
+                        "W_TASK_REQUIREMENT_COVERAGE",
+                        "W_LOGICAL_ORGANIZATION",
+                        "W_CLEAR_THESIS_OR_MAIN_IDEA",
+                        "W_RELEVANT_EXAMPLES_OR_REASONS",
+                        "W_INSUFFICIENT_IDEA_DEVELOPMENT",
+                        "W_UNSUPPORTED_CLAIM",
+                        "W_WEAK_PARAGRAPH_ORGANIZATION")
+                .doesNotContain(
+                        "W_ACCURATE_DATA_DESCRIPTION",
+                        "W_Q53_DATA_FLOW_ISSUES",
+                        "W_FABRICATED_OR_INACCURATE_DATA",
+                        "W_WON_GO_JI");
+        assertThat(WritingEvaluationClient.allowedRubric("Q53"))
+                .allSatisfy(row -> assertThat(row)
+                        .containsKeys(
+                                "vietnameseLabel",
+                                "koreanLabel",
+                                "polarity",
+                                "category",
+                                "allowedSubtypes",
+                                "exactScoringCriterionId",
+                                "allowedScoringCriterionIds",
+                                "evidenceScopes"));
     }
 
     @Test
@@ -243,18 +301,21 @@ class WritingEvaluationClientTest {
         Map<String, Object> properties =
                 (Map<String, Object>) schema.get("properties");
         Map<String, Object> strengths =
-                (Map<String, Object>) properties.get("strengths");
+                (Map<String, Object>) properties.get("findings");
         Map<String, Object> finding =
                 (Map<String, Object>) strengths.get("items");
         assertThat((List<String>) finding.get("required"))
                 .contains(
-                        "subtype", "scoringCriterionId", "impact",
+                        "findingId", "polarity", "operation",
+                        "subtype", "scoringCriterionId", "errorCategory",
+                        "evidenceIds", "requirementIds", "impact",
                         "frequency", "confidence", "observability");
         Map<String, Object> findingProperties =
                 (Map<String, Object>) finding.get("properties");
         assertThat((List<String>) ((Map<String, Object>)
-                findingProperties.get("evidenceScope")).get("enum"))
-                .containsExactly("TEXT_SPAN", "WHOLE_ANSWER");
+                findingProperties.get("operation")).get("enum"))
+                .containsExactly(
+                        "KEEP", "MISSING", "REPLACE", "REDUNDANT");
         assertThat((List<String>) ((Map<String, Object>)
                 findingProperties.get("observability")).get("enum"))
                 .containsExactly("DIRECT", "INFERRED_BOUNDED");
@@ -272,7 +333,7 @@ class WritingEvaluationClientTest {
     @Test
     void testCacheHitBeforeApiKeyAndRehydratesStudentText() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = cachedProviderResult("Q53");
+        String cachedValue = cachedProviderResult("Q53", "한국어");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), anyString(), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
 
@@ -284,13 +345,14 @@ class WritingEvaluationClientTest {
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
         assertTrue(result.contains("\"student_text\":\"한국어\""));
-        assertTrue(result.contains("\"score\":80.0"));
+        assertTrue(result.contains("\"score\":0.0"));
     }
 
     @Test
     void cacheHitPreservesScoreStatusReasonAndMarksSourceCache() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = cachedProviderResult("Q53");
+        String cachedValue = cachedProviderResult(
+                "Q53", "\uD55C\uAD6D\uC5B4\uB97C \uACF5\uBD80\uD569\uB2C8\uB2E4");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
         WritingEvaluationClient client = new WritingEvaluationClient(
@@ -302,8 +364,8 @@ class WritingEvaluationClientTest {
         JsonNode root = objectMapper.readTree(client.evaluate(USER_ID, "Bai 53 viet", learnerAnswer, false, WritingTaskType.Q53));
 
         assertEquals(learnerAnswer, root.path("student_text").asText());
-        assertEquals(80.0, root.path("score").asDouble());
-        assertEquals(24.0, root.path("raw_score").asDouble());
+        assertEquals(0.0, root.path("score").asDouble());
+        assertEquals(0.0, root.path("raw_score").asDouble());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         assertEquals("EVALUATED", root.path("evaluation_status").asText());
         assertEquals("CACHE", root.path("evaluation_source").asText());
@@ -504,10 +566,14 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"), payload.capture());
+                eq(WritingPromptRules.PROMPT_VERSION),
+                eq(WritingPromptRules.RUBRIC_VERSION),
+                eq(WritingPromptRules.EVALUATION_SCHEMA_VERSION + ":"
+                        + WritingPromptRules.EVALUATION_CONTRACT_VERSION),
+                payload.capture());
         JsonNode cached = objectMapper.readTree(payload.getValue());
         assertFalse(cached.has("student_text"));
-        assertEquals("KSH_WRITING_EVALUATOR_V2", cached.path("engine").asText());
+        assertEquals("KSH_WRITING_EVALUATOR_V3", cached.path("engine").asText());
         assertEquals("EVALUATED", cached.path("evaluation_status").asText());
         assertEquals("PROVIDER", cached.path("evaluation_source").asText());
         assertEquals("NONE", cached.path("evaluation_reason").asText());
@@ -565,13 +631,17 @@ class WritingEvaluationClientTest {
         assertEquals("Q53", root.path("task_type").asText());
         assertEquals(30.0, root.path("raw_score_max").asDouble());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"), anyString());
+                eq(WritingPromptRules.PROMPT_VERSION),
+                eq(WritingPromptRules.RUBRIC_VERSION),
+                eq(WritingPromptRules.EVALUATION_SCHEMA_VERSION + ":"
+                        + WritingPromptRules.EVALUATION_CONTRACT_VERSION),
+                anyString());
     }
 
     @Test
     void explicitQ52KeepsIdentityInCacheAndResult() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = cachedProviderResult("Q52");
+        String cachedValue = cachedProviderResult("Q52", "있다");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), eq("Q52"), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
         WritingEvaluationClient client = new WritingEvaluationClient(
@@ -636,7 +706,11 @@ class WritingEvaluationClientTest {
         assertEquals(1, callCount.get());
         verify(cacheService, never()).get(any(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(cacheService).put(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"), anyString());
+                eq(WritingPromptRules.PROMPT_VERSION),
+                eq(WritingPromptRules.RUBRIC_VERSION),
+                eq(WritingPromptRules.EVALUATION_SCHEMA_VERSION + ":"
+                        + WritingPromptRules.EVALUATION_CONTRACT_VERSION),
+                anyString());
     }
 
     @Test
@@ -686,7 +760,7 @@ class WritingEvaluationClientTest {
 
         String result = client.evaluate(USER_ID, "Bài 53 viết", "한국어", false);
 
-        assertTrue(result.contains("\"engine\":\"KSH_WRITING_EVALUATOR_V2\""));
+        assertTrue(result.contains("\"engine\":\"KSH_WRITING_EVALUATOR_V3\""));
     }
 
     @Test
@@ -705,7 +779,10 @@ class WritingEvaluationClientTest {
         assertNotNull(result);
         assertEquals(1, callCount.get());
         verify(cacheService).delete(eq(USER_ID), anyString(), anyString(), eq("Q53"), eq("model"),
-                eq("v6.0"), eq("v4.2"), eq("v5.0:v7.0"));
+                eq(WritingPromptRules.PROMPT_VERSION),
+                eq(WritingPromptRules.RUBRIC_VERSION),
+                eq(WritingPromptRules.EVALUATION_SCHEMA_VERSION + ":"
+                        + WritingPromptRules.EVALUATION_CONTRACT_VERSION));
     }
 
     @Test
@@ -725,7 +802,7 @@ class WritingEvaluationClientTest {
                 "\uD55C\uAD6D\uC5B4\uB97C \uACF5\uBD80\uD569\uB2C8\uB2E4", false, WritingTaskType.Q53);
 
         assertNotNull(result);
-        assertTrue(result.contains("\"engine\":\"KSH_WRITING_EVALUATOR_V2\""));
+        assertTrue(result.contains("\"engine\":\"KSH_WRITING_EVALUATOR_V3\""));
         assertEquals(1, callCount.get());
     }
 
@@ -755,7 +832,7 @@ class WritingEvaluationClientTest {
     @Test
     void cacheHitRecordsNoProviderMetric() {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
-        String cachedValue = cachedProviderResult("Q53");
+        String cachedValue = cachedProviderResult("Q53", "한국어");
         when(cacheService.get(eq(USER_ID), anyString(), anyString(), anyString(), eq("model"), anyString(), anyString(), anyString()))
                 .thenReturn(Optional.of(cachedValue));
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -822,42 +899,20 @@ class WritingEvaluationClientTest {
                 "cache", "writing", "operation", "parse", "outcome", "malformed").count());
     }
 
-    private String cachedProviderResult(String taskType) {
+    private String cachedProviderResult(
+            String taskType,
+            String learnerAnswer) {
         String providerJson;
-        if ("Q52".equals(taskType)) {
-            providerJson = """
-                    {
-                      "summary":"Cached provider result",
-                      "rubric_scores":[
-                        {"criterionId":"W_CLOZE_BLANK_1_CONTEXT","score":2.0,"maxScore":2,"feedback":""},
-                        {"criterionId":"W_CLOZE_BLANK_1_GRAMMAR","score":1.8,"maxScore":2,"feedback":""},
-                        {"criterionId":"W_CLOZE_BLANK_1_EXPRESSION","score":0.9,"maxScore":1,"feedback":""},
-                        {"criterionId":"W_CLOZE_BLANK_2_CONTEXT","score":1.8,"maxScore":2,"feedback":""},
-                        {"criterionId":"W_CLOZE_BLANK_2_GRAMMAR","score":1.6,"maxScore":2,"feedback":""},
-                        {"criterionId":"W_CLOZE_BLANK_2_EXPRESSION","score":0.8,"maxScore":1,"feedback":""}
-                      ],
-                      "strengths":[],
-                      "needs_improvement":[],
-                      "sentence_rewrites":[]
-                    }
-                    """;
-        } else {
-            providerJson = """
-                    {
-                      "summary":"Cached provider result",
-                      "rubric_scores":[
-                        {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10.0,"maxScore":12,"feedback":""},
-                        {"criterionId":"W_ORGANIZATION_COHERENCE","score":7.0,"maxScore":9,"feedback":""},
-                        {"criterionId":"W_LANGUAGE_EXPRESSION","score":7.0,"maxScore":9,"feedback":""}
-                      ],
-                      "strengths":[],
-                      "needs_improvement":[],
-                      "sentence_rewrites":[]
-                    }
-                    """;
+        try {
+            providerJson = objectMapper.writeValueAsString(
+                    WritingContractTestFixtures.zeroEnvelope(
+                            objectMapper, taskType, learnerAnswer));
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
         }
         return normalizer.sanitizeForCache(
-                normalizer.normalize(providerJson, taskType, "", null));
+                normalizer.normalize(
+                        providerJson, taskType, learnerAnswer, null));
     }
 
     private OpenAiProperties properties(String apiKey, String model) {
@@ -887,22 +942,7 @@ class WritingEvaluationClientTest {
     }
 
     private String aiResponse() {
-        return """
-        {
-          "summary": "Good",
-          "rubric_scores": [
-            {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":10.0,"maxScore":12,"feedback":"Good"},
-            {"criterionId":"W_ORGANIZATION_COHERENCE","score":7.0,"maxScore":9,"feedback":"Good"},
-            {"criterionId":"W_LANGUAGE_EXPRESSION","score":7.0,"maxScore":9,"feedback":"Good"}
-          ],
-          "strengths": [],
-          "needs_improvement": [],
-          "upgraded_answer": "",
-          "upgraded_answer_annotated": "",
-          "sample_answer": "",
-          "sentence_rewrites": []
-        }
-        """;
+        return "__STRICT_WRITING_FIXTURE__";
     }
 
     private TestPracticeStructuredGenerationPort throwingPort() {
@@ -942,8 +982,17 @@ class WritingEvaluationClientTest {
                 request -> {
                     postCallCount.incrementAndGet();
                     try {
+                        JsonNode response = "__STRICT_WRITING_FIXTURE__"
+                                .equals(responseJson)
+                                ? WritingContractTestFixtures.zeroEnvelope(
+                                objectMapper,
+                                String.valueOf(request.input()
+                                        .get("task_type")),
+                                String.valueOf(request.input()
+                                        .get("learner_answer")))
+                                : objectMapper.readTree(responseJson);
                         return new PracticeStructuredGenerationResponse(
-                                objectMapper.readTree(responseJson),
+                                response,
                                 "openai-primary",
                                 "model",
                                 "stop",

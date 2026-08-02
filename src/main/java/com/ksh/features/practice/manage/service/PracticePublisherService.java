@@ -16,6 +16,9 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
+import com.ksh.features.practice.assessment.WritingBlankContract;
+import com.ksh.features.practice.ai.readinglistening.ObjectiveExplanationEditorialService;
 import com.ksh.features.practice.ai.readinglistening.PublishedVersionExplanationEvent;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.governance.PracticeAction;
@@ -66,6 +69,8 @@ public class PracticePublisherService {
     private final PracticeMaterialReferenceService materialReferenceService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final SpeakingPromptPublicationService speakingPromptPublicationService;
+    private final ObjectiveExplanationEditorialService
+            objectiveExplanationEditorialService;
 
     @Autowired
     public PracticePublisherService(PracticeDraftRepository draftRepository,
@@ -84,7 +89,8 @@ public class PracticePublisherService {
                                      PracticeAuthorizationService authorizationService,
                                      PracticeMaterialReferenceService materialReferenceService,
                                      ApplicationEventPublisher applicationEventPublisher,
-                                     SpeakingPromptPublicationService speakingPromptPublicationService) {
+                                     SpeakingPromptPublicationService speakingPromptPublicationService,
+                                     ObjectiveExplanationEditorialService objectiveExplanationEditorialService) {
         this.draftRepository = draftRepository;
         this.setRepository = setRepository;
         this.testRepository = testRepository;
@@ -102,6 +108,8 @@ public class PracticePublisherService {
         this.materialReferenceService = materialReferenceService;
         this.applicationEventPublisher = applicationEventPublisher;
         this.speakingPromptPublicationService = speakingPromptPublicationService;
+        this.objectiveExplanationEditorialService =
+                objectiveExplanationEditorialService;
         this.questionTypeResolver = new QuestionTypeResolver();
         this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
     }
@@ -118,7 +126,7 @@ public class PracticePublisherService {
                              ObjectMapper objectMapper) {
         this(draftRepository, setRepository, testRepository, sectionRepository, groupRepository, questionRepository,
                 editLogRepository, mutationGuard, null, null, null, draftValidator, objectMapper,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 
     @Transactional
@@ -177,15 +185,32 @@ public class PracticePublisherService {
         }
         // Validate
         PracticeDraftValidator.ValidationResult valRes = draftValidator.validate(draft.getDraftJson());
-        if (valRes.hasBlocking()) {
-            String detail = valRes.messages().stream()
-                    .filter(message -> "BLOCKING".equals(message.type()))
+        boolean historicalRestore =
+                authorizationAction == PracticeAction.RESTORE;
+        List<PracticeDraftValidator.ValidationMsg> blockingMessages =
+                valRes.messages().stream()
+                        .filter(message ->
+                                "BLOCKING".equals(message.type()))
+                        .filter(message ->
+                                !historicalRestore
+                                || (!"EXPLANATION_STRATEGY_REQUIRED"
+                                        .equals(message.code())
+                                && !"WRITING_STRUCTURED_BLANKS_CONVERSION_REQUIRED"
+                                        .equals(message.code())))
+                        .toList();
+        if (!blockingMessages.isEmpty()) {
+            String detail = blockingMessages.stream()
                     .map(PracticeDraftValidator.ValidationMsg::content)
                     .limit(5)
                     .reduce((left, right) -> left + " " + right)
                     .orElse("Vui lòng kiểm tra lại cấu trúc đề.");
             throw new IllegalStateException(
                     "Không thể xuất bản bản nháp: " + detail);
+        }
+        if (objectiveExplanationEditorialService != null
+                && !historicalRestore) {
+            objectiveExplanationEditorialService.requireApprovedForPublish(
+                    draftId, actorId, root);
         }
         SpeakingPromptPublicationService.PublicationPlan speakingPlan =
                 speakingPromptPublicationService == null
@@ -280,6 +305,8 @@ public class PracticePublisherService {
         Map<String, PracticeTest> persistedTests = persistTests(root, savedSet, draft);
         Map<Long, Integer> sectionOrderByTest = new LinkedHashMap<>();
         Map<String, Long> speakingQuestionIdsByClient = new LinkedHashMap<>();
+        Map<String, Long> objectiveQuestionIdsByClient =
+                new LinkedHashMap<>();
 
         // Save sections, groups and questions
         if (sectionsNode.isArray()) {
@@ -414,6 +441,12 @@ public class PracticePublisherService {
                                 }
                                 AnswerSpec answerSpec = resolveAnswerSpec(
                                         qNode, rawType, ansVal, questionContent);
+                                if (!historicalRestore) {
+                                    requireWritingBlankPublicationAuthority(
+                                            writingTaskType,
+                                            questionContent,
+                                            answerSpec);
+                                }
                                 AssessmentSkill questionSkill = resolveSkill(rawSkill);
                                 contentRules.requireAllowed(questionSkill, canonicalType);
                                 PracticeContentRules.WritingTaskPolicy writingTaskPolicy =
@@ -444,6 +477,43 @@ public class PracticePublisherService {
                                         persistedPoints,
                                         qIdx
                                 );
+                                if (questionSkill == AssessmentSkill.READING
+                                        || questionSkill == AssessmentSkill.LISTENING) {
+                                    JsonNode strategyNode =
+                                            qNode.path("explanationStrategy");
+                                    boolean strategyDeclared =
+                                            !strategyNode.isMissingNode()
+                                                    && !strategyNode.isNull()
+                                                    && (!strategyNode.isObject()
+                                                    || !strategyNode.isEmpty());
+                                    if (!historicalRestore
+                                            || strategyDeclared) {
+                                        ObjectiveExplanationStrategyRegistry.Selection
+                                                strategy =
+                                                ObjectiveExplanationStrategyRegistry
+                                                        .requireSelection(
+                                                                canonicalType,
+                                                                strategyNode.path(
+                                                                        "registryVersion")
+                                                                        .asText(""),
+                                                                strategyNode.path(
+                                                                        "strategyCode")
+                                                                        .asText(""),
+                                                                strategyNode.path(
+                                                                        "strategyVersion")
+                                                                        .asText(""));
+                                        ObjectiveExplanationStrategyRegistry
+                                                .requireAllowed(
+                                                        canonicalType,
+                                                        strategy,
+                                                        questionContent,
+                                                        answerSpec);
+                                        question.setExplanationStrategy(
+                                                strategy.registryVersion(),
+                                                strategy.strategyCode(),
+                                                strategy.strategyVersion());
+                                    }
+                                }
                                 question.setWritingTaskType(writingTaskType);
                                 question.setQuestionContentJson(assessmentContractCodec.writeQuestionContent(
                                         questionContent, canonicalType));
@@ -452,6 +522,15 @@ public class PracticePublisherService {
                                 question.setGroupId(savedGroup.getId());
                                 PracticeQuestion savedQuestion =
                                         questionRepository.save(question);
+                                if (questionSkill == AssessmentSkill.READING
+                                        || questionSkill == AssessmentSkill.LISTENING) {
+                                    if (objectiveQuestionIdsByClient.put(
+                                            questionClientId,
+                                            savedQuestion.getId()) != null) {
+                                        throw new IllegalStateException(
+                                                "Không thể xuất bản R/L: clientId câu hỏi bị trùng.");
+                                    }
+                                }
                                 if (speakingCandidate != null) {
                                     if (speakingQuestionIdsByClient.put(
                                             questionClientId,
@@ -492,33 +571,44 @@ public class PracticePublisherService {
         com.ksh.entities.PracticePublishedVersion publishedVersion = null;
         Map<String, Long> speakingQuestionVersionIdsByClient =
                 new LinkedHashMap<>();
+        Map<String, Long> objectiveQuestionVersionIdsByClient =
+                new LinkedHashMap<>();
         if (!speakingPlan.candidates().isEmpty()
                 && publishedVersionService == null) {
             throw new IllegalStateException(
                     "Không thể xuất bản Speaking: dịch vụ tạo phiên bản bất biến chưa sẵn sàng.");
         }
         if (publishedVersionService != null) {
-            if (speakingPromptPublicationService == null) {
-                publishedVersion = publishedVersionService.createPublishedVersion(
-                        savedSet.getId(), actorId);
-            } else {
-                com.ksh.features.practice.service.PracticePublishedVersionService
-                        .PublishedVersionCreation creation =
-                        publishedVersionService.createPublishedVersionDetailed(
-                                savedSet.getId(), actorId);
-                publishedVersion = creation.publishedVersion();
-                for (Map.Entry<String, Long> entry :
-                        speakingQuestionIdsByClient.entrySet()) {
-                    Long questionVersionId =
-                            creation.questionVersionIdByQuestionId()
-                                    .get(entry.getValue());
-                    if (questionVersionId == null) {
-                        throw new IllegalStateException(
-                                "Không thể xuất bản Speaking: thiếu phiên bản câu hỏi bất biến.");
-                    }
-                    speakingQuestionVersionIdsByClient.put(
-                            entry.getKey(), questionVersionId);
+            com.ksh.features.practice.service.PracticePublishedVersionService
+                    .PublishedVersionCreation creation =
+                    publishedVersionService.createPublishedVersionDetailed(
+                            savedSet.getId(), actorId);
+            publishedVersion = creation.publishedVersion();
+            for (Map.Entry<String, Long> entry :
+                    objectiveQuestionIdsByClient.entrySet()) {
+                Long questionVersionId =
+                        creation.questionVersionIdByQuestionId()
+                                .get(entry.getValue());
+                if (questionVersionId == null) {
+                    throw new IllegalStateException(
+                            "Không thể xuất bản R/L: thiếu phiên bản câu hỏi bất biến.");
                 }
+                objectiveQuestionVersionIdsByClient.put(
+                        entry.getKey(), questionVersionId);
+            }
+            for (Map.Entry<String, Long> entry :
+                    speakingQuestionIdsByClient.entrySet()) {
+                Long questionVersionId =
+                        creation.questionVersionIdByQuestionId()
+                                .get(entry.getValue());
+                if (questionVersionId == null) {
+                    throw new IllegalStateException(
+                            "Không thể xuất bản Speaking: thiếu phiên bản câu hỏi bất biến.");
+                }
+                speakingQuestionVersionIdsByClient.put(
+                        entry.getKey(), questionVersionId);
+            }
+            if (speakingPromptPublicationService != null) {
                 speakingPromptPublicationService.persistContexts(
                         speakingPlan,
                         speakingQuestionVersionIdsByClient,
@@ -536,7 +626,11 @@ public class PracticePublisherService {
 
         if (applicationEventPublisher != null && publishedVersion != null) {
             applicationEventPublisher.publishEvent(
-                    new PublishedVersionExplanationEvent(publishedVersion.getId()));
+                    new PublishedVersionExplanationEvent(
+                            publishedVersion.getId(),
+                            draftId,
+                            Map.copyOf(
+                                    objectiveQuestionVersionIdsByClient)));
         }
 
         log.info("[Publisher] Complete publish draftId={} to setId={}", draftId, savedSet.getId());
@@ -658,6 +752,8 @@ public class PracticePublisherService {
                         java.util.Map<String, Object> stimulus = new java.util.LinkedHashMap<>();
                         stimulus.put("schemaVersion", PracticeDraftContractService.STIMULUS_SCHEMA_VERSION);
                         stimulus.put("type", grp.getStimulusType() == null ? "NONE" : grp.getStimulusType());
+                        stimulus.put("languageTag", grp.getStimulusLanguageTag());
+                        stimulus.put("instructionLanguageTag", grp.getInstructionLanguageTag());
                         stimulus.put("instruction", grp.getInstruction());
                         stimulus.put("passageText", grp.getPassageText());
                         stimulus.put("transcriptText", grp.getTranscriptText());
@@ -820,7 +916,9 @@ public class PracticePublisherService {
                 content.blanks(),
                 blankToNull(imageReference),
                 blankToNull(audioReference),
-                content.speakingDelivery());
+                content.speakingDelivery(),
+                content.writingResponse(),
+                content.languageTag());
     }
 
     private AnswerSpec resolveAnswerSpec(JsonNode question,
@@ -832,6 +930,28 @@ public class PracticePublisherService {
             return assessmentContractCodec.readAnswerSpec(typedSpec.toString(), content);
         }
         return assessmentContractCodec.adaptLegacyAnswerSpec(rawType, legacyAnswer, content);
+    }
+
+    private static void requireWritingBlankPublicationAuthority(
+            WritingTaskType taskType,
+            QuestionContent content,
+            AnswerSpec answerSpec
+    ) {
+        if (taskType != WritingTaskType.Q51
+                && taskType != WritingTaskType.Q52) {
+            return;
+        }
+        if (content.writingResponse() == null
+                || answerSpec.writingBlankAuthority() == null
+                || content.writingResponse().taskType() != taskType
+                || answerSpec.writingBlankAuthority().taskType() != taskType
+                || !WritingBlankContract.RESPONSE_MODE.equals(
+                content.writingResponse().responseMode())) {
+            throw new IllegalStateException(
+                    "Không thể xuất bản " + taskType
+                            + ": phải chuyển đổi và xác nhận hai ô trả lời "
+                            + "theo writing-blanks.v1.");
+        }
     }
 
     private AssessmentSkill resolveSkill(String rawSkill) {
@@ -901,6 +1021,15 @@ public class PracticePublisherService {
                     : ("LISTENING".equalsIgnoreCase(skill) ? "LISTENING_AUDIO" : "NONE");
         }
         group.setStimulusType(type);
+        group.setStimulusLanguageTag(normalizedLanguageTag(
+                firstNonBlank(
+                        stimulus.path("languageTag").asText(""),
+                        groupNode.path("stimulusLanguageTag").asText(""))));
+        group.setInstructionLanguageTag(normalizedLanguageTag(
+                firstNonBlank(
+                        stimulus.path("instructionLanguageTag").asText(""),
+                        groupNode.path("instructionLanguageTag").asText("")),
+                "vi"));
         group.setPassageText(blankToNull(passage));
         group.setTranscriptText(blankToNull(transcript));
         group.setAudioUrl(blankToNull(firstNonBlank(
@@ -925,6 +1054,20 @@ public class PracticePublisherService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private static String normalizedLanguageTag(String value) {
+        return normalizedLanguageTag(value, "ko");
+    }
+
+    private static String normalizedLanguageTag(String value, String fallback) {
+        String normalized = value == null
+                ? ""
+                : value.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("ko", "vi").contains(normalized)) {
+            return fallback;
+        }
+        return normalized;
     }
 
     private String sectionDeliveryJson(JsonNode section) {

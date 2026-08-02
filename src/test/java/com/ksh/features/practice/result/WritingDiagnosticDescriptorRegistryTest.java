@@ -131,6 +131,13 @@ class WritingDiagnosticDescriptorRegistryTest {
         assertThat(length.parentCriterionId()).isNull();
         assertThat(length.scoreEffect()).isEqualTo("DIAGNOSTIC_ONLY");
         assertThat(content.target().kind().name()).isEqualTo("WHOLE_ANSWER");
+        WritingDiagnosticDescriptorRegistry.Resolution exactSpan =
+                WritingDiagnosticDescriptorRegistry.resolve(
+                        WritingRubricCriterion.W_GRAMMAR_ERRORS,
+                        "Q53",
+                        ResultDetailPolarity.NEEDS_IMPROVEMENT,
+                        WritingDiagnosticDescriptorRegistry.textSpanTarget());
+        assertThat(exactSpan.target().kind().name()).isEqualTo("TEXT_SPAN");
     }
 
     @Test

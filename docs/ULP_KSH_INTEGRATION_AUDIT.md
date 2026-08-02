@@ -1287,15 +1287,17 @@ unrelated discovery inside another commit.
 ### NEW-20260729-009 — stale AJAX tab response can beat Back/new click
 
 - Severity: Medium
-- Status: [x] Finding confirmed; [x] remediated; [ ] browser UAT
+- Status: [x] Finding confirmed; [x] remediated; [x] browser UAT
 - Related issue: UX-TABS-001 / UX-TABS-002
 - Evidence: both orchestrators returned immediately while `navigating=true`,
   dropping a new click or `popstate` and permitting stale URL/panel state.
 - Remediation: monotonically sequence requests, abort the prior fetch when
   supported, and apply only the latest response while retaining hard-navigation
   fallback.
-- Test/evidence: `DetailTabsContractTest` pins latest-wins/abort seams; manual
-  rapid-click/Back UAT remains open.
+- Test/evidence: `DetailTabsContractTest` pins latest-wins/abort seams. Browser
+  UAT ngày 01/08/2026 trên `/lecturer/tests/3/edit` xác nhận click nhanh
+  Theo dõi → Bài nộp kết thúc đúng panel/URL Bài nộp, không bị response cũ ghi
+  đè; Back quay về đúng panel Theo dõi và không hiện fallback lỗi.
 - Owner: Codex root
 - Commit:
 - PR:

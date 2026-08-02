@@ -7,6 +7,7 @@ import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -91,6 +92,7 @@ class ExplanationFingerprintBuilderTest {
                 baseline.teacherExplanation(),
                 baseline.optionLabelMode(),
                 baseline.explanationLanguage(),
+                baseline.explanationStrategy(),
                 List.of(
                         new ExplanationArtifactInput.MediaDescriptor(
                                 "group.image", "IMAGE", DIGEST_B, "image/jpeg", 200L),
@@ -110,6 +112,7 @@ class ExplanationFingerprintBuilderTest {
                 baseline.teacherExplanation(),
                 baseline.optionLabelMode(),
                 baseline.explanationLanguage(),
+                baseline.explanationStrategy(),
                 List.of(
                         baseline.media().get(0),
                         new ExplanationArtifactInput.MediaDescriptor(
@@ -154,6 +157,12 @@ class ExplanationFingerprintBuilderTest {
                 teacherExplanation,
                 optionLabelMode,
                 language,
+                ObjectiveExplanationStrategyRegistry.requireSelection(
+                        CanonicalQuestionType.SINGLE_CHOICE,
+                        ObjectiveExplanationStrategyRegistry.REGISTRY_VERSION,
+                        ObjectiveExplanationStrategyRegistry.Code
+                                .EVIDENCE_ONLY.name(),
+                        ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION),
                 List.of(new ExplanationArtifactInput.MediaDescriptor(
                         "question.image", "IMAGE", mediaDigest, "image/png", 100L)),
                 null);

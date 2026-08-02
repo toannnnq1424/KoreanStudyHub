@@ -1,6 +1,7 @@
 package com.ksh.features.student.controller;
 
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import com.ksh.features.classes.service.invites.InviteCodeValidationException;
 import com.ksh.features.classes.service.invites.InviteRejectionReason;
 import com.ksh.features.classes.service.invites.InviteTokenGenerator;
@@ -31,7 +32,7 @@ import static com.ksh.common.IConstant.*;
  */
 @Controller
 @RequestMapping("/j")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class InviteLinkController {
 
     private static final Pattern LINK_PATTERN = Pattern.compile(InviteTokenGenerator.LINK_REGEX);

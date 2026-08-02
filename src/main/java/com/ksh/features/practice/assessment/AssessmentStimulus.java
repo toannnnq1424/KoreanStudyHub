@@ -48,10 +48,33 @@ public record AssessmentStimulus(
         );
     }
 
+    /**
+     * Immutable standalone questions use their own prompt as the only
+     * authoritative linguistic source. This is distinct from a missing
+     * passage/transcript: the prompt is versioned with the question and may be
+     * referenced by exact UTF-16 offsets.
+     */
+    public static AssessmentStimulus standalonePrompt(
+            String prompt,
+            String provenance) {
+        return new AssessmentStimulus(
+                SCHEMA_VERSION,
+                StimulusType.STANDALONE_PROMPT,
+                prompt,
+                null,
+                null,
+                provenance,
+                true
+        );
+    }
+
     public boolean hasUsableEvidence() {
         return switch (type) {
             case READING_PASSAGE -> passageText != null && !passageText.isBlank();
             case LISTENING_AUDIO -> approved && transcriptText != null && !transcriptText.isBlank();
+            case STANDALONE_PROMPT -> approved
+                    && passageText != null
+                    && !passageText.isBlank();
         };
     }
 
@@ -59,11 +82,14 @@ public record AssessmentStimulus(
         if (!hasUsableEvidence()) {
             return "";
         }
-        return type == StimulusType.READING_PASSAGE ? passageText : transcriptText;
+        return type == StimulusType.LISTENING_AUDIO
+                ? transcriptText
+                : passageText;
     }
 
     public enum StimulusType {
         READING_PASSAGE,
-        LISTENING_AUDIO
+        LISTENING_AUDIO,
+        STANDALONE_PROMPT
     }
 }

@@ -20,6 +20,7 @@ import com.ksh.features.practice.dto.PracticeDtos.ResultDetailFilterChip;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailPolarity;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScreenKind;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScoreCriterion;
+import com.ksh.features.practice.dto.PracticeDtos.ResultDetailSpanMembership;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
 import com.ksh.features.practice.dto.PracticeDtos.ResultScoreSummary;
 import com.ksh.features.practice.dto.PracticeDtos.ResultState;
@@ -42,6 +43,7 @@ import com.ksh.features.practice.dto.PracticeDtos.WritingTaskResult;
 import com.ksh.features.practice.dto.PracticeDtos.WritingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.WritingUpgradeView;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
+import com.ksh.features.practice.service.PracticeAttemptAnswerCodec;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy;
 import com.ksh.features.practice.service.PracticePublishedVersionService;
 import com.ksh.features.practice.service.PracticeVersionSnapshot;
@@ -87,6 +89,7 @@ class PracticeResultDetailContractTest {
                         attempts,
                         versions,
                         new ObjectMapper(),
+                        new PracticeAttemptAnswerCodec(new ObjectMapper()),
                         List.of(overviewPresenter));
         PracticeResultDetailAssembler detailAssembler =
                 new PracticeResultDetailAssembler(
@@ -116,6 +119,7 @@ class PracticeResultDetailContractTest {
                 feedback(),
                 List.of(),
                 null,
+                List.of(),
                 List.of(),
                 List.of(),
                 WritingScoringPolicy.PROFILE_ID,
@@ -250,6 +254,15 @@ class PracticeResultDetailContractTest {
         assertThatThrownBy(() -> new WritingDiagnosticFinding(
                 153L,
                 "finding",
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "MISSING",
+                "MORPHOSYNTAX",
+                List.of(),
                 "MORPHOSYNTAX",
                 "Hình thái & cú pháp",
                 "형태·통사",
@@ -335,6 +348,7 @@ class PracticeResultDetailContractTest {
                         153L,
                         segments,
                         List.of(),
+                        List.of(),
                         WritingScoringPolicy.PROFILE_ID,
                         WritingDiagnosticDescriptorRegistry.SEAM_ID,
                         WritingDiagnosticDescriptorRegistry.SEAM_STATE,
@@ -351,12 +365,20 @@ class PracticeResultDetailContractTest {
                         "cd",
                         true,
                         "ann-1",
+                        1,
                         "NEEDS_IMPROVEMENT",
                         "MORPHOSYNTAX",
                         "W_GRAMMAR_ERRORS",
                         "Cần sửa",
                         "교정",
-                        "W_GRAMMAR_ERRORS_WRITING_Q53"),
+                        "W_GRAMMAR_ERRORS_WRITING_Q53",
+                        List.of(new ResultDetailSpanMembership(
+                                "ann-1", "evidence-1",
+                                "W_GRAMMAR_ERRORS_WRITING_Q53",
+                                "W_GRAMMAR_ERRORS",
+                                ResultDetailPolarity.NEEDS_IMPROVEMENT,
+                                2, 4, 1, 1, "REPLACE", 1, "cd",
+                                "Cần sửa", "교정"))),
                 WritingTextSegment.plain("ef"));
 
         WritingDetailPayload payload = payloadWithSegments.apply(exactSegments);
@@ -373,6 +395,7 @@ class PracticeResultDetailContractTest {
                 "plain",
                 false,
                 "fabricated",
+                0,
                 null,
                 null,
                 null,
@@ -478,13 +501,23 @@ class PracticeResultDetailContractTest {
                 new ResultDetailDiagnosticFinding(
                         77L,
                         "finding-acoustic",
+                        null,
                         acoustic.id(),
+                        "S_FLUENCY_FUTURE",
                         ResultDetailPolarity.NEEDS_IMPROVEMENT,
                         "S_FLUENCY",
                         "SPEAKING_TRANSCRIPT_ONLY",
                         "TASK_EVIDENCE_AVAILABLE",
                         "TASK_METADATA",
-                        "",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "REPLACE",
+                        1,
                         "Không được dùng phát hiện này trong hồ sơ chỉ có bản chép lời.",
                         "");
         assertThatThrownBy(() -> speakingDetailPayload(
@@ -506,10 +539,18 @@ class PracticeResultDetailContractTest {
                         "거",
                         true,
                         "NEEDS_IMPROVEMENT",
+                        "SF-GRAMMAR-1",
                         "D_S_GRAMMAR_PARTICLES_NEEDS_IMPROVEMENT",
                         "S_GRAMMAR_PARTICLES",
                         "Cần sửa tiểu từ.",
-                        "교정"));
+                        "교정",
+                        List.of(new ResultDetailSpanMembership(
+                                "SF-GRAMMAR-1", "SE-GRAMMAR-1",
+                                "D_S_GRAMMAR_PARTICLES_NEEDS_IMPROVEMENT",
+                                "S_GRAMMAR_PARTICLES",
+                                ResultDetailPolarity.NEEDS_IMPROVEMENT,
+                                1, 2, 1, 1, "REPLACE", 1, "거",
+                                "Cần sửa tiểu từ.", "교정"))));
 
         SpeakingDetailPayload payload = speakingDetailPayload(
                 "TRANSCRIPT_ONLY",
@@ -534,6 +575,7 @@ class PracticeResultDetailContractTest {
                 "plain",
                 false,
                 "STRENGTH",
+                null,
                 null,
                 null,
                 null,
@@ -623,13 +665,23 @@ class PracticeResultDetailContractTest {
                 List.of(new ResultDetailDiagnosticFinding(
                         77L,
                         "finding-future-acoustic",
+                        null,
                         futureAcoustic.id(),
+                        "S_FLUENCY_FUTURE",
                         ResultDetailPolarity.NEEDS_IMPROVEMENT,
                         "S_FLUENCY",
                         "SPEAKING_DIRECT_AUDIO",
                         "DIRECT_AUDIO_AVAILABLE",
                         "TASK_METADATA",
-                        "",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "REPLACE",
+                        1,
                         "Future governed direct-audio finding.",
                         "")),
                 List.of(futureAcoustic));
@@ -756,6 +808,8 @@ class PracticeResultDetailContractTest {
         return new ResultDetailDiagnosticFinding(
                 questionId,
                 "finding-1",
+                "evidence-1",
+                descriptor.id(),
                 descriptor.id(),
                 polarity,
                 descriptor.parentCriterionId(),
@@ -763,8 +817,17 @@ class PracticeResultDetailContractTest {
                 "EXACT_TEXT_AVAILABLE",
                 "TEXT_SPAN",
                 "증거",
+                0,
+                2,
+                1,
+                1,
+                "UTF16_EXACT_V1",
+                "test-source-hash",
+                polarity == ResultDetailPolarity.STRENGTH
+                        ? "KEEP" : "REPLACE",
+                1,
                 "Giải thích",
-                "교정");
+                polarity == ResultDetailPolarity.STRENGTH ? null : "교정");
     }
 
     private static List<ResultDetailScoreCriterion> speakingCriteria(String evidenceMode) {

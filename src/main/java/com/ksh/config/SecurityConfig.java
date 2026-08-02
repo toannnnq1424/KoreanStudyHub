@@ -4,6 +4,7 @@ import com.ksh.security.Roles;
 import com.ksh.security.CustomOidcUserService;
 import com.ksh.security.LoginAttemptThrottle;
 import com.ksh.security.LoginThrottleFilter;
+import com.ksh.security.RoleAwareAuthenticationSuccessHandler;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,11 +24,12 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepo
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -107,14 +109,23 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationSuccessHandler formSuccessHandler(
-            LoginAttemptThrottle throttle) {
-        SavedRequestAwareAuthenticationSuccessHandler delegate =
-                new SavedRequestAwareAuthenticationSuccessHandler();
-        delegate.setDefaultTargetUrl("/");
+            LoginAttemptThrottle throttle,
+            RoleAwareAuthenticationSuccessHandler roleAwareSuccessHandler) {
         return (request, response, authentication) -> {
             throttle.recordSuccess(request.getParameter("username"));
-            delegate.onAuthenticationSuccess(request, response, authentication);
+            roleAwareSuccessHandler.onAuthenticationSuccess(request, response, authentication);
         };
+    }
+
+    @Bean
+    public RequestCache requestCache() {
+        return new HttpSessionRequestCache();
+    }
+
+    @Bean
+    public RoleAwareAuthenticationSuccessHandler roleAwareSuccessHandler(
+            RequestCache requestCache) {
+        return new RoleAwareAuthenticationSuccessHandler(requestCache);
     }
 
     /**
@@ -180,7 +191,10 @@ public class SecurityConfig {
             LoginAttemptThrottle loginAttemptThrottle,
             @Qualifier("formFailureHandler")
             AuthenticationFailureHandler formFailureHandler,
-            AuthenticationSuccessHandler formSuccessHandler) throws Exception {
+            @Qualifier("formSuccessHandler")
+            AuthenticationSuccessHandler formSuccessHandler,
+            RoleAwareAuthenticationSuccessHandler roleAwareSuccessHandler,
+            RequestCache requestCache) throws Exception {
         http
                 // Allow same-origin framing so the in-app PDF.js / docx
                 // viewer iframes render (default is DENY). See decision 0010.
@@ -202,7 +216,8 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)
-                        .requestMatchers("/practice/preferences/**").hasRole(Roles.STUDENT)
+                        .requestMatchers("/practice/preferences/**")
+                        .hasAnyRole(Roles.STUDENT, Roles.LECTURER)
                         .requestMatchers("/practice/progress", "/practice/profile").hasRole(Roles.STUDENT)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.LEADER, Roles.ADMIN)
                         .requestMatchers("/leader/**").hasRole(Roles.LEADER)
@@ -215,21 +230,15 @@ public class SecurityConfig {
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/login")
-                        // alwaysUse=false so Spring Security installs the
-                        // SavedRequestAwareAuthenticationSuccessHandler.
-                        // Deep-link flows (e.g. anonymous GET /j/{invite-token}
-                        // for class enrollment) rely on HttpSessionRequestCache
-                        // to capture the original URI and resume it after a
-                        // successful login. With alwaysUse=true Spring would
-                        // bypass the saved request and force every login to
-                        // land on "/", breaking the link-join scenario.
-                        // Fallback "/" remains safe: when a user opens /login
-                        // directly there is no saved request and they are sent
-                        // to the home page as before.
+                        // Resume deep links (notably /j/{invite-token}) only
+                        // when they fit the newly authenticated role. A stale
+                        // lecturer/admin URL from the previous account is
+                        // discarded by the role-aware success handler.
                         .successHandler(formSuccessHandler)
                         .failureHandler(formFailureHandler)
                         .permitAll()
                 )
+                .requestCache(cache -> cache.requestCache(requestCache))
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .logoutSuccessUrl("/login?logout")
@@ -239,12 +248,9 @@ public class SecurityConfig {
                         .loginPage("/login")
                         .userInfoEndpoint(ui -> ui.oidcUserService(customOidcUserService))
                         .failureHandler(oauthFailureHandler())
-                        // Mirror the form-login behaviour above so Google sign-in
-                        // honours the saved request too. Without this an anonymous
-                        // user who follows /j/{token} and chooses "Sign in with
-                        // Google" would land on "/" instead of completing the
-                        // class join.
-                        .defaultSuccessUrl("/", false)
+                        // Keep form login and Google sign-in on the same
+                        // role-aware saved-request policy.
+                        .successHandler(roleAwareSuccessHandler)
                 )
                 .sessionManagement(session -> session
                         .sessionConcurrency(concurrency -> concurrency

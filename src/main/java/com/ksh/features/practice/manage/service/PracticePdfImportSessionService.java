@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -107,7 +106,15 @@ public class PracticePdfImportSessionService {
         PracticePdfStorageService.StoredPdf storedPdf = storageService.store(file, uploaderId);
 
         int totalPages = 1;
-        try (PDDocument doc = Loader.loadPDF(storedPdf.absolutePath().toFile())) {
+        String authoritativeStoredPath = storedPdf.storageProfileCode() == null
+                && storedPdf.absolutePath() != null
+                ? storedPdf.absolutePath().toString()
+                : storedPdf.storedPath();
+        try (PDDocument doc = storedPdf.storageProfileCode() == null
+                && storedPdf.absolutePath() != null
+                ? Loader.loadPDF(storedPdf.absolutePath().toFile())
+                : Loader.loadPDF(storageService.readBytes(
+                        storedPdf.storageProfileCode(), authoritativeStoredPath))) {
             totalPages = doc.getNumberOfPages();
         } catch (Exception e) {
             log.error("[PdfImportSessionService] Failed to read PDF page count", e);
@@ -118,7 +125,7 @@ public class PracticePdfImportSessionService {
         PracticePdfImportSession session = new PracticePdfImportSession(
                 uploaderId,
                 file.getOriginalFilename(),
-                storedPdf.absolutePath().toString(),
+                authoritativeStoredPath,
                 totalPages,
                 "UPLOADED",
                 LocalDateTime.now(),
@@ -126,6 +133,7 @@ public class PracticePdfImportSessionService {
                 LocalDateTime.now().plusHours(24)
         );
         session.setCreatedBy(uploaderId);
+        session.setStorageProfileCode(storedPdf.storageProfileCode());
         session.setTitle(finalTitle);
         session.setTargetTestNo(target.testNo());
         session.setTargetSkill(target.skill());
@@ -346,11 +354,18 @@ public class PracticePdfImportSessionService {
     public void deleteSession(Long sessionId, Long userId) {
         PracticePdfImportSession session = getSession(sessionId, userId);
         
-        // 1. Delete actual PDF file
+        // 1. Delete the exact profile-coded object, or only the bounded
+        // current legacy-local path for a null-profile row.
         if (session.getStoredPdfPath() != null) {
-            File file = new File(session.getStoredPdfPath());
-            if (file.exists() && file.delete()) {
+            try {
+                storageService.delete(
+                        session.getStorageProfileCode(), session.getStoredPdfPath());
                 log.info("[PdfImportSessionService] Deleted PDF for sessionId={}", sessionId);
+            } catch (java.io.FileNotFoundException missing) {
+                log.info("[PdfImportSessionService] PDF already absent for sessionId={}", sessionId);
+            } catch (java.io.IOException failure) {
+                throw new IllegalStateException(
+                        "Không thể xác nhận xóa PDF trước khi xóa phiên nhập.", failure);
             }
         }
 

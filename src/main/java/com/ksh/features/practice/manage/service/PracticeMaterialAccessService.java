@@ -137,7 +137,9 @@ public class PracticeMaterialAccessService {
     }
 
     private MaterialContent content(LecturerAsset asset) throws IOException {
-        Resource resource = storageService.load(asset.getStorageKey());
+        Resource resource = asset.getStorageProfileCode() == null
+                ? storageService.load(asset.getStorageKey())
+                : storageService.load(asset.getStorageProfileCode(), asset.getStorageKey());
         return new MaterialContent(resource,
                 asset.getMimeType() == null ? "application/octet-stream" : asset.getMimeType(),
                 asset.getOriginalFilename(), asset.getFileSize());

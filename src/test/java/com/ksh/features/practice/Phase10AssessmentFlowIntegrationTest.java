@@ -10,6 +10,11 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.practice.dto.PracticeDtos.ObjectiveDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailScreenKind;
+import com.ksh.features.practice.ai.readinglistening
+        .ObjectiveExplanationEditorialService;
+import com.ksh.features.practice.ai.readinglistening
+        .ReadingListeningExplanationClient;
+import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.repository.PracticeAttemptRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
@@ -22,14 +27,20 @@ import com.ksh.features.practice.service.PracticeService;
 import com.ksh.features.practice.service.PracticeVersionSnapshot;
 import com.ksh.features.practice.result.PracticeResultDetailAssembler;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(properties = "openai.api-key=")
 @Transactional
@@ -46,6 +57,17 @@ class Phase10AssessmentFlowIntegrationTest {
     @Autowired private PracticePublishedVersionService publishedVersionService;
     @Autowired private PracticeService practiceService;
     @Autowired private PracticeResultDetailAssembler resultDetailAssembler;
+    @Autowired private ObjectiveExplanationEditorialService
+            objectiveExplanationEditorialService;
+    @MockitoBean private ReadingListeningExplanationClient
+            readingListeningExplanationClient;
+
+    @BeforeEach
+    void acceptEditorialFixtureAfterStrategyAuthorityIsValidated() {
+        when(readingListeningExplanationClient.cleanAndValidateJson(
+                anyString(), any(ExplanationContext.class), anyList()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
     void singleScopePublishSnapshotSubmitScoreAndReadOnlyResultFlowIsVersionLocked() {
@@ -67,9 +89,15 @@ class Phase10AssessmentFlowIntegrationTest {
                             "groups":[{
                               "label":"1","instruction":"오늘은 날씨가 좋습니다.",
                               "questions":[{
+                                "clientId":"question-1",
                                 "questionType":"SINGLE_CHOICE","prompt":"맞는 것을 고르세요.",
                                 "options":["좋습니다","나쁩니다"],
                                 "answer":{"value":"1"},
+                                "explanationStrategy":{
+                                  "registryVersion":"rl-explanation-strategy-registry-v1",
+                                  "strategyCode":"EVIDENCE_ONLY",
+                                  "strategyVersion":"v1"
+                                },
                                 "explanationVi":"첫 번째 선택지가 본문과 일치합니다.","points":1
                               }]
                             }]
@@ -77,6 +105,16 @@ class Phase10AssessmentFlowIntegrationTest {
                         }
                         """
         ));
+        var editorial = objectiveExplanationEditorialService.saveEditedDraft(
+                draft.getId(),
+                "question-1",
+                "{\"fixture\":\"phase10-strategy-authority\"}",
+                lecturer.getId());
+        objectiveExplanationEditorialService.approve(
+                draft.getId(),
+                "question-1",
+                editorial.revisionId(),
+                lecturer.getId());
 
         Long setId = publisherService.publish(draft.getId(), lecturer.getId());
         PracticeSet set = setRepository.findById(setId).orElseThrow();
@@ -86,7 +124,8 @@ class Phase10AssessmentFlowIntegrationTest {
 
         assertThat(section.getTestId()).isEqualTo(test.getId());
         assertThat(question.getQuestionType()).isEqualTo("SINGLE_CHOICE");
-        assertThat(question.getQuestionContentJson()).contains("question-content-v1", "opt_1");
+        assertThat(question.getQuestionContentJson())
+                .contains("question-content-v3", "\"languageTag\":\"ko\"", "opt_1");
         assertThat(question.getAnswerSpecJson()).contains("answer-spec-v1", "opt_1");
 
         Long attemptId = practiceService.startAttempt(

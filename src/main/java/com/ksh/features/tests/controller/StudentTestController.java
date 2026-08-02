@@ -3,8 +3,10 @@ package com.ksh.features.tests.controller;
 import com.ksh.features.tests.dto.TestDtos.ResultView;
 import com.ksh.features.tests.dto.TestDtos.ReviewView;
 import com.ksh.features.tests.dto.TestDtos.StudentExamList;
+import com.ksh.features.tests.dto.TestDtos.StudentTestDetail;
 import com.ksh.features.tests.dto.TestDtos.TakeView;
 import com.ksh.features.tests.service.TestAttemptService;
+import com.ksh.features.tests.service.TestAttemptUnavailableException;
 import com.ksh.features.tests.service.TestCatalogService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
@@ -14,15 +16,20 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import static com.ksh.common.IConstant.ATTR_DETAIL;
 import static com.ksh.common.IConstant.ATTR_EXAMS_PAGE;
+import static com.ksh.common.IConstant.ATTR_FLASH_ERROR;
 import static com.ksh.common.IConstant.ATTR_RESULT;
 import static com.ksh.common.IConstant.ATTR_REVIEW;
 import static com.ksh.common.IConstant.ATTR_TAKE;
 import static com.ksh.common.IConstant.BASE_MY_TESTS;
 import static com.ksh.common.IConstant.VIEW_TEST_LIST;
+import static com.ksh.common.IConstant.VIEW_TEST_DETAIL;
 import static com.ksh.common.IConstant.VIEW_TEST_RESULT;
 import static com.ksh.common.IConstant.VIEW_TEST_REVIEW;
 import static com.ksh.common.IConstant.VIEW_TEST_TAKE;
@@ -56,13 +63,42 @@ public class StudentTestController {
         return VIEW_TEST_LIST;
     }
 
-    /** Starts or resumes an attempt and renders the taking screen. */
+    /** Read-only exam landing page. Viewing it never starts the timer. */
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id,
+                         @AuthenticationPrincipal KshUserDetails user, Model model) {
+        StudentTestDetail detail = catalogService.detailForStudent(id, user.getId());
+        model.addAttribute(ATTR_DETAIL, detail);
+        return VIEW_TEST_DETAIL;
+    }
+
+    /** Explicitly starts the student's one allowed class-exam attempt. */
+    @PostMapping("/{id}/start")
+    public String start(@PathVariable Long id,
+                        @AuthenticationPrincipal KshUserDetails user,
+                        RedirectAttributes ra) {
+        try {
+            attemptService.startOrResume(id, user.getId());
+            return "redirect:" + BASE_MY_TESTS + "/" + id + "/take";
+        } catch (TestAttemptUnavailableException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:" + BASE_MY_TESTS + "/" + id;
+        }
+    }
+
+    /** Resumes an existing attempt and renders the taking screen. */
     @GetMapping("/{id}/take")
     public String take(@PathVariable Long id,
-                       @AuthenticationPrincipal KshUserDetails user, Model model) {
-        TakeView take = attemptService.startOrResume(id, user.getId());
-        model.addAttribute(ATTR_TAKE, take);
-        return VIEW_TEST_TAKE;
+                       @AuthenticationPrincipal KshUserDetails user, Model model,
+                       RedirectAttributes ra) {
+        try {
+            TakeView take = attemptService.resumeForTake(id, user.getId());
+            model.addAttribute(ATTR_TAKE, take);
+            return VIEW_TEST_TAKE;
+        } catch (TestAttemptUnavailableException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:" + BASE_MY_TESTS + "/" + id;
+        }
     }
 
     /** Owner-only result summary for a submitted attempt (else 404). */

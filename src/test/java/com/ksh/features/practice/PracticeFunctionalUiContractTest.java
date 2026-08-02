@@ -49,6 +49,8 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/java/com/ksh/features/practice/web/PracticeRoutes.java");
     private static final Path PRACTICE_RESULT_CSS =
             Path.of("src/main/resources/static/css/practice-result.css");
+    private static final Path PRACTICE_RESULT_PREP_CSS =
+            Path.of("src/main/resources/static/css/practice-result-prep.css");
     private static final Path PRACTICE_RESULT_JS =
             Path.of("src/main/resources/static/js/practice-result.js");
     private static final Path WRITING_RESULT_PRESENTER =
@@ -59,6 +61,114 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/java/com/ksh/features/practice/service/PracticeService.java");
     private static final Path PRACTICE_ATTEMPT_REPOSITORY =
             Path.of("src/main/java/com/ksh/features/practice/repository/PracticeAttemptRepository.java");
+
+    @Test
+    void typedObjectivePlayerAndAttemptScopedPinsAreFunctional() throws IOException {
+        String player = Files.readString(PRACTICE_TEMPLATES.resolve("player.html"));
+        String playerJs = Files.readString(EXAM_PLAYER_JS);
+        String playerCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice/player.css"));
+
+        assertThat(player).contains(
+                "data-multiple-question",
+                "data-multiple-option",
+                "data-multiple-answer",
+                "data-matching-question",
+                "data-matching-target",
+                "data-matching-picker",
+                "data-matching-picker-list",
+                "aria-haspopup=\"listbox\"",
+                "data-matching-answer",
+                "data-material-pin",
+                "aria-pressed=\"false\"",
+                "Ghim câu hỏi",
+                "Nguồn âm thanh",
+                "pre14-e10");
+        assertThat(playerJs).contains(
+                "questionType: 'MULTIPLE_ANSWER'",
+                "selectedOptionIds:",
+                "questionType: 'MATCHING'",
+                "blankAnswers: blankAnswers",
+                "initializeMatchingPickers()",
+                "target.setAttribute('aria-expanded', 'true')",
+                "option.setAttribute(",
+                "target.dispatchEvent(new Event('change', { bubbles: true }))",
+                "syncTypedObjectiveAnswers()",
+                "ksh:practice-player:${attemptId}:pinned-questions",
+                "ksh:practice-player:${attemptId}:pinned-material-groups",
+                "window.localStorage.setItem",
+                "button.setAttribute('aria-pressed', String(pinned))",
+                "pane.scrollTop = 0",
+                "document.documentElement.scrollTop = 0",
+                "document.body.scrollTop = 0");
+        assertThat(playerCss).contains(
+                ".exam-matching-candidates",
+                ".exam-matching-targets",
+                ".exam-matching-picker-list",
+                ".exam-matching-picker.is-open",
+                ".exam-workspace.has-pinned-material .exam-source-pane",
+                ".exam-source-pin:focus-visible",
+                ".exam-audio-button svg[hidden]",
+                ".exam-audio-button:focus-visible",
+                ".exam-audio-track input::-webkit-slider-thumb",
+                "background: #fff",
+                "overflow: clip",
+                "height: calc(100dvh - 224px)",
+                "max-height: none");
+        assertThat(playerCss).doesNotContain("max-height: 42dvh");
+        assertThat(playerJs).doesNotContain(
+                "behavior: reducedMotion.matches ? 'auto' : 'smooth'");
+    }
+
+    @Test
+    void objectiveResultDetailUsesPrepStatesSquareGridsPinAndLocalHelp() throws IOException {
+        String detail = Files.readString(
+                PRACTICE_TEMPLATES.resolve("result-detail-objective.html"));
+        String resultJs = Files.readString(PRACTICE_RESULT_JS);
+        String detailCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice-result-detail-prep.css"));
+
+        assertThat(detail).contains(
+                "data-objective-material-pin",
+                "data-objective-helper-toggle",
+                "data-objective-helper",
+                "aria-modal=\"true\"",
+                "data-objective-helper-backdrop",
+                "data-objective-splitter",
+                "role=\"separator\"",
+                "aria-valuemin=\"32\"",
+                "aria-valuemax=\"68\"",
+                "'MATCHING_MATRIX'",
+                "M18 6 6 18M6 6l12 12",
+                "m5 12 4 4L19 6");
+        assertThat(detail).doesNotContain(
+                "target với nhãn authoritative",
+                "data-objective-question-link",
+                "prd-objective-nav-list");
+        assertThat(resultJs).contains(
+                "ksh:practice-result-detail:${objectiveAttemptId}:pinned-material-groups",
+                "ksh:practice-result-detail:${objectiveAttemptId}:split-ratio",
+                "[data-objective-splitter]",
+                "--prd-objective-split",
+                "splitter.setPointerCapture(event.pointerId)",
+                "window.localStorage.setItem",
+                "button.setAttribute('aria-pressed', String(pinned))",
+                "helper.removeAttribute('inert')",
+                "helper.setAttribute('inert', '')",
+                "event.key === 'Escape'",
+                "event.key !== 'Tab'");
+        assertThat(detailCss).contains(
+                ".prd-objective-option.is-correct",
+                ".prd-objective-option.is-selected_incorrect",
+                ".prd-objective-option.is-user_selected_pending",
+                "border-collapse: collapse",
+                ".prd-objective-splitter",
+                "grid-template-columns: minmax(0, var(--prd-objective-split)) 12px minmax(0, 1fr)",
+                "--prd-objective-bottom-nav: 62px",
+                ".prd-objective-group-panel.is-material-pinned",
+                ".prd-objective-helper.is-open",
+                "@media (prefers-reduced-motion: reduce)");
+    }
 
     @Test
     void detailPagesUsePerTestAndPerSkillContracts() throws IOException {
@@ -90,6 +200,7 @@ class PracticeFunctionalUiContractTest {
                 "Kiểm tra thiết bị để bắt đầu",
                 "Kiểm tra micro để tiếp tục");
         assertThat(preflight).contains(
+                "data-pre14-mic-check",
                 "data-upload-enabled=${speakingMediaUploadEnabled}",
                 "data-test-speaker",
                 "data-record-sample",
@@ -114,7 +225,13 @@ class PracticeFunctionalUiContractTest {
                 "blob.size > 0",
                 "Dịch vụ lưu bản ghi phần Nói đang tắt");
         assertThat(preflightJs).doesNotContain("fetch(\"http", "fetch('http");
-        assertThat(preflightCss).contains(".spc-page", ".spc-panel", ".spc-meter", ".spc-mascot");
+        assertThat(preflightCss).contains(
+                ".spc-page",
+                ".spc-panel",
+                ".spc-meter",
+                ".spc-mascot",
+                "border-radius: 24px",
+                "background: transparent");
     }
 
     @Test
@@ -168,11 +285,17 @@ class PracticeFunctionalUiContractTest {
                 PRACTICE_TEMPLATES.resolve("fragments/catalog-cards.html"));
         String catalogJs = Files.readString(PRACTICE_CATALOG_JS);
         String catalogCss = Files.readString(PRACTICE_CATALOG_CSS);
+        String flowCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice-flow-polish.css"));
         String mainRule = catalogCss.substring(
                 catalogCss.indexOf(".pc-main {"),
                 catalogCss.indexOf(".pc-layout {"));
 
         assertThat(template).contains("catalog.totalElements()");
+        assertThat(template).contains(
+                "catalog.totalElements() == 1",
+                "pc-card-grid",
+                "is-single");
         assertThat(template).contains(
                 "catalog.globalResume()",
                 "resume.attemptId()",
@@ -222,6 +345,10 @@ class PracticeFunctionalUiContractTest {
                 "grid-template-columns: repeat(2, minmax(0, 1fr))",
                 "@media (max-width: 560px)",
                 "grid-template-columns: minmax(0, 1fr)");
+        assertThat(flowCss).contains(
+                ".practice-flow-home .pc-card-grid.is-single",
+                "grid-template-columns: minmax(280px, calc((100% - 16px) / 2))",
+                "justify-content: start");
         assertThat(mainRule)
                 .contains("min-width: 0")
                 .doesNotContain("width: 100%", "margin-left");
@@ -330,6 +457,7 @@ class PracticeFunctionalUiContractTest {
         String speaking = Files.readString(PRACTICE_TEMPLATES.resolve("result/speaking.html"));
         String writingPresenter = Files.readString(WRITING_RESULT_PRESENTER);
         String css = Files.readString(PRACTICE_RESULT_CSS);
+        String prepCss = Files.readString(PRACTICE_RESULT_PREP_CSS);
         String js = Files.readString(PRACTICE_RESULT_JS);
 
         assertThat(template).contains(
@@ -341,7 +469,18 @@ class PracticeFunctionalUiContractTest {
                 "result.identity().skill() != 'SPEAKING'",
                 "result.identity().skill() == 'SPEAKING'",
                 "Phạm vi hồ sơ",
-                "phần có hồ sơ ngôn ngữ")
+                "phần có hồ sơ ngôn ngữ",
+                "pr-summary-writing-breakdown",
+                "pr-notebook-divider",
+                "Phạm vi điểm",
+                "không phải điểm hoặc chứng chỉ TOPIK chính thức",
+                "data-result-celebration-eligible",
+                "result.state().code() == 'GRADED' or result.state().code() == 'SUBMITTED'",
+                "data-result-celebration-key",
+                "data-result-celebration",
+                "pr-sky-particles",
+                "result.answers().partial() > 0",
+                "đúng một phần")
                 .doesNotContain("result.celebratory()", "pr-skill-mark");
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("rl-result.html"))).isFalse();
         assertThat(Files.exists(PRACTICE_TEMPLATES.resolve("result/reading.html"))).isFalse();
@@ -370,40 +509,56 @@ class PracticeFunctionalUiContractTest {
                 "visibleCriteria")
                 .doesNotContain("ResultEvaluationBand.fromPercentage");
         assertThat(writing).contains(
-                "Đánh giá luyện tập KSH",
-                "không phải điểm hoặc chứng chỉ TOPIK chính thức",
-                "Thành phần tính điểm",
-                "Phân bổ điểm theo từng ô trống",
                 "task.evaluated()",
                 "th:case=\"'PENDING'\"",
                 "th:case=\"'FAILED'\"",
                 "th:case=\"'UNAVAILABLE'\"",
                 "th:tabindex=\"${status.first ? 0 : -1}\"",
-                "<details class=\"pr-task-prompt\"",
-                "pr-task-prompt-preview",
+                "th:hidden=\"${!taskStatus.first}\"",
                 "pr-task-prompt-full",
+                "task.criterionGroups()",
+                "criterion.performanceCssClass()",
+                "criterion.performanceLabel()",
                 "questionId=${task.questionId()}",
                 "th:if=\"${task.detailAvailable()}\"",
                 "th:unless=\"${task.detailAvailable()}\"",
-                "Chi tiết riêng chưa khả dụng cho định dạng Writing lịch sử này",
                 "Chưa có trang chi tiết cho nhiệm vụ này")
                 .doesNotContain(
                         "Task Response", "Lexical Resource", "IELTS", "Band descriptors",
-                        "criterion.band()", "lens.band()", "pr-scale", "th:hidden",
+                        "criterion.band()", "lens.band()", "pr-scale",
+                        "Thành phần tính điểm", "<details class=\"pr-task-prompt\"",
+                        "pr-task-prompt-preview", "Xem toàn bộ đề bài", "pr-task-type",
+                        "Phân bổ điểm theo từng ô trống", "pr-task-summary",
                         "pr-writing-lenses", "writing-lens-tab-",
-                        "Chẩn đoán để luyện tiếp");
+                        "Chẩn đoán để luyện tiếp",
+                        "Đánh giá luyện tập KSH",
+                        "không phải điểm hoặc chứng chỉ TOPIK chính thức");
         assertThat(speaking).contains(
                 "Phạm vi và độ tin cậy",
                 "Hồ sơ ngôn ngữ dựa trên bản chép lời",
                 "Kết quả Nói tổng hợp",
-                "Không có điểm số",
+                "Hồ sơ ngôn ngữ từ bản chép lời",
+                "pr-speaking-criteria-dashboard",
+                "pr-speaking-radar-value",
+                "result.payload().radarPolygonPoints()",
+                "axis.percentage()",
                 "criterion.scored()",
                 "criterion.notScorable()",
+                "criterion.performanceCssClass()",
+                "criterion.performanceLabel()",
+                "#lists.size(result.payload().strengths())",
+                "#lists.size(result.payload().needsImprovement())",
+                "actionStatus.index &lt; 3",
+                "data-result-tabs=\"speaking-overview-criteria\"",
+                "KSH không suy luận độ lưu loát, phát âm hoặc thể hiện từ bản chép lời",
                 "Kế hoạch luyện tập tiếp theo",
                 "Xem bản chép lời và bằng chứng chi tiết")
                 .doesNotContain(
-                        "Câu 1", "data-result-tabs=\"speaking", "IELTS", "radar",
-                        "criterion.band()", "criterion.percentage()", "pr-scale");
+                        "근거 범위 및 출처",
+                        "평가를 제공할 수 없습니다",
+                        "개 기준",
+                        "Câu 1", "IELTS", "Band descriptors",
+                        "criterion.percentage()", "pr-scale");
         assertThat(css).contains(
                 "--pr-blue:", "--pr-green:", "--pr-amber:", "--pr-red:", "--pr-gray:",
                 ".pr-speaking-action-plan", ".pr-next-action", ".pr-table td::before",
@@ -415,10 +570,34 @@ class PracticeFunctionalUiContractTest {
                 ".practice-result-page summary:focus-visible", "@media (max-width: 720px)")
                 .doesNotContain(
                         "linear-gradient", "radial-gradient", "min-width: 800px",
-                        ".pr-band-chip", ".pr-scale", "radar");
+                        ".pr-band-chip", ".pr-scale");
         assertThat(js).contains(
                 "[data-result-tabs]", "aria-selected", "hidden",
-                "ArrowRight", "ArrowLeft", "Home", "End");
+                "ArrowRight", "ArrowLeft", "Home", "End",
+                "runResultCelebration",
+                "celebration.dataset.played === 'true'",
+                "celebration.dataset.played = 'true'",
+                "__KSH_DISABLE_RESULT_MOTION__",
+                "document.documentElement.dataset.practiceMotion === 'off'",
+                "reducedMotion.matches",
+                "window.requestAnimationFrame",
+                "celebration.replaceChildren()");
+        assertThat(prepCss).contains(
+                ".pr-result-celebration-piece.is-dot",
+                ".pr-result-celebration-piece.is-star",
+                ".pr-result-celebration-piece.is-dash",
+                "@keyframes pr-result-confetti-burst",
+                "@keyframes pr-result-cloud-bob",
+                "@keyframes pr-sky-particle-pop",
+                "@keyframes pr-baekho-sprite",
+                ".pr-summary-answer-stats .is-partial",
+                ") #result-analysis > .pr-section-heading",
+                "border-radius: 24px 24px 0 0",
+                "box-shadow: 0 16px 36px rgba(25, 39, 111, 0.14)",
+                "var(--celebration-delay) 1 both",
+                "@media (prefers-reduced-motion: reduce)",
+                "html[data-practice-motion=\"off\"]")
+                .doesNotContain("pr-baekho-celebrate");
     }
 
     @Test
@@ -446,10 +625,11 @@ class PracticeFunctionalUiContractTest {
                         "/practice/sets/{setId}/tests/{testId}",
                         "result.identity().setId()",
                         "result.identity().testId()",
-                        "Luyện lại · 다시 연습",
+                        "Luyện lại",
                         "/practice/attempts/{id}/result/detail")
                 .doesNotContain(
                         "<form",
+                        "Luyện lại · 다시 연습",
                         "/re-evaluate",
                         "retry provider",
                         "sẽ bắt đầu một lần làm bài mới");
@@ -471,6 +651,8 @@ class PracticeFunctionalUiContractTest {
                 PRACTICE_TEMPLATES.resolve("result-detail-speaking.html"));
         String detailCss = Files.readString(Path.of(
                 "src/main/resources/static/css/practice-result-detail.css"));
+        String objectivePrepCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice-result-detail-prep.css"));
         String tabsJs = Files.readString(PRACTICE_RESULT_JS);
 
         assertThat(objective).contains(
@@ -482,41 +664,54 @@ class PracticeFunctionalUiContractTest {
                 "data-objective-group-panel",
                 "data-objective-group-key",
                 "data-objective-question-type",
-                "Nhóm fallback có giới hạn",
-                "Đáp án người học",
-                "Đáp án chính thức",
-                "Giải thích của giáo viên",
-                "Lời giải AI",
-                "Dịch đoạn liên quan",
                 "Bản chép lời đã được phê duyệt",
+                "không thay thế dữ liệu âm thanh",
                 "data-option-state",
                 "option.statusLabelVi()",
                 "Các phương án và trạng thái kết quả",
-                "Giá trị từng ô trống và đáp án được chấp nhận",
+                "Lời giải đáp án",
+                "Kết quả từng ô trống",
                 "Câu trả lời của bạn",
-                "Giải mã từng ô trống",
-                "Kiểm chứng mệnh đề với nguồn",
-                "Đối chiếu mệnh đề với vùng thông tin đã kiểm chứng",
-                "Đoạn nghe quyết định",
-                "Cụm từ nghe chứa đáp án",
-                "Vì sao không phải",
-                "Digest tài sản",
+                "DẤU HIỆU ĐIỀN TỪ",
+                "prd-objective-fill-evidence",
                 "evidenceTranslations()",
-                "Đối chiếu toàn bộ bằng chứng đã kiểm chứng",
+                "strategyLabelVi()",
+                "strategyDescriptionVi()",
+                "EXACT_EVIDENCE_ONLY",
+                "FULL_SOURCE_INLINE_HIGHLIGHT",
+                "QUESTION_EVIDENCE_TRANSLATION_TABLE",
+                "MCQ_OPTION_ELIMINATION",
+                "EVIDENCE_AND_ELIMINATION",
+                "TFNG_CONTRADICTION_TABLE",
+                "NOT_GIVEN_BOUNDARY",
+                "FILL_SLOT_GRAMMAR_ANALYSIS",
+                "KEYWORD_PARAPHRASE_BRIDGE",
+                "BILINGUAL_STEP_BY_STEP",
                 "tabindex=\"-1\"")
+                .containsOnlyOnce(
+                        "class=\"prd-objective-explanation is-ready\"")
                 .doesNotContain(
                         "groupsJson", "JSON.parse", "questionsJson",
+                        "Chiến lược đã được giảng viên duyệt",
                         "Phương án, trạng thái người học và lý do loại chọn",
                         "Người học đã chọn", "Không chọn", "Vì sao loại",
+                        "blankId()", "normalizationPolicy()",
+                        "Đối chiếu toàn bộ bằng chứng đã kiểm chứng",
+                        "Mã dẫn chứng", "Digest tài sản",
+                        "data-strategy-code", "data-strategy-renderer",
+                        "aiArtifactProvenance()", "learnerAnswerProvenance()",
+                        "legacyFallback()", "constructRegistryNote()",
+                        "prd-objective-inline-evidence",
+                        "prd-objective-all-evidence",
+                        "prd-objective-tfng-proof",
+                        "prd-objective-explanation-link",
+                        "Xem lời giải",
                         "IELTS", "Band", "Task Response", "Lexical Resource",
-                        "th:utext", "pageIndex()", "#strings.listJoin");
+                        "th:utext", "pageIndex()");
         assertThat(detailCss).contains(
                 ".prd-objective-layout",
                 ".prd-objective-nav-list a:focus-visible",
                 ".prd-objective-question:focus",
-                ".prd-objective-inline-evidence article",
-                ".prd-objective-tfng-proof",
-                ".prd-objective-all-evidence",
                 ".prd-objective-group-panel",
                 ".prd-objective-option.is-user_selected_pending",
                 ".prd-objective-option.is-correct",
@@ -525,9 +720,34 @@ class PracticeFunctionalUiContractTest {
                 "max-width: 100%",
                 "@media (max-width: 980px)",
                 "@media (max-width: 640px)");
+        assertThat(objectivePrepCss).contains(
+                ".prd-objective-nav-list {",
+                "overflow-x: auto",
+                "right: calc(49.3% + 6px)",
+                "--prd-objective-bottom-nav: 104px",
+                ".prd-objective-question + .prd-objective-question",
+                "position: fixed",
+                "bottom: 0",
+                ".prd-objective-fill-evidence",
+                ".prd-objective-typed-strategy",
+                ".prd-objective-typed-table");
         assertThat(writing).contains(
+                "prd-body prd-writing-body",
                 "data-result-detail-kind=\"WRITING_DETAIL\"",
+                "data-writing-task-type",
+                "data-writing-splitter",
+                "prd-header-actions",
+                "prd-header-reevaluate",
+                "role=\"separator\"",
+                "aria-valuemin=\"35\"",
+                "aria-valuemax=\"65\"",
                 "resultDetail.payload().scoreCriteria()",
+                "data-overview-criterion-trigger",
+                "data-overview-criterion-detail",
+                "criterion.feedbackVi()",
+                "data-overview-coverage-trigger",
+                "data-overview-coverage-detail",
+                "coverage.evidenceCount()",
                 "resultDetail.payload().diagnosticGroups()",
                 "resultDetail.payload().learnerAnswerSegments()",
                 "prd-writing-inline-annotation",
@@ -536,15 +756,47 @@ class PracticeFunctionalUiContractTest {
                 "group.strengthChips()",
                 "group.needsImprovementChips()",
                 "chip.labelVi()",
-                "chip.labelKo()",
                 "chip.count()",
-                "resultDetail.payload().scoreProfileId()",
                 "task.score().pointsDisplay()",
+                "prd-writing-overview-task-label",
+                "Đã đối chiếu ",
                 "task.feedback().label()",
-                "task.feedback().stateLabelKo()",
                 "data-writing-diagnostic-filter",
+                "data-writing-upgrade-filter",
+                "data-writing-upgrade-finding-ids",
+                "prd-upgrade-suggestion",
+                "data-requires-child-filter",
+                "data-diagnostic-chip-groups",
+                "data-diagnostic-group-select",
+                "prd-diagnostic-parent-picker",
+                "data-diagnostic-group-toggle",
+                "prd-diagnostic-group-chip",
+                "prd-diagnostic-group-children",
+                "tiêu chí con",
+                "prd-writing-chip-catalogue",
+                "prd-writing-occurrence-list",
+                "prd-writing-upgrade-chip-rail",
+                "prd-writing-continuous-panel",
+                "Tiêu chí được xử lý trong bài nâng cấp",
+                "!#lists.isEmpty(resultDetail.payload().upgrade().significantRewrites())",
+                "resultDetail.payload().hasUpgradeForGroup(group.categoryCode())",
+                "resultDetail.payload().hasUpgradeForDescriptor(chip.id())",
                 "data-writing-feature",
+                "data-writing-operation",
+                "finding.operation()",
                 "finding.descriptorId()",
+                "data-writing-features=${segment.featureIds()}",
+                "data-writing-finding-ids=${segment.findingIds()}",
+                "data-writing-number-feature=${membership.descriptorId()}",
+                "data-writing-occurrence=${finding.findingId()}",
+                "data-writing-occurrence-trigger",
+                "prd-occurrence-detail",
+                "data-writing-zero-chip-empty",
+                "practice/fragments/icons :: overview",
+                "practice/fragments/icons :: strength",
+                "practice/fragments/icons :: improvement",
+                "practice/fragments/icons :: upgrade",
+                "practice/fragments/icons :: sample",
                 "data-writing-filter-status",
                 "aria-pressed",
                 "data-result-tabs",
@@ -553,13 +805,12 @@ class PracticeFunctionalUiContractTest {
                 "aria-labelledby",
                 "aria-selected",
                 "Tổng quan",
-                "개요",
                 "Điểm mạnh",
-                "강점",
                 "Cần cải thiện",
-                "개선 필요",
                 "Bài nâng cấp",
-                "개선된 답안",
+                "<span>Mẫu</span>",
+                "resultDetail.payload().teacherSample().available()",
+                "data-writing-teacher-sample",
                 "Không có đề bài bất biến khả dụng",
                 "Người học chưa nộp câu trả lời",
                 "/js/practice-result.js",
@@ -567,16 +818,58 @@ class PracticeFunctionalUiContractTest {
                 "_csrf.parameterName")
                 .doesNotContain(
                         "questionsJson", "JSON.parse", "Content", "Coherence",
-                        "Bài mẫu", "data-tab=\"sample\"", "th:utext",
+                        "<span lang=\"ko\">개요</span>",
+                        "<span lang=\"ko\">강점</span>",
+                        "<span lang=\"ko\">개선 필요</span>",
+                        "task.feedback().stateLabelKo()",
+                        "chip.labelKo()",
+                        "data-tab=\"sample\"", "th:utext",
+                        "data-writing-score-profile",
+                        "data-writing-diagnostic-seam",
+                        "coverage.evidenceIds()",
+                        "Bằng chứng: ",
+                        "teacherSample().fixtureId()",
+                        "prd-writing-upgrade-criterion-grid",
+                        "prd-writing-upgrade-chip is-strength",
                         "teacherReference()", "Bài tham khảo của giáo viên",
                         "교사 참고 답안");
-        assertThat(writing.split("role=\"tab\"", -1)).hasSize(5);
+        assertThat(writing.split("role=\"tab\"", -1)).hasSize(7);
         assertThat(writing.indexOf("resultDetail.payload().scoreCriteria()"))
                 .isBetween(
                         writing.indexOf("th:id=\"${'writing-panel-overview-"),
                         writing.indexOf("th:id=\"${'writing-panel-strengths-"));
         assertThat(detailCss).contains(
                 ".prd-writing-review-layout",
+                "--writing-split: 52%",
+                ".prd-writing-splitter",
+                ".prd-writing-feedback,",
+                ".prd-speaking-feedback {",
+                "container-type: inline-size",
+                "overflow-x: hidden",
+                "overscroll-behavior-x: contain",
+                ".prd-writing-splitter span,",
+                ".prd-speaking-splitter span {",
+                "@container (max-width: 580px)",
+                "margin-top: 72px",
+                "margin-top: 8px",
+                ".prd-writing-upgrade-chip-rail",
+                ".prd-writing-occurrence-list",
+                ".prd-writing-continuous-panel",
+                ".prd-writing-blank-answer.is-selected",
+                ".prd-diagnostic-chip-groups",
+                ".prd-diagnostic-group-chip",
+                ".prd-diagnostic-parent-picker",
+                "position: sticky",
+                ".prd-writing-feedback > .prd-writing-panel",
+                ".prd-speaking-feedback > .prd-speaking-panel",
+                ".prd-speaking-review-layout",
+                "flex: 0 0 58px",
+                "overflow: clip",
+                "container-type: normal",
+                ".prd-diagnostic-group-children[hidden]",
+                ".prd-writing-inline-annotation.is-selected.is-upgrade",
+                ".prd-writing-annotated-answer",
+                "white-space: normal",
                 ".prd-writing-tabs",
                 ".prd-writing-tab.is-active",
                 ".prd-writing-tab:focus-visible",
@@ -584,6 +877,11 @@ class PracticeFunctionalUiContractTest {
                 ".prd-writing-inline-tooltip",
                 ".prd-inline-floating-tooltip",
                 ".prd-writing-score-card progress",
+                ".prd-overview-criterion-detail",
+                ".prd-writing-coverage-detail",
+                ".prd-writing-inline-number",
+                "background: transparent",
+                ".is-upgrade-selected .prd-upgrade-suggestion",
                 "grid-template-columns: minmax(140px, 1fr) minmax(72px, 0.32fr) minmax(160px, 0.9fr)",
                 ".prd-speaking-score-card > span",
                 "overflow-wrap: break-word",
@@ -591,15 +889,57 @@ class PracticeFunctionalUiContractTest {
         assertThat(tabsJs).contains(
                 "[data-result-tabs]",
                 "aria-selected",
+                "const activeQuestionLink = questionLinks.find",
+                "inline: 'center'",
                 "ArrowRight",
                 "ArrowLeft",
                 "Home",
                 "End",
                 "nextTab.focus()",
                 "[data-writing-diagnostic-filter]",
+                "[data-writing-upgrade-filter]",
+                "[data-overview-criterion-trigger]",
+                "[data-overview-criterion-detail]",
+                "candidate.setAttribute('aria-current', 'true')",
+                "detail.setAttribute('aria-hidden', String(!active))",
+                "[data-overview-coverage-trigger]",
+                "[data-writing-occurrence-trigger]",
+                "[data-diagnostic-group-toggle]",
+                "[data-diagnostic-group-select]",
+                "[data-diagnostic-group-trigger]",
+                "[data-diagnostic-group-menu]",
+                "[data-diagnostic-group-option]",
+                "aria-haspopup",
+                "role', 'listbox'",
+                "enhanceDiagnosticGroupSelect",
+                "syncDiagnosticPicker",
+                "closeDiagnosticPicker",
+                "setDiagnosticGroupExpanded",
+                "data-requires-child-filter",
+                "Chọn một nhóm tiêu chí để xem các tiêu chí con.",
+                "Chọn một tiêu chí con để xem đúng occurrence tương ứng.",
+                "data-writing-finding-ids",
+                "data-writing-upgrade-finding-ids",
+                "is-upgrade-selected",
+                "data-writing-number-feature",
+                "writingTargetBlankId",
+                "writingTargetBlankIndex",
+                ".prd-writing-blank-answer",
+                "selectedBlankCount",
+                "matchingBlankTargets = knownFindings.filter",
+                "!annotation.closest('.prd-writing-blank-answer')",
+                "ô trả lời",
+                "data-writing-zero-chip-empty",
+                "activateOccurrence",
+                "[data-writing-splitter]",
+                "--writing-split",
                 "aria-pressed",
                 "finding.hidden",
                 "resetDiagnosticState",
+                "feedback.scrollTop = 0",
+                "panel.scrollTop = 0",
+                "window.matchMedia('(min-width: 981px)').matches",
+                "reviewLayout.scrollTop = 0",
                 "positionAnnotationTooltip",
                 "cloneNode(true)",
                 "[data-speaking-diagnostic-filter]",
@@ -608,12 +948,26 @@ class PracticeFunctionalUiContractTest {
                         "JSON.parse", "JSON.stringify",
                         "firstMatch.focus", "firstMatch.scrollIntoView");
         assertThat(speaking).contains(
+                "class=\"prd-speaking-root\"",
                 "data-result-detail-kind=\"SPEAKING_DETAIL\"",
                 "data-speaking-active-question",
-                "data-speaking-evidence-mode",
+                "data-speaking-question-drawer-trigger",
+                "data-speaking-question-drawer",
+                "data-speaking-question-drawer-close",
+                "aria-haspopup=\"dialog\"",
+                "speaking-question-group-title",
+                "resultDetail.identity().sectionTitle()",
+                "task.compatibilityLabelVi()",
+                "aria-current",
                 "data-speaking-recording-state",
                 "data-speaking-acoustic-state",
                 "resultDetail.payload().scoreCriteria()",
+                "data-overview-criterion-trigger",
+                "data-overview-criterion-detail",
+                "criterion.feedbackVi()",
+                "prd-speaking-overview",
+                "resultDetail.payload().taskScoreStateLabelVi()",
+                "Không tạo điểm tổng",
                 "resultDetail.payload().diagnosticGroups()",
                 "resultDetail.payload().transcriptSegments()",
                 "prd-speaking-inline-annotation",
@@ -621,7 +975,9 @@ class PracticeFunctionalUiContractTest {
                 "th:text=\"${segment.text()}\"",
                 "segment.explanationVi()",
                 "segment.correctionKo()",
-                "data-speaking-feature=${segment.descriptorId()}",
+                "data-speaking-features=${segment.featureIds()}",
+                "data-speaking-finding-ids=${segment.findingIds()}",
+                "data-speaking-number-feature=${membership.descriptorId()}",
                 "data-speaking-descriptor",
                 "data-speaking-subcriterion=${segment.featureId()}",
                 "data-speaking-kind",
@@ -630,31 +986,129 @@ class PracticeFunctionalUiContractTest {
                 "Câu trả lời văn bản cũ — không phải bản chép lời có thẩm quyền",
                 "!resultDetail.payload().evidence().transcriptAvailable()",
                 "resultDetail.payload().upgrade().learnerDerivedUpgrade()",
+                "prd-speaking-topbar",
+                "data-speaking-splitter",
+                "role=\"separator\"",
+                "aria-valuemin=\"35\"",
+                "aria-valuemax=\"65\"",
                 "data-speaking-diagnostic-filter",
                 "data-speaking-filter-status",
+                "data-requires-child-filter",
+                "data-diagnostic-chip-groups",
+                "data-diagnostic-group-toggle",
+                "data-diagnostic-group-select",
+                "prd-diagnostic-parent-picker",
+                "prd-diagnostic-group-chip",
+                "prd-diagnostic-group-children",
+                "data-speaking-occurrence=${finding.findingId()}",
+                "data-speaking-occurrence-trigger",
+                "prd-occurrence-detail",
+                "data-speaking-zero-chip-empty",
+                "data-speaking-audio-alignment",
+                "audioStartMs()",
+                "audioEndMs()",
+                "practice/fragments/icons :: overview",
+                "practice/fragments/icons :: strength",
+                "practice/fragments/icons :: improvement",
+                "practice/fragments/icons :: upgrade",
+                "practice/fragments/icons :: sample",
+                "Chọn một chip để mở phản hồi và đánh dấu đúng đoạn trong bản chép lời.",
+                "prd-speaking-upgrade-criteria",
+                "data-speaking-upgrade-criterion",
+                "data-speaking-upgrade-filter",
+                "data-speaking-upgrade-finding-id",
+                "data-speaking-upgrade-feature",
+                "resultDetail.payload().hasUpgradeForGroup(group.categoryCode())",
+                "resultDetail.payload().hasUpgradeForDescriptor(chip.id())",
+                "prd-upgrade-suggestion",
+                "Tiêu chí được xử lý trong bài nâng cấp",
+                "prd-header-actions",
+                "prd-speaking-result-info",
+                "prd-speaking-result-info-panel",
+                "Thông tin kết quả",
+                "Phạm vi và nguồn bằng chứng",
+                "Nguồn chấm và khả dụng",
                 "Tổng quan",
-                "개요",
                 "Điểm mạnh",
-                "강점",
                 "Cần cải thiện",
-                "개선 필요",
                 "Bài nâng cấp",
-                "개선된 답변",
+                "<span>Mẫu</span>",
+                "resultDetail.payload().teacherSample().available()",
+                "prd-speaking-continuous-panel",
+                "prd-speaking-source-note",
+                "data-speaking-teacher-sample",
                 "không chứng minh bộ đánh giá đã nghe âm thanh")
                 .doesNotContain(
                         "questionsJson", "JSON.parse", "Content", "Coherence",
+                        "<span lang=\"ko\">개요</span>",
+                        "<span lang=\"ko\">강점</span>",
+                        "<span lang=\"ko\">개선 필요</span>",
+                        "task.evaluationStateLabelKo()",
+                        "criterion.labelKo()",
+                        "group.labelKo()",
+                        "chip.labelKo()",
+                        "prd-speaking-source-technical",
+                        "prd-speaking-trust-details",
                         "holistic", "subtotal", "AUDIO_SUBMITTED",
                         "S_FLUENCY_", "S_PRONUNCIATION_", "th:utext",
                         "resultDetail.payload().evidence().transcriptText()",
+                        "data-contract-version",
+                        "data-descriptor-policy",
+                        "data-speaking-evidence-mode",
+                        "data-speaking-evaluator-capability",
+                        "data-speaking-question-version",
+                        "data-speaking-question-type",
+                        "data-speaking-compatibility-mode",
+                        "teacherSample().fixtureId()",
+                        "prd-speaking-provenance-card",
                         "data-speaking-feature=${segment.featureId()}");
-        assertThat(speaking.split("role=\"tab\"", -1)).hasSize(5);
+        assertThat(speaking.split("role=\"tab\"", -1)).hasSize(7);
         assertThat(speaking.split("data-speaking-filter-status", -1)).hasSize(3);
         assertThat(detailCss).contains(
+                "html.prd-speaking-root",
                 ".prd-speaking-tabs",
                 ".prd-speaking-panel[hidden]",
                 ".prd-speaking-chip[aria-pressed=\"true\"]",
                 ".prd-speaking-recording audio",
+                ".prd-speaking-result-info-panel",
+                ".prd-speaking-result-info-panel dd",
+                ".prd-speaking-result-info-panel .prd-speaking-source-definition dt",
+                ".prd-speaking-continuous-panel",
+                ".prd-speaking-source-note",
+                ".prd-speaking-upgrade-criterion-grid",
+                ".prd-speaking-splitter",
+                ".prd-speaking-question-drawer-trigger",
+                ".prd-speaking-question-drawer::backdrop",
+                ".prd-speaking-question-group",
+                ".prd-speaking-question-list a.is-active",
+                "@keyframes prd-speaking-drawer-enter",
+                ".prd-speaking-inline-annotation.is-selected.is-strength",
+                ".prd-speaking-inline-annotation.is-selected.is-need",
+                ".prd-speaking-inline-annotation.is-selected.is-upgrade",
+                ".prd-header-actions",
                 "@media (max-width: 980px)");
+        assertThat(tabsJs).contains(
+                "[data-speaking-question-drawer-trigger]",
+                "drawer.showModal()",
+                "is-speaking-question-drawer-open",
+                "event.target === drawer",
+                "event.key !== 'Escape'",
+                "trigger.focus({ preventScroll: true })",
+                "[data-speaking-upgrade-filter]",
+                "data-speaking-upgrade-feature",
+                "[data-speaking-splitter]",
+                "--speaking-split",
+                "setPointerCapture",
+                "ArrowLeft",
+                "ArrowRight",
+                "is-upgrade",
+                "[data-speaking-occurrence-trigger]",
+                "data-speaking-finding-ids",
+                "data-speaking-number-feature",
+                "data-speaking-zero-chip-empty",
+                "activateOccurrence",
+                "prd-speaking-inline-annotation')",
+                "!annotation.classList.contains('is-selected')");
     }
 
     @Test
@@ -684,6 +1138,7 @@ class PracticeFunctionalUiContractTest {
         assertThat(writingPlayer).contains(
                 "player-writing.css",
                 "data-question-stage",
+                "data-question-count=${#lists.size(g.questions())}",
                 "data-writing-answer",
                 "data-exit-link");
         assertThat(js).contains(
@@ -691,6 +1146,8 @@ class PracticeFunctionalUiContractTest {
                 "layout-focus",
                 "layout-stacked",
                 "layout-split",
+                "workspace.classList.add(hasSource ? 'layout-split' : 'layout-focus');",
+                "source.matchAll(/_{2,}/g)",
                 "player.dataset.deadlineEpochMs",
                 "player.dataset.serverNowEpochMs",
                 "deadlineSubmission = true",
@@ -921,6 +1378,8 @@ class PracticeFunctionalUiContractTest {
         String playerWriting = Files.readString(
                 PRACTICE_TEMPLATES.resolve("player-writing.html"));
         String playerJs = Files.readString(EXAM_PLAYER_JS);
+        String playerCss = Files.readString(Path.of(
+                "src/main/resources/static/css/practice/player.css"));
         String editor = Files.readString(
                 PRACTICE_TEMPLATES.resolve("manage/editor.html"));
         String editorCss = Files.readString(Path.of(
@@ -935,6 +1394,7 @@ class PracticeFunctionalUiContractTest {
                 PRACTICE_TEMPLATES.resolve("result-detail-objective.html"));
         String detailCss = Files.readString(Path.of(
                 "src/main/resources/static/css/practice-result-detail.css"));
+        String resultJs = Files.readString(PRACTICE_RESULT_JS);
 
         assertThat(player).contains(
                 "data-timer-announcement",
@@ -949,8 +1409,9 @@ class PracticeFunctionalUiContractTest {
         assertThat(playerJs).contains(
                 "notesDrawer.removeAttribute('inert')",
                 "notesDrawer.setAttribute('inert', '')",
-                "event.key === 'Escape'",
-                "prefers-reduced-motion: reduce");
+                "event.key === 'Escape'");
+        assertThat(playerCss).contains(
+                "@media (prefers-reduced-motion: reduce)");
         assertThat(editor).contains(
                 "activateUploadZone(event",
                 "role=\"dialog\"",
@@ -1005,8 +1466,14 @@ class PracticeFunctionalUiContractTest {
         assertThat(detailObjective).contains(
                 "data-option-state",
                 "aria-label=${'Phương án '",
-                "data-label=\"Câu trả lời\"",
-                "data-label=\"Ràng buộc\"");
+                "data-label=\"Bài làm\"",
+                "data-label=\"Kết quả\"");
+        assertThat(resultJs)
+                .contains(
+                        "panel.hidden = panel.dataset.objectiveGroupKey !== groupKey;",
+                        ".replace(/-explanation$/, '');")
+                .doesNotContain(
+                        "document.querySelectorAll('.prd-objective-explanation-link')");
         assertThat(detailCss).contains(
                 "overflow-wrap: anywhere",
                 "@media (prefers-reduced-motion: reduce)");

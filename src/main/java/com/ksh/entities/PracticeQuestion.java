@@ -53,6 +53,15 @@ public class PracticeQuestion {
     @Column(columnDefinition = "TEXT")
     private String explanation;
 
+    @Column(name = "explanation_strategy_registry_version", length = 64)
+    private String explanationStrategyRegistryVersion;
+
+    @Column(name = "explanation_strategy_code", length = 64)
+    private String explanationStrategyCode;
+
+    @Column(name = "explanation_strategy_version", length = 32)
+    private String explanationStrategyVersion;
+
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal points;
 
@@ -124,6 +133,27 @@ public class PracticeQuestion {
 
     public String getExplanation() {
         return explanation;
+    }
+
+    public String getExplanationStrategyRegistryVersion() {
+        return explanationStrategyRegistryVersion;
+    }
+
+    public String getExplanationStrategyCode() {
+        return explanationStrategyCode;
+    }
+
+    public String getExplanationStrategyVersion() {
+        return explanationStrategyVersion;
+    }
+
+    public void setExplanationStrategy(
+            String registryVersion,
+            String strategyCode,
+            String strategyVersion) {
+        this.explanationStrategyRegistryVersion = registryVersion;
+        this.explanationStrategyCode = strategyCode;
+        this.explanationStrategyVersion = strategyVersion;
     }
 
     public BigDecimal getPoints() {

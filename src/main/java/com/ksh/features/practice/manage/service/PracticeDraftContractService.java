@@ -10,8 +10,10 @@ import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.PracticeSectionDelivery;
+import com.ksh.features.practice.assessment.WritingBlankContract;
 import com.ksh.entities.WritingTaskType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,7 +29,7 @@ import java.util.UUID;
 public class PracticeDraftContractService {
 
     public static final String SCHEMA_VERSION = "practice-draft-v3";
-    public static final String STIMULUS_SCHEMA_VERSION = "practice-stimulus-v1";
+    public static final String STIMULUS_SCHEMA_VERSION = "practice-stimulus-v2";
 
     private final ObjectMapper objectMapper;
     private final AssessmentAuthoringCatalogService catalogService;
@@ -129,15 +131,20 @@ public class PracticeDraftContractService {
                     }
                     question.put("questionType", canonicalType.name());
                     question.remove("canonicalQuestionType");
+                    WritingTaskType writingTaskType = null;
                     if ("WRITING".equals(skill)) {
-                        WritingTaskType taskType = writingTaskType(question);
+                        writingTaskType = writingTaskType(question);
                         PracticeContentRules.WritingTaskPolicy taskPolicy =
-                                contentRules.writingTaskPolicy(taskType);
+                                contentRules.writingTaskPolicy(writingTaskType);
                         if (canonicalType != taskPolicy.questionType()) {
                             throw new IllegalArgumentException(
-                                    taskType + " phải dùng dạng " + taskPolicy.questionType() + ".");
+                                    writingTaskType + " phải dùng dạng "
+                                            + taskPolicy.questionType() + ".");
                         }
-                        question.put("questionNo", contentRules.writingQuestionNumber(taskType));
+                        question.put(
+                                "questionNo",
+                                contentRules.writingQuestionNumber(
+                                        writingTaskType));
                         question.put("points", taskPolicy.points());
                         writingTotalPoints = writingTotalPoints.add(taskPolicy.points());
                     } else {
@@ -148,6 +155,9 @@ public class PracticeDraftContractService {
                         }
                     }
                     normalizeQuestionContract(question, canonicalType);
+                    normalizeWritingBlankCompatibility(
+                            question, writingTaskType);
+                    normalizeExplanationStrategy(question, skill, canonicalType);
                     normalizeSourceRegionIds(question);
                 }
                 normalizeSourceRegionIds(group);
@@ -168,6 +178,70 @@ public class PracticeDraftContractService {
             root.putArray("materials");
         }
         return new NormalizedDraft(root.toString());
+    }
+
+    private void normalizeExplanationStrategy(
+            ObjectNode question,
+            String skill,
+            CanonicalQuestionType questionType) {
+        if (!"READING".equals(skill) && !"LISTENING".equals(skill)) {
+            question.remove("explanationStrategy");
+            return;
+        }
+        JsonNode raw = question.get("explanationStrategy");
+        if (raw == null || raw.isNull()) {
+            // Historical drafts remain openable, but publisher validation must
+            // reject them until the lecturer explicitly chooses a strategy.
+            return;
+        }
+        if (!(raw instanceof ObjectNode strategy)) {
+            throw new IllegalArgumentException(
+                    "Chiến lược giải thích phải là một JSON object.");
+        }
+        ObjectiveExplanationStrategyRegistry.Selection selection =
+                ObjectiveExplanationStrategyRegistry.requireSelection(
+                        questionType,
+                        strategy.path("registryVersion").asText(""),
+                        strategy.path("strategyCode").asText(""),
+                        strategy.path("strategyVersion").asText(""));
+        requireExplanationAnswerAuthority(
+                question,
+                questionType,
+                selection);
+        strategy.removeAll();
+        strategy.put("registryVersion", selection.registryVersion());
+        strategy.put("strategyCode", selection.strategyCode());
+        strategy.put("strategyVersion", selection.strategyVersion());
+    }
+
+    private void requireExplanationAnswerAuthority(
+            ObjectNode question,
+            CanonicalQuestionType questionType,
+            ObjectiveExplanationStrategyRegistry.Selection selection) {
+        JsonNode contentNode = question.get("questionContent");
+        JsonNode answerNode = question.get("answerSpec");
+        if (contentNode == null || !contentNode.isObject()
+                || answerNode == null || !answerNode.isObject()) {
+            throw new IllegalArgumentException(
+                    "Chiến lược giải thích cần nội dung và đáp án typed hợp lệ.");
+        }
+        try {
+            QuestionContent content = contractCodec.readQuestionContent(
+                    contentNode.toString(),
+                    questionType);
+            AnswerSpec answerSpec = contractCodec.readAnswerSpec(
+                    answerNode.toString(),
+                    content);
+            ObjectiveExplanationStrategyRegistry.requireAllowed(
+                    questionType,
+                    selection,
+                    content,
+                    answerSpec);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "Chiến lược giải thích không khớp đáp án chuẩn của câu hỏi.",
+                    exception);
+        }
     }
 
     private WritingTaskType writingTaskType(ObjectNode question) {
@@ -313,21 +387,20 @@ public class PracticeDraftContractService {
         } else {
             try {
                 content = contractCodec.adaptLegacyContent(options.toString(), type.name());
-                question.set("questionContent", objectMapper.readTree(
-                        contractCodec.writeQuestionContent(content, type)));
             } catch (Exception ignored) {
                 return;
             }
         }
 
+        content = normalizeQuestionLanguageRegion(question, content);
         if (type == CanonicalQuestionType.SPEAKING) {
             content = normalizeSpeakingDelivery(question, content);
-            try {
-                question.set("questionContent", objectMapper.readTree(
-                        contractCodec.writeQuestionContent(content, type)));
-            } catch (Exception ignored) {
-                return;
-            }
+        }
+        try {
+            question.set("questionContent", objectMapper.readTree(
+                    contractCodec.writeQuestionContent(content, type)));
+        } catch (Exception ignored) {
+            return;
         }
 
         if (question.path("answerSpec").isObject()) {
@@ -347,12 +420,82 @@ public class PracticeDraftContractService {
         }
     }
 
+    /**
+     * Editable Q51/Q52 drafts must say whether they already own the typed
+     * two-blank authority. Historical essay-shaped records remain readable,
+     * but are explicitly labelled read-only and are never heuristically split
+     * from prompt/answer text by '/' or ';'.
+     */
+    private static void normalizeWritingBlankCompatibility(
+            ObjectNode question,
+            WritingTaskType taskType
+    ) {
+        if (taskType != WritingTaskType.Q51
+                && taskType != WritingTaskType.Q52) {
+            question.remove("writingCompatibilityMode");
+            return;
+        }
+        JsonNode writingResponse = question.path("questionContent")
+                .path("writingResponse");
+        JsonNode writingAuthority = question.path("answerSpec")
+                .path("writingBlankAuthority");
+        boolean hasStructuredAuthority = writingResponse.isObject()
+                && writingAuthority.isObject();
+        question.put(
+                "writingCompatibilityMode",
+                hasStructuredAuthority
+                        ? WritingBlankContract.RESPONSE_MODE
+                        : WritingBlankContract
+                        .AUTHORING_MODE_LEGACY_READ_ONLY);
+    }
+
+    private QuestionContent normalizeQuestionLanguageRegion(
+            ObjectNode question,
+            QuestionContent content
+    ) {
+        String languageTag = normalizeLanguageTag(
+                firstNonBlank(
+                        content.languageTag(),
+                        text(question, "promptLanguageTag", "")),
+                "ko",
+                "questionContent.languageTag");
+        question.put("promptLanguageTag", languageTag);
+        return new QuestionContent(
+                QuestionContent.SCHEMA_VERSION_V3,
+                content.options(),
+                content.blanks(),
+                content.imageReference(),
+                content.audioReference(),
+                content.speakingDelivery(),
+                content.writingResponse(),
+                languageTag);
+    }
+
     private QuestionContent normalizeSpeakingDelivery(ObjectNode question, QuestionContent content) {
         QuestionContent.SpeakingDelivery current = content.speakingDelivery();
         String promptAudioReference = firstNonBlank(
                 current == null ? null : current.promptAudioReference(),
                 text(question, "speakingPromptAudioUrl", ""),
                 text(question, "audioUrl", ""));
+        boolean hasPromptAudio = !promptAudioReference.isBlank();
+        QuestionContent.SpeakingPromptInputType inputType =
+                current != null && current.inputType() != null
+                        ? current.inputType()
+                        : (hasPromptAudio
+                        ? QuestionContent.SpeakingPromptInputType.AUDIO_UPLOAD
+                        : QuestionContent.SpeakingPromptInputType.MANUAL_TEXT);
+        QuestionContent.SpeakingDeliveryMode deliveryMode =
+                current != null && current.deliveryMode() != null
+                        ? current.deliveryMode()
+                        : (hasPromptAudio
+                        ? QuestionContent.SpeakingDeliveryMode.AUDIO_ONLY
+                        : QuestionContent.SpeakingDeliveryMode.TEXT_ONLY);
+        QuestionContent.SpeakingAudioOrigin audioOrigin =
+                current != null && current.audioOrigin() != null
+                        ? current.audioOrigin()
+                        : (hasPromptAudio
+                        ? QuestionContent.SpeakingAudioOrigin.TEACHER_UPLOAD
+                        : QuestionContent.SpeakingAudioOrigin.NONE);
         int promptPlayLimit = positiveOrDefault(
                 current == null ? null : current.promptPlayLimit(),
                 question.path("speakingPromptPlayLimit").asInt(0),
@@ -367,11 +510,11 @@ public class PracticeDraftContractService {
                 60);
 
         QuestionContent.SpeakingDelivery delivery = new QuestionContent.SpeakingDelivery(
-                current == null ? null : current.inputType(),
-                current == null ? null : current.deliveryMode(),
+                inputType,
+                deliveryMode,
                 promptAudioReference.isBlank() ? null : promptAudioReference,
-                current == null ? null : current.audioOrigin(),
-                promptPlayLimit,
+                audioOrigin,
+                hasPromptAudio ? promptPlayLimit : null,
                 preparationSeconds,
                 responseSeconds);
         question.put("speakingPromptPlayLimit", promptPlayLimit);
@@ -384,7 +527,9 @@ public class PracticeDraftContractService {
                 content.blanks(),
                 content.imageReference(),
                 content.audioReference(),
-                delivery);
+                delivery,
+                content.writingResponse(),
+                content.languageTag());
     }
 
     private static int positiveOrDefault(Integer canonicalValue, int legacyValue, int fallback) {
@@ -450,6 +595,18 @@ public class PracticeDraftContractService {
         String audio = firstText(stimulus, "mediaReference", group, "audioUrl", group, "audioRef");
         String image = firstText(stimulus, "imageReference", group, "imageUrl", group, "imageRef");
         String instruction = text(group, "instruction", "");
+        String rawLanguageTag = firstText(
+                stimulus, "languageTag",
+                group, "stimulusLanguageTag",
+                group, "languageTag");
+        String languageTag = normalizeLanguageTag(
+                rawLanguageTag, "ko", "stimulus.languageTag");
+        String rawInstructionLanguageTag = firstText(
+                stimulus, "instructionLanguageTag",
+                group, "instructionLanguageTag",
+                group, "languageTag");
+        String instructionLanguageTag = normalizeLanguageTag(
+                rawInstructionLanguageTag, "vi", "stimulus.instructionLanguageTag");
 
         String type = text(stimulus, "type", "");
         if (type.isBlank() || "NONE".equals(type)) {
@@ -464,6 +621,8 @@ public class PracticeDraftContractService {
 
         stimulus.put("schemaVersion", STIMULUS_SCHEMA_VERSION);
         stimulus.put("type", type);
+        stimulus.put("languageTag", languageTag);
+        stimulus.put("instructionLanguageTag", instructionLanguageTag);
         stimulus.put("instruction", instruction);
         putOrNull(stimulus, "passageText", passage);
         putOrNull(stimulus, "transcriptText", transcript);
@@ -496,6 +655,23 @@ public class PracticeDraftContractService {
         });
         group.put("audioUrl", audio);
         group.put("imageUrl", image);
+        group.put("stimulusLanguageTag", languageTag);
+        group.put("instructionLanguageTag", instructionLanguageTag);
+    }
+
+    private static String normalizeLanguageTag(
+            String value,
+            String fallback,
+            String field
+    ) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (!java.util.Set.of("ko", "vi").contains(normalized)) {
+            throw new IllegalArgumentException(field + " must be ko or vi");
+        }
+        return normalized;
     }
 
     private void normalizeSourceRegionIds(ObjectNode node) {

@@ -2,17 +2,27 @@ package com.ksh.features.practice.manage.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.features.practice.assessment.AssessmentAuthoringCatalogService;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
 import com.ksh.features.practice.assessment.PracticeContentRules;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CandidateState;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CandidateView;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CreateCommand;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceKind;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateJson;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateNormalizer;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateService;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateValidator;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
-import com.ksh.features.practice.manage.speaking.SpeakingPromptLifecycleService;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayInputStream;
@@ -21,14 +31,19 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PracticeAssessmentExcelServiceTest {
 
     @Test
-    void templateContainsOnlyTheFiveSupportedQuestionSheets() throws Exception {
+    void templateRetainsFiveLegacySheetsAndAddsTwoTypedObjectiveSheets() throws Exception {
         ExcelFixture fixture = fixture();
         byte[] bytes = fixture.service.buildTemplate();
 
@@ -42,6 +57,8 @@ class PracticeAssessmentExcelServiceTest {
             assertThat(workbook.getSheet("05_FILL_BLANK")).isNotNull();
             assertThat(workbook.getSheet("06_ESSAY")).isNotNull();
             assertThat(workbook.getSheet("07_SPEAKING")).isNotNull();
+            assertThat(workbook.getSheet("08_MULTIPLE_ANSWER")).isNotNull();
+            assertThat(workbook.getSheet("09_MATCHING")).isNotNull();
             assertThat(workbook.getSheet("10_DANH_MUC")).isNotNull();
             assertThat(workbook.getSheet("00_HUONG_DAN").getRow(10)
                     .getCell(1).getStringCellValue())
@@ -62,7 +79,7 @@ class PracticeAssessmentExcelServiceTest {
     }
 
     @Test
-    void generatedWorkbookPreviewsAllFiveTypesAndWritingTasksQ51ToQ54() throws Exception {
+    void generatedWorkbookPreviewsAllSevenTypesAndWritingTasksQ51ToQ54() throws Exception {
         ExcelFixture fixture = fixture();
 
         PracticeAssessmentExcelService.ExcelPreview preview = fixture.service.preview(
@@ -70,8 +87,9 @@ class PracticeAssessmentExcelServiceTest {
 
         assertThat(preview.canImport()).as(preview.issues().toString()).isTrue();
         assertThat(preview.rows()).extracting(PracticeAssessmentExcelService.ImportRowPreview::questionType)
-                .contains("SINGLE_CHOICE", "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")
-                .doesNotContain("MULTIPLE_CHOICE", "MATCHING");
+                .contains("SINGLE_CHOICE", "MULTIPLE_ANSWER", "MATCHING",
+                        "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "ESSAY", "SPEAKING")
+                .doesNotContain("MULTIPLE_CHOICE");
         assertThat(preview.rows().stream()
                 .filter(row -> "ESSAY".equals(row.questionType()))
                 .map(PracticeAssessmentExcelService.ImportRowPreview::questionNoInSection))
@@ -82,7 +100,9 @@ class PracticeAssessmentExcelServiceTest {
         assertThat(root.path("document").has("assessmentProgramCode")).isFalse();
         JsonNode speaking = findQuestion(root, "SPEAKING");
         assertThat(speaking.path("questionContent").path("schemaVersion").asText())
-                .isEqualTo("question-content-v2");
+                .isEqualTo("question-content-v3");
+        assertThat(speaking.path("questionContent").path("languageTag").asText())
+                .isEqualTo("ko");
         assertThat(speaking.path("questionContent").path("speakingDelivery")
                 .path("inputType").asText()).isEqualTo("audio_upload");
         assertThat(speaking.path("questionContent").path("speakingDelivery")
@@ -100,6 +120,20 @@ class PracticeAssessmentExcelServiceTest {
         JsonNode fillBlank = findQuestion(root, "FILL_BLANK");
         assertThat(fillBlank.path("prompt").asText()).contains("{{blank:B1}}");
         assertThat(writingPoints(root)).containsExactly("10", "10", "30", "50");
+        JsonNode q51 = findWritingQuestion(root, "Q51");
+        JsonNode q52 = findWritingQuestion(root, "Q52");
+        assertThat(q51.path("questionContent").path("writingResponse")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q51.path("answerSpec").path("writingBlankAuthority")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q52.path("questionContent").path("writingResponse")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q52.path("answerSpec").path("writingBlankAuthority")
+                .path("blanks").size()).isEqualTo(2);
+        assertThat(q51.path("answer").path("value").asText())
+                .isEqualTo("STRUCTURED_BLANKS");
+        assertThat(q52.path("answer").path("value").asText())
+                .isEqualTo("STRUCTURED_BLANKS");
     }
 
     @Test
@@ -167,18 +201,14 @@ class PracticeAssessmentExcelServiceTest {
     }
 
     @Test
-    void historicalV1WorkbookReaderRemainsExactForItsLegacySheetContract()
+    void historicalV1WorkbookReaderCanonicalizesToCurrentLanguageContract()
             throws Exception {
         ExcelFixture fixture = fixture();
         MockMultipartFile file = workbookFile(
                 legacyWorkbook(false));
-        when(fixture.repository.saveAndFlush(any(PracticeDraft.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
         PracticeAssessmentExcelService.ExcelPreview preview =
                 fixture.service.preview(file);
-        PracticeDraft imported =
-                fixture.service.importDraft(file, null, 77L);
 
         assertThat(preview.canImport())
                 .as(preview.issues().toString())
@@ -189,9 +219,11 @@ class PracticeAssessmentExcelServiceTest {
                 .path("questionContent")
                 .path("schemaVersion")
                 .asText())
-                .isEqualTo("question-content-v1");
-        assertThat(imported.getDraftJson())
-                .contains("\"schemaVersion\":\"question-content-v1\"")
+                .isEqualTo("question-content-v3");
+        assertThat(preview.draftJson())
+                .contains(
+                        "\"schemaVersion\":\"question-content-v3\"",
+                        "\"languageTag\":\"ko\"")
                 .doesNotContain(
                         "\"inputType\"",
                         "\"deliveryMode\"",
@@ -243,8 +275,6 @@ class PracticeAssessmentExcelServiceTest {
             invalidWorkbook = output.toByteArray();
         }
         MockMultipartFile file = workbookFile(invalidWorkbook);
-        when(fixture.repository.saveAndFlush(any(PracticeDraft.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
 
         PracticeAssessmentExcelService.ExcelPreview preview = fixture.service.preview(file);
 
@@ -255,10 +285,9 @@ class PracticeAssessmentExcelServiceTest {
                 .map(PracticeAssessmentExcelService.ImportRowPreview::importedQuestionNo))
                 .doesNotContainNull();
 
-        PracticeDraft imported = fixture.service.importDraft(file, null, 77L);
-        JsonNode importedRoot = new ObjectMapper().readTree(imported.getDraftJson());
-        assertThat(countQuestions(importedRoot)).isEqualTo(preview.importableQuestionCount());
-        assertThat(imported.getCreationMethod()).isEqualTo("EXCEL");
+        JsonNode importableRoot = new ObjectMapper().readTree(preview.draftJson());
+        assertThat(countQuestions(importableRoot))
+                .isEqualTo(preview.importableQuestionCount());
     }
 
     @Test
@@ -277,92 +306,115 @@ class PracticeAssessmentExcelServiceTest {
     }
 
     @Test
-    void linkedImportLocksDraftVerifiesExactDraftAudioAndReconcilesReplacement()
-            throws Exception {
-        ExcelFixture fixture = fixture();
-        LecturerAssetService assets = mock(LecturerAssetService.class);
-        SpeakingPromptLifecycleService lifecycle =
-                mock(SpeakingPromptLifecycleService.class);
-        PracticeAssessmentExcelService service =
-                new PracticeAssessmentExcelService(
-                        fixture.catalog,
-                        fixture.contract,
-                        fixture.validator,
-                        fixture.repository,
-                        fixture.codec,
-                        fixture.resolver,
-                        fixture.objectMapper,
-                        null,
-                        assets);
-        service.setSpeakingPromptLifecycleService(lifecycle);
-        byte[] workbook = fixture.service.buildTemplate();
-        String existingJson = fixture.service.preview(
-                workbookFile(workbook)).draftJson();
-        PracticeDraft draft = new PracticeDraft(
-                "Draft", "", "GLOBAL", null, "DRAFT", 77L, existingJson);
-        setDraftId(draft, 10L);
-        when(fixture.repository.findByIdForUpdate(10L))
-                .thenReturn(java.util.Optional.of(draft));
-        when(fixture.repository.saveAndFlush(any(PracticeDraft.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-        when(assets.requireVerifiedPrivateManualAudioForExcel(
-                org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.eq(77L),
-                org.mockito.ArgumentMatchers.eq(10L),
-                org.mockito.ArgumentMatchers.anyString()))
-                .thenReturn(new com.ksh.entities.LecturerAsset());
+    void excelImporterHasNoAlternateDraftMutationSeam() throws Exception {
+        String source = String.join("\n",
+                java.nio.file.Files.readString(java.nio.file.Path.of(
+                        "src/main/java/com/ksh/features/practice/manage/"
+                                + "controller/PracticeAssessmentExcelController.java")),
+                java.nio.file.Files.readString(java.nio.file.Path.of(
+                        "src/main/java/com/ksh/features/practice/manage/service/"
+                                + "PracticeAssessmentExcelService.java")),
+                java.nio.file.Files.readString(java.nio.file.Path.of(
+                        "src/main/java/com/ksh/features/practice/manage/service/"
+                                + "PracticeAssessmentExcelV2Codec.java")),
+                java.nio.file.Files.readString(java.nio.file.Path.of(
+                        "src/main/java/com/ksh/features/practice/manage/service/"
+                                + "PracticeAssessmentQuickExcelCodec.java")));
 
-        PracticeDraft imported = service.importDraft(
-                workbookFile(workbook),
-                10L,
-                77L,
-                speakingOverrides());
-
-        assertThat(imported).isSameAs(draft);
-        verify(lifecycle).reconcileDraftQuestions(
-                org.mockito.ArgumentMatchers.eq(10L),
-                org.mockito.ArgumentMatchers.eq(77L),
-                org.mockito.ArgumentMatchers.eq(77L),
-                org.mockito.ArgumentMatchers.contains(
-                        "\"questionType\":\"SPEAKING\""));
-        verify(assets, org.mockito.Mockito.atLeastOnce())
-                .requireVerifiedPrivateManualAudioForExcel(
-                        org.mockito.ArgumentMatchers.anyLong(),
-                        org.mockito.ArgumentMatchers.eq(77L),
-                        org.mockito.ArgumentMatchers.eq(10L),
-                        org.mockito.ArgumentMatchers.anyString());
-        verify(assets, org.mockito.Mockito.atLeastOnce())
-                .consumeExcelSpeakingUploadReference(
-                        org.mockito.ArgumentMatchers.eq(10L),
-                        org.mockito.ArgumentMatchers.anyLong(),
-                        org.mockito.ArgumentMatchers.eq(77L),
-                        org.mockito.ArgumentMatchers.anyString());
+        assertThat(source)
+                .contains("candidateService.createOrReuse")
+                .doesNotContain(
+                        "importDraft(",
+                        "setDraftJson(",
+                        "saveAndFlush(",
+                        "mergeImportedLessons(",
+                        "reconcileDraftQuestions(",
+                        "consumeExcelSpeakingUploadReference(",
+                        "linkExcelManagedUploadToDraft(",
+                        "com.ksh.features.ai.client",
+                        "AiClient");
     }
 
     @Test
-    void speakingImportFailsClosedWhenAssetBoundaryIsUnavailable()
+    void advancedV2CandidateAdapterPreservesExactTargetTypedMeaning()
             throws Exception {
-        ExcelFixture fixture = fixture();
+        PracticeAuthoringCandidateService candidates =
+                mock(PracticeAuthoringCandidateService.class);
+        when(candidates.createOrReuse(any(CreateCommand.class)))
+                .thenReturn(candidateView());
+        ExcelFixture fixture = fixture(candidates);
         byte[] workbook = fixture.service.buildTemplate();
-        String existingJson = fixture.service.preview(
-                workbookFile(workbook)).draftJson();
-        PracticeDraft draft = new PracticeDraft(
-                "Draft", "", "GLOBAL", null, "DRAFT", 77L, existingJson);
-        setDraftId(draft, 10L);
-        when(fixture.repository.findByIdForUpdate(10L))
-                .thenReturn(java.util.Optional.of(draft));
+        PracticeAssessmentExcelService.ExcelPreview golden =
+                fixture.service.preview(workbookFile(workbook));
+        JsonNode expectedSection = exactSection(
+                fixture.objectMapper.readTree(golden.draftJson()),
+                1, "LISTENING", "L1");
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalStateException.class,
-                () -> fixture.service.importDraft(
-                        workbookFile(workbook),
-                        10L,
-                        77L,
-                        speakingOverrides()));
+        fixture.service.createCandidate(
+                workbookFile(workbook),
+                targetContext(fixture, "LISTENING"),
+                77L,
+                null);
+
+        ArgumentCaptor<CreateCommand> command =
+                ArgumentCaptor.forClass(CreateCommand.class);
+        verify(candidates).createOrReuse(command.capture());
+        assertThat(command.getValue().source().kind())
+                .isEqualTo(SourceKind.ADVANCED_EXCEL_V2);
+        assertThat(command.getValue().source().contractVersion())
+                .isEqualTo("practice-excel-v2");
+        assertExactTargetParity(expectedSection, command.getValue().groups());
+        assertThat(questionTypesIn(command.getValue().groups()))
+                .contains("MATCHING");
+        assertCanonicalCandidateGroups(fixture, command.getValue());
+        verify(fixture.repository, never()).saveAndFlush(any());
     }
 
-    private static String speakingOverrides() {
-        return """
+    @Test
+    void legacyV1CandidateAdapterPreservesGoldenTypedMeaning()
+            throws Exception {
+        PracticeAuthoringCandidateService candidates =
+                mock(PracticeAuthoringCandidateService.class);
+        when(candidates.createOrReuse(any(CreateCommand.class)))
+                .thenReturn(candidateView());
+        ExcelFixture fixture = fixture(candidates);
+        byte[] workbook = legacyWorkbook(false);
+        PracticeAssessmentExcelService.ExcelPreview golden =
+                fixture.service.preview(workbookFile(workbook));
+        JsonNode expectedSection = exactSection(
+                fixture.objectMapper.readTree(golden.draftJson()),
+                1, "READING", "R1");
+
+        fixture.service.createCandidate(
+                workbookFile(workbook),
+                targetContext(fixture, "READING"),
+                77L,
+                null);
+
+        ArgumentCaptor<CreateCommand> command =
+                ArgumentCaptor.forClass(CreateCommand.class);
+        verify(candidates).createOrReuse(command.capture());
+        assertThat(command.getValue().source().kind())
+                .isEqualTo(SourceKind.LEGACY_EXCEL_V1);
+        assertThat(command.getValue().source().contractVersion())
+                .isEqualTo("practice-excel-v1");
+        assertExactTargetParity(expectedSection, command.getValue().groups());
+        assertThat(questionTypesIn(command.getValue().groups()))
+                .containsExactly("SINGLE_CHOICE");
+        assertCanonicalCandidateGroups(fixture, command.getValue());
+        verify(fixture.repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void advancedSpeakingVerifiesExistingUploadsWithoutBindingOrConsuming()
+            throws Exception {
+        PracticeAuthoringCandidateService candidates =
+                mock(PracticeAuthoringCandidateService.class);
+        LecturerAssetService assets = mock(LecturerAssetService.class);
+        when(candidates.createOrReuse(any(CreateCommand.class)))
+                .thenReturn(candidateView());
+        ExcelFixture fixture = fixture(candidates, assets);
+        String overrides = """
                 {
                   "AUD_T01_S_Q01":"/practice/materials/101/content",
                   "AUD_T01_S_Q02":"/practice/materials/102/content",
@@ -370,17 +422,146 @@ class PracticeAssessmentExcelServiceTest {
                   "AUD_T01_S_Q04":"/practice/materials/104/content"
                 }
                 """;
+
+        fixture.service.createCandidate(
+                workbookFile(fixture.service.buildTemplate()),
+                targetContext(fixture, "SPEAKING"),
+                77L,
+                overrides);
+
+        verify(assets, times(4))
+                .requireVerifiedPrivateManualAudioForExcel(
+                        anyLong(), eq(77L), eq(5001L), anyString());
+        verify(assets, never()).consumeExcelSpeakingUploadReference(
+                anyLong(), anyLong(), anyLong(), anyString());
+        verify(assets, never()).linkExcelManagedUploadToDraft(
+                anyLong(), anyLong(), anyLong());
+        verify(candidates).createOrReuse(any(CreateCommand.class));
+        verify(fixture.repository, never()).saveAndFlush(any());
     }
 
-    private static void setDraftId(PracticeDraft draft, Long id) {
-        try {
-            java.lang.reflect.Field field =
-                    PracticeDraft.class.getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(draft, id);
-        } catch (ReflectiveOperationException exception) {
-            throw new AssertionError(exception);
+    private static void assertCanonicalCandidateGroups(
+            ExcelFixture fixture, CreateCommand command) {
+        PracticeAuthoringCandidateJson candidateJson =
+                new PracticeAuthoringCandidateJson(fixture.objectMapper);
+        PracticeAuthoringCandidateNormalizer normalizer =
+                new PracticeAuthoringCandidateNormalizer(
+                        fixture.objectMapper,
+                        fixture.codec,
+                        fixture.resolver,
+                        candidateJson);
+        PracticeAuthoringCandidateValidator validator =
+                new PracticeAuthoringCandidateValidator(
+                        fixture.codec,
+                        fixture.resolver,
+                        candidateJson);
+        PracticeAuthoringCandidateNormalizer.NormalizationResult normalized =
+                normalizer.normalize(
+                        "11111111-1111-4111-8111-111111111111",
+                        command.source().kind(),
+                        command.groups());
+        PracticeAuthoringCandidateValidator.ValidationResult validated =
+                validator.validate(
+                        command.source().kind(),
+                        new TargetRoute(
+                                command.target().draftId(),
+                                command.target().testNo(),
+                                command.target().skill(),
+                                command.target().lessonCode()),
+                        normalized.groups(),
+                        normalized.issues());
+
+        assertThat(normalized.issues()).isEmpty();
+        assertThat(validated.issues())
+                .extracting(issue -> issue.code())
+                .doesNotContain(
+                        "CANDIDATE_RAW_TYPED_CONTRACT_INVALID",
+                        "CANDIDATE_TYPED_CONTRACT_INVALID",
+                        "CANDIDATE_SCHEMA_FIELD_UNKNOWN",
+                        "CANDIDATE_TARGET_IDENTITY_MISMATCH",
+                        "QUESTION_TYPE_NOT_ALLOWED_FOR_SKILL");
+    }
+
+    private static void assertExactTargetParity(
+            JsonNode expectedSection, JsonNode candidateGroups) {
+        assertThat(candidateGroups).hasSize(
+                expectedSection.path("groups").size());
+        for (int groupIndex = 0;
+             groupIndex < expectedSection.path("groups").size();
+             groupIndex++) {
+            JsonNode expectedGroup =
+                    expectedSection.path("groups").get(groupIndex);
+            JsonNode actualGroup = candidateGroups.get(groupIndex);
+            assertThat(actualGroup.path("label").asText())
+                    .isEqualTo(expectedGroup.path("label").asText());
+            assertThat(actualGroup.path("instruction").asText())
+                    .isEqualTo(expectedGroup.path("instruction").asText());
+            assertThat(actualGroup.path("stimulus").path("type").asText())
+                    .isEqualTo(expectedGroup.path("stimulus")
+                            .path("type").asText());
+            assertThat(actualGroup.path("stimulus")
+                    .path("passageText").asText(""))
+                    .isEqualTo(expectedGroup.path("stimulus")
+                            .path("passageText").asText(""));
+            assertThat(actualGroup.path("stimulus")
+                    .path("transcriptText").asText(""))
+                    .isEqualTo(expectedGroup.path("stimulus")
+                            .path("transcriptText").asText(""));
+            assertThat(actualGroup.path("stimulus")
+                    .path("mediaReference"))
+                    .isEqualTo(expectedGroup.path("stimulus")
+                            .path("mediaReference"));
+            assertThat(actualGroup.path("questions")).hasSize(
+                    expectedGroup.path("questions").size());
+            for (int questionIndex = 0;
+                 questionIndex < expectedGroup.path("questions").size();
+                 questionIndex++) {
+                JsonNode expected = expectedGroup.path("questions")
+                        .get(questionIndex);
+                JsonNode actual = actualGroup.path("questions")
+                        .get(questionIndex);
+                assertThat(actual.path("questionType"))
+                        .isEqualTo(expected.path("questionType"));
+                assertThat(actual.path("essayTaskType"))
+                        .isEqualTo(expected.path("essayTaskType"));
+                assertThat(actual.path("prompt"))
+                        .isEqualTo(expected.path("prompt"));
+                assertThat(actual.path("points").decimalValue())
+                        .isEqualByComparingTo(
+                                expected.path("points").decimalValue());
+                assertThat(actual.path("questionContent"))
+                        .isEqualTo(expected.path("questionContent"));
+                assertThat(actual.path("answerSpec"))
+                        .isEqualTo(expected.path("answerSpec"));
+                assertThat(actual.path("reviewState").asText())
+                        .isEqualTo(expected.path("reviewRequired")
+                                .asBoolean(false)
+                                ? "REVIEW_REQUIRED" : "ACCEPTED");
+            }
         }
+    }
+
+    private static List<String> questionTypesIn(JsonNode groups) {
+        java.util.ArrayList<String> types = new java.util.ArrayList<>();
+        groups.forEach(group -> group.path("questions").forEach(question ->
+                types.add(question.path("questionType").asText())));
+        return types;
+    }
+
+    private static JsonNode exactSection(
+            JsonNode root,
+            int testNo,
+            String skill,
+            String lessonCode) {
+        for (JsonNode section : root.path("sections")) {
+            if (section.path("testNo").asInt() == testNo
+                    && skill.equals(section.path("skill").asText())
+                    && lessonCode.equals(
+                    section.path("lessonCode").asText())) {
+                return section;
+            }
+        }
+        throw new AssertionError("Không tìm thấy exact target section");
     }
 
     private static int countQuestions(JsonNode root) {
@@ -402,6 +583,23 @@ class PracticeAssessmentExcelServiceTest {
         throw new AssertionError("Không tìm thấy câu " + questionType);
     }
 
+    private static JsonNode findWritingQuestion(
+            JsonNode root,
+            String writingTask) {
+        for (JsonNode section : root.path("sections")) {
+            for (JsonNode group : section.path("groups")) {
+                for (JsonNode question : group.path("questions")) {
+                    if (writingTask.equals(
+                            question.path("essayTaskType").asText())) {
+                        return question;
+                    }
+                }
+            }
+        }
+        throw new AssertionError(
+                "Không tìm thấy Writing " + writingTask);
+    }
+
     private static List<String> writingPoints(JsonNode root) {
         java.util.ArrayList<String> points = new java.util.ArrayList<>();
         for (JsonNode section : root.path("sections")) {
@@ -417,6 +615,17 @@ class PracticeAssessmentExcelServiceTest {
     }
 
     private static ExcelFixture fixture() {
+        return fixture(null);
+    }
+
+    private static ExcelFixture fixture(
+            PracticeAuthoringCandidateService candidateService) {
+        return fixture(candidateService, null);
+    }
+
+    private static ExcelFixture fixture(
+            PracticeAuthoringCandidateService candidateService,
+            LecturerAssetService assetService) {
         ObjectMapper objectMapper = new ObjectMapper();
         AssessmentAuthoringCatalogService catalog =
                 new AssessmentAuthoringCatalogService(new PracticeContentRules());
@@ -427,7 +636,7 @@ class PracticeAssessmentExcelServiceTest {
         PracticeDraftRepository repository = mock(PracticeDraftRepository.class);
         PracticeAssessmentExcelService service = new PracticeAssessmentExcelService(
                 catalog, contract, new PracticeDraftValidator(objectMapper), repository,
-                codec, resolver, objectMapper);
+                codec, resolver, objectMapper, null, assetService, candidateService);
         return new ExcelFixture(
                 service,
                 repository,
@@ -437,6 +646,65 @@ class PracticeAssessmentExcelServiceTest {
                 codec,
                 resolver,
                 objectMapper);
+    }
+
+    private static PracticeAssessmentExcelService.ExcelImportContext
+    targetContext(ExcelFixture fixture, String skill) {
+        String prefix = switch (skill) {
+            case "LISTENING" -> "L";
+            case "WRITING" -> "W";
+            case "SPEAKING" -> "S";
+            default -> "R";
+        };
+        ObjectNode root = fixture.objectMapper.createObjectNode();
+        root.put("schemaVersion", "practice-draft-v3");
+        ObjectNode document = root.putObject("document");
+        document.put("title", "Target");
+        document.put("description", "");
+        ObjectNode test = root.putArray("tests").addObject();
+        test.put("clientId", "test-1");
+        test.put("testNo", 1);
+        test.put("title", "Test 1");
+        test.put("description", "");
+        test.putNull("estimatedMinutes");
+        ObjectNode section = root.putArray("sections").addObject();
+        section.put("clientId", "section-" + prefix.toLowerCase());
+        section.put("testNo", 1);
+        section.put("testClientId", "test-1");
+        section.put("lessonCode", prefix + "1");
+        section.put("title", skill);
+        section.put("skill", skill);
+        section.put("durationMinutes", 40);
+        section.putArray("groups");
+        root.putArray("materials");
+        root.putArray("warnings");
+        String normalized = fixture.contract.normalize(root, "TEST").json();
+        PracticeDraft draft = new PracticeDraft(
+                "Target", "", "GLOBAL", null, "DRAFT", 77L, normalized);
+        setId(draft, 5001L);
+        return new PracticeAssessmentExcelService.ExcelImportContext(
+                draft, 1, prefix + "1", skill);
+    }
+
+    private static CandidateView candidateView() {
+        return new CandidateView(
+                "11111111-1111-4111-8111-111111111111",
+                CandidateState.REVIEWING,
+                0,
+                "sha256:" + "a".repeat(64),
+                new ObjectMapper().createObjectNode(),
+                List.of());
+    }
+
+    private static void setId(PracticeDraft draft, Long id) {
+        try {
+            java.lang.reflect.Field field =
+                    PracticeDraft.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(draft, id);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
     }
 
     private static MockMultipartFile workbookFile(byte[] bytes) {

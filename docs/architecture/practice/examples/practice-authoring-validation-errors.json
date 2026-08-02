@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "practice-authoring-validation-errors-v1",
+  "candidateId": "55555555-5555-4555-8555-555555555555",
+  "issues": [
+    {
+      "severity": "ERROR",
+      "code": "SIMPLE_BLANK_REQUIRED",
+      "scope": "FIELD",
+      "path": "/groups/0/questions/1/questionContent/blanks",
+      "sourceLocation": {
+        "kind": "SHEET_ROW",
+        "sourceId": "quick-row-5",
+        "sheet": "QUICK_QUESTIONS",
+        "row": 5,
+        "column": "blank_2_answers"
+      },
+      "messageVi": "Quick Excel chỉ hỗ trợ một ô trống khách quan. Hãy xóa ô thứ hai hoặc dùng Advanced.",
+      "remediation": "USE_ADVANCED",
+      "blocking": true
+    },
+    {
+      "severity": "ERROR",
+      "code": "EXPLANATION_STRATEGY_REVIEW_REQUIRED",
+      "scope": "QUESTION",
+      "path": "/groups/0/questions/0/explanationStrategy",
+      "sourceLocation": {
+        "kind": "SHEET_ROW",
+        "sourceId": "quick-row-4",
+        "sheet": "QUICK_QUESTIONS",
+        "row": 4
+      },
+      "messageVi": "Hãy chọn chiến lược giải thích phù hợp trước khi áp dụng câu Reading/Listening.",
+      "remediation": "EDIT_IN_REVIEW",
+      "blocking": true
+    },
+    {
+      "severity": "WARNING",
+      "code": "PDF_LOW_CONFIDENCE_REVIEW_REQUIRED",
+      "scope": "QUESTION",
+      "path": "/groups/1/questions/2",
+      "sourceLocation": {
+        "kind": "PAGE",
+        "sourceId": "page-7",
+        "pageNumber": 7
+      },
+      "messageVi": "Nguồn câu hỏi có độ tin cậy thấp; hãy đối chiếu với trang PDF trước khi chấp nhận.",
+      "remediation": "EDIT_IN_REVIEW",
+      "blocking": false
+    },
+    {
+      "severity": "ERROR",
+      "code": "TARGET_DRAFT_VERSION_CONFLICT",
+      "scope": "TARGET",
+      "path": "/target/baseDraftVersion",
+      "messageVi": "Bản nháp đã thay đổi sau khi tạo candidate. Hãy mở lại target và tạo projection mới.",
+      "remediation": "REOPEN_TARGET",
+      "blocking": true
+    }
+  ]
+}

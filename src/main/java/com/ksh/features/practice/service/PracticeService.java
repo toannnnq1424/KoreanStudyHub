@@ -18,9 +18,13 @@ import com.ksh.features.practice.dto.PracticeDtos.PracticeQuestionGroupRow;
 import com.ksh.features.practice.dto.PracticeDtos.ExampleBox;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
 import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
+import com.ksh.features.practice.ai.writing.WritingEvaluationNormalizer;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
+import com.ksh.features.practice.ai.writing.WritingEvidenceLedgerVerifier;
 import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingScoreAnchorPolicy;
 import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
+import com.ksh.features.practice.ai.writing.WritingTaskRequirementPolicy;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
@@ -34,6 +38,8 @@ import com.ksh.features.practice.assessment.AssessmentScoringEngine;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.LearnerAnswer;
 import com.ksh.features.practice.assessment.QuestionContent;
+import com.ksh.features.practice.assessment.WritingBlankContract;
+import com.ksh.features.practice.assessment.WritingBlankContractVerifier;
 import com.ksh.features.practice.assessment.SpeakingPromptDelivery;
 import com.ksh.features.practice.assessment.SpeakingPromptDeliveryPresenter;
 import com.ksh.features.practice.assessment.PracticeSectionDelivery;
@@ -74,6 +80,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -96,9 +103,9 @@ public class PracticeService {
             Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
     private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
             Pattern.compile("^/practice/materials/[1-9][0-9]*/content$");
-    private static final Pattern EXPLICIT_QUESTION_CONTENT_V2_PATTERN =
+    private static final Pattern EXPLICIT_TYPED_QUESTION_CONTENT_PATTERN =
             Pattern.compile(
-                    "\"schemaVersion\"\\s*:\\s*\"question-content-v2\"");
+                    "\"schemaVersion\"\\s*:\\s*\"question-content-v[23]\"");
     private static final String BUILT_IN_LISTENING_CHECK_AUDIO_REFERENCE =
             "/audio/practice/listening-speaker-check.wav";
     private static final PracticeAttemptStatePolicy ATTEMPT_STATE =
@@ -125,6 +132,7 @@ public class PracticeService {
     private final QuestionTypeResolver questionTypeResolver;
     private final AssessmentContractCodec assessmentContractCodec;
     private final AssessmentScoringEngine assessmentScoringEngine;
+    private final PracticeAttemptAnswerCodec attemptAnswerCodec;
     private final SpeakingPromptDeliveryPresenter
             speakingPromptDeliveryPresenter =
             new SpeakingPromptDeliveryPresenter();
@@ -165,6 +173,8 @@ public class PracticeService {
         this.questionTypeResolver = new QuestionTypeResolver();
         this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
         this.assessmentScoringEngine = new AssessmentScoringEngine();
+        this.attemptAnswerCodec =
+                new PracticeAttemptAnswerCodec(objectMapper);
         this.readTransactionTemplate = new TransactionTemplate(transactionManager);
         this.readTransactionTemplate.setReadOnly(true);
         this.readTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
@@ -213,6 +223,8 @@ public class PracticeService {
         this.questionTypeResolver = new QuestionTypeResolver();
         this.assessmentContractCodec = new AssessmentContractCodec(objectMapper, questionTypeResolver);
         this.assessmentScoringEngine = new AssessmentScoringEngine();
+        this.attemptAnswerCodec =
+                new PracticeAttemptAnswerCodec(objectMapper);
         this.readTransactionTemplate = null;
         this.nonTransactionalTemplate = null;
         this.writeTransactionTemplate = null;
@@ -621,7 +633,11 @@ public class PracticeService {
                 blankToNull(imageReference),
                 blankToNull(audioReference),
                 optionRows(content, readOptions(question.getOptionsJson())),
-                blankRows(content)
+                blankRows(content),
+                content == null ? null : content.writingResponse(),
+                content == null || content.languageTag() == null
+                        ? "ko"
+                        : content.languageTag()
         );
     }
 
@@ -646,9 +662,11 @@ public class PracticeService {
                 g.getTranscriptText(),
                 groupImageReference(g.getImageUrl(), g.getInstruction()),
                 g.getStimulusProvenanceJson(),
-                blankToNull(safeInternalMaterialReference(g.getAudioUrl())),
+                blankToNull(safeObjectiveGroupAudioReference(g.getAudioUrl())),
                 exampleBox,
-                questions
+                questions,
+                g.getStimulusLanguageTag(),
+                g.getInstructionLanguageTag()
         );
     }
 
@@ -694,9 +712,11 @@ public class PracticeService {
                     group.getTranscriptText(),
                     groupImageReference(group.getImageUrl(), group.getInstruction()),
                     group.getStimulusProvenanceJson(),
-                    blankToNull(safeInternalMaterialReference(group.getAudioUrl())),
+                    blankToNull(safeObjectiveGroupAudioReference(group.getAudioUrl())),
                     exampleBox,
-                    questionRows
+                    questionRows,
+                    group.getStimulusLanguageTag(),
+                    group.getInstructionLanguageTag()
             ));
         }
         List<PracticeQuestionRow> orphanQuestionRows = questions.stream()
@@ -734,10 +754,19 @@ public class PracticeService {
         PracticeSetView view = new PracticeSetView(
                 toSetRow(version.setVersion()),
                 redactPlayerGroups(groupRowsForAttempt(attempt, version)));
+        Map<Long, WritingBlankContract.QuestionResponse>
+                writingAuthorities = writingAuthorities(view);
+        PracticeAttemptAnswerCodec.DecodedAnswers decoded =
+                attemptAnswerCodec.read(
+                        attempt.getAnswersJson(), writingAuthorities);
         return new AttemptPlayerView(
                 view,
                 attemptSectionDelivery(version),
-                readAnswers(attempt.getAnswersJson()),
+                decoded.textAnswers(),
+                playerWritingBlankAnswers(
+                        writingAuthorities,
+                        decoded.writingBlankAnswers()),
+                decoded.legacyEssayShape(),
                 attempt.getLockVersion(),
                 attempt.getDeadlineAt());
     }
@@ -812,9 +841,65 @@ public class PracticeService {
             PracticeSetView view,
             AttemptSectionDelivery delivery,
             Map<String, String> savedAnswers,
+            Map<String, Map<String, String>>
+                    savedWritingBlankAnswers,
+            boolean legacyWritingAnswerDocument,
             Long lockVersion,
             LocalDateTime deadlineAt
     ) {
+    }
+
+    private static Map<String, Map<String, String>>
+            playerWritingBlankAnswers(
+            Map<Long, WritingBlankContract.QuestionResponse> authorities,
+            Map<String, WritingBlankContract.LearnerResponse> answers) {
+        Map<String, Map<String, String>> result =
+                new LinkedHashMap<>();
+        answers.forEach((questionId, response) -> {
+            Long id;
+            try {
+                id = Long.valueOf(questionId);
+            } catch (NumberFormatException exception) {
+                throw new IllegalArgumentException(
+                        "Structured Writing answer question ID is invalid",
+                        exception);
+            }
+            WritingBlankContract.QuestionResponse authority =
+                    authorities.get(id);
+            if (authority == null) {
+                throw new IllegalArgumentException(
+                        "Structured Writing answer lost question authority");
+            }
+            result.put(
+                    questionId,
+                    WritingBlankContractVerifier.orderedAnswers(
+                            authority, response));
+        });
+        return Map.copyOf(result);
+    }
+
+    private static Map<Long, WritingBlankContract.QuestionResponse>
+            writingAuthorities(PracticeSetView view) {
+        Map<Long, WritingBlankContract.QuestionResponse> result =
+                new LinkedHashMap<>();
+        if (view == null || view.groups() == null) {
+            return Map.of();
+        }
+        for (PracticeQuestionGroupRow group : view.groups()) {
+            for (PracticeQuestionRow question : group.questions()) {
+                if (question.writingResponse() != null) {
+                    WritingBlankContractVerifier.verifyQuestion(
+                            question.writingResponse());
+                    if (result.putIfAbsent(
+                            question.id(),
+                            question.writingResponse()) != null) {
+                        throw new IllegalArgumentException(
+                                "Duplicate structured Writing question ID");
+                    }
+                }
+            }
+        }
+        return Map.copyOf(result);
     }
 
     public record AttemptSectionDelivery(
@@ -978,7 +1063,9 @@ public class PracticeService {
                         delivery.audioOrigin(),
                         delivery.promptPlayLimit(),
                         delivery.preparationSeconds(),
-                        delivery.responseSeconds()));
+                        delivery.responseSeconds()),
+                content.writingResponse(),
+                content.languageTag());
         String immutablePrompt = stripMarkdownImages(question.getPrompt());
         SpeakingPromptDelivery promptDelivery;
         try {
@@ -1003,6 +1090,7 @@ public class PracticeService {
                         ? "Phần nói" : group.getGroupLabel(),
                 question.getPoints(),
                 blankToNull(imageReference),
+                content.languageTag(),
                 promptDelivery);
     }
 
@@ -1012,9 +1100,11 @@ public class PracticeService {
             try {
                 return assessmentContractCodec.readQuestionContent(json, CanonicalQuestionType.SPEAKING);
             } catch (IllegalArgumentException exception) {
-                if (explicitQuestionContentV2(json)) {
+                if (explicitTypedQuestionContent(json)) {
+                    String schemaVersion = explicitQuestionContentSchema(json);
                     throw new IllegalStateException(
-                            "Speaking question has invalid immutable question-content-v2: "
+                            "Speaking question has invalid immutable "
+                                    + schemaVersion + ": "
                                     + question.getQuestionId(),
                             exception);
                 }
@@ -1026,20 +1116,39 @@ public class PracticeService {
                 question.getOptionsJson(), PracticeQuestion.TYPE_SPEAKING);
     }
 
-    private boolean explicitQuestionContentV2(String json) {
+    private boolean explicitTypedQuestionContent(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);
             return node != null
                     && node.isObject()
-                    && QuestionContent.SCHEMA_VERSION_V2.equals(
+                    && QuestionContent.supportsTypedSpeakingDelivery(
                     node.path("schemaVersion").asText());
         } catch (Exception ignored) {
             /*
-             * Syntax damage must not turn an explicitly declared v2 row into
+             * Syntax damage must not turn an explicitly declared typed row into
              * historical v1 fallback. This narrow declaration check is used
              * only after JSON parsing failed.
              */
-            return EXPLICIT_QUESTION_CONTENT_V2_PATTERN.matcher(json).find();
+            return EXPLICIT_TYPED_QUESTION_CONTENT_PATTERN.matcher(json).find();
+        }
+    }
+
+    private String explicitQuestionContentSchema(String json) {
+        try {
+            JsonNode node = objectMapper.readTree(json);
+            String schemaVersion = node == null
+                    ? ""
+                    : node.path("schemaVersion").asText("");
+            return QuestionContent.supportsTypedSpeakingDelivery(schemaVersion)
+                    ? schemaVersion
+                    : "typed question content";
+        } catch (Exception ignored) {
+            java.util.regex.Matcher matcher =
+                    EXPLICIT_TYPED_QUESTION_CONTENT_PATTERN.matcher(json);
+            return matcher.find()
+                    ? matcher.group().replaceAll(
+                            ".*\"(question-content-v[23])\".*", "$1")
+                    : "typed question content";
         }
     }
 
@@ -1069,6 +1178,17 @@ public class PracticeService {
     }
 
     private static String safeListeningCheckAudioReference(String reference) {
+        if (reference == null || reference.isBlank()) {
+            return "";
+        }
+        String normalized = reference.trim();
+        if (BUILT_IN_LISTENING_CHECK_AUDIO_REFERENCE.equals(normalized)) {
+            return normalized;
+        }
+        return safeInternalMaterialReference(normalized);
+    }
+
+    private static String safeObjectiveGroupAudioReference(String reference) {
         if (reference == null || reference.isBlank()) {
             return "";
         }
@@ -1113,8 +1233,15 @@ public class PracticeService {
             String groupLabel,
             BigDecimal points,
             String imageReference,
+            String languageTag,
             SpeakingPromptDelivery delivery
     ) {
+        public SpeakingPlayerQuestion {
+            languageTag = "ko".equals(languageTag) || "vi".equals(languageTag)
+                    ? languageTag
+                    : "ko";
+        }
+
         @JsonIgnore
         public String prompt() {
             return delivery == null ? null : delivery.promptText();
@@ -1161,7 +1288,11 @@ public class PracticeService {
                 blankToNull(imageReference),
                 blankToNull(audioReference),
                 optionRows(content, readOptions(question.getOptionsJson())),
-                blankRows(content)
+                blankRows(content),
+                content == null ? null : content.writingResponse(),
+                content == null || content.languageTag() == null
+                        ? "ko"
+                        : content.languageTag()
         );
     }
 
@@ -1216,6 +1347,41 @@ public class PracticeService {
         } catch (IllegalArgumentException exception) {
             return null;
         }
+    }
+
+    private Map<Long, WritingBlankContract.QuestionResponse>
+            writingAuthorities(List<QuestionSnapshot> questions) {
+        Map<Long, WritingBlankContract.QuestionResponse> result =
+                new LinkedHashMap<>();
+        for (QuestionSnapshot question : questions) {
+            if (question.questionContentJson() == null
+                    || question.questionContentJson().isBlank()) {
+                continue;
+            }
+            CanonicalQuestionType type =
+                    questionTypeResolver.resolve(
+                            question.questionType());
+            QuestionContent content =
+                    assessmentContractCodec.readQuestionContent(
+                            question.questionContentJson(), type);
+            if (content.writingResponse() == null) {
+                continue;
+            }
+            WritingBlankContractVerifier.verifyQuestion(
+                    content.writingResponse());
+            if (question.writingTaskType()
+                    != content.writingResponse().taskType()) {
+                throw new IllegalArgumentException(
+                        "Structured Writing task identity does not match immutable question");
+            }
+            if (result.putIfAbsent(
+                    question.questionId(),
+                    content.writingResponse()) != null) {
+                throw new IllegalArgumentException(
+                        "Duplicate structured Writing question ID");
+            }
+        }
+        return Map.copyOf(result);
     }
 
     private String questionImageReference(QuestionSnapshot question) {
@@ -1603,8 +1769,12 @@ public class PracticeService {
                                         question.imageReference(),
                                         question.audioReference(),
                                         question.optionRows(),
-                                        question.blankRows()))
-                                .toList()))
+                                        question.blankRows(),
+                                        question.writingResponse(),
+                                        question.languageTag()))
+                                .toList(),
+                        group.stimulusLanguageTag(),
+                        group.instructionLanguageTag()))
                 .toList();
     }
 
@@ -2126,28 +2296,29 @@ public class PracticeService {
             throw conflict();
         }
 
-        Map<String, String> currentAnswers =
-                new LinkedHashMap<>(readAnswers(attempt.getAnswersJson()));
-        List<Long> allowedQuestionIds =
-                loadQuestionSnapshots(attempt, attempt.getSectionId()).stream()
-                        .map(QuestionSnapshot::questionId)
-                        .toList();
-        Set<String> allowedAnswerKeys = allowedQuestionIds.stream()
-                .map(String::valueOf)
-                .collect(Collectors.toSet());
-        currentAnswers.keySet().removeIf(
-                key -> !allowedAnswerKeys.contains(key));
-        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
-                currentAnswers, form, allowedQuestionIds);
+        List<QuestionSnapshot> questions = loadQuestionSnapshots(
+                attempt, attempt.getSectionId());
+        Set<Long> allowedQuestionIds = questions.stream()
+                .map(QuestionSnapshot::questionId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, WritingBlankContract.QuestionResponse> authorities =
+                writingAuthorities(questions);
+        PracticeAttemptAnswerCodec.DecodedAnswers merged =
+                attemptAnswerCodec.mergeForm(
+                        attemptAnswerCodec.read(
+                                attempt.getAnswersJson(), authorities),
+                        form,
+                        allowedQuestionIds,
+                        authorities);
 
-        attempt.saveAnswers(writeJson(currentAnswers), now);
+        attempt.saveAnswers(attemptAnswerCodec.write(merged), now);
         flushAttempt(attempt);
         return new AttemptAnswerSaveResult(
                 attempt.getId(),
                 attempt.getLockVersion(),
                 attempt.getLastSavedAt(),
                 attempt.getDeadlineAt(),
-                Map.copyOf(currentAnswers));
+                attemptAnswerCodec.compatibilityTextAnswers(merged));
     }
 
     /**
@@ -2232,20 +2403,20 @@ public class PracticeService {
         List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, section.getId());
         validateWritingQuestionPoints(questions);
 
-        Map<String, String> answers = new LinkedHashMap<>();
-        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
-            try {
-                Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
-                answers.putAll(prev);
-            } catch (Exception e) {
-                log.warn("[submitAttempt] Failed to parse previous in-progress answers exception={}",
-                        exceptionCategory(e));
-            }
-        }
-        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
-                answers,
-                form,
-                questions.stream().map(QuestionSnapshot::questionId).toList());
+        Map<Long, WritingBlankContract.QuestionResponse> authorities =
+                writingAuthorities(questions);
+        PracticeAttemptAnswerCodec.DecodedAnswers merged =
+                attemptAnswerCodec.mergeForm(
+                        attemptAnswerCodec.read(
+                                attempt.getAnswersJson(), authorities),
+                        form,
+                        questions.stream()
+                                .map(QuestionSnapshot::questionId)
+                                .collect(Collectors.toCollection(
+                                        LinkedHashSet::new)),
+                        authorities);
+        Map<String, String> answers =
+                attemptAnswerCodec.compatibilityTextAnswers(merged);
 
         return new WritingGradingSnapshot(
                 attempt.getId(),
@@ -2255,7 +2426,7 @@ public class PracticeService {
                 PracticeAttempt.STATUS_IN_PROGRESS,
                 attempt.getLockVersion(),
                 attempt.getAnswersJson(),
-                writeJson(answers),
+                attemptAnswerCodec.write(merged),
                 answers,
                 questions
         );
@@ -2275,7 +2446,12 @@ public class PracticeService {
 
         List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, section.getId());
         validateWritingQuestionPoints(questions);
-        Map<String, String> answers = readAnswers(attempt.getAnswersJson());
+        PracticeAttemptAnswerCodec.DecodedAnswers decoded =
+                attemptAnswerCodec.read(
+                        attempt.getAnswersJson(),
+                        writingAuthorities(questions));
+        Map<String, String> answers =
+                attemptAnswerCodec.compatibilityTextAnswers(decoded);
 
         return new WritingGradingSnapshot(
                 attempt.getId(),
@@ -2285,7 +2461,7 @@ public class PracticeService {
                 attempt.getStatus(),
                 attempt.getLockVersion(),
                 attempt.getAnswersJson(),
-                writeJson(answers),
+                attemptAnswerCodec.write(decoded),
                 answers,
                 questions
         );
@@ -2327,7 +2503,10 @@ public class PracticeService {
                 attempt.getLockVersion(),
                 attempt.getAnswersJson(),
                 attempt.getAiFeedbackJson(),
-                readAnswers(attempt.getAnswersJson()),
+                attemptAnswerCodec.compatibilityTextAnswers(
+                        attemptAnswerCodec.read(
+                                attempt.getAnswersJson(),
+                                writingAuthorities(questions))),
                 questions,
                 target
         );
@@ -2927,10 +3106,7 @@ public class PracticeService {
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
 
         if (writingFeedbackReader.isLegacyFlatFeedback(root)) {
-            if (essayQuestions.size() != 1 || !essayQuestions.get(0).questionId().equals(snapshot.targetQuestion().questionId())) {
-                throw unsupportedPerQuestionFeedback();
-            }
-            return feedbackMap;
+            throw unsupportedPerQuestionFeedback();
         }
 
         if (!root.isObject()) {
@@ -3094,7 +3270,8 @@ public class PracticeService {
             return "KSH_WRITING_EVALUATOR_STATUS".equals(value.engine())
                     && (unavailable || contractFailed);
         }
-        if (!"KSH_WRITING_EVALUATOR_V2".equals(value.engine())
+        if (!WritingEvaluationNormalizer.EVALUATION_ENGINE.equals(
+                value.engine())
                 || !WritingScoringPolicy.SCORING_CONTRACT.equals(
                         value.scoringContract())
                 || !WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
@@ -3132,7 +3309,22 @@ public class PracticeService {
             return node.path("score_available").asBoolean()
                     && node.path("raw_score").isNumber()
                     && node.path("raw_score_max").isNumber()
-                    && node.path("scoring_contract").isTextual();
+                    && node.path("scoring_contract").isTextual()
+                    && WritingEvidenceLedgerVerifier.CONTRACT_VERSION.equals(
+                            node.path("ledger_contract_version").asText())
+                    && WritingScoreAnchorPolicy.VERSION.equals(
+                            node.path("score_anchor_version").asText())
+                    && WritingTaskRequirementPolicy.VERSION.equals(
+                            node.path("task_requirement_version").asText())
+                    && WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION
+                            .equals(node.path("source_normalization").asText())
+                    && node.path("source_hash").isTextual()
+                    && node.path("source_hash").asText().length() == 64
+                    && node.path("rubric_scores").isArray()
+                    && node.path("task_coverage").isArray()
+                    && node.path("evidence_ledger").isArray()
+                    && node.path("strengths").isArray()
+                    && node.path("needs_improvement").isArray();
         }
         return !node.path("score_available").asBoolean()
                 && !node.has("raw_score")

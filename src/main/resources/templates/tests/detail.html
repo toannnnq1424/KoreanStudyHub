@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${detail.title()}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-detail.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-error=${flashError},data-flash-info=${flashInfo}"
+      hidden></span>
+
+<main class="td-page">
+  <a class="td-back"
+     th:href="${detail.classId() == null}
+              ? @{/my/tests}
+              : @{|/my/classes/${detail.classId()}/tests|}">
+    <span aria-hidden="true">←</span>
+    <span th:text="${detail.className() == null}
+                   ? 'Về danh sách bài test'
+                   : 'Về bài test của lớp'">Về danh sách bài test</span>
+  </a>
+
+  <section class="td-hero">
+    <div class="td-heading">
+      <div class="td-badges">
+        <span class="td-badge" th:text="${detail.type()}">MOCK</span>
+        <span class="td-class" th:if="${detail.className() != null}"
+              th:text="${detail.className()}">Tên lớp</span>
+      </div>
+      <h1 th:text="${detail.title()}">Tên bài test</h1>
+      <div class="td-description"
+           th:if="${detail.description() != null and !#strings.isEmpty(detail.description())}"
+           th:utext="${detail.description()}">Mô tả bài test</div>
+    </div>
+
+    <div class="td-state td-state-ready" th:if="${detail.availability() == 'AVAILABLE'}">
+      <span class="td-state-dot" aria-hidden="true"></span>
+      <div>
+        <strong>Sẵn sàng làm bài</strong>
+        <span>Đồng hồ chỉ bắt đầu sau khi bạn bấm nút bên dưới.</span>
+      </div>
+    </div>
+    <div class="td-state td-state-progress" th:if="${detail.availability() == 'IN_PROGRESS'}">
+      <span class="td-state-dot" aria-hidden="true"></span>
+      <div>
+        <strong>Bài làm đang diễn ra</strong>
+        <span>Thời gian vẫn được tính theo mốc bắt đầu ban đầu.</span>
+      </div>
+    </div>
+    <div class="td-state td-state-done" th:if="${detail.availability() == 'COMPLETED'}">
+      <span class="td-state-dot" aria-hidden="true"></span>
+      <div>
+        <strong>Bạn đã hoàn thành bài test</strong>
+        <span>Mỗi học sinh chỉ có một lượt làm bài test này.</span>
+      </div>
+    </div>
+    <div class="td-state td-state-wait" th:if="${detail.availability() == 'UPCOMING'}">
+      <span class="td-state-dot" aria-hidden="true"></span>
+      <div>
+        <strong>Chưa đến giờ mở bài</strong>
+        <span>Quay lại khi thời gian bắt đầu đã tới.</span>
+      </div>
+    </div>
+    <div class="td-state td-state-closed" th:if="${detail.availability() == 'CLOSED'}">
+      <span class="td-state-dot" aria-hidden="true"></span>
+      <div>
+        <strong>Bài test đã kết thúc</strong>
+        <span>Hiện không thể tạo lượt làm bài mới.</span>
+      </div>
+    </div>
+    <div class="td-state td-state-closed" th:if="${detail.availability() == 'INVALID_CONFIG'}">
+      <span class="td-state-dot" aria-hidden="true"></span>
+      <div>
+        <strong>Thời gian bài test chưa hợp lệ</strong>
+        <span>Giảng viên cần cập nhật cấu hình trước khi học sinh bắt đầu.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="td-grid" aria-label="Thông tin bài test">
+    <article class="td-meta-card">
+      <span class="td-meta-label">Số câu hỏi</span>
+      <strong th:text="${detail.totalQuestions()} + ' câu'">0 câu</strong>
+      <span>Chọn một hoặc nhiều đáp án theo yêu cầu từng câu.</span>
+    </article>
+    <article class="td-meta-card">
+      <span class="td-meta-label">Cách tính giờ</span>
+      <strong th:text="${detail.timeMode() == 'INDIVIDUAL'}
+                       ? 'Theo từng học sinh'
+                       : 'Theo khung giờ chung'">Theo từng học sinh</strong>
+      <span th:if="${detail.timeMode() == 'INDIVIDUAL' and detail.durationMinutes() != null}"
+            th:text="${detail.durationMinutes()} + ' phút kể từ lúc bắt đầu'">30 phút</span>
+      <span th:if="${detail.timeMode() == 'FIXED_WINDOW'}">Kết thúc cùng thời điểm với cả lớp.</span>
+    </article>
+    <article class="td-meta-card">
+      <span class="td-meta-label">Mở bài</span>
+      <strong th:text="${detail.startAt() == null
+                        ? 'Có thể bắt đầu ngay'
+                        : #temporals.format(detail.startAt(), 'HH:mm · dd/MM/yyyy')}">Có thể bắt đầu ngay</strong>
+      <span>Không tạo lượt chỉ bằng việc xem trang này.</span>
+    </article>
+    <article class="td-meta-card">
+      <span class="td-meta-label">Đóng bài</span>
+      <strong th:text="${detail.endAt() == null
+                        ? 'Không giới hạn ngày đóng'
+                        : #temporals.format(detail.endAt(), 'HH:mm · dd/MM/yyyy')}">Không giới hạn</strong>
+      <span th:if="${detail.timeMode() == 'INDIVIDUAL' and detail.endAt() != null}">
+        Thời gian cá nhân không vượt quá mốc đóng bài.
+      </span>
+      <span th:if="${detail.timeMode() == 'FIXED_WINDOW'}">
+        Đồng hồ đếm tới đúng mốc này.
+      </span>
+    </article>
+  </section>
+
+  <section class="td-action-card">
+    <div>
+      <h2 th:if="${detail.canStart()}">Bắt đầu khi bạn đã sẵn sàng</h2>
+      <h2 th:if="${detail.canResume()}">Tiếp tục lượt làm hiện tại</h2>
+      <h2 th:if="${detail.completed()}">Kết quả lượt làm của bạn</h2>
+      <h2 th:if="${!detail.canStart() and !detail.canResume() and !detail.completed()}">
+        Chưa thể bắt đầu
+      </h2>
+      <p th:if="${detail.canStart()}">
+        Sau khi bắt đầu, lượt làm được tính ngay và không thể đặt lại đồng hồ.
+      </p>
+      <p th:if="${detail.canResume()}">
+        Mở lại bài không tạo lượt mới; hệ thống tiếp tục dùng thời gian còn lại.
+      </p>
+      <p th:if="${detail.completed() and detail.scorePercent() != null}"
+         th:text="'Điểm của bạn: ' + ${detail.scorePercent()} + '%'">Điểm của bạn: 0%</p>
+      <p th:if="${!detail.canStart() and !detail.canResume() and !detail.completed()}">
+        Kiểm tra trạng thái và khung giờ ở phần thông tin phía trên.
+      </p>
+    </div>
+
+    <div class="td-actions">
+      <form th:if="${detail.canStart()}"
+            th:action="@{|/my/tests/${detail.id()}/start|}" method="post">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <button class="td-btn td-btn-primary" type="submit">Bắt đầu làm bài</button>
+      </form>
+      <a class="td-btn td-btn-primary" th:if="${detail.canResume()}"
+         th:href="@{|/my/tests/${detail.id()}/take|}">Tiếp tục làm bài</a>
+      <a class="td-btn td-btn-primary"
+         th:if="${detail.completed() and detail.attemptId() != null}"
+         th:href="@{|/my/tests/${detail.id()}/result/${detail.attemptId()}|}">Xem kết quả</a>
+      <a class="td-btn" th:if="${detail.completed() and detail.attemptId() != null}"
+         th:href="@{|/my/tests/${detail.id()}/review/${detail.attemptId()}|}">Xem lại câu trả lời</a>
+    </div>
+  </section>
+
+  <p class="td-attempt-note" th:unless="${detail.type() == 'PRACTICE'}">
+    <strong>Lưu ý:</strong> bài test trong lớp chỉ cho phép một lượt làm. Đóng tab không dừng đồng hồ.
+  </p>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+</body>
+</html>

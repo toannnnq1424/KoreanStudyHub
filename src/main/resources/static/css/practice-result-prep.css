@@ -13,12 +13,12 @@
   --prep-overview-ink: #172033;
   --prep-overview-panel-width: 914px;
   background:
-    radial-gradient(ellipse 72% 62% at 50% 28%, transparent 42%, rgba(25, 37, 139, 0.12) 100%),
-    radial-gradient(ellipse 48% 42% at 50% 24%, rgba(255, 255, 255, 0.24) 0%, rgba(209, 231, 255, 0.09) 45%, transparent 76%),
-    radial-gradient(ellipse 30% 38% at -3% 60%, rgba(154, 201, 255, 0.22) 0%, transparent 74%),
-    radial-gradient(ellipse 34% 44% at 103% 48%, rgba(166, 205, 255, 0.19) 0%, transparent 74%),
-    linear-gradient(180deg, #4960eb 0%, #6689ed 43%, #89c9ef 100%);
-  background-color: #5c78e9;
+    radial-gradient(ellipse 72% 62% at 50% 28%, transparent 42%, rgba(37, 82, 176, 0.045) 100%),
+    radial-gradient(ellipse 48% 42% at 50% 24%, rgba(255, 255, 255, 0.38) 0%, rgba(229, 244, 255, 0.2) 45%, transparent 76%),
+    radial-gradient(ellipse 30% 38% at -3% 60%, rgba(211, 238, 255, 0.38) 0%, transparent 74%),
+    radial-gradient(ellipse 34% 44% at 103% 48%, rgba(211, 238, 255, 0.36) 0%, transparent 74%),
+    linear-gradient(180deg, #6688ee 0%, #9fc5f2 46%, #d9eff9 100%);
+  background-color: #9fc5f2;
   background-attachment: fixed;
 }
 
@@ -27,6 +27,66 @@
   isolation: isolate;
   min-height: 100vh;
   background: transparent;
+}
+
+.practice-result-page .pr-sky-particles {
+  position: fixed;
+  z-index: 0;
+  inset: 50px 0 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.practice-result-page .pr-sky-particles > i {
+  position: absolute;
+  display: block;
+  width: 5px;
+  height: 5px;
+  opacity: 0.72;
+  background: rgba(255, 255, 255, 0.88);
+  transform-origin: center;
+  animation: pr-sky-particle-pop 2.25s cubic-bezier(0.2, 0.72, 0.24, 1)
+    var(--pr-sky-delay, 0ms) 1 both;
+}
+
+.practice-result-page .pr-sky-particles > .is-dot {
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(233, 246, 255, 0.32);
+}
+
+.practice-result-page .pr-sky-particles > .is-star {
+  width: 10px;
+  height: 10px;
+  clip-path: polygon(
+    50% 0%, 61% 35%, 100% 50%, 61% 65%, 50% 100%,
+    39% 65%, 0% 50%, 39% 35%
+  );
+}
+
+.practice-result-page .pr-sky-particles > i:nth-child(1) { top: 13%; left: 5%; --pr-sky-delay: 80ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(2) { top: 26%; left: 11%; --pr-sky-delay: 210ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(3) { top: 45%; left: 18%; --pr-sky-delay: 340ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(4) { top: 18%; left: 25%; --pr-sky-delay: 155ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(5) { top: 58%; left: 31%; --pr-sky-delay: 420ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(6) { top: 34%; left: 38%; --pr-sky-delay: 285ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(7) { top: 11%; left: 45%; --pr-sky-delay: 380ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(8) { top: 49%; left: 52%; --pr-sky-delay: 105ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(9) { top: 24%; left: 58%; --pr-sky-delay: 495ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(10) { top: 63%; left: 64%; --pr-sky-delay: 245ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(11) { top: 39%; left: 70%; --pr-sky-delay: 460ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(12) { top: 15%; left: 76%; --pr-sky-delay: 325ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(13) { top: 54%; left: 81%; --pr-sky-delay: 185ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(14) { top: 29%; left: 87%; --pr-sky-delay: 535ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(15) { top: 67%; left: 92%; --pr-sky-delay: 290ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(16) { top: 8%; left: 96%; --pr-sky-delay: 405ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(17) { top: 72%; left: 43%; --pr-sky-delay: 575ms; }
+.practice-result-page .pr-sky-particles > i:nth-child(18) { top: 76%; left: 73%; --pr-sky-delay: 510ms; }
+
+@keyframes pr-sky-particle-pop {
+  0% { opacity: 0; transform: scale(0.55); }
+  48% { opacity: 0.96; transform: scale(1.28); }
+  72% { opacity: 0.84; transform: scale(0.88); }
+  100% { opacity: 0.72; transform: scale(1); }
 }
 
 .practice-result-page .pr-shell::before,
@@ -80,6 +140,65 @@
    * creates a one-pixel compositor seam across some viewport sizes.
    */
   filter: none;
+  animation: pr-result-cloud-bob 14s ease-in-out infinite alternate;
+}
+
+/*
+ * PREP keeps the Writing/Speaking result canvas on one continuous blue field.
+ * The cloud foreground belongs to the R/L result treatment; reusing it here
+ * creates a second, fixed background band between the certificate and the
+ * analysis sheet when the page scrolls.
+ */
+.practice-result-page:is([data-result-skill="WRITING"], [data-result-skill="SPEAKING"]) .pr-shell::after {
+  display: block;
+  right: -5%;
+  bottom: -90px;
+  left: -5%;
+  height: 560px;
+  opacity: 0.9;
+  background:
+    radial-gradient(ellipse 17% 54% at 2% 88%, rgba(239, 248, 255, 0.86) 0 66%, transparent 67%),
+    radial-gradient(ellipse 19% 58% at 18% 96%, rgba(216, 237, 255, 0.82) 0 66%, transparent 67%),
+    radial-gradient(ellipse 21% 55% at 43% 101%, rgba(191, 222, 250, 0.72) 0 66%, transparent 67%),
+    radial-gradient(ellipse 20% 57% at 68% 99%, rgba(193, 224, 250, 0.72) 0 66%, transparent 67%),
+    radial-gradient(ellipse 19% 58% at 87% 94%, rgba(220, 239, 255, 0.84) 0 66%, transparent 67%),
+    radial-gradient(ellipse 16% 52% at 101% 86%, rgba(240, 249, 255, 0.88) 0 66%, transparent 67%);
+  animation: pr-result-cloud-bob 8.5s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes pr-result-cloud-bob {
+  from { transform: translate3d(-5px, 0, 0) scale(1); }
+  to { transform: translate3d(7px, -12px, 0) scale(1.014); }
+}
+
+.practice-result-page:is([data-result-skill="WRITING"], [data-result-skill="SPEAKING"]) {
+  background: linear-gradient(180deg, #4057f1 0%, #4f82ef 52%, #5da6ed 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.practice-result-page:is([data-result-skill="WRITING"], [data-result-skill="SPEAKING"]) .pr-shell::before {
+  display: block;
+  inset: 50px 0 0;
+  background:
+    radial-gradient(circle at 7% 17%, rgba(255, 255, 255, 0.82) 0 4px, transparent 5px),
+    radial-gradient(circle at 14% 39%, rgba(224, 240, 255, 0.62) 0 2px, transparent 3px),
+    radial-gradient(circle at 27% 25%, rgba(255, 255, 255, 0.34) 0 1px, transparent 2px),
+    radial-gradient(circle at 39% 46%, rgba(229, 242, 255, 0.68) 0 3px, transparent 4px),
+    radial-gradient(circle at 54% 18%, rgba(255, 255, 255, 0.46) 0 2px, transparent 3px),
+    radial-gradient(circle at 67% 36%, rgba(221, 239, 255, 0.56) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 14%, rgba(255, 255, 255, 0.7) 0 3px, transparent 4px),
+    radial-gradient(circle at 88% 43%, rgba(226, 241, 255, 0.44) 0 2px, transparent 3px),
+    radial-gradient(circle at 94% 23%, rgba(255, 255, 255, 0.86) 0 5px, transparent 6px),
+    radial-gradient(circle at 9% 73%, rgba(255, 255, 255, 0.64) 0 3px, transparent 4px),
+    radial-gradient(circle at 31% 84%, rgba(226, 241, 255, 0.48) 0 2px, transparent 3px),
+    radial-gradient(circle at 58% 72%, rgba(255, 255, 255, 0.72) 0 4px, transparent 5px),
+    radial-gradient(circle at 84% 83%, rgba(223, 240, 255, 0.58) 0 3px, transparent 4px),
+    radial-gradient(circle at 93% 67%, rgba(255, 255, 255, 0.5) 0 2px, transparent 3px);
+  background-repeat: no-repeat;
+  opacity: 0.76;
 }
 
 .practice-result-page .pr-topbar,
@@ -94,7 +213,7 @@
   padding: 0 24px;
   border: 0;
   color: #fff;
-  background: rgba(51, 70, 239, 0.84);
+  background: rgba(47, 70, 207, 0.94);
   backdrop-filter: blur(8px);
 }
 
@@ -142,6 +261,446 @@
   width: min(var(--prep-overview-panel-width), calc(100% - 32px));
   margin: 8px auto 72px;
   padding: 0;
+}
+
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="SPEAKING"] {
+    --prep-overview-panel-width: 1280px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-main {
+    margin-top: 12px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] {
+    --prep-overview-panel-width: 1304px;
+    --prep-writing-summary-width: 1120px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-main {
+    margin-top: 12px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary {
+    width: min(var(--prep-writing-summary-width), 100%);
+    min-height: 300px;
+    margin-inline: auto;
+    padding: 26px 34px 28px;
+    border: 8px solid rgba(255, 255, 255, 0.9);
+    border-radius: 22px;
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.988), rgba(255, 255, 255, 0.988)),
+      repeating-linear-gradient(
+        0deg,
+        rgba(75, 102, 165, 0.025) 0,
+        rgba(75, 102, 165, 0.025) 1px,
+        transparent 1px,
+        transparent 5px
+      );
+    box-shadow: 0 14px 34px rgba(42, 64, 135, 0.13);
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary::after {
+    position: absolute;
+    top: -8px;
+    right: 54px;
+    width: 58px;
+    height: 222px;
+    background: linear-gradient(90deg, #f8b914 0%, #ffd13f 50%, #efa908 100%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 88%, 0 100%);
+    filter: drop-shadow(0 6px 4px rgba(144, 91, 0, 0.16));
+    content: "";
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-layout {
+    grid-template-columns: 172px minmax(0, 1fr) 152px;
+    grid-template-rows: auto auto;
+    gap: 8px 26px;
+    min-height: 230px;
+    align-items: center;
+    align-content: start;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-copy {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    padding: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-score {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    place-items: start;
+    align-self: center;
+    min-height: 0;
+    padding-top: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-result-focus,
+  .practice-result-page[data-result-skill="WRITING"] .pr-score-unavailable {
+    width: 150px;
+    height: 150px;
+    min-width: 150px;
+    border-width: 14px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-score-line > strong {
+    font-size: 42px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-writing-breakdown {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    padding-top: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-baekho-celebration {
+    position: relative;
+    top: auto;
+    right: auto;
+    z-index: 3;
+    grid-column: 3;
+    grid-row: 2;
+    align-self: center;
+    justify-self: center;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-notebook-divider {
+    display: block;
+    width: min(var(--prep-writing-summary-width), 100%);
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-section {
+    min-height: 850px;
+    margin-top: 0;
+    border-radius: 16px;
+    box-shadow: 0 14px 36px rgba(25, 39, 111, 0.14);
+  }
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-summary {
+  --pr-skill: #4052f4;
+  --pr-skill-soft: #eef1ff;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-scope {
+  border-color: #e1e6f0;
+  background: #f7f8fb;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-segmented button.is-active {
+  background: #4052f4;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis {
+  --pr-skill: #4052f4;
+  --pr-skill-soft: #eef1ff;
+  --pr-skill-line: #d9e1ff;
+  border-color: #d9e1ff;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-section-heading {
+  border-bottom: 0;
+  background: #f7f8ff;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-section-kicker,
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-writing-scope strong {
+  color: #4052f4;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-writing-scope {
+  border-color: #d9e1ff;
+  background: #f7f8ff;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-segmented button.is-active {
+  color: #fff;
+  background: #4052f4;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-score {
+  border-color: #d9e1ff;
+  color: #304ecb;
+  background: #f4f6ff;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-writing-task[hidden] {
+  display: none !important;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-groups {
+  display: grid;
+  gap: 26px;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-group {
+  display: grid;
+  gap: 14px;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-group h5 {
+  margin: 0;
+  color: #202b3d;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-row-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #526078;
+  font-size: 13px;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-row-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-row-heading strong {
+  color: #354258;
+  font-size: 13px;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-inline-feedback {
+  color: #68758a;
+  font-weight: 500;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-inline-feedback::before {
+  content: ":";
+  margin-right: 5px;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-row-heading span {
+  color: #3156df;
+  font-weight: 800;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-meter {
+  position: relative;
+  height: 18px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    90deg,
+    #e4e8ef 0 calc(25% - 3px),
+    transparent calc(25% - 3px) 25%
+  );
+  overflow: hidden;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-meter-state {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  width: calc(25% - 3px);
+  padding: 0 8px;
+  border-radius: 999px;
+  place-items: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-meter.is-limited .pr-rubric-meter-state {
+  left: 0;
+  background: #df0838;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-meter.is-modest .pr-rubric-meter-state {
+  left: 25%;
+  background: #f09300;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-meter.is-good .pr-rubric-meter-state {
+  left: 50%;
+  color: #463600;
+  background: #f4be18;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-meter.is-excellent .pr-rubric-meter-state {
+  left: 75%;
+  background: #24a764;
+}
+
+.practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-feedback {
+  margin: 0;
+  color: #59667a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/*
+ * PREP 4.2 writing-overview composition at laptop-large:
+ * one wide result sheet, task tabs on its top edge, then one restrained
+ * score/anchor rail beside the rubric content. KSH task-native scores and
+ * verified feedback remain the data authority.
+ */
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis > .pr-section-heading {
+    padding: 18px 28px 14px;
+    background: #fff;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis > .pr-segmented {
+    gap: 5px;
+    width: auto;
+    margin: 0 28px;
+    padding: 5px;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 14px;
+    background: #f2f4f8;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis > .pr-segmented button {
+    min-height: 42px;
+    border-radius: 10px;
+    color: #596579;
+    background: transparent;
+    box-shadow: none;
+    font-size: 13px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis > .pr-segmented button.is-active {
+    color: #fff;
+    background: #4275f4;
+    box-shadow: 0 3px 9px rgba(66, 117, 244, 0.2);
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-writing-task {
+    display: grid;
+    grid-template-columns: 286px minmax(0, 1fr);
+    gap: 22px 42px;
+    padding: 30px 28px 32px;
+    align-items: start;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-header {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px;
+    border: 0;
+    border-radius: 18px;
+    background: #f7f8fa;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-header > div:first-child {
+    width: 100%;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-score {
+    order: -1;
+    display: grid;
+    width: 88px;
+    min-width: 88px;
+    min-height: 88px;
+    padding: 11px 9px;
+    border: 0;
+    border-radius: 16px;
+    place-content: center;
+    align-self: flex-start;
+    color: #fff;
+    background: #4275f4;
+    box-shadow: 0 8px 18px rgba(66, 117, 244, 0.14);
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-score :is(strong, span, .pr-task-score-label) {
+    color: #fff;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-score strong {
+    font-size: 21px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-score small {
+    display: none;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-prompt {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-prompt .pr-task-prompt-full {
+    margin: 8px 0 0 !important;
+    padding: 0;
+    border: 0;
+    color: #3f4b60;
+    line-height: 1.65;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-summary {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    padding: 0 0 8px;
+    border: 0;
+    border-radius: 0;
+    color: #4b586d;
+    background: transparent;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-writing-scorecard {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-writing-block-heading {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-rubric-row {
+    padding: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-writing-state {
+    grid-column: 2;
+    margin: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2px;
+    border: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis :is(a, button, summary):focus-visible {
+    outline: 3px solid rgba(49, 86, 223, 0.55);
+    outline-offset: 3px;
+  }
 }
 
 .practice-result-page .pr-lifecycle-notice {
@@ -203,12 +762,105 @@
   background-size: 1120px 112px;
   image-rendering: pixelated;
   filter: drop-shadow(0 8px 10px rgba(35, 50, 91, 0.14));
-  animation: pr-baekho-celebrate 1.4s steps(10, end) infinite;
+  animation: none;
 }
 
-@keyframes pr-baekho-celebrate {
-  to {
-    background-position: -1120px 0;
+.practice-result-page[data-result-celebration-eligible="true"] .pr-baekho-celebration {
+  animation:
+    pr-baekho-sprite 1.15s steps(9, end) 2,
+    pr-baekho-arrive 2.35s cubic-bezier(0.2, 0.72, 0.24, 1) 1 both;
+}
+
+@keyframes pr-baekho-sprite {
+  from { background-position: 0 0; }
+  to { background-position: 100% 0; }
+}
+
+@keyframes pr-baekho-arrive {
+  0% { opacity: 0; transform: translateY(7px) scale(0.9); }
+  42% { opacity: 1; transform: translateY(-3px) scale(1.06); }
+  68% { transform: translateY(1px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.practice-result-page .pr-result-celebration {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.practice-result-page .pr-result-celebration[hidden] {
+  display: none;
+}
+
+.practice-result-page .pr-result-celebration-piece {
+  position: absolute;
+  top: var(--celebration-y);
+  left: var(--celebration-x);
+  display: block;
+  width: 9px;
+  height: 9px;
+  opacity: 0;
+  background: var(--celebration-color);
+  transform-origin: center;
+}
+
+.practice-result-page .pr-result-celebration-piece.is-dot {
+  border-radius: 50%;
+}
+
+.practice-result-page .pr-result-celebration-piece.is-star {
+  width: 13px;
+  height: 13px;
+  clip-path: polygon(
+    50% 0%, 61% 34%, 98% 35%, 68% 56%, 79% 92%,
+    50% 71%, 21% 92%, 32% 56%, 2% 35%, 39% 34%
+  );
+}
+
+.practice-result-page .pr-result-celebration-piece.is-dash {
+  width: 12px;
+  height: 5px;
+  border-radius: 2px;
+}
+
+.practice-result-page .pr-result-celebration.is-active
+  .pr-result-celebration-piece {
+  animation: pr-result-confetti-burst 2.15s cubic-bezier(0.18, 0.72, 0.24, 1)
+    var(--celebration-delay) 1 both;
+}
+
+@keyframes pr-result-confetti-burst {
+  0% {
+    opacity: 0;
+    transform: translate(0, 12px) rotate(0) scale(0.35);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0) scale(1.18);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(
+      var(--celebration-dx-mid),
+      var(--celebration-dy-mid)
+    ) rotate(var(--celebration-rotation-mid)) scale(0.88);
+  }
+  72% {
+    opacity: 0.9;
+    transform: translate(
+      var(--celebration-dx-late),
+      var(--celebration-dy-late)
+    ) rotate(var(--celebration-rotation-late)) scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+      var(--celebration-dx),
+      var(--celebration-dy)
+    ) rotate(var(--celebration-rotation)) scale(0.72);
   }
 }
 
@@ -218,19 +870,18 @@
   isolation: isolate;
   display: grid;
   place-content: center;
-  width: 144px;
-  height: 144px;
-  min-width: 144px;
+  width: 172px;
+  height: 172px;
+  min-width: 172px;
   margin: 0;
-  padding: 18px;
-  border: 8px solid #efd07e;
+  padding: 22px;
+  border: 17px solid #ffc526;
   border-radius: 50%;
   color: #fff;
-  background: linear-gradient(145deg, #e8b85f 0%, #dca145 58%, #ca8733 100%);
+  background: #d87700;
   box-shadow:
-    inset 0 0 0 3px rgba(255, 244, 207, 0.2),
-    inset 0 -3px 0 rgba(119, 73, 28, 0.1),
-    0 14px 28px rgba(37, 47, 105, 0.2);
+    inset 0 0 0 6px rgba(255, 214, 89, 0.82),
+    0 4px 0 #ea8d19;
   text-align: center;
   transform: none;
 }
@@ -242,16 +893,22 @@
 .practice-result-page .pr-result-focus::before {
   position: absolute;
   z-index: -1;
-  inset: -4px;
-  border: 2px solid rgba(255, 232, 166, 0.58);
+  inset: -13px;
+  border: 2px solid rgba(255, 219, 87, 0.96);
   border-radius: inherit;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 248, 216, 0.35);
+  box-shadow: none;
   content: "";
 }
 
 .practice-result-page .pr-result-focus::after {
-  content: none;
+  position: absolute;
+  top: 5px;
+  left: -9px;
+  color: #fff;
+  font-size: 35px;
+  line-height: 1;
+  text-shadow: 20px 18px 0 #fff;
+  content: "✦";
 }
 
 .practice-result-page .pr-score-unavailable {
@@ -262,29 +919,159 @@
 }
 
 .practice-result-page .pr-result-label {
-  color: inherit;
-  font-size: 10px;
-  text-transform: uppercase;
+  display: none;
 }
 
 .practice-result-page .pr-score-line {
   justify-content: center;
-  gap: 3px;
-  margin-top: 3px;
+  gap: 0;
+  margin: 0;
 }
 
-.practice-result-page .pr-score-line > strong,
-.practice-result-page .pr-score-line > span {
+.practice-result-page .pr-score-line > strong {
   color: #fff;
-  font-size: 36px;
-  text-shadow: 0 1px 1px rgba(116, 67, 16, 0.18);
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: none;
 }
 
-.practice-result-page .pr-score-line > small {
-  flex-basis: 100%;
-  margin: 2px 0 0;
-  color: rgba(255, 255, 255, 0.9);
+.practice-result-page .pr-notebook-divider {
+  position: relative;
+  display: none;
+  height: 24px;
+  margin-top: 0;
+  margin-inline: auto;
+  background: transparent;
+}
+
+.practice-result-page .pr-notebook-divider::before,
+.practice-result-page .pr-notebook-divider::after {
+  position: absolute;
+  z-index: 1;
+  top: -13px;
+  width: 18px;
+  height: 50px;
+  background:
+    radial-gradient(circle at 50% 14%, #c9ddff 0 8px, transparent 8.5px),
+    radial-gradient(circle at 50% 86%, #c9ddff 0 8px, transparent 8.5px),
+    linear-gradient(#eef5ff, #b9d4ff) center / 7px 36px no-repeat;
+  filter: drop-shadow(0 2px 1px rgba(42, 78, 170, 0.14));
+  content: "";
+}
+
+.practice-result-page .pr-notebook-divider::before {
+  left: 42px;
+}
+
+.practice-result-page .pr-notebook-divider::after {
+  right: 42px;
+}
+
+.practice-result-page .pr-summary-writing-breakdown {
+  display: grid;
+  gap: 10px;
+  align-self: start;
+  min-width: 0;
+  padding-top: 16px;
+}
+
+.practice-result-page .pr-summary-writing-breakdown h2 {
+  margin: 0;
+  color: #29364f;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.practice-result-page .pr-summary-writing-tasks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 34px;
+}
+
+.practice-result-page .pr-summary-writing-tasks article {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  background: transparent;
+}
+
+.practice-result-page .pr-summary-writing-tasks article > div {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.practice-result-page .pr-summary-writing-tasks strong,
+.practice-result-page .pr-summary-writing-tasks span,
+.practice-result-page .pr-summary-writing-tasks b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-summary-writing-tasks strong {
+  color: #172033;
+  font-size: 13px;
+}
+
+.practice-result-page .pr-summary-writing-tasks span {
+  color: #667085;
   font-size: 11px;
+}
+
+.practice-result-page .pr-summary-writing-tasks b {
+  order: -1;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  min-width: 56px;
+  min-height: 42px;
+  margin: 0;
+  padding: 6px;
+  border-radius: 10px;
+  color: #304ecb;
+  background: #edf3ff;
+  font-size: 15px;
+}
+
+.practice-result-page .pr-summary-writing-tasks b.is-unavailable {
+  color: #718096;
+  background: transparent;
+}
+
+.practice-result-page .pr-summary-writing-tasks progress {
+  width: 100%;
+  height: 5px;
+  margin-top: 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  appearance: none;
+  background: #e7ebf3;
+}
+
+.practice-result-page .pr-summary-writing-tasks progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #e7ebf3;
+}
+
+.practice-result-page .pr-summary-writing-tasks progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: #4052f4;
+}
+
+.practice-result-page .pr-summary-writing-tasks progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: #4052f4;
 }
 
 .practice-result-page .pr-eyebrow {
@@ -339,6 +1126,12 @@
   border-color: #cbeed2;
   color: #2a9d35;
   background: #f0fbf2;
+}
+
+.practice-result-page .pr-summary-answer-stats .is-partial {
+  border-color: #cbd8ff;
+  color: #2f5fd7;
+  background: #f2f6ff;
 }
 
 .practice-result-page .pr-summary-answer-stats .is-incorrect {
@@ -468,6 +1261,173 @@
   display: none;
 }
 
+.practice-result-page .pr-objective-groups {
+  margin: 0 0 24px;
+  padding: 2px 2px 24px;
+  border-bottom: 1px solid #e7ebf2;
+}
+
+.practice-result-page .pr-objective-groups-heading {
+  display: flex;
+  margin-bottom: 10px;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.practice-result-page .pr-objective-groups-heading h3 {
+  margin: 3px 0 0;
+  color: #1d2739;
+  font-size: 17px;
+}
+
+.practice-result-page .pr-objective-groups-heading > span {
+  color: #718096;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.practice-result-page .pr-objective-group-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 34px;
+}
+
+.practice-result-page .pr-objective-group {
+  display: grid;
+  min-width: 0;
+  padding: 18px 2px 16px;
+  border-top: 1px solid #edf0f5;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 13px 20px;
+}
+
+.practice-result-page .pr-objective-group-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.practice-result-page .pr-objective-group-label {
+  color: #3156df;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.practice-result-page .pr-objective-group-copy > strong {
+  overflow: hidden;
+  color: #202b3d;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-objective-group-types {
+  overflow: hidden;
+  color: #758095;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-objective-group-stats {
+  display: flex;
+  margin: 0;
+  align-items: start;
+  gap: 14px;
+}
+
+.practice-result-page .pr-objective-group-stats > div {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.practice-result-page .pr-objective-group-stats dt {
+  color: #8a94a7;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-objective-group-stats dd {
+  margin: 0;
+  color: #263247;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.practice-result-page .pr-objective-group-stats .is-correct dd {
+  color: #198754;
+}
+
+.practice-result-page .pr-objective-group-stats .is-incorrect dd {
+  color: #cc4050;
+}
+
+.practice-result-page .pr-objective-group-stats .is-unanswered dd {
+  color: #9a6a10;
+}
+
+.practice-result-page .pr-objective-group-progress {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.practice-result-page .pr-objective-group-track {
+  display: block;
+  flex: 1;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7eaf0;
+}
+
+.practice-result-page .pr-objective-group-track i {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  border-radius: inherit;
+  background: #3f72ef;
+}
+
+.practice-result-page .pr-objective-group-progress > strong {
+  min-width: 50px;
+  color: #3156df;
+  font-size: 12px;
+  text-align: right;
+}
+
+.practice-result-page .pr-objective-group-link {
+  align-self: center;
+  color: #3156df;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.practice-result-page .pr-objective-group-link:is(:hover, :focus-visible) {
+  text-decoration: underline;
+}
+
+@media (max-width: 980px) {
+  .practice-result-page .pr-objective-group-list {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page .pr-objective-group {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page .pr-objective-group-stats {
+    justify-content: flex-start;
+  }
+}
+
 /*
  * PREP-4.1 Listening uses a wider/taller overview composition than the
  * PREP-4.1 Reading state. Keep this desktop correction skill-scoped so the
@@ -552,7 +1512,6 @@
     width: 88px;
     height: 88px;
     background-size: 880px 88px;
-    animation-name: pr-baekho-celebrate-compact;
   }
 
   .practice-result-page .pr-result-focus,
@@ -560,10 +1519,96 @@
     width: 122px;
     height: 122px;
     min-width: 122px;
+    padding: 8px;
+  }
+
+  .practice-result-page .pr-result-focus::after {
+    top: -5px;
+    left: -7px;
+    font-size: 27px;
+    text-shadow: none;
+  }
+
+  .practice-result-page .pr-score-line > strong {
+    font-size: 42px;
   }
 
   .practice-result-page .pr-calculation-details {
     left: 202px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 980px) {
+  /* At this breakpoint the learner sees Dạng/Tổng/Đúng/Sai/Điểm/Tỷ lệ.
+     Keep all six columns readable inside the 760px sheet instead of letting
+     the two longest headings compete for intrinsic width. */
+  .practice-result-page[data-result-skill="READING"] .pr-objective-overview,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview {
+    height: auto;
+    min-height: 0;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-groups,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-groups {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px 2px;
+    gap: 8px 14px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-stats,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-stats {
+    gap: 12px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th {
+    padding-inline: 6px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:first-child,
+  .practice-result-page[data-result-skill="READING"] .pr-table td:first-child,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:first-child,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:first-child {
+    width: 36%;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(2),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(2),
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(3),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(3),
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(4),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(4),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(2),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(2),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(3),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(3),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(4),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(4) {
+    width: 10%;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(6),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(6),
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(7),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(7),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(6),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(6),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(7),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(7) {
+    width: 17%;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-score-rate,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-score-rate {
+    min-width: 0;
   }
 }
 
@@ -656,6 +1701,7 @@
 
   .practice-result-page[data-result-skill="READING"] .pr-objective-overview,
   .practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview {
+    height: auto;
     min-height: 0;
     padding: 20px 14px;
   }
@@ -672,12 +1718,6 @@
   }
 }
 
-@keyframes pr-baekho-celebrate-compact {
-  to {
-    background-position: -880px 0;
-  }
-}
-
 @media (min-width: 641px) {
   .practice-result-page .pr-calculation-details {
     display: none;
@@ -685,8 +1725,1745 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .practice-result-page .pr-baekho-celebration {
-    animation: none;
-    background-position: 0 0;
+  .practice-result-page .pr-result-celebration {
+    display: none;
   }
+
+  .practice-result-page .pr-shell::after,
+  .practice-result-page .pr-sky-particles > i,
+  .practice-result-page .pr-baekho-celebration {
+    animation: none !important;
+  }
+}
+
+html[data-practice-motion="off"] .practice-result-page .pr-result-celebration {
+  display: none;
+}
+
+html[data-practice-motion="off"] .practice-result-page .pr-shell::after,
+html[data-practice-motion="off"] .practice-result-page .pr-sky-particles > i,
+html[data-practice-motion="off"] .practice-result-page .pr-baekho-celebration {
+  animation: none !important;
+}
+
+/*
+ * PRE-14 Gate A — Result Overview convergence.
+ *
+ * These rules intentionally live after the Phase-13 compatibility layer so
+ * the current 4.1–4.3 overview references own the final desktop geometry.
+ * Product labels, scoring scales and capability states remain KSH-native.
+ */
+.practice-result-page {
+  background:
+    radial-gradient(ellipse 72% 62% at 50% 28%, transparent 42%, rgba(24, 42, 137, 0.08) 100%),
+    radial-gradient(ellipse 48% 42% at 50% 24%, rgba(255, 255, 255, 0.27) 0%, rgba(214, 235, 255, 0.1) 45%, transparent 76%),
+    radial-gradient(ellipse 30% 38% at -3% 60%, rgba(182, 218, 255, 0.28) 0%, transparent 74%),
+    radial-gradient(ellipse 34% 44% at 103% 48%, rgba(188, 222, 255, 0.25) 0%, transparent 74%),
+    linear-gradient(180deg, #4658ef 0%, #7198ed 45%, #9dd5f3 100%);
+  background-color: #7198ed;
+}
+
+.practice-result-page .pr-summary,
+.practice-result-page .pr-section {
+  box-shadow:
+    0 14px 34px rgba(25, 39, 111, 0.13),
+    0 2px 8px rgba(25, 39, 111, 0.07);
+}
+
+.practice-result-page .pr-summary-answer-stats .is-unanswered {
+  border-color: #eadbad;
+  color: #9a6a10;
+  background: #fffbec;
+}
+
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="LISTENING"] {
+    --prep-overview-panel-width: 1138px;
+  }
+
+  .practice-result-page[data-result-skill="LISTENING"] .pr-main {
+    margin-top: 40px;
+  }
+
+  .practice-result-page[data-result-skill="LISTENING"] .pr-summary {
+    min-height: 256px;
+  }
+
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview {
+    height: auto;
+    min-height: 0;
+    margin-top: 20px;
+    padding: 20px 26px 22px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-overview {
+    height: auto;
+    min-height: 0;
+    padding-bottom: 22px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-overview .pr-section-heading,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-overview .pr-section-heading {
+    margin-bottom: 8px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-groups,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-groups {
+    margin-bottom: 10px;
+    padding: 0 2px 10px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-groups-heading,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-groups-heading {
+    margin-bottom: 6px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-groups-heading h3,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-groups-heading h3 {
+    font-size: 15px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group {
+    padding: 6px 2px;
+    gap: 4px 14px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-copy,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-copy {
+    gap: 2px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-label,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-label {
+    font-size: 10px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-copy > strong,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-copy > strong {
+    font-size: 13px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-types,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-types {
+    display: none;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-link,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-link {
+    font-size: 10px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-stats,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-stats {
+    gap: 10px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-stats dt,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-stats dt {
+    font-size: 8px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-stats dd,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-stats dd {
+    font-size: 13px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-track,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-track {
+    height: 5px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-objective-group-progress > strong,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-objective-group-progress > strong {
+    font-size: 11px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table-wrap,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table-wrap {
+    min-height: 0;
+    border-radius: 14px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th,
+  .practice-result-page[data-result-skill="READING"] .pr-table td,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td {
+    height: 40px;
+    padding-block: 6px;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:first-child,
+  .practice-result-page[data-result-skill="READING"] .pr-table td:first-child,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:first-child,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:first-child {
+    width: 34%;
+    text-align: left;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(6),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(6),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(6),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(6) {
+    display: none;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(5),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(5),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(5),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(5) {
+    display: table-cell;
+  }
+
+  /* The Objective overview deliberately keeps six learner-facing columns at
+     laptop widths (points are represented by the percentage).  Pin those
+     widths and let only their headings wrap: the prior automatic table
+     algorithm allowed “Điểm đạt được” and “Tỷ lệ điểm” to paint over each
+     other around a 1280px window. */
+  .practice-result-page[data-result-skill="READING"] .pr-table,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table {
+    table-layout: fixed;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th {
+    padding-inline: 8px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(2),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(2),
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(3),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(3),
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(4),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(4),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(2),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(2),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(3),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(3),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(4),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(4) {
+    width: 10%;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(5),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(5),
+  .practice-result-page[data-result-skill="READING"] .pr-table th:nth-child(7),
+  .practice-result-page[data-result-skill="READING"] .pr-table td:nth-child(7),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(5),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(5),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table th:nth-child(7),
+  .practice-result-page[data-result-skill="LISTENING"] .pr-table td:nth-child(7) {
+    width: 18%;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-score-rate,
+  .practice-result-page[data-result-skill="LISTENING"] .pr-score-rate {
+    min-width: 0;
+  }
+
+  /*
+   * Objective result certificate typography follows the large PREP hierarchy
+   * without copying its English labels or artwork.  The previous 32px title
+   * and 11px answer labels made the KSH certificate read like a compact card
+   * inside otherwise matching 4.1 geometry.
+   */
+  .practice-result-page[data-result-skill="LISTENING"] .pr-summary h1 {
+    font-size: 40px;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+  }
+
+  .practice-result-page[data-result-skill="READING"] .pr-summary h1 {
+    font-size: 32px;
+    line-height: 1.15;
+    letter-spacing: -0.018em;
+  }
+
+  .practice-result-page:is([data-result-skill="READING"], [data-result-skill="LISTENING"]) .pr-eyebrow {
+    font-size: 15px;
+  }
+
+  .practice-result-page:is([data-result-skill="READING"], [data-result-skill="LISTENING"]) .pr-context {
+    margin-top: 12px;
+    font-size: 15px;
+  }
+
+  .practice-result-page:is([data-result-skill="READING"], [data-result-skill="LISTENING"]) .pr-summary-answer-stats > span {
+    min-width: 138px;
+    padding: 10px 14px;
+  }
+
+  .practice-result-page:is([data-result-skill="READING"], [data-result-skill="LISTENING"]) .pr-summary-answer-stats strong {
+    font-size: 20px;
+  }
+
+  .practice-result-page:is([data-result-skill="READING"], [data-result-skill="LISTENING"]) .pr-summary-answer-stats small {
+    font-size: 12px;
+  }
+
+  .practice-result-page:is([data-result-skill="READING"], [data-result-skill="LISTENING"]) .pr-objective-overview .pr-section-heading h2 {
+    font-size: 18px;
+  }
+
+  .practice-result-page:is([data-result-skill="READING"], [data-result-skill="LISTENING"]) .pr-table td {
+    font-size: 13px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] {
+    --prep-writing-summary-width: 1280px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    min-height: 50px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-main {
+    margin-top: 12px;
+    padding-bottom: 100px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary {
+    min-height: 500px;
+    padding: 42px 46px 46px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-layout {
+    grid-template-columns: 184px minmax(0, 1fr) 166px;
+    grid-template-rows: auto 1fr;
+    gap: 28px 34px;
+    min-height: 400px;
+    align-content: stretch;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-copy {
+    align-self: start;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary h1 {
+    font-size: clamp(34px, 3vw, 44px);
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-score {
+    align-self: center;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-result-focus,
+  .practice-result-page[data-result-skill="WRITING"] .pr-score-unavailable {
+    width: 168px;
+    height: 168px;
+    min-width: 168px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-writing-breakdown {
+    align-self: center;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-writing-tasks {
+    gap: 22px 44px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-writing-tasks article {
+    min-height: 66px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-writing-tasks b {
+    width: 64px;
+    min-width: 64px;
+    min-height: 52px;
+    font-size: 16px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis {
+    position: relative;
+    min-height: 720px;
+    margin-bottom: 72px;
+    overflow: visible;
+    scroll-margin-top: 68px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-actions {
+    position: absolute;
+    right: auto;
+    bottom: -58px;
+    left: 50%;
+    margin: 0;
+    padding: 0;
+    transform: translateX(-50%);
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis .pr-task-actions .pr-primary-action {
+    border-color: #dbe4ff;
+    color: #3156df;
+    background: #fff;
+    box-shadow: 0 8px 18px rgba(30, 56, 128, 0.15);
+  }
+}
+
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="WRITING"] .pr-overview-analysis-cta {
+    margin: 28px auto 34px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-notebook-divider {
+    height: 24px;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-notebook-divider::before,
+  .practice-result-page[data-result-skill="WRITING"] .pr-notebook-divider::after {
+    display: none;
+  }
+}
+
+.practice-result-page .pr-overview-analysis-cta {
+  display: flex;
+  width: fit-content;
+  min-height: 46px;
+  margin: 28px auto 34px;
+  padding: 0 28px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+  color: #3156df;
+  background: #fff;
+  box-shadow: 0 9px 24px rgba(35, 55, 136, 0.12);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.practice-result-page .pr-overview-analysis-cta:is(:hover, :focus-visible) {
+  color: #2347ce;
+  background: #f8faff;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-criterion-tabs {
+  display: flex;
+  gap: 0;
+  min-width: 0;
+  margin: 0 0 24px;
+  padding: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid #e3e7ef;
+  scrollbar-width: none;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-criterion-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-criterion-tabs button {
+  position: relative;
+  flex: 1 0 150px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 0;
+  color: #697489;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-criterion-tabs button::after {
+  position: absolute;
+  right: 12px;
+  bottom: -1px;
+  left: 12px;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  content: "";
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-criterion-tabs button:is(:hover, :focus-visible) {
+  color: #304ecb;
+  background: #f7f9ff;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-criterion-tabs button.is-active {
+  color: #3156df;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-criterion-tabs button.is-active::after {
+  background: #4275f4;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-rubric-group[hidden],
+.practice-result-page[data-result-skill="WRITING"] .pr-writing-task[hidden] {
+  display: none !important;
+}
+
+.practice-result-page[data-result-skill="WRITING"] .pr-rubric-group > h5 {
+  margin-bottom: 2px !important;
+  color: #27334a !important;
+}
+
+/* Speaking Overview: one canvas, one tab rail and progressive criterion panels. */
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview {
+  overflow: hidden;
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview > .pr-section-heading {
+  align-items: center;
+  padding: 22px 28px 18px;
+  border-bottom: 1px solid #e7eaf1;
+  background: #fff;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview > .pr-section-heading .pr-section-intro {
+  max-width: 760px;
+  margin: 6px 0 0;
+  color: #697489;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs {
+  display: flex;
+  min-width: 0;
+  padding: 0 24px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e6eaf1;
+  background: #fff;
+  scrollbar-width: none;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs button {
+  position: relative;
+  flex: 1 0 150px;
+  min-height: 58px;
+  padding: 12px 10px;
+  border: 0;
+  color: #626d82;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs button::after {
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  content: "";
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs button:is(:hover, :focus-visible) {
+  color: #3156df;
+  background: #f8f9fd;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs button.is-active {
+  color: #3156df;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs button.is-active::after {
+  background: #4275f4;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] :is(.pr-speaking-overview-panel, .pr-speaking-criterion-panel)[hidden] {
+  display: none !important;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  min-height: 540px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard {
+  margin: 0;
+  padding: 30px 28px 34px;
+  border: 0;
+  border-right: 1px solid #e6eaf1;
+  border-radius: 0;
+  background: #fbfcfe;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-dashboard-heading h3 {
+  margin-top: 5px;
+  font-size: 17px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-dashboard-count {
+  border-color: #e1e6ef;
+  color: #5c6880;
+  background: #fff;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard .pr-speaking-criteria {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 22px;
+  margin-top: 18px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard .pr-speaking-criterion {
+  padding: 16px 0 18px;
+  border: 0;
+  border-bottom: 1px solid #e8ebf1;
+  border-radius: 0;
+  background: transparent;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard .pr-speaking-criterion.is-not-scorable {
+  border-color: #e8ebf1;
+  background: transparent;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard .pr-speaking-criterion header {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard .pr-speaking-criterion h3 {
+  margin: 4px 0 0;
+  color: #263147;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-level-track {
+  gap: 3px;
+  margin-top: 12px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-level-track span {
+  min-height: 8px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-copy {
+  margin-top: 9px;
+  font-size: 10px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-guidance {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  min-width: 0;
+  padding: 32px 34px 36px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-language-profile {
+  display: grid;
+  grid-template-columns: minmax(180px, .78fr) minmax(230px, 1.22fr);
+  gap: 22px;
+  align-items: center;
+  margin-top: 22px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar {
+  margin: 0;
+  text-align: center;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar svg {
+  display: block;
+  width: min(100%, 238px);
+  margin-inline: auto;
+  overflow: visible;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-grid {
+  fill: #f8faff;
+  stroke: #dbe5fb;
+  stroke-width: 1.4;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-grid.is-outer {
+  fill: #fbfcff;
+  stroke: #cfdcf8;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-axis {
+  fill: none;
+  stroke: #e0e7f5;
+  stroke-width: 1;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-value {
+  fill: rgba(66, 117, 244, .18);
+  stroke: #4275f4;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-origin {
+  fill: #4275f4;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar figcaption {
+  margin-top: 4px;
+  color: #7a8497;
+  font-size: 10px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend {
+  display: grid;
+  gap: 13px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  align-items: end;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend strong,
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend b {
+  color: #2a3549;
+  font-size: 11px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend span {
+  color: #748096;
+  font-size: 10px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend progress {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: #e7ebf2;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: #e7ebf2;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar-legend progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: #4275f4;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-acoustic-na {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e7eaf1;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-acoustic-na > strong {
+  width: 100%;
+  color: #58647a;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-acoustic-na > span {
+  display: inline-grid;
+  gap: 1px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-acoustic-na b {
+  color: #465269;
+  font-size: 11px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-acoustic-na small {
+  color: #929aab;
+  font-size: 9px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-inline-heading {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-inline-heading h3 {
+  margin: 0;
+  color: #263147;
+  font-size: 13px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-inline-heading span {
+  color: #8791a4;
+  font-size: 9px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance {
+  display: grid;
+  gap: 0;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance > article {
+  display: grid;
+  grid-template-columns: minmax(110px, .72fr) auto minmax(0, 1.55fr);
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #ebedf2;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance > article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance small {
+  color: #8791a4;
+  font-size: 9px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance strong {
+  color: #29344a;
+  font-size: 11px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance > article > span {
+  color: #2f7c5d;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance li {
+  display: flex;
+  gap: 7px;
+  justify-content: space-between;
+  min-width: 0;
+  color: #616d82;
+  font-size: 9px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance li b {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance li em {
+  color: #3156df;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetrics {
+  display: grid;
+  gap: 9px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list > span {
+  display: inline-grid;
+  gap: 1px;
+  max-width: 210px;
+  padding: 6px 9px;
+  border: 1px solid #e1e6ef;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list b {
+  overflow: hidden;
+  color: #4d596f;
+  font-size: 9px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list small {
+  color: #8993a5;
+  font-size: 8px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-profile-copy h3 {
+  margin: 6px 0 5px;
+  color: #202a3c;
+  font-size: 19px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-profile-copy {
+  order: 1;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-score-status {
+  order: 2;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-summary {
+  order: 3;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-finding-summary {
+  order: 4;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan {
+  order: 5;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-guidance > .pr-speaking-submetrics {
+  display: none;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-submetrics {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-submetrics .pr-speaking-submetric-list {
+  display: grid;
+  gap: 20px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-submetrics .pr-speaking-submetric-list > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 14px;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-submetrics .pr-speaking-submetric-list b {
+  color: #354057;
+  font-size: 12px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-submetrics .pr-speaking-submetric-list small {
+  color: #6f7a8e;
+  font-size: 10px;
+  text-align: right;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-track {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-track i {
+  height: 14px;
+  border-radius: 3px;
+  background: #e7eaf0;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list > .is-limited .pr-speaking-submetric-track [data-level="limited"] {
+  background: #d84d61;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list > .is-modest .pr-speaking-submetric-track [data-level="modest"] {
+  background: #df9414;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list > .is-good .pr-speaking-submetric-track [data-level="good"] {
+  background: #2f9a70;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-submetric-list > .is-excellent .pr-speaking-submetric-track [data-level="excellent"] {
+  background: #23825f;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-profile-copy p,
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-summary p {
+  margin: 5px 0 0;
+  color: #606c80;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-score-status {
+  display: grid;
+  grid-template-columns: minmax(0, 132px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border-color: #e1e6ef;
+  border-radius: 12px;
+  background: #f8f9fc;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-score-status > .pr-speaking-state-label {
+  color: #536078;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-score-unavailable {
+  margin: 0;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-summary {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-summary h3,
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan h3 {
+  margin: 0;
+  color: #202a3c;
+  font-size: 15px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-finding-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-finding-summary > span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 7px 10px;
+  border: 1px solid #dfe5ee;
+  border-radius: 999px;
+  color: #5d697e;
+  background: #fff;
+  font-size: 11px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-finding-summary strong {
+  color: #3156df;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan {
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid #edbd5c;
+  border-radius: 18px;
+  background: #fff9e9;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan ol {
+  display: grid;
+  gap: 12px;
+  margin: 13px 0 0;
+  padding: 0 0 0 22px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan li {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan li + li {
+  border: 0;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan li strong {
+  color: #3b465b;
+  font-size: 12px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan li strong::before {
+  content: none;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan li p {
+  margin: 4px 0 0;
+  color: #697489;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-criterion {
+  display: block;
+  margin-bottom: 3px;
+  color: #9b6800;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 54px;
+  min-height: 540px;
+  padding: 46px 54px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-descriptor {
+  align-self: stretch;
+  padding: 28px;
+  border-radius: 18px;
+  background: #f7f8fa;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-descriptor > strong {
+  display: inline-grid;
+  min-width: 82px;
+  min-height: 72px;
+  margin: 14px 0 18px;
+  padding: 12px;
+  border-radius: 16px;
+  place-items: center;
+  color: #fff;
+  background: #4275f4;
+  font-size: 22px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-descriptor > strong.is-unavailable {
+  color: #697489;
+  background: #e8ebf1;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-descriptor h3 {
+  margin: 0 0 8px;
+  color: #202a3c;
+  font-size: 19px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-descriptor p {
+  color: #68758a;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-detail {
+  align-self: center;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-detail-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-detail-heading h3 {
+  margin: 5px 0 0;
+  color: #202a3c;
+  font-size: 20px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-detail-heading > strong {
+  color: #3156df;
+  font-size: 15px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-level-track.is-large {
+  gap: 4px;
+  margin-top: 22px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-level-track.is-large span {
+  min-height: 28px;
+  padding: 7px 8px;
+  border-radius: 5px;
+  color: transparent;
+  font-size: 10px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel.is-band-limited .pr-speaking-level-track [data-level="limited"] {
+  color: #fff;
+  background: #d94b5f;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel.is-band-developing .pr-speaking-level-track [data-level="developing"] {
+  color: #fff;
+  background: #e49a19;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel.is-band-good .pr-speaking-level-track [data-level="good"] {
+  color: #fff;
+  background: #318b69;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel.is-band-very-good .pr-speaking-level-track [data-level="very-good"] {
+  color: #fff;
+  background: #187951;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel .pr-speaking-criterion-detail > p {
+  margin: 18px 0 0;
+  color: #5e6b80;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-capability-note {
+  padding: 14px 16px;
+  border: 1px solid #e6d19d;
+  border-radius: 12px;
+  background: #fff9e9;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-evidence-details,
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-secondary-disclosure {
+  margin: 18px 28px 24px;
+  border-color: #e3e7ef;
+  border-radius: 12px;
+}
+
+.practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-detail-action {
+  margin-inline: 28px;
+}
+
+@media (max-width: 1100px) {
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-panel,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard {
+    border-right: 0;
+    border-bottom: 1px solid #e6eaf1;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel {
+    gap: 28px;
+    padding: 30px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-language-profile {
+    grid-template-columns: minmax(190px, .7fr) minmax(250px, 1.3fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview > .pr-section-heading {
+    display: grid;
+    gap: 12px;
+    padding: 20px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs {
+    padding-inline: 10px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-guidance {
+    padding: 24px 20px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard .pr-speaking-criteria,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-score-status {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-language-profile,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance > article {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-radar svg {
+    width: min(74vw, 250px);
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-question-performance ul {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel {
+    padding: 22px 20px;
+  }
+}
+
+/* Gate A: the Speaking result starts with the same certificate/summary tier
+ * as the PREP overview, without fabricating a holistic score or an acoustic
+ * result. The six KSH-native criterion states are a compact summary only;
+ * progressive criterion detail remains in the single canvas below. */
+.practice-result-page .pr-summary-speaking-breakdown {
+  min-width: 0;
+}
+
+.practice-result-page .pr-summary-speaking-criteria {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 28px;
+}
+
+.practice-result-page .pr-summary-speaking-criteria article {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+}
+
+.practice-result-page .pr-summary-speaking-criteria article > div {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+}
+
+.practice-result-page .pr-summary-speaking-criteria strong {
+  overflow: hidden;
+  color: #263147;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-summary-speaking-criteria article > div > span:not(.pr-summary-speaking-track) {
+  color: #667085;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-summary-speaking-criteria b {
+  order: -1;
+  display: grid;
+  width: 52px;
+  min-width: 52px;
+  min-height: 40px;
+  padding: 5px;
+  border-radius: 10px;
+  place-items: center;
+  color: #3156df;
+  background: #edf3ff;
+  font-size: 13px;
+}
+
+.practice-result-page .pr-summary-speaking-criteria b.is-unavailable {
+  color: #788398;
+  background: #f2f4f7;
+}
+
+.practice-result-page .pr-summary-speaking-track {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.practice-result-page .pr-summary-speaking-track i {
+  height: 5px;
+  border-radius: 999px;
+  background: #e5e9f0;
+}
+
+.practice-result-page .pr-summary-speaking-criteria .is-band-limited .pr-summary-speaking-track i:nth-child(1),
+.practice-result-page .pr-summary-speaking-criteria .is-band-developing .pr-summary-speaking-track i:nth-child(2),
+.practice-result-page .pr-summary-speaking-criteria .is-band-good .pr-summary-speaking-track i:nth-child(3),
+.practice-result-page .pr-summary-speaking-criteria .is-band-very-good .pr-summary-speaking-track i:nth-child(4) {
+  background: #3b8c6c;
+}
+
+.practice-result-page .pr-summary-speaking-track.is-unavailable i {
+  background: #e9ecf2;
+}
+
+.practice-result-page .pr-summary-speaking-performance {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e7eaf1;
+}
+
+.practice-result-page .pr-summary-speaking-performance-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-heading strong {
+  color: #29344a;
+  font-size: 12px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-heading span {
+  color: #8791a4;
+  font-size: 9px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  margin-top: 10px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list article {
+  display: grid;
+  grid-template-columns: minmax(86px, .62fr) auto minmax(0, 1.38fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding-top: 9px;
+  border-top: 1px solid #edf0f5;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list article > div {
+  display: grid;
+  gap: 1px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list small {
+  color: #8791a4;
+  font-size: 8px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list article > div > strong {
+  color: #29344a;
+  font-size: 10px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list article > span {
+  color: #2f7c5d;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+  color: #667085;
+  font-size: 8px;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list li b {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.practice-result-page .pr-summary-speaking-performance-list li em {
+  color: #3156df;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary {
+    /* PREP keeps the certificate as the first complete visual unit.  Give
+       the KSH-native six-criterion summary the same deliberate breathing
+       room so the drill-down canvas cannot compete with it above the fold. */
+    min-height: 650px;
+    padding: 46px 48px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-main {
+    margin-top: 34px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-layout {
+    grid-template-columns: 184px minmax(0, 1fr) 132px;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 18px 28px;
+    min-height: 558px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-copy {
+    grid-column: 2;
+    grid-row: 1;
+    padding-right: 0;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-score {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    justify-self: start;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-result-focus,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-score-unavailable {
+    width: 156px;
+    height: 156px;
+    min-width: 156px;
+    border-width: 14px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-speaking-breakdown {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-baekho-celebration {
+    position: relative;
+    top: auto;
+    right: auto;
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: center;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-overview-analysis-cta {
+    margin-bottom: 64px;
+  }
+}
+
+@media (max-width: 980px) {
+  .practice-result-page .pr-summary-speaking-breakdown {
+    grid-column: 1 / -1;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis {
+    scroll-margin-top: 50px;
+  }
+}
+
+@media (max-width: 700px) {
+  .practice-result-page .pr-summary-speaking-criteria {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-result-page .pr-summary-speaking-performance-list,
+  .practice-result-page .pr-summary-speaking-performance-list article,
+  .practice-result-page .pr-summary-speaking-performance-list ul {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pre-14 Gate A — Speaking app-surface reconciliation.
+ *
+ * The PREP certificate and the scrolled Overview/criterion canvas have
+ * different measured widths. Keep those two visual units independent: the
+ * KSH summary remains a truthful six-criterion certificate, while the wider
+ * drill-down sheet keeps KSH-native language criteria and explicit acoustic
+ * unavailability. */
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="SPEAKING"] {
+    --prep-overview-panel-width: 1350px;
+    --prep-speaking-summary-width: 1210px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-main {
+    margin-top: 50px;
+    padding-bottom: 88px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary {
+    width: min(var(--prep-speaking-summary-width), 100%);
+    min-height: 620px;
+    margin-inline: auto;
+    padding: 42px 46px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-layout {
+    grid-template-columns: 170px minmax(0, 1fr) 142px;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 528px;
+    gap: 22px 30px;
+    align-content: stretch;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-copy {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-score {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-speaking-breakdown {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-baekho-celebration {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-result-focus,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-score-unavailable {
+    width: 150px;
+    height: 150px;
+    min-width: 150px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-overview-analysis-cta {
+    margin: 28px auto 34px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] #result-analysis {
+    position: relative;
+    min-height: 740px;
+    margin-bottom: 70px;
+    padding-bottom: 24px;
+    overflow: visible;
+    box-sizing: border-box;
+    scroll-margin-top: 14px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview > .pr-section-heading {
+    min-height: 96px;
+    padding: 16px 30px 14px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview > .pr-section-heading h2 {
+    font-size: 20px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview > .pr-section-heading .pr-section-intro {
+    max-width: 820px;
+    margin-top: 3px;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-tabs button {
+    min-height: 56px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-panel {
+    min-height: 500px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criteria-dashboard {
+    padding: 24px 28px 26px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-guidance {
+    gap: 14px;
+    padding: 24px 30px 26px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-action-plan ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel {
+    min-height: 500px;
+    padding: 38px 54px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-evidence-details {
+    margin-top: 12px;
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-detail-action {
+    position: absolute;
+    right: auto;
+    bottom: -66px;
+    left: 50%;
+    margin: 0;
+    padding-top: 0;
+    border-top: 0;
+    transform: translateX(-50%);
+  }
+
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-detail-action .pr-primary-action {
+    border-color: #dbe4ff;
+    color: #3156df;
+    background: #fff;
+    box-shadow: 0 8px 18px rgba(30, 56, 128, 0.15);
+  }
+}
+
+/* A-delta follow-up: overview sheets size to their currently visible,
+   authoritative content. Fixed PREP capture heights created dead white space
+   when a seed contained fewer task rows and pushed the detached CTA to the
+   viewport edge. */
+@media (min-width: 981px) {
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary,
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-layout,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-layout,
+  .practice-result-page[data-result-skill="WRITING"] #result-analysis,
+  .practice-result-page[data-result-skill="SPEAKING"] #result-analysis,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-overview-panel,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-speaking-criterion-panel {
+    min-height: 0;
+  }
+
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary-layout,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary-layout {
+    align-content: center;
+  }
+}
+
+/* A-delta surface closure: Writing/Speaking analysis panels keep overflow
+   visible for their detached detail CTA. Without rounding the first painted
+   child, its square white background covered the parent's curved corners and
+   the one-pixel outline plus two shadows read as stacked cards. Paint one
+   surface and round the exposed child edge explicitly. */
+.practice-result-page:is(
+    [data-result-skill="WRITING"],
+    [data-result-skill="SPEAKING"]
+  ) #result-analysis {
+  border: 0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(25, 39, 111, 0.14);
+}
+
+.practice-result-page:is(
+    [data-result-skill="WRITING"],
+    [data-result-skill="SPEAKING"]
+  ) #result-analysis > .pr-section-heading {
+  border-radius: 24px 24px 0 0;
 }

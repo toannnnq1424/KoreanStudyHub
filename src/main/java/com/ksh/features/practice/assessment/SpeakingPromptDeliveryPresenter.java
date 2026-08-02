@@ -15,9 +15,11 @@ public class SpeakingPromptDeliveryPresenter {
             throw new IllegalArgumentException("Thiếu nội dung bất biến của câu Speaking.");
         }
         QuestionContent.SpeakingDelivery delivery = content.speakingDelivery();
-        if (QuestionContent.SCHEMA_VERSION_V2.equals(content.schemaVersion())) {
+        if (QuestionContent.supportsTypedSpeakingDelivery(
+                content.schemaVersion())) {
             if (delivery == null || delivery.deliveryMode() == null) {
-                throw new IllegalArgumentException("Thiếu chế độ phát đề Speaking v2.");
+                throw new IllegalArgumentException(
+                        "Thiếu chế độ phát đề Speaking typed.");
             }
             return switch (delivery.deliveryMode()) {
                 case AUDIO_ONLY -> audioOnly(content, delivery);

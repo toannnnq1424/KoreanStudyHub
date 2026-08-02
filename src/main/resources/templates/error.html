@@ -1,25 +1,64 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Đã có lỗi | KSH</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" th:href="@{/css/auth.css}">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head('Không thể mở trang', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/error-page.css}">
 </head>
-<body>
-<div class="page">
-  <main>
-    <div style="max-width:520px;margin:80px auto;padding:0 24px;text-align:center">
-      <h1 style="font-size:28px;color:var(--heading);margin-bottom:12px">Đã có lỗi xảy ra</h1>
-      <p style="color:var(--muted);margin-bottom:24px"
-         th:text="${message} ?: 'Vui lòng thử lại sau.'">Vui lòng thử lại sau.</p>
-      <a th:href="@{/}" class="btn btn-primary" style="display:inline-flex;width:auto;padding:12px 28px">
-        Về trang chủ
-      </a>
+<body class="error-page" th:with="httpStatus=${status != null ? status : 500}">
+<header class="error-header">
+  <a th:href="@{/}" class="error-brand" aria-label="Korean Study Hub">
+    <span class="error-brand-mark">K</span>
+    <span>KSH</span>
+  </a>
+</header>
+
+<main class="error-main">
+  <section class="error-card" aria-labelledby="error-title">
+    <div class="error-code" th:text="${httpStatus}">403</div>
+    <div class="error-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3 4.5 6v5.4c0 4.5 3 7.7 7.5 9.6 4.5-1.9 7.5-5.1 7.5-9.6V6L12 3Z"/>
+        <path d="M9.5 12.2 11.2 14l3.7-4"/>
+      </svg>
     </div>
-  </main>
-</div>
+
+    <p class="error-eyebrow"
+       th:text="${httpStatus == 403 ? 'KHU VỰC ĐƯỢC PHÂN QUYỀN' : 'KOREAN STUDY HUB'}">
+      KHU VỰC ĐƯỢC PHÂN QUYỀN
+    </p>
+    <h1 id="error-title"
+        th:text="${httpStatus == 403 ? 'Tài khoản này thuộc một không gian khác' :
+                  (httpStatus == 404 ? 'Không tìm thấy nội dung bạn cần' : 'Trang chưa thể tải lúc này')}">
+      Tài khoản này thuộc một không gian khác
+    </h1>
+    <p class="error-message"
+       th:text="${httpStatus == 403 ?
+                  'Bạn vẫn đang đăng nhập bình thường. Hãy quay về đúng khu vực của tài khoản hiện tại để tiếp tục.' :
+                  (message != null and !#strings.isEmpty(message) ? message : 'Vui lòng thử lại sau.')}">
+      Hãy quay về đúng khu vực của tài khoản hiện tại để tiếp tục.
+    </p>
+
+    <div class="error-actions">
+      <a sec:authorize="hasRole('STUDENT')" th:href="@{/my/classes}"
+         class="error-primary">Về lớp của tôi</a>
+      <a sec:authorize="hasRole('LECTURER')" th:href="@{/lecturer/classes}"
+         class="error-primary">Về khu vực giảng viên</a>
+      <a sec:authorize="hasRole('LEADER')" th:href="@{/leader}"
+         class="error-primary">Về khu vực trưởng bộ môn</a>
+      <a sec:authorize="hasRole('ADMIN')" th:href="@{/admin/dashboard}"
+         class="error-primary">Về trang quản trị</a>
+      <a sec:authorize="isAnonymous()" th:href="@{/login}"
+         class="error-primary">Đăng nhập</a>
+      <button type="button" class="error-secondary" onclick="history.back()">
+        Quay lại trang trước
+      </button>
+    </div>
+
+    <p class="error-help" th:if="${httpStatus == 403}">
+      Nếu bạn vừa đổi tài khoản, hệ thống sẽ không dùng lại đường dẫn của vai trò trước.
+    </p>
+  </section>
+</main>
 </body>
 </html>

@@ -27,21 +27,21 @@ public class SpeakingPromptEvaluationContextService {
             Long questionVersionId,
             String questionContentSchemaVersion,
             String immutableQuestionPrompt) {
-        if (!QuestionContent.SCHEMA_VERSION_V2.equals(
+        if (!QuestionContent.supportsTypedSpeakingDelivery(
                 questionContentSchemaVersion)) {
             return legacy(questionVersionId, immutableQuestionPrompt);
         }
         if (questionVersionId == null) {
             throw new IllegalStateException(
-                    "Không thể đánh giá Speaking v2: bài làm thiếu phiên bản câu hỏi bất biến.");
+                    "Không thể đánh giá Speaking typed: bài làm thiếu phiên bản câu hỏi bất biến.");
         }
         SpeakingPromptVersionContext context = contextRepository
                 .findById(questionVersionId)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Không thể đánh giá Speaking v2: thiếu ngữ cảnh đề bất biến."));
+                        "Không thể đánh giá Speaking typed: thiếu ngữ cảnh đề bất biến."));
         if (!Objects.equals(questionVersionId, context.getQuestionVersionId())) {
             throw new IllegalStateException(
-                    "Không thể đánh giá Speaking v2: ngữ cảnh đề bị liên kết sai phiên bản.");
+                    "Không thể đánh giá Speaking typed: ngữ cảnh đề bị liên kết sai phiên bản.");
         }
         context.verifyIntegrity();
         return new EvaluatorContext(

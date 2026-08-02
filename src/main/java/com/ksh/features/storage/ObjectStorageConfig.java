@@ -2,6 +2,8 @@ package com.ksh.features.storage;
 
 import com.ksh.features.admin.settings.SystemSettingGroups;
 import com.ksh.features.admin.settings.service.SystemSettingsService;
+import com.ksh.features.storage.profile.GeneralUploadsObjectStorage;
+import com.ksh.features.storage.profile.StorageProfileObjectStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,7 +22,7 @@ public class ObjectStorageConfig {
 
     @Bean
     public LocalObjectStorage localObjectStorage(
-            @Value("${app.upload.dir:uploads}") String uploadDir) {
+            @Value("${app.upload.dir:${user.home}/.ksh/uploads}") String uploadDir) {
         Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
         return new LocalObjectStorage(root);
     }
@@ -40,13 +42,15 @@ public class ObjectStorageConfig {
     @Bean
     public ObjectStorage objectStorage(LocalObjectStorage local,
                                        R2ObjectStorage r2,
-                                       SystemSettingsService settingsService) {
-        return new DualReadObjectStorage(
+                                       SystemSettingsService settingsService,
+                                       StorageProfileObjectStore profileObjectStore) {
+        ObjectStorage legacy = new DualReadObjectStorage(
                 local,
                 r2,
                 () -> loadProvider(settingsService),
                 () -> loadR2Config(settingsService).isComplete()
         );
+        return new GeneralUploadsObjectStorage(profileObjectStore, legacy);
     }
 
     private static String loadProvider(SystemSettingsService settingsService) {

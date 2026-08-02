@@ -1,0 +1,189 @@
+{
+  "schemaVersion": "practice-authoring-candidate-v1",
+  "candidateId": "11111111-1111-4111-8111-111111111111",
+  "ownerId": 101,
+  "source": {
+    "kind": "QUICK_EXCEL",
+    "contractVersion": "practice-quick-excel-v1",
+    "sourceDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "sourceRevision": "upload-1",
+    "sourceName": "reading-quick-v1.xlsx"
+  },
+  "target": {
+    "draftId": 5001,
+    "baseDraftVersion": 3,
+    "testNo": 1,
+    "skill": "READING",
+    "lessonCode": "R1"
+  },
+  "state": "READY_TO_APPLY",
+  "normalizerVersion": "practice-authoring-normalizer-v1",
+  "validatorVersion": "practice-authoring-validator-v1",
+  "groups": [
+    {
+      "candidateGroupId": "reading_group_1",
+      "groupOrder": 1,
+      "label": "Đọc hiểu thông báo",
+      "instruction": "Đọc đoạn văn và trả lời câu hỏi.",
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "READING_PASSAGE",
+        "instruction": "Đọc đoạn văn và trả lời câu hỏi.",
+        "passageText": "도서관은 월요일부터 금요일까지 오전 아홉 시에 문을 엽니다. 토요일에는 오전 열 시에 엽니다.",
+        "transcriptText": "",
+        "mediaReference": null,
+        "provenance": {
+          "source": "QUICK_EXCEL",
+          "approved": false,
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-4",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 4,
+              "column": "stimulus_text"
+            }
+          ]
+        }
+      },
+      "sourceRefs": [
+        {
+          "kind": "SHEET_ROW",
+          "sourceId": "quick-row-4",
+          "sheet": "QUICK_QUESTIONS",
+          "row": 4
+        }
+      ],
+      "questions": [
+        {
+          "candidateQuestionId": "reading_q_1",
+          "questionOrder": 1,
+          "questionType": "SINGLE_CHOICE",
+          "prompt": "도서관은 평일에 몇 시에 문을 엽니까?",
+          "points": 1,
+          "explanationVi": "Đoạn văn cho biết thư viện mở cửa lúc 9 giờ vào ngày thường.",
+          "explanationStrategy": {
+            "registryVersion": "rl-explanation-strategy-registry-v2",
+            "strategyCode": "EXACT_EVIDENCE_ONLY",
+            "strategyVersion": "v1"
+          },
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [
+              { "id": "opt_A", "text": "여덟 시" },
+              { "id": "opt_B", "text": "아홉 시" },
+              { "id": "opt_C", "text": "열 시" },
+              { "id": "opt_D", "text": "열한 시" }
+            ],
+            "blanks": [],
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "SINGLE_CHOICE",
+            "correctOptionIds": ["opt_B"],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "ALL_OR_NOTHING"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-4",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 4
+            }
+          ]
+        },
+        {
+          "candidateQuestionId": "reading_q_2",
+          "questionOrder": 2,
+          "questionType": "MULTIPLE_ANSWER",
+          "prompt": "내용과 같은 것을 두 개 고르십시오.",
+          "points": 1,
+          "explanationVi": "Thư viện mở lúc 9 giờ vào ngày thường và 10 giờ vào thứ Bảy.",
+          "explanationStrategy": {
+            "registryVersion": "rl-explanation-strategy-registry-v2",
+            "strategyCode": "EVIDENCE_AND_ELIMINATION",
+            "strategyVersion": "v1"
+          },
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [
+              { "id": "opt_A", "text": "평일에는 아홉 시에 엽니다." },
+              { "id": "opt_B", "text": "토요일에는 아홉 시에 엽니다." },
+              { "id": "opt_C", "text": "토요일에는 열 시에 엽니다." },
+              { "id": "opt_D", "text": "일요일 운영 시간이 나옵니다." }
+            ],
+            "blanks": [],
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "MULTIPLE_ANSWER",
+            "correctOptionIds": ["opt_A", "opt_C"],
+            "correctValue": null,
+            "blanks": [],
+            "scoringPolicyCode": "ALL_OR_NOTHING"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-5",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 5
+            }
+          ]
+        },
+        {
+          "candidateQuestionId": "reading_q_3",
+          "questionOrder": 3,
+          "questionType": "FILL_BLANK",
+          "prompt": "토요일에는 오전 {{blank:blank_1}} 시에 문을 엽니다.",
+          "points": 1,
+          "explanationVi": "Chỗ trống cần số 10 theo câu cuối của đoạn văn.",
+          "explanationStrategy": {
+            "registryVersion": "rl-explanation-strategy-registry-v2",
+            "strategyCode": "FILL_SLOT_GRAMMAR_ANALYSIS",
+            "strategyVersion": "v1"
+          },
+          "questionContent": {
+            "schemaVersion": "question-content-v3",
+            "options": [],
+            "blanks": [
+              { "id": "blank_1", "prompt": "시간" }
+            ],
+            "languageTag": "ko"
+          },
+          "answerSpec": {
+            "schemaVersion": "answer-spec-v1",
+            "questionType": "FILL_BLANK",
+            "correctOptionIds": [],
+            "correctValue": null,
+            "blanks": [
+              { "blankId": "blank_1", "acceptedValues": ["10", "열"] }
+            ],
+            "scoringPolicyCode": "NORMALIZED_EXACT"
+          },
+          "reviewState": "ACCEPTED",
+          "sourceRefs": [
+            {
+              "kind": "SHEET_ROW",
+              "sourceId": "quick-row-6",
+              "sheet": "QUICK_QUESTIONS",
+              "row": 6
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "issues": [],
+  "contentDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "warningsAcknowledged": true,
+  "createdAt": "2026-08-02T02:00:00Z",
+  "expiresAt": "2026-08-09T02:00:00Z",
+  "applied": null
+}

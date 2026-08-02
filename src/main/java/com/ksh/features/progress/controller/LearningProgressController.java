@@ -2,6 +2,7 @@ package com.ksh.features.progress.controller;
 
 import com.ksh.features.progress.service.LearningProgressService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -26,7 +27,7 @@ import static com.ksh.common.IConstant.MSG_PROGRESS_MARKED_INCOMPLETE;
  */
 @Controller
 @RequestMapping("/my/classes/{classId}/lessons/{lessonId}/progress")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class LearningProgressController {
 
     private final LearningProgressService progressService;

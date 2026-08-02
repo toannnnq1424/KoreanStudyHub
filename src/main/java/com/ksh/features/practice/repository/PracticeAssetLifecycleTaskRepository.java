@@ -30,10 +30,23 @@ public interface PracticeAssetLifecycleTaskRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select t from PracticeAssetLifecycleTask t
-            where t.sourceStorageKey = :storageKey
+            where t.storageProfileCode is null
+              and t.sourceStorageKey = :storageKey
               and t.status in ('PENDING', 'RUNNING')
             order by t.id asc
             """)
     List<PracticeAssetLifecycleTask> findActiveBySourceStorageKeyForUpdate(
+            @Param("storageKey") String storageKey);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select t from PracticeAssetLifecycleTask t
+            where t.storageProfileCode = :profileCode
+              and t.sourceStorageKey = :storageKey
+              and t.status in ('PENDING', 'RUNNING')
+            order by t.id asc
+            """)
+    List<PracticeAssetLifecycleTask> findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+            @Param("profileCode") String profileCode,
             @Param("storageKey") String storageKey);
 }

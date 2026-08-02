@@ -22,7 +22,9 @@ public class AssessmentContractCodec {
             "blanks",
             "imageReference",
             "audioReference",
-            "speakingDelivery");
+            "speakingDelivery",
+            "writingResponse",
+            "languageTag");
     private static final Set<String> OPTION_FIELDS =
             Set.of("id", "text", "imageReference");
     private static final Set<String> BLANK_FIELDS = Set.of("id", "prompt");
@@ -34,6 +36,23 @@ public class AssessmentContractCodec {
             "promptPlayLimit",
             "preparationSeconds",
             "responseSeconds");
+    private static final Set<String> WRITING_RESPONSE_FIELDS = Set.of(
+            "responseSchemaVersion", "responseMode", "taskType", "blanks");
+    private static final Set<String> WRITING_BLANK_DEFINITION_FIELDS = Set.of(
+            "blankId", "ordinal", "context");
+    private static final Set<String> ANSWER_SPEC_FIELDS = Set.of(
+            "schemaVersion", "questionType", "correctOptionIds",
+            "correctValue", "blanks", "scoringPolicyCode",
+            "writingBlankAuthority");
+    private static final Set<String> ANSWER_BLANK_FIELDS = Set.of(
+            "blankId", "acceptedValues");
+    private static final Set<String> WRITING_AUTHORITY_FIELDS = Set.of(
+            "contractVersion", "taskType", "normalization",
+            "whitespacePolicy", "blanks");
+    private static final Set<String> WRITING_BLANK_AUTHORITY_FIELDS = Set.of(
+            "blankId", "ordinal", "acceptedAnswers");
+    private static final Set<String> WRITING_ACCEPTED_ANSWER_FIELDS = Set.of(
+            "text", "equivalence", "reason", "evidenceIds");
 
     private final ObjectMapper objectMapper;
     private final QuestionTypeResolver typeResolver;
@@ -61,6 +80,7 @@ public class AssessmentContractCodec {
     }
 
     public AnswerSpec readAnswerSpec(String json, QuestionContent content) {
+        validateAnswerSpecJsonShape(json);
         AnswerSpec answerSpec = read(json, AnswerSpec.class, "answer spec");
         validateAnswerSpec(answerSpec, content);
         return answerSpec;
@@ -79,6 +99,7 @@ public class AssessmentContractCodec {
 
     public QuestionContent adaptLegacyContent(String optionsJson, String rawQuestionType) {
         CanonicalQuestionType type = typeResolver.resolve(rawQuestionType);
+        requireTypedContract(type);
         List<QuestionContent.Option> options = readLegacyOptions(optionsJson);
         List<QuestionContent.Blank> blanks = type == CanonicalQuestionType.FILL_BLANK
                 ? List.of(new QuestionContent.Blank("blank_1", ""))
@@ -96,6 +117,7 @@ public class AssessmentContractCodec {
                                             String answerKey,
                                             QuestionContent content) {
         CanonicalQuestionType type = typeResolver.resolve(rawQuestionType);
+        requireTypedContract(type);
         String normalizedKey = normalizeValue(answerKey);
         AnswerSpec answerSpec = switch (type) {
             case SINGLE_CHOICE -> new AnswerSpec(
@@ -109,6 +131,8 @@ public class AssessmentContractCodec {
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
                     List.of(new AnswerSpec.BlankAnswer("blank_1", List.of(required(answerKey, "answer key")))),
                     ScoringPolicyCode.NORMALIZED_EXACT);
+            case MULTIPLE_ANSWER, MATCHING -> throw new IllegalArgumentException(
+                    "Question type " + type + " requires a typed assessment contract");
             case ESSAY, SPEAKING -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
                     List.of(), ScoringPolicyCode.PROFILE_BASED);
@@ -121,6 +145,7 @@ public class AssessmentContractCodec {
                                                   String rawAnswer,
                                                   QuestionContent content) {
         CanonicalQuestionType type = typeResolver.resolve(rawQuestionType);
+        requireTypedContract(type);
         LearnerAnswer learnerAnswer = switch (type) {
             case SINGLE_CHOICE -> new LearnerAnswer(
                     LearnerAnswer.SCHEMA_VERSION, type,
@@ -132,6 +157,8 @@ public class AssessmentContractCodec {
             case FILL_BLANK -> new LearnerAnswer(
                     LearnerAnswer.SCHEMA_VERSION, type, List.of(), null,
                     blank(rawAnswer) ? java.util.Map.of() : java.util.Map.of("blank_1", rawAnswer), null);
+            case MULTIPLE_ANSWER, MATCHING -> throw new IllegalArgumentException(
+                    "Question type " + type + " requires a typed assessment contract");
             case ESSAY, SPEAKING -> new LearnerAnswer(
                     LearnerAnswer.SCHEMA_VERSION, type, List.of(), null,
                     java.util.Map.of(), rawAnswer);
@@ -145,13 +172,30 @@ public class AssessmentContractCodec {
         require(type, "question type");
         requireVersion(
                 content.schemaVersion(),
-                Set.of(QuestionContent.SCHEMA_VERSION_V1, QuestionContent.SCHEMA_VERSION_V2),
+                Set.of(
+                        QuestionContent.SCHEMA_VERSION_V1,
+                        QuestionContent.SCHEMA_VERSION_V2,
+                        QuestionContent.SCHEMA_VERSION_V3),
                 "question content");
+        validateLanguageTag(content);
         uniqueIds(content.options(), QuestionContent.Option::id, "option");
         uniqueIds(content.blanks(), QuestionContent.Blank::id, "blank");
 
         if (type != CanonicalQuestionType.SPEAKING && content.speakingDelivery() != null) {
             throw new IllegalArgumentException("Speaking delivery is only valid for SPEAKING questions");
+        }
+        if (type != CanonicalQuestionType.ESSAY
+                && content.writingResponse() != null) {
+            throw new IllegalArgumentException(
+                    "Writing structured response is only valid for ESSAY-family Writing questions");
+        }
+        if (content.writingResponse() != null) {
+            if (!content.blanks().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Writing structured blanks cannot reuse objective content blanks");
+            }
+            WritingBlankContractVerifier.verifyQuestion(
+                    content.writingResponse());
         }
         if (content.speakingDelivery() != null) {
             validateSpeakingDelivery(content.schemaVersion(), content.speakingDelivery());
@@ -163,13 +207,36 @@ public class AssessmentContractCodec {
             }
             require(content.speakingDelivery(), "v2 speaking delivery");
         }
+        if (QuestionContent.SCHEMA_VERSION_V3.equals(content.schemaVersion())
+                && type == CanonicalQuestionType.SPEAKING) {
+            require(content.speakingDelivery(), "v3 speaking delivery");
+        }
 
         switch (type) {
-            case SINGLE_CHOICE -> requireNotEmpty(content.options(), "options");
+            case SINGLE_CHOICE, MULTIPLE_ANSWER -> requireNotEmpty(content.options(), "options");
             case FILL_BLANK -> requireNotEmpty(content.blanks(), "blanks");
+            case MATCHING -> {
+                requireNotEmpty(content.options(), "matching candidates");
+                requireNotEmpty(content.blanks(), "matching targets");
+            }
             case TRUE_FALSE_NOT_GIVEN, ESSAY, SPEAKING -> {
                 // No additional content fields are mandatory.
             }
+        }
+    }
+
+    private static void validateLanguageTag(QuestionContent content) {
+        String languageTag = content.languageTag();
+        if (QuestionContent.SCHEMA_VERSION_V3.equals(content.schemaVersion())) {
+            if (!Set.of("ko", "vi").contains(languageTag)) {
+                throw new IllegalArgumentException(
+                        "question-content-v3 languageTag must be ko or vi");
+            }
+            return;
+        }
+        if (languageTag != null) {
+            throw new IllegalArgumentException(
+                    "Language region metadata requires question-content-v3");
         }
     }
 
@@ -237,6 +304,15 @@ public class AssessmentContractCodec {
                 requirePolicy(policy, Set.of(ScoringPolicyCode.ALL_OR_NOTHING), type);
                 requireReferences(spec.correctOptionIds(), ids(content.options(), QuestionContent.Option::id), "option");
             }
+            case MULTIPLE_ANSWER -> {
+                if (spec.correctOptionIds().size() < 2) {
+                    throw new IllegalArgumentException(
+                            "Multiple-answer questions require at least two correct option IDs");
+                }
+                requirePolicy(policy, Set.of(ScoringPolicyCode.ALL_OR_NOTHING), type);
+                requireReferences(spec.correctOptionIds(),
+                        ids(content.options(), QuestionContent.Option::id), "option");
+            }
             case TRUE_FALSE_NOT_GIVEN -> {
                 if (!TFNG_VALUES.contains(normalizeValue(spec.correctValue()))) {
                     throw new IllegalArgumentException("TFNG correct value must be TRUE, FALSE, or NOT_GIVEN");
@@ -259,7 +335,58 @@ public class AssessmentContractCodec {
                             "normalized accepted value");
                 }
             }
-            case ESSAY, SPEAKING -> requirePolicy(policy, Set.of(ScoringPolicyCode.PROFILE_BASED), type);
+            case MATCHING -> {
+                requirePolicy(policy, Set.of(ScoringPolicyCode.NORMALIZED_EXACT), type);
+                requireNotEmpty(spec.blanks(), "matching answer specs");
+                uniqueIds(spec.blanks(), AnswerSpec.BlankAnswer::blankId, "matching answer");
+                Set<String> targetIds = ids(content.blanks(), QuestionContent.Blank::id);
+                requireReferences(spec.blanks().stream().map(AnswerSpec.BlankAnswer::blankId).toList(),
+                        targetIds, "matching target");
+                if (!targetIds.equals(ids(spec.blanks(), AnswerSpec.BlankAnswer::blankId))) {
+                    throw new IllegalArgumentException("Every matching target must have an answer spec");
+                }
+                Set<String> candidateIds = ids(content.options(), QuestionContent.Option::id);
+                for (AnswerSpec.BlankAnswer matchingAnswer : spec.blanks()) {
+                    requireSize(matchingAnswer.acceptedValues(), 1,
+                            "matching candidate for " + matchingAnswer.blankId());
+                    requireReferences(matchingAnswer.acceptedValues(), candidateIds,
+                            "matching candidate option");
+                }
+            }
+            case ESSAY -> {
+                requirePolicy(
+                        policy,
+                        Set.of(ScoringPolicyCode.PROFILE_BASED),
+                        type);
+                if (content.writingResponse() == null) {
+                    if (spec.writingBlankAuthority() != null) {
+                        throw new IllegalArgumentException(
+                                "Writing blank authority requires a structured Writing response");
+                    }
+                } else {
+                    if (!spec.blanks().isEmpty()
+                            || !spec.correctOptionIds().isEmpty()
+                            || !blank(spec.correctValue())) {
+                        throw new IllegalArgumentException(
+                                "Structured Writing answers cannot reuse objective answer fields");
+                    }
+                    WritingBlankContractVerifier.verifyAuthority(
+                            content.writingResponse(),
+                            require(
+                                    spec.writingBlankAuthority(),
+                                    "Writing blank answer authority"));
+                }
+            }
+            case SPEAKING -> {
+                requirePolicy(
+                        policy,
+                        Set.of(ScoringPolicyCode.PROFILE_BASED),
+                        type);
+                if (spec.writingBlankAuthority() != null) {
+                    throw new IllegalArgumentException(
+                            "Writing blank authority is invalid for Speaking");
+                }
+            }
         }
     }
 
@@ -273,6 +400,37 @@ public class AssessmentContractCodec {
                 && !blank(answer.selectedValue())
                 && !TFNG_VALUES.contains(normalizeValue(answer.selectedValue()))) {
             throw new IllegalArgumentException("TFNG learner value must be TRUE, FALSE, or NOT_GIVEN");
+        }
+        switch (type) {
+            case SINGLE_CHOICE -> {
+                if (answer.selectedOptionIds().size() > 1) {
+                    throw new IllegalArgumentException(
+                            "Single-choice learner answer cannot select more than one option");
+                }
+            }
+            case MULTIPLE_ANSWER -> {
+                if (!answer.blankAnswers().isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Multiple-answer learner answer cannot contain matching targets");
+                }
+            }
+            case MATCHING -> {
+                if (!answer.selectedOptionIds().isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Matching learner answer must use target answers");
+                }
+            }
+            case TRUE_FALSE_NOT_GIVEN, FILL_BLANK, ESSAY, SPEAKING -> {
+                // Historical fields remain readable for their owning contracts.
+            }
+        }
+    }
+
+    private static void requireTypedContract(CanonicalQuestionType type) {
+        if (type == CanonicalQuestionType.MULTIPLE_ANSWER
+                || type == CanonicalQuestionType.MATCHING) {
+            throw new IllegalArgumentException(
+                    "Question type " + type + " requires a typed assessment contract");
         }
     }
 
@@ -339,8 +497,92 @@ public class AssessmentContractCodec {
                 rejectUnknownFields(
                         delivery, SPEAKING_DELIVERY_FIELDS, "speaking delivery");
             }
+            JsonNode writingResponse = root.get("writingResponse");
+            if (writingResponse != null && !writingResponse.isNull()) {
+                requireObject(
+                        writingResponse, "Writing response contract");
+                rejectUnknownFields(
+                        writingResponse,
+                        WRITING_RESPONSE_FIELDS,
+                        "Writing response contract");
+                JsonNode definitions = writingResponse.get("blanks");
+                if (definitions == null || !definitions.isArray()) {
+                    throw new IllegalArgumentException(
+                            "Writing response blanks must be an array");
+                }
+                for (JsonNode definition : definitions) {
+                    requireObject(
+                            definition, "Writing blank definition");
+                    rejectUnknownFields(
+                            definition,
+                            WRITING_BLANK_DEFINITION_FIELDS,
+                            "Writing blank definition");
+                }
+            }
         } catch (JsonProcessingException exception) {
             throw new IllegalArgumentException("Invalid question content JSON", exception);
+        }
+    }
+
+    private void validateAnswerSpecJsonShape(String json) {
+        if (blank(json)) {
+            throw new IllegalArgumentException(
+                    "Missing answer spec JSON");
+        }
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            requireObject(root, "answer spec");
+            rejectUnknownFields(root, ANSWER_SPEC_FIELDS, "answer spec");
+            JsonNode blanks = root.get("blanks");
+            if (blanks != null && !blanks.isNull()) {
+                if (!blanks.isArray()) {
+                    throw new IllegalArgumentException(
+                            "Answer spec blanks must be an array");
+                }
+                for (JsonNode blank : blanks) {
+                    requireObject(blank, "answer spec blank");
+                    rejectUnknownFields(
+                            blank, ANSWER_BLANK_FIELDS,
+                            "answer spec blank");
+                }
+            }
+            JsonNode authority = root.get("writingBlankAuthority");
+            if (authority == null || authority.isNull()) {
+                return;
+            }
+            requireObject(authority, "Writing blank authority");
+            rejectUnknownFields(
+                    authority, WRITING_AUTHORITY_FIELDS,
+                    "Writing blank authority");
+            JsonNode authorityBlanks = authority.get("blanks");
+            if (authorityBlanks == null || !authorityBlanks.isArray()) {
+                throw new IllegalArgumentException(
+                        "Writing blank authority blanks must be an array");
+            }
+            for (JsonNode authorityBlank : authorityBlanks) {
+                requireObject(
+                        authorityBlank, "Writing blank authority item");
+                rejectUnknownFields(
+                        authorityBlank,
+                        WRITING_BLANK_AUTHORITY_FIELDS,
+                        "Writing blank authority item");
+                JsonNode accepted = authorityBlank.get(
+                        "acceptedAnswers");
+                if (accepted == null || !accepted.isArray()) {
+                    throw new IllegalArgumentException(
+                            "Writing accepted answers must be an array");
+                }
+                for (JsonNode answer : accepted) {
+                    requireObject(answer, "Writing accepted answer");
+                    rejectUnknownFields(
+                            answer,
+                            WRITING_ACCEPTED_ANSWER_FIELDS,
+                            "Writing accepted answer");
+                }
+            }
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid answer spec JSON", exception);
         }
     }
 

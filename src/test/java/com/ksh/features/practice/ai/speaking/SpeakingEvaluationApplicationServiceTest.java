@@ -7,7 +7,13 @@ import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionClient;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionMediaResolver;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionProperties;
+import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionRequest;
 import com.ksh.features.practice.ai.speaking.transcription.SpeakingTranscriptionResult;
+import com.ksh.features.practice.ai.transport.PracticeAiCapability;
+import com.ksh.features.practice.ai.transport.PracticeModelCapabilityProfile;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationRequest;
+import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationResponse;
 import com.ksh.features.practice.manage.speaking.SpeakingPromptEvaluationContextService;
 import com.ksh.features.practice.repository.PracticeSpeakingMediaRepository;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
@@ -152,8 +158,8 @@ class SpeakingEvaluationApplicationServiceTest {
         Fixture fixture = fixture(true, true, false, List.of(row(12L, 3L, "audio/webm")));
         fixture.evaluationClient.nextResult = SpeakingEvaluationProviderResult.failure(
                 SpeakingEvaluationStatus.EVALUATION_UNAVAILABLE,
-                "openai-compatible",
-                "models/gemini-2.5-flash",
+                "openai-primary",
+                "assessment-model",
                 "PROVIDER_TRANSPORT_ERROR",
                 true,
                 5L);
@@ -306,7 +312,7 @@ class SpeakingEvaluationApplicationServiceTest {
                 includeLogprobs,
                 "openai",
                 "secret-key",
-                "openai-compatible",
+                "openai-primary",
                 "secret-key");
     }
 
@@ -341,23 +347,42 @@ class SpeakingEvaluationApplicationServiceTest {
         SpeakingTranscriptionMediaResolver resolver =
                 new SpeakingTranscriptionMediaResolver(repository, storage, transcriptionProperties);
         AtomicInteger transcriptionCalls = new AtomicInteger();
-        SpeakingTranscriptionClient transcriptionClient = request -> {
-            transcriptionCalls.incrementAndGet();
-            return new SpeakingTranscriptionResult(
-                    SpeakingEvaluationStatus.EVALUATED,
-                    SpeakingEvaluationSource.PROVIDER,
-                    "openai",
-                    "gpt-4o-mini-transcribe",
-                    "ko",
-                    "저는 학생입니다.",
-                    "저는 학생입니다.",
-                    new BigDecimal("0.82"),
-                    null,
-                    1200L,
-                    20L,
-                    null,
-                    false);
-        };
+        SpeakingTranscriptionClient transcriptionClient =
+                new SpeakingTranscriptionClient() {
+                    @Override
+                    public SpeakingTranscriptionResult transcribe(
+                            SpeakingTranscriptionRequest request) {
+                        transcriptionCalls.incrementAndGet();
+                        return new SpeakingTranscriptionResult(
+                                SpeakingEvaluationStatus.EVALUATED,
+                                SpeakingEvaluationSource.PROVIDER,
+                                "openai",
+                                "gpt-4o-mini-transcribe",
+                                "ko",
+                                "저는 학생입니다.",
+                                "저는 학생입니다.",
+                                new BigDecimal("0.82"),
+                                null,
+                                1200L,
+                                20L,
+                                null,
+                                false);
+                    }
+
+                    @Override
+                    public ProviderIdentity identity() {
+                        boolean available = transcriptionEnabled
+                                && transcriptionApiKey != null
+                                && !transcriptionApiKey.isBlank();
+                        return new ProviderIdentity(
+                                transcriptionProvider,
+                                "gpt-4o-mini-transcribe",
+                                5L,
+                                3L,
+                                "SPEAKING_STT_TEST",
+                                available);
+                    }
+                };
         FakeEvaluationClient evaluationClient = new FakeEvaluationClient();
         SpeakingEvaluatorProperties evaluatorProperties =
                 evaluatorProperties(
@@ -378,6 +403,12 @@ class SpeakingEvaluationApplicationServiceTest {
                 evaluatorProperties,
                 null,
                 promptContextService(),
+                structuredGenerationPort(
+                        evaluatorProvider,
+                        "assessment-model",
+                        evaluatorEnabled && evaluatorApiKey != null
+                                ? evaluatorApiKey
+                                : ""),
                 textFallbackEnabled);
         return new Fixture(service, transcriptionClient, evaluationClient, transcriptionCalls);
     }
@@ -402,6 +433,31 @@ class SpeakingEvaluationApplicationServiceTest {
                     questionVersionId, prompt);
         });
         return service;
+    }
+
+    private PracticeStructuredGenerationPort structuredGenerationPort(
+            String provider,
+            String model,
+            String apiKey) {
+        return new PracticeStructuredGenerationPort() {
+            @Override
+            public ProviderIdentity identity(
+                    com.ksh.features.practice.ai.controlplane.PracticeAiPurpose purpose) {
+                return new ProviderIdentity(
+                        provider,
+                        model,
+                        PracticeModelCapabilityProfile
+                                .openAiAssessmentV1(),
+                        apiKey != null && !apiKey.isBlank());
+            }
+
+            @Override
+            public PracticeStructuredGenerationResponse generate(
+                    PracticeStructuredGenerationRequest request) {
+                throw new AssertionError(
+                        "Application service must not call transport identity fixture");
+            }
+        };
     }
 
     private List<PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection> concat(
@@ -459,7 +515,7 @@ class SpeakingEvaluationApplicationServiceTest {
     private SpeakingEvaluatorProperties evaluatorProperties(boolean enabled) {
         return evaluatorProperties(
                 enabled,
-                "openai-compatible",
+                "openai-primary",
                 "secret-key");
     }
 
@@ -470,9 +526,9 @@ class SpeakingEvaluationApplicationServiceTest {
         return new SpeakingEvaluatorProperties(
                 enabled,
                 provider,
-                "https://generativelanguage.googleapis.com/v1beta/openai",
+                "https://api.openai.com/v1",
                 apiKey,
-                "models/gemini-2.5-flash",
+                "legacy-evaluator-model-must-not-own-production-identity",
                 Duration.ofSeconds(30),
                 0,
                 SpeakingPromptRules.PROMPT_VERSION,
@@ -496,76 +552,21 @@ class SpeakingEvaluationApplicationServiceTest {
         SpeakingPromptEvaluationContextService.EvaluatorContext context =
                 SpeakingPromptEvaluationContextService.legacy(
                         null, "자기소개를 하세요.");
-        return new SpeakingEvaluationResult(
-                status,
-                scoreAvailable,
-                source,
-                "models/gemini-2.5-flash",
-                "gpt-4o-mini-transcribe",
-                SpeakingPromptRules.PROMPT_VERSION,
-                SpeakingPromptRules.RUBRIC_VERSION,
-                SpeakingPromptRules.SCHEMA_VERSION,
-                SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
-                SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
-                SpeakingEvidenceMode.TRANSCRIPT_ONLY,
-                SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
-                SpeakingContractTrust.CURRENT_VERIFIED,
-                context.questionVersionId(),
-                context.promptContextFingerprint(),
-                context.promptContextContractIdentity(),
-                mediaId,
-                mediaVersion,
-                transcript,
-                transcript,
-                transcript,
-                null,
-                null,
-                null,
-                null,
-                scoreAvailable ? new BigDecimal("78") : null,
-                null,
-                null,
-                null,
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                null,
-                scoreAvailable ? languageProfileRubrics() : List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                null,
-                null,
-                List.of(),
-                List.of(),
-                scoreAvailable ? null : status.name(),
-                retryable);
-    }
-
-    private List<SpeakingEvaluationResult.RubricScore> languageProfileRubrics() {
-        return List.of(
-                new SpeakingEvaluationResult.RubricScore(
-                        SpeakingRubricCriterion.CONTENT_TASK_FULFILLMENT,
-                        new BigDecimal("16"), new BigDecimal("20"), "Content"),
-                new SpeakingEvaluationResult.RubricScore(
-                        SpeakingRubricCriterion.GRAMMAR_SENTENCE_CONTROL,
-                        new BigDecimal("16"), new BigDecimal("20"), "Grammar"),
-                new SpeakingEvaluationResult.RubricScore(
-                        SpeakingRubricCriterion.VOCABULARY_EXPRESSIONS,
-                        new BigDecimal("12"), new BigDecimal("15"), "Vocabulary"),
-                new SpeakingEvaluationResult.RubricScore(
-                        SpeakingRubricCriterion.COHERENCE_ORGANIZATION,
-                        new BigDecimal("12"), new BigDecimal("15"), "Coherence"),
-                new SpeakingEvaluationResult.RubricScore(
-                        SpeakingRubricCriterion.FLUENCY, null, null, "No audio",
-                        SpeakingCriterionAvailability.NOT_SCORABLE),
-                new SpeakingEvaluationResult.RubricScore(
-                        SpeakingRubricCriterion.PRONUNCIATION_DELIVERY, null, null, "No audio",
-                        SpeakingCriterionAvailability.NOT_SCORABLE));
+        com.fasterxml.jackson.databind.node.ObjectNode json =
+                SpeakingEvaluationTestFixtures.providerJson(
+                        objectMapper, transcript, new BigDecimal("16"));
+        json.put("evaluation_status", status.name());
+        json.put("source", source.name());
+        json.put("model", "assessment-model");
+        json.put("transcription_model", "gpt-4o-mini-transcribe");
+        json.put("audio_media_id", mediaId);
+        json.put("media_version", mediaVersion);
+        json.put("prompt_context_fingerprint",
+                context.promptContextFingerprint());
+        json.put("prompt_context_contract_identity",
+                context.promptContextContractIdentity());
+        json.put("retryable", retryable);
+        return new SpeakingEvaluationNormalizer().normalize(json);
     }
 
     private record Fixture(
@@ -601,8 +602,13 @@ class SpeakingEvaluationApplicationServiceTest {
                 return nextResult;
             }
             try {
-                JsonNode json = objectMapper.readTree(OpenAiCompatibleSpeakingEvaluationClientTest.validEvaluationJson());
-                return SpeakingEvaluationProviderResult.success(json, "openai-compatible", "models/gemini-2.5-flash", 5L);
+                JsonNode json = SpeakingEvaluationTestFixtures.providerJson(
+                        objectMapper, request.actuallyHeardTranscript());
+                return SpeakingEvaluationProviderResult.success(
+                        json,
+                        "openai-primary",
+                        "assessment-model",
+                        5L);
             } catch (Exception ex) {
                 throw new IllegalStateException(ex);
             }

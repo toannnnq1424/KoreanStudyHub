@@ -113,11 +113,17 @@ public class WritingFeedbackViewMapper {
             }
             rows.add(new WritingAnnotationView(
                     text(item.get("id")),
+                    text(item.get("findingId")),
+                    text(item.get("evidenceId")),
                     text(item.get("kind")),
                     criterion.canonicalId(),
                     criterion.canonical().category().name(),
                     integer(item.get("start")),
                     integer(item.get("end")),
+                    integer(item.get("occurrenceIndex")),
+                    integer(item.get("occurrenceCount")),
+                    text(item.get("sourceHash")),
+                    text(item.get("operation")),
                     text(item.get("severity")),
                     text(item.get("displayType")),
                     integer(item.get("index")),
@@ -139,12 +145,27 @@ public class WritingFeedbackViewMapper {
                 continue;
             }
             rows.add(new WritingSentenceRewriteView(
+                    strings(item.get("findingIds")),
+                    text(item.get("evidenceId")),
                     text(item.get("original")),
                     text(item.get("upgraded")),
                     text(item.get("reason"))
             ));
         }
         return List.copyOf(rows);
+    }
+
+    private List<String> strings(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return List.of();
+        }
+        List<String> values = new ArrayList<>();
+        for (JsonNode value : node) {
+            if (value.isTextual() && !value.asText().isBlank()) {
+                values.add(value.asText());
+            }
+        }
+        return List.copyOf(values);
     }
 
     private BigDecimal decimal(JsonNode node) {

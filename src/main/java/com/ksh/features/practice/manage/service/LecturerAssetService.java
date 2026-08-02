@@ -112,7 +112,8 @@ public class LecturerAssetService {
         asset.setOwnerLecturerId(ownerId);
         asset.setSourceImportSessionId(sessionId);
         asset.setSourceRegionId(regionId);
-        asset.setStorageProvider(assetStorage.providerCode());
+        asset.setStorageProvider(stored.storageProvider());
+        asset.setStorageProfileCode(stored.storageProfileCode());
         asset.setStorageKey(stored.storageKey());
         asset.setOriginalFilename(originalFilename);
         asset.setMimeType(mimeType);
@@ -257,11 +258,15 @@ public class LecturerAssetService {
                     ? stored.storageKey()
                     : storageSource.getStorageKey();
             String registeredStorageProvider = storageSource == null
-                    ? assetStorage.providerCode()
+                    ? stored.storageProvider()
                     : storageSource.getStorageProvider();
+            String registeredStorageProfile = storageSource == null
+                    ? stored.storageProfileCode()
+                    : storageSource.getStorageProfileCode();
             asset = new LecturerAsset();
             asset.setOwnerLecturerId(ownerId);
             asset.setStorageProvider(registeredStorageProvider);
+            asset.setStorageProfileCode(registeredStorageProfile);
             asset.setStorageKey(registeredStorageKey);
             asset.setOriginalFilename(file.getOriginalFilename());
             asset.setMimeType(verified.mimeType());
@@ -281,7 +286,9 @@ public class LecturerAssetService {
             asset.setUpdatedAt(LocalDateTime.now());
             if ("IMAGE".equalsIgnoreCase(assetType)) {
                 AssetStorageService.AssetMetadata metadata =
-                        assetStorage.inspect(registeredStorageKey);
+                        registeredStorageProfile == null
+                                ? assetStorage.inspect(registeredStorageKey)
+                                : assetStorage.inspect(registeredStorageProfile, registeredStorageKey);
                 asset.setWidth(metadata.width());
                 asset.setHeight(metadata.height());
             }
@@ -324,9 +331,12 @@ public class LecturerAssetService {
              * Cleanup uses task-key then all-asset-row locking. Registration
              * takes the same order before sharing an existing physical key.
              */
-            reserveStorageKeyForAsset(storageKey);
-            LecturerAsset locked = assetRepository
-                    .findByStorageKeyForUpdate(storageKey)
+            reserveStorageKeyForAsset(candidate.getStorageProfileCode(), storageKey);
+            List<LecturerAsset> lockedRows = candidate.getStorageProfileCode() == null
+                    ? assetRepository.findByStorageKeyForUpdate(storageKey)
+                    : assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
+                            candidate.getStorageProfileCode(), storageKey);
+            LecturerAsset locked = lockedRows
                     .stream()
                     .filter(value -> Objects.equals(
                             candidate.getId(), value.getId()))
@@ -367,9 +377,10 @@ public class LecturerAssetService {
                 && candidate.getSha256().equalsIgnoreCase(stored.sha256())
                 && Objects.equals(candidate.getFileSize(), stored.sizeBytes())
                 && candidate.getStorageProvider() != null
-                && assetStorage.providerCode() != null
                 && candidate.getStorageProvider().equalsIgnoreCase(
-                        assetStorage.providerCode());
+                        stored.storageProvider())
+                && Objects.equals(candidate.getStorageProfileCode(),
+                        stored.storageProfileCode());
     }
 
     private void queueUnusedFreshUpload(
@@ -414,8 +425,11 @@ public class LecturerAssetService {
 
         try {
             String oldKey = asset.getStorageKey();
+            String oldProfileCode = asset.getStorageProfileCode();
             AssetStorageService.StoredAsset promoted;
-            try (InputStream in = assetStorage.load(oldKey).getInputStream()) {
+            try (InputStream in = (oldProfileCode == null
+                    ? assetStorage.load(oldKey)
+                    : assetStorage.load(oldProfileCode, oldKey)).getInputStream()) {
                 String relativePath = freshStorageNamespace(
                         "lecturer-assets/" + ownerId + "/imports/"
                                 + asset.getSourceImportSessionId()
@@ -426,13 +440,16 @@ public class LecturerAssetService {
                         promoted.storageKey(), promoted.newlyCreated());
                 reserveStorageKeyForAsset(promoted.storageKey());
                 asset.setStorageKey(promoted.storageKey());
+                asset.setStorageProvider(promoted.storageProvider());
+                asset.setStorageProfileCode(promoted.storageProfileCode());
             }
             
             asset.setStatus("ACTIVE");
             asset.setUpdatedAt(LocalDateTime.now());
             log.info("[AssetService] Promoted assetId={} to library status", asset.getId());
             LecturerAsset saved = assetRepository.save(asset);
-            enqueueLifecycle(asset.getId(), PracticeAssetLifecycleTask.PROMOTE_CLEANUP,
+            enqueueLifecycle(asset.getId(), oldProfileCode,
+                    PracticeAssetLifecycleTask.PROMOTE_CLEANUP,
                     oldKey, asset.getStorageKey());
             return saved;
         } catch (IOException e) {
@@ -557,7 +574,7 @@ public class LecturerAssetService {
         asset.setUpdatedAt(now);
         asset.setStatus("DELETION_PENDING");
         assetRepository.save(asset);
-        enqueueLifecycle(assetId, PracticeAssetLifecycleTask.DELETE,
+        enqueueLifecycle(assetId, asset.getStorageProfileCode(), PracticeAssetLifecycleTask.DELETE,
                 asset.getStorageKey(), null);
         log.info("[AssetService] Queued physical delete for unreferenced assetId={}", assetId);
     }
@@ -588,7 +605,7 @@ public class LecturerAssetService {
                 asset.setUpdatedAt(now);
                 asset.setStatus("DELETION_PENDING");
                 assetRepository.save(asset);
-                enqueueLifecycle(assetId, PracticeAssetLifecycleTask.DELETE,
+                enqueueLifecycle(assetId, asset.getStorageProfileCode(), PracticeAssetLifecycleTask.DELETE,
                         asset.getStorageKey(), null);
             } catch (RuntimeException e) {
                 log.warn("[AssetService] Failed to queue temporary assetId={}", assetId, e);
@@ -602,7 +619,9 @@ public class LecturerAssetService {
         if (!asset.getOwnerLecturerId().equals(ownerId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền truy cập asset này.");
         }
-        return assetStorage.load(asset.getStorageKey());
+        return asset.getStorageProfileCode() == null
+                ? assetStorage.load(asset.getStorageKey())
+                : assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey());
     }
 
     /**
@@ -628,8 +647,9 @@ public class LecturerAssetService {
             throw new IllegalArgumentException(
                     "Kích thước asset không hợp lệ.");
         }
-        try (InputStream input = assetStorage
-                .load(asset.getStorageKey())
+        try (InputStream input = (asset.getStorageProfileCode() == null
+                ? assetStorage.load(asset.getStorageKey())
+                : assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey()))
                 .getInputStream()) {
             byte[] bytes = input.readNBytes(
                     Math.toIntExact(maximumBytes + 1L));
@@ -693,7 +713,8 @@ public class LecturerAssetService {
         LocalDateTime now = LocalDateTime.now();
         LecturerAsset staged = new LecturerAsset();
         staged.setOwnerLecturerId(ownerId);
-        staged.setStorageProvider(assetStorage.providerCode());
+        staged.setStorageProvider(stored.storageProvider());
+        staged.setStorageProfileCode(stored.storageProfileCode());
         staged.setStorageKey(stored.storageKey());
         staged.setOriginalFilename(filename);
         staged.setMimeType(mimeType.toLowerCase(Locale.ROOT));
@@ -784,6 +805,7 @@ public class LecturerAssetService {
                     assetRepository.save(staged);
                     enqueueLifecycle(
                             staged.getId(),
+                            staged.getStorageProfileCode(),
                             PracticeAssetLifecycleTask.DELETE,
                             staged.getStorageKey(),
                             null);
@@ -868,6 +890,7 @@ public class LecturerAssetService {
             assetRepository.save(staged);
             enqueueLifecycle(
                     staged.getId(),
+                    staged.getStorageProfileCode(),
                     PracticeAssetLifecycleTask.DELETE,
                     staged.getStorageKey(),
                     null);
@@ -1055,6 +1078,7 @@ public class LecturerAssetService {
         assetRepository.save(asset);
         enqueueLifecycle(
                 assetId,
+                asset.getStorageProfileCode(),
                 PracticeAssetLifecycleTask.DELETE,
                 asset.getStorageKey(),
                 null);
@@ -1154,11 +1178,17 @@ public class LecturerAssetService {
         asset.setStatus("DELETION_PENDING");
         asset.setUpdatedAt(LocalDateTime.now());
         assetRepository.save(asset);
-        enqueueLifecycle(assetId, PracticeAssetLifecycleTask.DELETE,
+        enqueueLifecycle(assetId, asset.getStorageProfileCode(), PracticeAssetLifecycleTask.DELETE,
                 asset.getStorageKey(), null);
     }
 
     private void enqueueLifecycle(Long assetId, String operation, String sourceKey,
+                                  String targetKey) {
+        enqueueLifecycle(assetId, assetStorage.profileCode(), operation, sourceKey, targetKey);
+    }
+
+    private void enqueueLifecycle(Long assetId, String storageProfileCode,
+                                  String operation, String sourceKey,
                                   String targetKey) {
         if (lifecycleTaskRepository == null) {
             if (sourceKey != null && !sourceKey.isBlank()) {
@@ -1167,7 +1197,7 @@ public class LecturerAssetService {
             return;
         }
         lifecycleTaskRepository.save(new PracticeAssetLifecycleTask(
-                assetId, operation, sourceKey, targetKey));
+                assetId, storageProfileCode, operation, sourceKey, targetKey));
     }
 
     /**
@@ -1179,14 +1209,22 @@ public class LecturerAssetService {
      * regardless of lease age.
      */
     private void reserveStorageKeyForAsset(String storageKey) {
+        reserveStorageKeyForAsset(assetStorage.profileCode(), storageKey);
+    }
+
+    private void reserveStorageKeyForAsset(String storageProfileCode, String storageKey) {
         if (lifecycleTaskRepository == null
                 || storageKey == null
                 || storageKey.isBlank()) {
             return;
         }
         List<PracticeAssetLifecycleTask> active =
-                lifecycleTaskRepository
-                        .findActiveBySourceStorageKeyForUpdate(storageKey);
+                storageProfileCode == null
+                        ? lifecycleTaskRepository
+                            .findActiveBySourceStorageKeyForUpdate(storageKey)
+                        : lifecycleTaskRepository
+                            .findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+                                    storageProfileCode, storageKey);
         if (active.stream().anyMatch(task ->
                 "RUNNING".equals(task.getStatus()))) {
             throw new IllegalStateException(
@@ -1294,6 +1332,7 @@ public class LecturerAssetService {
                 lifecycleTaskRepository.saveAndFlush(
                         new PracticeAssetLifecycleTask(
                                 null,
+                                assetStorage.profileCode(),
                                 PracticeAssetLifecycleTask.ORPHAN_RECONCILE,
                                 storageKey,
                                 null));
@@ -1305,7 +1344,11 @@ public class LecturerAssetService {
             return;
         }
         try {
-            assetStorage.delete(storageKey);
+            if (assetStorage.profileCode() == null) {
+                assetStorage.delete(storageKey);
+            } else {
+                assetStorage.delete(assetStorage.profileCode(), storageKey);
+            }
         } catch (IOException exception) {
             enqueueLifecycle(
                     null,

@@ -15,7 +15,7 @@ import java.util.Set;
  */
 public final class WritingDiagnosticContract {
 
-    public static final String VERSION = "korean-writing-diagnostics-v2";
+    public static final String VERSION = "korean-writing-diagnostics-v3";
 
     private static final Map<String, List<String>> SUBTYPES = Map.of(
             "TASK_CONTENT", List.of(
@@ -76,8 +76,14 @@ public final class WritingDiagnosticContract {
             case REGISTER -> "SOCIOLINGUISTIC_PRAGMATIC";
             case SPELLING_SPACING -> "ORTHOGRAPHY";
             case LENGTH, FORMAT -> "LENGTH_FORMAT";
-            case CLOZE -> throw new IllegalStateException(
-                    "Unmapped active cloze Writing criterion: " + criterion.id());
+            case CLOZE -> switch (criterion) {
+                case W_CLOZE_CONTEXT_FIT -> "TASK_CONTENT";
+                case W_CLOZE_REGISTER_MATCH ->
+                        "SOCIOLINGUISTIC_PRAGMATIC";
+                case W_SENTENCE_COMPLETION_NATURALNESS ->
+                        "LEXICO_SEMANTIC";
+                default -> "MORPHOSYNTAX";
+            };
         };
     }
 
@@ -85,16 +91,50 @@ public final class WritingDiagnosticContract {
         return SUBTYPES.getOrDefault(categoryCode(criterion), List.of());
     }
 
+    public static boolean ledgerEligible(
+            WritingRubricCriterion criterion) {
+        return criterion != null
+                && criterion.activeForProvider()
+                && (criterion.polarity()
+                == WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT
+                || criterion.supports(
+                WritingRubricCriterion.EvidenceScope.TEXT_SPAN)
+                || criterion.supports(
+                WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER));
+    }
+
     public static String expectedParentCriterionId(
             WritingRubricCriterion criterion,
             String taskType
     ) {
-        if (isClozeTask(taskType)) {
-            // The immutable provider contract does not yet carry an authoritative
-            // blank id/index. Do not guess a blank-specific score parent.
-            return null;
+        List<String> allowed = allowedParentCriterionIds(
+                criterion, taskType);
+        return allowed.size() == 1 ? allowed.get(0) : null;
+    }
+
+    public static List<String> allowedParentCriterionIds(
+            WritingRubricCriterion criterion,
+            String taskType
+    ) {
+        if (criterion == null) {
+            return List.of();
         }
-        return switch (categoryCode(criterion)) {
+        if (isClozeTask(taskType)) {
+            String suffix = switch (categoryCode(criterion)) {
+                case "TASK_CONTENT" -> "CONTEXT";
+                case "MORPHOSYNTAX" -> "GRAMMAR";
+                case "LEXICO_SEMANTIC",
+                        "SOCIOLINGUISTIC_PRAGMATIC",
+                        "ORTHOGRAPHY" -> "EXPRESSION";
+                default -> null;
+            };
+            return suffix == null
+                    ? List.of()
+                    : List.of(
+                            "W_CLOZE_BLANK_1_" + suffix,
+                            "W_CLOZE_BLANK_2_" + suffix);
+        }
+        String parent = switch (categoryCode(criterion)) {
             case "TASK_CONTENT" -> "W_CONTENT_TASK_ACHIEVEMENT";
             case "DISCOURSE" -> "W_ORGANIZATION_COHERENCE";
             case "MORPHOSYNTAX", "LEXICO_SEMANTIC",
@@ -103,6 +143,30 @@ public final class WritingDiagnosticContract {
             case "LENGTH_FORMAT" -> null;
             default -> null;
         };
+        return parent == null ? List.of() : List.of(parent);
+    }
+
+    public static String expectedParentCriterionId(
+            WritingRubricCriterion criterion,
+            String taskType,
+            List<String> requirementIds
+    ) {
+        if (!isClozeTask(taskType)) {
+            return expectedParentCriterionId(criterion, taskType);
+        }
+        List<String> allowed = allowedParentCriterionIds(
+                criterion, taskType);
+        if (allowed.isEmpty() || requirementIds == null) {
+            return null;
+        }
+        boolean blankOne = requirementIds.contains(
+                "CLOZE_BLANK_1_CONTEXT");
+        boolean blankTwo = requirementIds.contains(
+                "CLOZE_BLANK_2_CONTEXT");
+        if (blankOne == blankTwo) {
+            return null;
+        }
+        return blankOne ? allowed.get(0) : allowed.get(1);
     }
 
     public static boolean validProviderMetadata(
@@ -121,7 +185,10 @@ public final class WritingDiagnosticContract {
         JsonNode confidence = finding.get("confidence");
         JsonNode suppliedParent = finding.get("scoringCriterionId");
         String expectedParent =
-                expectedParentCriterionId(criterion, taskType);
+                expectedParentCriterionId(
+                        criterion,
+                        taskType,
+                        stringValues(finding.get("requirementIds")));
         if ((expectedParent == null
                 && (suppliedParent == null || !suppliedParent.isNull()))
                 || (expectedParent != null
@@ -148,7 +215,8 @@ public final class WritingDiagnosticContract {
                         observability,
                         criterion,
                         taskType,
-                        evidenceScope);
+                        evidenceScope,
+                        stringValues(finding.get("requirementIds")));
     }
 
     public static boolean validProviderMetadata(
@@ -162,6 +230,31 @@ public final class WritingDiagnosticContract {
             String taskType,
             WritingRubricCriterion.EvidenceScope evidenceScope
     ) {
+        return validProviderMetadata(
+                subtype,
+                suppliedParentCriterionId,
+                impact,
+                frequency,
+                confidence,
+                observability,
+                criterion,
+                taskType,
+                evidenceScope,
+                List.of());
+    }
+
+    public static boolean validProviderMetadata(
+            String subtype,
+            String suppliedParentCriterionId,
+            String impact,
+            Integer frequency,
+            BigDecimal confidence,
+            String observability,
+            WritingRubricCriterion criterion,
+            String taskType,
+            WritingRubricCriterion.EvidenceScope evidenceScope,
+            List<String> requirementIds
+    ) {
         if (criterion == null
                 || evidenceScope == null
                 || frequency == null
@@ -169,7 +262,8 @@ public final class WritingDiagnosticContract {
             return false;
         }
         String expectedParent =
-                expectedParentCriterionId(criterion, taskType);
+                expectedParentCriterionId(
+                        criterion, taskType, requirementIds);
         return java.util.Objects.equals(
                         expectedParent, suppliedParentCriterionId)
                 && allowedSubtypes(criterion).contains(subtype)
@@ -201,5 +295,19 @@ public final class WritingDiagnosticContract {
 
     private static String textual(JsonNode node) {
         return node != null && node.isTextual() ? node.asText() : null;
+    }
+
+    private static List<String> stringValues(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return List.of();
+        }
+        java.util.ArrayList<String> values = new java.util.ArrayList<>();
+        for (JsonNode value : node) {
+            if (!value.isTextual() || value.asText().isBlank()) {
+                return List.of();
+            }
+            values.add(value.asText());
+        }
+        return List.copyOf(values);
     }
 }

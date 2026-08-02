@@ -5,8 +5,8 @@
 .writing-workspace {
   display: grid;
   grid-template-columns: var(--exam-source-width) 18px minmax(0, 1fr);
-  height: calc(100dvh - 196px);
-  min-height: 420px;
+  height: calc(100dvh - 224px);
+  min-height: 0;
   background: #fff;
 }
 
@@ -82,6 +82,22 @@
   padding-top: 0;
 }
 
+/* Q51–54 can share one published Writing group.  A viewport-height minimum
+   belongs to a single-task player only; repeating it per question created an
+   empty screen between consecutive tasks. */
+.writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-answer-block {
+  min-height: 0;
+  margin-bottom: 28px;
+  padding: 0 0 30px;
+  border-bottom: 1px solid var(--exam-line);
+}
+
+.writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-answer-block:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
 .writing-answer-heading {
   align-items: flex-start;
   margin-bottom: 14px;
@@ -102,6 +118,79 @@
 .writing-short-answer {
   position: relative;
   min-height: calc(100dvh - 330px);
+}
+
+.writing-structured-blanks {
+  display: grid;
+  gap: 18px;
+}
+
+.writing-structured-blanks__hint,
+.writing-legacy-response-label {
+  margin: 0;
+  color: var(--exam-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.writing-legacy-response-label {
+  margin-bottom: 10px;
+  color: #8a5a00;
+  font-weight: 750;
+}
+
+.writing-blank-field {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px 12px;
+  padding: 16px;
+  border: 1px solid var(--exam-line);
+  border-radius: 12px;
+  background: #fbfcff;
+}
+
+.writing-blank-field__ordinal {
+  color: var(--exam-blue);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.writing-blank-field__context {
+  color: var(--exam-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.writing-blank-field textarea {
+  grid-column: 1 / -1;
+  display: block;
+  width: 100%;
+  min-height: 132px;
+  padding: 14px 14px 38px;
+  border: 1px solid var(--exam-line);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: var(--exam-ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.writing-blank-field textarea:focus {
+  border-color: var(--exam-blue);
+  box-shadow: 0 0 0 3px rgba(49, 94, 251, .1);
+}
+
+.writing-blank-field [data-answer-count] {
+  position: absolute;
+  right: 28px;
+  bottom: 27px;
+  color: var(--exam-muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .writing-editor textarea,
@@ -137,6 +226,16 @@
   font-weight: 700;
 }
 
+.writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-editor,
+.writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-short-answer {
+  min-height: 320px;
+}
+
+.writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-editor textarea,
+.writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-short-answer textarea {
+  min-height: 320px;
+}
+
 @media (max-width: 900px) {
   .writing-workspace {
     display: block;
@@ -168,5 +267,16 @@
   .writing-editor textarea,
   .writing-short-answer textarea {
     min-height: 52dvh;
+  }
+
+  .writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-answer-block {
+    min-height: 0;
+  }
+
+  .writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-editor,
+  .writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-short-answer,
+  .writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-editor textarea,
+  .writing-answer-stage[data-question-count]:not([data-question-count="1"]) .writing-short-answer textarea {
+    min-height: 300px;
   }
 }

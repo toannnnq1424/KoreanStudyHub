@@ -2,7 +2,6 @@ package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
@@ -11,15 +10,19 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public class WritingEvaluationNormalizer {
 
+    public static final String EVALUATION_ENGINE =
+            "KSH_WRITING_EVALUATOR_V3";
+
     private final ObjectMapper objectMapper;
+    private final WritingEvidenceLedgerVerifier ledgerVerifier;
 
     public WritingEvaluationNormalizer(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        this.ledgerVerifier = new WritingEvidenceLedgerVerifier();
     }
 
     /**
@@ -31,32 +34,21 @@ public class WritingEvaluationNormalizer {
                             WritingRuleEngine.RuleAnalysis ruleAnalysis) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
-            String studentText = learnerAnswer == null ? "" : learnerAnswer;
-
-            if (!hasUsableRubricContract(root.path("rubric_scores"), taskType)) {
-                return contractFailure("PROVIDER_CONTRACT_INVALID", taskType, studentText);
-            }
-
-            List<Map<String, Object>> rubricScores = normalizeRubricScores(root.path("rubric_scores"), taskType);
-            if (rubricScores.isEmpty()) {
-                return contractFailure("PROVIDER_CONTRACT_INVALID", taskType, studentText);
-            }
-            List<Map<String, Object>> strengths = normalizeFindings(
-                    root.path("strengths"),
-                    WritingRubricCriterion.Polarity.STRENGTH,
-                    studentText,
-                    taskType);
-            List<Map<String, Object>> needs = normalizeFindings(
-                    root.path("needs_improvement"),
-                    WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT,
-                    studentText,
-                    taskType);
+            WritingEvidenceLedgerVerifier.VerifiedEnvelope verified =
+                    ledgerVerifier.verify(root, taskType, learnerAnswer);
+            String studentText = verified.learnerAnswerNfc();
+            List<Map<String, Object>> rubricScores =
+                    normalizedRubricScores(verified.rubrics(), taskType);
+            List<Map<String, Object>> strengths =
+                    normalizedFindings(verified, "STRENGTH");
+            List<Map<String, Object>> needs =
+                    normalizedFindings(verified, "IMPROVEMENT");
             double score = deriveScoreFromRubrics(rubricScores);
             double rawTopikScore = sumRubricScores(rubricScores);
             double rawTopikMax =
                     WritingScoringPolicy.rubricFor(taskType).totalMaxScore();
-
-            List<Map<String, Object>> annotations = buildAnnotations(strengths, needs, studentText);
+            List<Map<String, Object>> annotations =
+                    verifiedAnnotations(verified);
 
             Map<String, Object> normalized = new LinkedHashMap<>();
             normalized.put("score", score);
@@ -68,23 +60,41 @@ public class WritingEvaluationNormalizer {
                     WritingScoringPolicy.SCORING_CONTRACT);
             normalized.put("policy_bundle_id",
                     WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+            normalized.put("ledger_contract_version",
+                    WritingEvidenceLedgerVerifier.CONTRACT_VERSION);
+            normalized.put("score_anchor_version",
+                    WritingScoreAnchorPolicy.VERSION);
+            normalized.put("task_requirement_version",
+                    WritingTaskRequirementPolicy.VERSION);
+            normalized.put("source_normalization",
+                    WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION);
+            normalized.put("source_hash", verified.sourceHash());
             normalized.put("task_type", taskType);
-            normalized.put("summary", text(root, "summary", text(root, "summary_vi", "")));
-            normalized.put("summary_vi", text(root, "summary_vi", text(root, "summary", "")));
+            String summary = derivedSummary(
+                    verified, rawTopikScore, rawTopikMax);
+            normalized.put("summary", summary);
+            normalized.put("summary_vi", summary);
             normalized.put("rubric_scores", rubricScores);
+            normalized.put("task_coverage",
+                    normalizedCoverage(verified.coverage()));
+            normalized.put("evidence_ledger",
+                    normalizedEvidence(verified.evidence()));
             normalized.put("strengths", strengths);
             normalized.put("needs_improvement", needs);
             normalized.put("student_text", studentText);
             normalized.put("student_strengths_annotated", "");
             normalized.put("student_needs_annotated", "");
             normalized.put("annotations", annotations);
-            normalized.put("upgraded_answer", text(root, "upgraded_answer", text(root, "corrected_version", "")));
-            normalized.put("upgraded_answer_annotated", text(root, "upgraded_answer_annotated", ""));
-            normalized.put("upgraded_annotations", normalizeUpgradedAnnotations(root.path("upgraded_annotations")));
-            normalized.put("corrected_version", text(root, "corrected_version", text(root, "upgraded_answer", "")));
+            normalized.put("upgraded_answer",
+                    verified.upgrade().content());
+            normalized.put("upgraded_answer_annotated", "");
+            normalized.put("upgraded_annotations", List.of());
+            normalized.put("corrected_version",
+                    verified.upgrade().content());
             normalized.put("sample_answer", "");
-            normalized.put("sentence_rewrites", normalizeSentenceRewrites(root.path("sentence_rewrites"), studentText));
-            normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
+            normalized.put("sentence_rewrites",
+                    normalizedRewrites(verified.upgrade().rewrites()));
+            normalized.put("engine", EVALUATION_ENGINE);
             putEvaluationMetadata(normalized,
                     "EVALUATED",
                     "PROVIDER",
@@ -94,10 +104,256 @@ public class WritingEvaluationNormalizer {
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
             return contractFailure(
-                    "PROVIDER_MALFORMED_JSON",
+                    ex instanceof com.fasterxml.jackson.core.JsonProcessingException
+                            ? "PROVIDER_MALFORMED_JSON"
+                            : "PROVIDER_CONTRACT_INVALID",
                     taskType,
                     learnerAnswer);
         }
+    }
+
+    private static List<Map<String, Object>> normalizedRubricScores(
+            List<WritingEvidenceLedgerVerifier.RubricJudgment> judgments,
+            String taskType) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (WritingEvidenceLedgerVerifier.RubricJudgment judgment
+                : judgments) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("criterionId", judgment.criterionId());
+            row.put("name", WritingScoringPolicy.rubricFor(taskType)
+                    .criteria().stream()
+                    .filter(value -> value.criterionId()
+                            .equals(judgment.criterionId()))
+                    .map(WritingScoringCriterion::displayName)
+                    .findFirst()
+                    .orElseGet(() -> judgment.criterionId()));
+            row.put("score", judgment.score());
+            row.put("maxScore", judgment.maxScore());
+            row.put("anchorLabelVi", judgment.anchorLabelVi());
+            row.put("performanceLevel",
+                    WritingScoreAnchorPolicy.requireAnchor(
+                            WritingScoringPolicy.rubricFor(taskType)
+                                    .criteria().stream()
+                                    .filter(value -> value.criterionId()
+                                            .equals(judgment.criterionId()))
+                                    .findFirst()
+                                    .orElseThrow(),
+                            judgment.score())
+                            .performanceLevel()
+                            .name());
+            row.put("feedback", judgment.anchorDescriptionVi());
+            row.put("evidenceIds", judgment.evidenceIds());
+            row.put("findingIds", judgment.findingIds());
+            row.put("requirementIds", judgment.requirementIds());
+            rows.add(row);
+        }
+        return List.copyOf(rows);
+    }
+
+    private static List<Map<String, Object>> normalizedFindings(
+            WritingEvidenceLedgerVerifier.VerifiedEnvelope verified,
+            String polarity) {
+        Map<String, WritingEvidenceLedgerVerifier.Evidence> evidenceById =
+                verified.evidence().stream().collect(
+                        java.util.stream.Collectors.toMap(
+                                WritingEvidenceLedgerVerifier.Evidence::evidenceId,
+                                java.util.function.Function.identity()));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        int ordinal = 0;
+        for (WritingEvidenceLedgerVerifier.Finding finding
+                : verified.findings()) {
+            ordinal++;
+            if (!polarity.equals(finding.polarity())) {
+                continue;
+            }
+            WritingEvidenceLedgerVerifier.Evidence evidence =
+                    finding.evidenceIds().isEmpty()
+                            ? null
+                            : evidenceById.get(finding.evidenceIds().get(0));
+            WritingRubricCriterion criterion =
+                    WritingRubricCriterion.parse(finding.criterionId());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("index", ordinal);
+            row.put("findingId", finding.findingId());
+            row.put("criterionId", finding.criterionId());
+            row.put("subtype", finding.subtype());
+            row.put("scoringCriterionId", finding.scoringCriterionId());
+            row.put("evidenceScope",
+                    evidence == null ? "WHOLE_ANSWER" : "TEXT_SPAN");
+            row.put("evidenceId",
+                    evidence == null ? null : evidence.evidenceId());
+            row.put("evidenceIds", finding.evidenceIds());
+            row.put("requirementIds", finding.requirementIds());
+            row.put("operation", finding.operation());
+            row.put("errorCategory", finding.errorCategory());
+            row.put("category", finding.errorCategory());
+            row.put("subcategory", finding.subtype());
+            row.put("vietnameseLabel",
+                    criterion == null
+                            ? finding.errorCategory()
+                            : criterion.vietnameseLabel());
+            row.put("koreanLabel",
+                    criterion == null ? "" : criterion.koreanLabel());
+            row.put("evidence",
+                    evidence == null ? "" : evidence.exactText());
+            row.put("startOffset",
+                    evidence == null ? null : evidence.startOffset());
+            row.put("endOffset",
+                    evidence == null ? null : evidence.endOffset());
+            row.put("occurrenceIndex",
+                    evidence == null ? null : evidence.occurrenceIndex());
+            row.put("occurrenceCount",
+                    evidence == null ? null : evidence.occurrenceCount());
+            row.put("sourceHash", verified.sourceHash());
+            row.put("explanationVi", finding.explanationVi());
+            row.put("correction", finding.replacementKo());
+            row.put("severity", finding.impact());
+            row.put("impact", finding.impact());
+            row.put("frequency", finding.frequency());
+            row.put("confidence", finding.confidence());
+            row.put("observability", finding.observability());
+            row.put("displayType",
+                    evidence == null
+                            ? "WHOLE_ANSWER"
+                            : inferDisplayType(evidence.exactText()));
+            row.put("uiLabel",
+                    criterion == null
+                            ? finding.errorCategory()
+                            : criterion.vietnameseLabel());
+            row.put("errorType", finding.errorCategory());
+            row.put("whyItIsGood",
+                    "STRENGTH".equals(polarity)
+                            ? finding.explanationVi()
+                            : "");
+            row.put("topikTip", "");
+            rows.add(row);
+        }
+        return List.copyOf(rows);
+    }
+
+    private static List<Map<String, Object>> verifiedAnnotations(
+            WritingEvidenceLedgerVerifier.VerifiedEnvelope verified) {
+        Map<String, WritingEvidenceLedgerVerifier.Evidence> evidenceById =
+                verified.evidence().stream().collect(
+                        java.util.stream.Collectors.toMap(
+                                WritingEvidenceLedgerVerifier.Evidence::evidenceId,
+                                java.util.function.Function.identity()));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        int index = 1;
+        for (WritingEvidenceLedgerVerifier.Finding finding
+                : verified.findings()) {
+            if (finding.evidenceIds().size() != 1) {
+                continue;
+            }
+            WritingEvidenceLedgerVerifier.Evidence evidence =
+                    evidenceById.get(finding.evidenceIds().get(0));
+            if (evidence == null) {
+                continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", finding.findingId());
+            row.put("findingId", finding.findingId());
+            row.put("evidenceId", evidence.evidenceId());
+            row.put("kind",
+                    "STRENGTH".equals(finding.polarity())
+                            ? "strength"
+                            : "need");
+            row.put("criterionId", finding.criterionId());
+            row.put("category", finding.errorCategory());
+            row.put("subcategory", finding.subtype());
+            row.put("evidence", evidence.exactText());
+            row.put("start", evidence.startOffset());
+            row.put("end", evidence.endOffset());
+            row.put("startOffset", evidence.startOffset());
+            row.put("endOffset", evidence.endOffset());
+            row.put("occurrenceIndex", evidence.occurrenceIndex());
+            row.put("occurrenceCount", evidence.occurrenceCount());
+            row.put("sourceHash", evidence.sourceHash());
+            row.put("explanationVi", finding.explanationVi());
+            row.put("correction", finding.replacementKo());
+            row.put("severity", finding.impact());
+            row.put("operation", finding.operation());
+            row.put("displayType", inferDisplayType(evidence.exactText()));
+            row.put("index", index++);
+            rows.add(row);
+        }
+        return List.copyOf(rows);
+    }
+
+    private static List<Map<String, Object>> normalizedCoverage(
+            List<WritingEvidenceLedgerVerifier.Coverage> coverage) {
+        return coverage.stream().map(row -> {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("requirementId", row.requirementId());
+            result.put("status", row.status());
+            result.put("evidenceIds", row.evidenceIds());
+            return result;
+        }).toList();
+    }
+
+    private static List<Map<String, Object>> normalizedEvidence(
+            List<WritingEvidenceLedgerVerifier.Evidence> evidence) {
+        return evidence.stream().map(row -> {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("evidenceId", row.evidenceId());
+            result.put("sourceRole",
+                    WritingEvidenceLedgerVerifier.SOURCE_ROLE);
+            result.put("exactText", row.exactText());
+            result.put("startOffset", row.startOffset());
+            result.put("endOffset", row.endOffset());
+            result.put("occurrenceIndex", row.occurrenceIndex());
+            result.put("occurrenceCount", row.occurrenceCount());
+            result.put("normalization", row.normalization());
+            result.put("sourceHash", row.sourceHash());
+            return result;
+        }).toList();
+    }
+
+    private static List<Map<String, Object>> normalizedRewrites(
+            List<WritingEvidenceLedgerVerifier.Rewrite> rewrites) {
+        return rewrites.stream().map(row -> {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("findingIds", row.findingIds());
+            result.put("evidenceId", row.evidenceId());
+            result.put("original", row.original());
+            result.put("upgraded", row.replacementKo());
+            result.put("reason", row.reasonVi());
+            return result;
+        }).toList();
+    }
+
+    private static String derivedSummary(
+            WritingEvidenceLedgerVerifier.VerifiedEnvelope verified,
+            double score,
+            double maxScore) {
+        long strengths = verified.findings().stream()
+                .filter(row -> "STRENGTH".equals(row.polarity()))
+                .count();
+        long improvements = verified.findings().stream()
+                .filter(row -> "IMPROVEMENT".equals(row.polarity()))
+                .count();
+        long met = verified.coverage().stream()
+                .filter(row -> "MET".equals(row.status()))
+                .count();
+        return "Kết quả "
+                + compact(score)
+                + "/"
+                + compact(maxScore)
+                + "; "
+                + met
+                + "/"
+                + verified.coverage().size()
+                + " yêu cầu đã có bằng chứng; "
+                + strengths
+                + " điểm mạnh và "
+                + improvements
+                + " điểm cần cải thiện đã được đối chiếu.";
+    }
+
+    private static String compact(double value) {
+        return value == Math.rint(value)
+                ? Long.toString(Math.round(value))
+                : Double.toString(value);
     }
 
     public boolean isCacheableAiResult(String normalizedJson) {
@@ -135,23 +391,18 @@ public class WritingEvaluationNormalizer {
                         "Writing cache payload does not match the current provider contract.");
             }
 
-            String studentText = learnerAnswer == null ? "" : learnerAnswer;
+            String studentText = Normalizer.normalize(
+                    learnerAnswer == null ? "" : learnerAnswer,
+                    Normalizer.Form.NFC);
             ObjectNode hydrated = ((ObjectNode) root).deepCopy();
+            if (!WritingEvidenceLedgerVerifier.sha256(studentText)
+                    .equals(hydrated.path("source_hash").asText())) {
+                throw new IllegalArgumentException(
+                        "Writing cache payload source identity does not match.");
+            }
             hydrated.put("student_text", studentText);
             hydrated.put("evaluation_origin_source", "PROVIDER");
             hydrated.put("evaluation_source", "CACHE");
-
-            ArrayNode strengths = filterFindingsForAnswer(hydrated.path("strengths"), studentText);
-            ArrayNode needs = filterFindingsForAnswer(hydrated.path("needs_improvement"), studentText);
-            ArrayNode rewrites = filterSentenceRewritesForAnswer(hydrated.path("sentence_rewrites"), studentText);
-
-            hydrated.set("strengths", strengths);
-            hydrated.set("needs_improvement", needs);
-            hydrated.set("sentence_rewrites", rewrites);
-
-            List<Map<String, Object>> strengthRows = toFindingRows(strengths);
-            List<Map<String, Object>> needRows = toFindingRows(needs);
-            hydrated.set("annotations", objectMapper.valueToTree(buildAnnotations(strengthRows, needRows, studentText)));
 
             return objectMapper.writeValueAsString(hydrated);
         } catch (Exception ex) {
@@ -176,7 +427,7 @@ public class WritingEvaluationNormalizer {
                                                        boolean requireSanitizedPayload) {
         if (root == null || !root.isObject()
                 || expectedTaskType == null || expectedTaskType.isBlank()
-                || !"KSH_WRITING_EVALUATOR_V2".equals(root.path("engine").asText())
+                || !EVALUATION_ENGINE.equals(root.path("engine").asText())
                 || !"EVALUATED".equals(root.path("evaluation_status").asText())
                 || !"PROVIDER".equals(root.path("evaluation_source").asText())
                 || !"NONE".equals(root.path("evaluation_reason").asText())
@@ -185,6 +436,16 @@ public class WritingEvaluationNormalizer {
                         root.path("scoring_contract").asText())
                 || !WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
                         root.path("policy_bundle_id").asText())
+                || !WritingEvidenceLedgerVerifier.CONTRACT_VERSION.equals(
+                        root.path("ledger_contract_version").asText())
+                || !WritingScoreAnchorPolicy.VERSION.equals(
+                        root.path("score_anchor_version").asText())
+                || !WritingTaskRequirementPolicy.VERSION.equals(
+                        root.path("task_requirement_version").asText())
+                || !WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION.equals(
+                        root.path("source_normalization").asText())
+                || !root.path("source_hash").isTextual()
+                || root.path("source_hash").asText().length() != 64
                 || !expectedTaskType.equals(root.path("task_type").asText())
                 || !root.path("score").isNumber()
                 || !root.path("overall_score").isNumber()
@@ -262,7 +523,13 @@ public class WritingEvaluationNormalizer {
                 && hasTrustedFindings(
                         root.path("needs_improvement"),
                         WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT,
-                        expectedTaskType);
+                        expectedTaskType)
+                && root.path("task_coverage").isArray()
+                && root.path("task_coverage").size()
+                == WritingTaskRequirementPolicy.requirementsFor(
+                        expectedTaskType).size()
+                && root.path("evidence_ledger").isArray()
+                && root.path("annotations").isArray();
     }
 
     private static boolean hasTrustedFindings(
@@ -322,7 +589,26 @@ public class WritingEvaluationNormalizer {
                 row.put("name", criterion.displayName());
                 row.put("score", 0.0);
                 row.put("maxScore", criterion.maxScore());
-                row.put("feedback", "Bài làm không hợp lệ.");
+                WritingScoreAnchorPolicy.ScoreAnchor anchor =
+                        WritingScoreAnchorPolicy.requireAnchor(
+                                criterion, 0);
+                row.put("anchorLabelVi", anchor.labelVi());
+                row.put("performanceLevel",
+                        anchor.performanceLevel().name());
+                row.put("feedback", anchor.descriptionVi());
+                row.put("evidenceIds", List.of());
+                row.put("findingIds", List.of());
+                row.put("requirementIds",
+                        WritingTaskRequirementPolicy
+                                .requirementsFor(effectiveTaskType)
+                                .stream()
+                                .filter(requirement ->
+                                        criterion.criterionId().equals(
+                                                requirement
+                                                        .scoringCriterionId()))
+                                .map(WritingTaskRequirementPolicy
+                                        .Requirement::requirementId)
+                                .toList());
                 rubricScores.add(row);
             }
 
@@ -336,11 +622,38 @@ public class WritingEvaluationNormalizer {
                     WritingScoringPolicy.SCORING_CONTRACT);
             normalized.put("policy_bundle_id",
                     WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+            normalized.put("ledger_contract_version",
+                    WritingEvidenceLedgerVerifier.CONTRACT_VERSION);
+            normalized.put("score_anchor_version",
+                    WritingScoreAnchorPolicy.VERSION);
+            normalized.put("task_requirement_version",
+                    WritingTaskRequirementPolicy.VERSION);
+            normalized.put("source_normalization",
+                    WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION);
+            normalized.put("source_hash",
+                    WritingEvidenceLedgerVerifier.sha256(
+                            Normalizer.normalize(
+                                    learnerAnswer == null
+                                            ? "" : learnerAnswer,
+                                    Normalizer.Form.NFC)));
             normalized.put("task_type", effectiveTaskType);
             String invalidSummary = "[INVALID_LEARNER_RESPONSE] Bài làm bỏ trống hoặc chưa có đủ dữ liệu tiếng Hàn để chấm.";
             normalized.put("summary", invalidSummary);
             normalized.put("summary_vi", invalidSummary);
             normalized.put("rubric_scores", rubricScores);
+            normalized.put("task_coverage",
+                    WritingTaskRequirementPolicy
+                            .requirementsFor(effectiveTaskType)
+                            .stream()
+                            .map(requirement -> Map.of(
+                                    "requirementId",
+                                    requirement.requirementId(),
+                                    "status",
+                                    "NOT_APPLICABLE",
+                                    "evidenceIds",
+                                    List.of()))
+                            .toList());
+            normalized.put("evidence_ledger", List.of());
             normalized.put("strengths", List.of());
             normalized.put("needs_improvement", List.of());
             normalized.put("student_text", learnerAnswer == null ? "" : learnerAnswer);
@@ -353,7 +666,7 @@ public class WritingEvaluationNormalizer {
             normalized.put("corrected_version", "");
             normalized.put("sample_answer", "");
             normalized.put("sentence_rewrites", List.of());
-            normalized.put("engine", "KSH_WRITING_EVALUATOR_V2");
+            normalized.put("engine", EVALUATION_ENGINE);
             putEvaluationMetadata(normalized,
                     "INVALID_LEARNER_RESPONSE",
                     "BACKEND_RULE",
@@ -440,7 +753,7 @@ public class WritingEvaluationNormalizer {
             putEvaluationMetadata(normalized, status, source, reason, retryable, false);
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
-            return "{\"policy_bundle_id\":\"KSH_WRITING_POLICY_BUNDLE_V2\",\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"SYSTEM\",\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\",\"evaluation_retryable\":true,\"score_available\":false,\"summary_vi\":\"Chưa có đánh giá AI khả dụng.\"}";
+            return "{\"policy_bundle_id\":\"KSH_WRITING_POLICY_BUNDLE_V3\",\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"SYSTEM\",\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\",\"evaluation_retryable\":true,\"score_available\":false,\"summary_vi\":\"Chưa có đánh giá AI khả dụng.\"}";
         }
     }
 
@@ -479,157 +792,6 @@ public class WritingEvaluationNormalizer {
         return Math.round(sum * 100.0) / 100.0;
     }
 
-    // ---- Rubric validation ----
-
-    private static boolean hasUsableRubricContract(JsonNode array, String taskType) {
-        if (array == null || !array.isArray() || array.isEmpty()) {
-            return false;
-        }
-        for (JsonNode node : array) {
-            if (node.isObject()) {
-                JsonNode score = node.get("score");
-                if (score != null && score.isNumber()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private List<Map<String, Object>> normalizeRubricScores(JsonNode array, String taskType) {
-        List<Map<String, Object>> rows = new ArrayList<>();
-        if (!array.isArray() || array.isEmpty()) {
-            return rows;
-        }
-        var expected = WritingPromptRules.scoringCriteriaForTask(taskType);
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        for (JsonNode node : array) {
-            String id = node.path("criterionId").asText();
-            var criterion = expected.stream()
-                    .filter(candidate -> candidate.criterionId().equals(id))
-                    .findFirst()
-                    .orElse(null);
-            if (criterion == null || !seen.add(id)
-                    || !node.path("maxScore").isNumber()
-                    || Double.compare(
-                            node.path("maxScore").asDouble(),
-                            criterion.maxScore()) != 0
-                    || !node.path("score").isNumber()
-                    || !Double.isFinite(node.path("score").asDouble())
-                    || node.path("score").asDouble() < 0
-                    || node.path("score").asDouble() > criterion.maxScore()) {
-                return List.of();
-            }
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("criterionId", id);
-            row.put("name", criterion.displayName());
-            row.put("score", node.path("score").asDouble());
-            row.put("maxScore", criterion.maxScore());
-            row.put("feedback", node.path("feedback").asText(""));
-            rows.add(row);
-        }
-        return rows.size() == expected.size() ? rows : List.of();
-    }
-
-
-    // ---- Findings validation ----
-
-    private List<Map<String, Object>> normalizeFindings(JsonNode array,
-                                                        WritingRubricCriterion.Polarity polarity,
-                                                        String studentText,
-                                                        String taskType) {
-        List<Map<String, Object>> rows = new ArrayList<>();
-        if (!array.isArray()) {
-            return rows;
-        }
-        int index = 1;
-        for (JsonNode node : array) {
-            WritingRubricCriterion criterion = WritingRubricCriterion.parse(node.path("criterionId").asText(null));
-            if (criterion == null || criterion.polarity() != polarity
-                    || !criterion.activeForProvider() || !criterion.appliesTo(taskType)) {
-                continue;
-            }
-            WritingRubricCriterion.EvidenceScope evidenceScope = parseEvidenceScope(
-                    node.path("evidenceScope").asText(null));
-            if (evidenceScope == null || !criterion.supports(evidenceScope)
-                    || evidenceScope == WritingRubricCriterion.EvidenceScope.TASK_METADATA) {
-                continue;
-            }
-            if (!WritingDiagnosticContract.validProviderMetadata(
-                    node, criterion, taskType, evidenceScope)) {
-                continue;
-            }
-            String evidence = node.path("evidence").asText("");
-            String explanation = node.path("explanationVi").asText("").trim();
-            String correction = node.path("correction").asText("").trim();
-            if (explanation.isBlank()) {
-                continue;
-            }
-            if (evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
-                    && (evidence.isBlank() || !studentText.contains(evidence))) {
-                continue;
-            }
-            if (evidenceScope == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER) {
-                evidence = "";
-            }
-            if (polarity == WritingRubricCriterion.Polarity.NEEDS_IMPROVEMENT
-                    && evidenceScope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
-                    && correction.isBlank()) {
-                continue;
-            }
-            if (polarity == WritingRubricCriterion.Polarity.STRENGTH) {
-                correction = "";
-            }
-
-            // --- Enriched fields ---
-            String category = WritingDiagnosticContract.categoryCode(criterion);
-            String subtype = node.path("subtype").asText();
-            JsonNode scoringCriterion = node.get("scoringCriterionId");
-            String parentCriterionId = scoringCriterion == null
-                    || scoringCriterion.isNull()
-                    ? null
-                    : scoringCriterion.asText();
-            String impact = node.path("impact").asText();
-            int frequency = node.path("frequency").intValue();
-            double confidence = node.path("confidence").doubleValue();
-            String observability = node.path("observability").asText();
-            String displayType = node.path("displayType").asText(null);
-            if (displayType == null || displayType.isBlank()) {
-                displayType = inferDisplayType(evidence);
-            }
-            String uiLabel = node.path("uiLabel").asText(criterion.vietnameseLabel());
-            String errorType = node.path("errorType").asText("");
-            String whyItIsGood = node.path("whyItIsGood").asText("");
-            String topikTip = node.path("topikTip").asText("");
-
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("index", index++);
-            row.put("criterionId", criterion.id());
-            row.put("subtype", subtype);
-            row.put("scoringCriterionId", parentCriterionId);
-            row.put("evidenceScope", evidenceScope.name());
-            row.put("category", category);
-            row.put("subcategory", subtype);
-            row.put("vietnameseLabel", criterion.vietnameseLabel());
-            row.put("koreanLabel", criterion.koreanLabel());
-            row.put("evidence", evidence);
-            row.put("explanationVi", explanation);
-            row.put("correction", correction);
-            row.put("severity", impact);
-            row.put("impact", impact);
-            row.put("frequency", frequency);
-            row.put("confidence", confidence);
-            row.put("observability", observability);
-            row.put("displayType", displayType);
-            row.put("uiLabel", uiLabel);
-            row.put("errorType", errorType);
-            row.put("whyItIsGood", whyItIsGood);
-            row.put("topikTip", topikTip);
-            rows.add(row);
-        }
-        return rows;
-    }
-
     private static String inferDisplayType(String evidence) {
         if (evidence == null) return "PHRASE";
         int len = evidence.length();
@@ -637,172 +799,6 @@ public class WritingEvaluationNormalizer {
         if (evidence.contains(".") || evidence.contains("?") || evidence.contains("!") || evidence.contains("。")) return "SENTENCE";
         if (len <= 30) return "PHRASE";
         return "SENTENCE";
-    }
-
-    private List<Map<String, Object>> normalizeSentenceRewrites(JsonNode array, String studentText) {
-        List<Map<String, Object>> rows = new ArrayList<>();
-        if (!array.isArray()) {
-            return rows;
-        }
-        for (JsonNode node : array) {
-            String original = node.path("original").asText("").trim();
-            String upgraded = node.path("upgraded").asText("").trim();
-            String reason = node.path("reason").asText("").trim();
-            if (original.isBlank() || upgraded.isBlank() || reason.isBlank()) {
-                continue;
-            }
-            // Evidence validation: original must be substring of learnerAnswer
-            if (!studentText.isEmpty() && !studentText.contains(original)) {
-                continue;
-            }
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("original", original);
-            row.put("upgraded", upgraded);
-            row.put("reason", reason);
-            rows.add(row);
-        }
-        return rows;
-    }
-
-    private ArrayNode filterFindingsForAnswer(JsonNode array, String studentText) {
-        ArrayNode filtered = objectMapper.createArrayNode();
-        if (!array.isArray()) {
-            return filtered;
-        }
-        for (JsonNode node : array) {
-            WritingRubricCriterion.EvidenceScope scope = parseEvidenceScope(
-                    node.path("evidenceScope").asText(null));
-            String evidence = node.path("evidence").asText("");
-            if (scope == WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER
-                    || (scope == WritingRubricCriterion.EvidenceScope.TEXT_SPAN
-                    && !evidence.isBlank() && studentText.contains(evidence))) {
-                filtered.add(node);
-            }
-        }
-        return filtered;
-    }
-
-    private ArrayNode filterSentenceRewritesForAnswer(JsonNode array, String studentText) {
-        ArrayNode filtered = objectMapper.createArrayNode();
-        if (!array.isArray()) {
-            return filtered;
-        }
-        for (JsonNode node : array) {
-            String original = node.path("original").asText("").trim();
-            if (!original.isBlank() && (studentText.isEmpty() || studentText.contains(original))) {
-                filtered.add(node);
-            }
-        }
-        return filtered;
-    }
-
-    private List<Map<String, Object>> toFindingRows(JsonNode array) {
-        List<Map<String, Object>> rows = new ArrayList<>();
-        if (!array.isArray()) {
-            return rows;
-        }
-        for (JsonNode node : array) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            node.fields().forEachRemaining(entry -> row.put(entry.getKey(), toPlainValue(entry.getValue())));
-            row.putIfAbsent("evidenceScope", WritingRubricCriterion.EvidenceScope.TEXT_SPAN.name());
-            rows.add(row);
-        }
-        return rows;
-    }
-
-    private Object toPlainValue(JsonNode value) {
-        if (value == null || value.isNull()) return null;
-        if (value.isTextual()) return value.asText();
-        if (value.isInt()) return value.asInt();
-        if (value.isLong()) return value.asLong();
-        if (value.isFloat() || value.isDouble() || value.isBigDecimal()) return value.asDouble();
-        if (value.isBoolean()) return value.asBoolean();
-        return objectMapper.convertValue(value, Object.class);
-    }
-
-    private List<Map<String, Object>> normalizeUpgradedAnnotations(JsonNode array) {
-        List<Map<String, Object>> rows = new ArrayList<>();
-        if (!array.isArray()) {
-            return rows;
-        }
-        for (JsonNode node : array) {
-            String evidence = node.path("evidence").asText("").trim();
-            String explanationVi = node.path("explanationVi").asText("").trim();
-            if (evidence.isBlank()) continue;
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("criterionId", node.path("criterionId").asText(""));
-            row.put("category", node.path("category").asText(""));
-            row.put("evidence", evidence);
-            row.put("start", node.path("start").asInt(-1));
-            row.put("end", node.path("end").asInt(-1));
-            row.put("explanationVi", explanationVi);
-            rows.add(row);
-        }
-        return rows;
-    }
-
-    // ---- Annotation building ----
-
-    private List<Map<String, Object>> buildAnnotations(
-            List<Map<String, Object>> strengths,
-            List<Map<String, Object>> needs,
-            String studentText) {
-        List<Map<String, Object>> annotations = new ArrayList<>();
-        if (studentText == null || studentText.isBlank()) {
-            return annotations;
-        }
-        AtomicInteger idCounter = new AtomicInteger(1);
-        addAnnotations(annotations, strengths, "strength", studentText, idCounter);
-        addAnnotations(annotations, needs, "need", studentText, idCounter);
-        return annotations;
-    }
-
-    private void addAnnotations(
-            List<Map<String, Object>> annotations,
-            List<Map<String, Object>> findings,
-            String kind,
-            String text,
-            AtomicInteger idCounter) {
-        Map<String, Integer> searchFrom = new java.util.HashMap<>();
-        int findingIndex = 1;
-        for (Map<String, Object> item : findings) {
-            if (!WritingRubricCriterion.EvidenceScope.TEXT_SPAN.name()
-                    .equals(item.get("evidenceScope"))) {
-                findingIndex++;
-                continue;
-            }
-            String evidence = (String) item.get("evidence");
-            String criterionId = (String) item.get("criterionId");
-            if (evidence == null || evidence.isBlank() || criterionId == null || criterionId.isBlank()) {
-                findingIndex++;
-                continue;
-            }
-
-            String key = criterionId + "|" + kind;
-            int fromIdx = searchFrom.getOrDefault(key, 0);
-            int start = text.indexOf(evidence, fromIdx);
-
-            Map<String, Object> annotation = new LinkedHashMap<>();
-            annotation.put("id", "ann_" + idCounter.getAndIncrement());
-            annotation.put("kind", kind);
-            annotation.put("criterionId", criterionId);
-            annotation.put("category", item.getOrDefault("category", ""));
-            annotation.put("subcategory", item.getOrDefault("subcategory", ""));
-            annotation.put("evidence", evidence);
-            annotation.put("start", start);
-            annotation.put("end", start >= 0 ? start + evidence.length() : -1);
-            annotation.put("explanationVi", item.get("explanationVi"));
-            annotation.put("correction", item.get("correction"));
-            annotation.put("severity", item.getOrDefault("severity", kind.equals("strength") ? "LOW" : "MEDIUM"));
-            annotation.put("displayType", item.getOrDefault("displayType", inferDisplayType(evidence)));
-            annotation.put("index", findingIndex);
-            annotations.add(annotation);
-
-            if (start >= 0) {
-                searchFrom.put(key, start + evidence.length());
-            }
-            findingIndex++;
-        }
     }
 
     private static WritingRubricCriterion.EvidenceScope parseEvidenceScope(String value) {

@@ -56,7 +56,10 @@ public class ExplanationFingerprintBuilder {
                 normalize(input.instruction()),
                 contentJson,
                 normalize(input.teacherExplanation()),
-                normalize(input.optionLabelMode())));
+                normalize(input.optionLabelMode()),
+                input.explanationStrategy().registryVersion(),
+                input.explanationStrategy().strategyCode(),
+                input.explanationStrategy().strategyVersion()));
         String stimulusHash = sha256(framed(stimulusJson));
         String answerSpecHash = sha256(framed(answerSpecJson));
         String mediaBundleHash = sha256(framed(mediaJson));
@@ -66,10 +69,14 @@ public class ExplanationFingerprintBuilder {
                 stimulusHash,
                 answerSpecHash,
                 mediaBundleHash,
+                client.bindingIdentity(),
                 client.model(),
                 client.promptVersion(),
                 client.schemaVersion(),
-                input.explanationLanguage()));
+                input.explanationLanguage(),
+                input.explanationStrategy().registryVersion(),
+                input.explanationStrategy().strategyCode(),
+                input.explanationStrategy().strategyVersion()));
         return new ExplanationFingerprint(
                 fingerprint,
                 questionHash,

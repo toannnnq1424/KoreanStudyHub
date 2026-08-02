@@ -1,6 +1,7 @@
 package com.ksh.features.practice.manage.controller;
 
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRetryService;
+import com.ksh.features.practice.ai.readinglistening.ObjectiveExplanationEditorialService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import org.junit.jupiter.api.BeforeEach;
@@ -100,5 +101,45 @@ class PracticeExplanationControllerTest {
         assertThat(response.getBody().get("message").toString())
                 .contains("thời gian chờ")
                 .doesNotContain("provider", "PROVIDER_", "exception", "raw");
+    }
+
+    @Test
+    void editorialEndpointsDelegateUsingAuthenticatedLecturerIdentity() {
+        ObjectiveExplanationEditorialService editorial =
+                mock(ObjectiveExplanationEditorialService.class);
+        PracticeExplanationController typedController =
+                new PracticeExplanationController(retryService, editorial);
+        ObjectiveExplanationEditorialService.EditorialView view =
+                new ObjectiveExplanationEditorialService.EditorialView(
+                        12L,
+                        1,
+                        "GENERATED_DRAFT",
+                        "rl-explanation-strategy-registry-v1",
+                        "EVIDENCE_ONLY",
+                        "v1",
+                        "a".repeat(64),
+                        "{\"schemaVersion\":\"v4\"}",
+                        null);
+        when(editorial.generateDraft(5L, "question-1", 7L))
+                .thenReturn(view);
+        when(editorial.saveEditedDraft(
+                5L, "question-1", "{\"schemaVersion\":\"v4\"}", 7L))
+                .thenReturn(view);
+        when(editorial.approve(5L, "question-1", 12L, 7L))
+                .thenReturn(view);
+
+        assertThat(typedController.generateDraft(
+                5L, "question-1", lecturer).getStatusCode())
+                .isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(typedController.saveEditedDraft(
+                5L,
+                "question-1",
+                new PracticeExplanationController.EditorialEditRequest(
+                        "{\"schemaVersion\":\"v4\"}"),
+                lecturer).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(typedController.approve(
+                5L, "question-1", 12L, lecturer).getStatusCode())
+                .isEqualTo(HttpStatus.OK);
     }
 }

@@ -3,6 +3,7 @@ package com.ksh.features.messaging.controller;
 import com.ksh.features.messaging.dto.MessagingDtos.ClassMessagesView;
 import com.ksh.features.messaging.service.MessagingService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -29,7 +30,7 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_CLASS_MESSAGES;
  */
 @Controller
 @RequestMapping("/my/classes/{classId}/messages")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class StudentClassMessagesController {
 
     private final MessagingService messagingService;

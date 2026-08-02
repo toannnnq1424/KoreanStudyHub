@@ -67,6 +67,7 @@
         var bankInsertUrl = form.getAttribute('data-bank-insert-url') || '';
         var editUrl = form.getAttribute('data-edit-url') || '';
         var editId = null;
+        var saveForAi = false;
 
         var builder = window.LfBuilder.create({
             qTpl: document.getElementById('lfQuestionTpl'),
@@ -311,6 +312,13 @@
         }
 
         var submitting = false;
+        var saveForAiBtn = document.getElementById('lfSaveForAi');
+        if (saveForAiBtn) {
+            saveForAiBtn.addEventListener('click', function () {
+                saveForAi = true;
+                form.requestSubmit();
+            });
+        }
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             if (submitting) return;
@@ -321,12 +329,13 @@
                 return;
             }
             submitting = true;
-            var btn = document.getElementById('lfSave');
+            var btn = saveForAi ? saveForAiBtn : document.getElementById('lfSave');
             if (btn) btn.disabled = true;
 
             function cancelSubmission() {
                 submitting = false;
                 if (btn) btn.disabled = false;
+                saveForAi = false;
                 if (window.KshDirtyFormGuard) {
                     window.KshDirtyFormGuard.cancelMutation();
                 }
@@ -339,6 +348,15 @@
                     return;
                 }
                 var payload = collect();
+                if (saveForAi) {
+                    payload.status = 'DRAFT';
+                    payload.questions = payload.questions.filter(function (q) {
+                        if (!window.LfQuill.isEmptyHtml(q.content)) return true;
+                        return (q.options || []).some(function (o) {
+                            return !window.LfQuill.isEmptyHtml(o.content);
+                        });
+                    });
+                }
                 if (mode.isMediaMode()) {
                     if (!payload.mediaType) {
                         cancelSubmission();
@@ -381,11 +399,21 @@
                     return;
                 }
                 window.FcCommon.postJson(form.getAttribute('data-save-url'), payload)
-                    .then(function () {
+                    .then(function (result) {
                         // The save is complete, so the following redirect must
                         // not repeat the unsaved-change prompt.
                         if (window.KshDirtyFormGuard) {
                             window.KshDirtyFormGuard.completeMutation();
+                        }
+                        if (saveForAi) {
+                            var savedId = result && result.data && result.data.id;
+                            if (!savedId) {
+                                throw new Error('Không lấy được mã bài test vừa tạo.');
+                            }
+                            window.location.href = '/lecturer/tests/'
+                                + encodeURIComponent(savedId)
+                                + '/edit?tab=info&openAi=1';
+                            return;
                         }
                         window.location.href = form.getAttribute('data-list-url');
                     })

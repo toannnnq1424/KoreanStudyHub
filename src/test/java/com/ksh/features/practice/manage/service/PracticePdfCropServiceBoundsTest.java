@@ -1,33 +1,31 @@
 package com.ksh.features.practice.manage.service;
 
+import com.ksh.entities.PracticePdfImportSession;
+import com.ksh.features.practice.pdf.PracticePdfStorageService;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class PracticePdfCropServiceBoundsTest {
 
-    @TempDir
-    Path tempDir;
-
     @Test
     void invalidNormalizedBoxIsRejectedBeforePdfParsing() throws Exception {
-        Path placeholder = Files.createFile(tempDir.resolve("placeholder.pdf"));
         LecturerAssetService assets = mock(LecturerAssetService.class);
+        PracticePdfStorageService storage = mock(PracticePdfStorageService.class);
         PracticePdfCropService service =
-                new PracticePdfCropService(assets, limits());
+                new PracticePdfCropService(assets, limits(), storage);
 
         assertThatThrownBy(() -> service.cropRegion(
-                placeholder.toString(),
+                session("placeholder.pdf"),
                 1,
                 0.9d,
                 0.1d,
@@ -42,21 +40,27 @@ class PracticePdfCropServiceBoundsTest {
                 .hasMessage("Tọa độ crop PDF không hợp lệ.");
 
         verifyNoInteractions(assets);
+        verifyNoInteractions(storage);
     }
 
     @Test
     void oversizedPageIsRejectedBeforeRasterAllocation() throws Exception {
-        Path pdf = tempDir.resolve("oversized-page.pdf");
+        byte[] pdf;
         try (PDDocument document = new PDDocument()) {
             document.addPage(new PDPage(new PDRectangle(2_000, 2_000)));
-            document.save(pdf.toFile());
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+            document.save(output);
+            pdf = output.toByteArray();
         }
         LecturerAssetService assets = mock(LecturerAssetService.class);
+        PracticePdfStorageService storage = mock(PracticePdfStorageService.class);
+        PracticePdfImportSession session = session("oversized-page.pdf");
+        when(storage.readBytes(null, "oversized-page.pdf")).thenReturn(pdf);
         PracticePdfCropService service =
-                new PracticePdfCropService(assets, limits());
+                new PracticePdfCropService(assets, limits(), storage);
 
         assertThatThrownBy(() -> service.cropRegion(
-                pdf.toString(),
+                session,
                 1,
                 0.1d,
                 0.1d,
@@ -71,6 +75,13 @@ class PracticePdfCropServiceBoundsTest {
                 .hasMessage("Trang PDF vượt ngân sách render an toàn.");
 
         verifyNoInteractions(assets);
+    }
+
+    private static PracticePdfImportSession session(String path) {
+        return new PracticePdfImportSession(
+                7L, "exam.pdf", path, 1, "UPLOADED",
+                LocalDateTime.now(), LocalDateTime.now(),
+                LocalDateTime.now().plusHours(1));
     }
 
     private static PracticePdfAiLimits limits() {

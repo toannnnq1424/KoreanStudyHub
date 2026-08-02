@@ -1,6 +1,8 @@
 package com.ksh.features.practice.manage.controller;
 
-import com.ksh.entities.PracticeDraft;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateException;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CandidateView;
+import com.ksh.features.practice.manage.service.PracticeAssessmentExcelException;
 import com.ksh.features.practice.manage.service.PracticeAssessmentExcelService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
@@ -41,14 +43,16 @@ public class PracticeAssessmentExcelController {
     @GetMapping
     public String page(@RequestParam("draftId") Long draftId,
                        @RequestParam("testNo") Integer testNo,
+                       @RequestParam("skill") String skill,
                        @RequestParam("lessonCode") String lessonCode,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
         PracticeAssessmentExcelService.ExcelImportContext context =
                 excelService.requireExcelImportContext(
-                        draftId, user.getId(), testNo, lessonCode);
+                        draftId, user.getId(), testNo, skill, lessonCode);
         model.addAttribute("draftId", context.draft().getId());
         model.addAttribute("testNo", context.testNo());
+        model.addAttribute("skill", context.skill());
         model.addAttribute("lessonCode", context.lessonCode());
         return "practice/manage/excel-import";
     }
@@ -64,17 +68,34 @@ public class PracticeAssessmentExcelController {
                 .body(bytes);
     }
 
+    @GetMapping("/template/quick-v1")
+    public ResponseEntity<byte[]> quickTemplate() {
+        byte[] bytes = excelService.buildQuickTemplate();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=ksh-practice-quick-v1.xlsx")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseBody
     public ResponseEntity<?> preview(@RequestParam("file") MultipartFile file,
                                      @RequestParam("draftId") Long draftId,
                                      @RequestParam("testNo") Integer testNo,
+                                     @RequestParam("skill") String skill,
                                      @RequestParam("lessonCode") String lessonCode,
                                      @AuthenticationPrincipal KshUserDetails user) {
         try {
-            excelService.requireExcelImportContext(
-                    draftId, user.getId(), testNo, lessonCode);
-            return ResponseEntity.ok(excelService.preview(file));
+            PracticeAssessmentExcelService.ExcelImportContext context =
+                    excelService.requireExcelImportContext(
+                            draftId, user.getId(), testNo, skill, lessonCode);
+            return ResponseEntity.ok(excelService.preview(file, context));
+        } catch (PracticeAssessmentExcelException exception) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", exception.code(),
+                    "error", exception.getMessage()));
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
         } catch (EntityNotFoundException exception) {
@@ -92,22 +113,37 @@ public class PracticeAssessmentExcelController {
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseBody
-    public ResponseEntity<?> importDraft(@RequestParam("file") MultipartFile file,
-                                         @RequestParam("draftId") Long draftId,
-                                         @RequestParam("testNo") Integer testNo,
-                                         @RequestParam("lessonCode") String lessonCode,
-                                         @RequestParam(value = "mediaOverrides", required = false) String mediaOverrides,
-                                         @AuthenticationPrincipal KshUserDetails user) {
+    public ResponseEntity<?> createCandidate(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("draftId") Long draftId,
+            @RequestParam("testNo") Integer testNo,
+            @RequestParam("skill") String skill,
+            @RequestParam("lessonCode") String lessonCode,
+            @RequestParam(value = "mediaOverrides", required = false)
+            String mediaOverrides,
+            @AuthenticationPrincipal KshUserDetails user) {
         try {
             PracticeAssessmentExcelService.ExcelImportContext context =
                     excelService.requireExcelImportContext(
-                            draftId, user.getId(), testNo, lessonCode);
-            PracticeDraft draft = excelService.importDraft(file,
-                    context.draft().getId(), user.getId(), mediaOverrides);
+                            draftId, user.getId(), testNo, skill, lessonCode);
+            CandidateView candidate = excelService.createCandidate(
+                    file, context, user.getId(), mediaOverrides);
             return ResponseEntity.ok(Map.of(
-                    "draftId", draft.getId(),
-                    "redirectUrl", "/practice/manage/drafts/" + draft.getId()
+                    "candidateId", candidate.candidateId(),
+                    "state", candidate.state().name(),
+                    "candidateVersion", candidate.version(),
+                    "contentDigest", candidate.contentDigest(),
+                    "reviewUrl", "/practice/manage/authoring-candidates/"
+                            + candidate.candidateId()
             ));
+        } catch (PracticeAssessmentExcelException exception) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", exception.code(),
+                    "error", exception.getMessage()));
+        } catch (PracticeAuthoringCandidateException exception) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", exception.code(),
+                    "error", exception.getMessage()));
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
         } catch (EntityNotFoundException exception) {

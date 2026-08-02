@@ -72,10 +72,10 @@ class PracticePdfAiGenerationServiceTest {
 
         jdbcTemplate.update("""
                 UPDATE practice_pdf_import_sessions
-                SET generation_lease_expires_at = ?
+                SET generation_lease_expires_at = DATE_SUB(
+                    generation_lease_expires_at, INTERVAL 1 DAY)
                 WHERE id = ?
-                """, LocalDateTime.ofInstant(NOW.minusSeconds(1), ZoneOffset.UTC),
-                session.getId());
+                """, session.getId());
 
         PracticePdfAiGenerationService.ClaimResult reclaimed =
                 generationService.claim(session.getId(), 7L);

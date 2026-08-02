@@ -11,6 +11,7 @@ import com.ksh.features.practice.assessment.AssessmentStimulus;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.repository.PracticeQuestionGroupVersionRepository;
 import com.ksh.features.practice.repository.PracticeQuestionVersionRepository;
 import com.ksh.features.practice.repository.PracticeSectionVersionRepository;
@@ -289,6 +290,12 @@ class QuestionExplanationPreparationServiceTest {
                 "Teacher explanation",
                 "NUMERIC",
                 "vi",
+                ObjectiveExplanationStrategyRegistry.requireSelection(
+                        CanonicalQuestionType.SINGLE_CHOICE,
+                        ObjectiveExplanationStrategyRegistry.REGISTRY_VERSION,
+                        ObjectiveExplanationStrategyRegistry.Code
+                                .EVIDENCE_ONLY.name(),
+                        ObjectiveExplanationStrategyRegistry.STRATEGY_VERSION),
                 List.of(),
                 readinessIssue);
         ExplanationFingerprint hashes = new ExplanationFingerprint(

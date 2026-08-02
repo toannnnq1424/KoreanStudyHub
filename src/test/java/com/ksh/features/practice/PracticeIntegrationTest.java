@@ -10,7 +10,9 @@ import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.practice.ai.readinglistening.ReadingListeningExplanationClient;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRetryService;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
+import com.ksh.features.practice.ai.writing.WritingContractTestFixtures;
 import com.ksh.features.practice.ai.writing.WritingEvaluationClient;
+import com.ksh.features.practice.ai.writing.WritingEvaluationNormalizer;
 import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.repository.PracticeQuestionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
@@ -216,6 +218,11 @@ class PracticeIntegrationTest {
     private PracticePublisherService publisherService;
 
     @Autowired
+    private com.ksh.features.practice.ai.readinglistening
+            .ObjectiveExplanationEditorialService
+            objectiveExplanationEditorialService;
+
+    @Autowired
     private PracticeSpeakingMediaRepository speakingMediaRepository;
 
     @Autowired
@@ -276,6 +283,9 @@ class PracticeIntegrationTest {
         when(readingListeningExplanationClient.promptVersion()).thenReturn("prompt-v1");
         when(readingListeningExplanationClient.schemaVersion()).thenReturn("schema-v1");
         when(readingListeningExplanationClient.explanationLanguage()).thenReturn("vi");
+        when(readingListeningExplanationClient.cleanAndValidateJson(
+                anyString(), any(), anyList()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         // Seed a published practice set
         practiceSet = new PracticeSet(
                 "TOPIK II - Đọc hiểu 35",
@@ -1512,7 +1522,7 @@ class PracticeIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/result"))
                 .andExpect(model().attributeExists("result"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Kết quả theo nhiệm vụ viết")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Phân tích bài viết")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Chưa có điểm số khả dụng")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "Đánh giá đang chạy ở nền")))
@@ -1594,7 +1604,8 @@ class PracticeIntegrationTest {
             String feedback = currentWritingFeedback(
                     WritingTaskType.Q51,
                     "7",
-                    "Đánh giá bài tự luận");
+                    "Đánh giá bài tự luận",
+                    "Essay answer");
             when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
                     .thenAnswer(invocation -> {
                         evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
@@ -1634,7 +1645,8 @@ class PracticeIntegrationTest {
                         return currentWritingFeedback(
                                 WritingTaskType.Q51,
                                 "8",
-                                "Đánh giá lại bài tự luận");
+                                "Đánh giá lại bài tự luận",
+                                invocation.getArgument(2, String.class));
                     });
 
             practiceService.reEvaluate(fixture.attemptId(), student.getId());
@@ -1658,7 +1670,8 @@ class PracticeIntegrationTest {
             String staleScore = currentWritingFeedback(
                     WritingTaskType.Q51,
                     "7",
-                    "Stale score")
+                    "Stale score",
+                    "Essay answer")
                     .replace(
                             "\"evaluation_reason\":\"NONE\"",
                             "\"evaluation_reason\":\"EMPTY_OR_TOO_SHORT\"");
@@ -1712,7 +1725,8 @@ class PracticeIntegrationTest {
             String retryableScore = currentWritingFeedback(
                     WritingTaskType.Q51,
                     "8",
-                    "Retryable score")
+                    "Retryable score",
+                    "Existing essay")
                     .replace(
                             "\"evaluation_retryable\":false",
                             "\"evaluation_retryable\":true");
@@ -2617,12 +2631,18 @@ class PracticeIntegrationTest {
                   "instruction": "Chỉ dẫn",
                   "questions": [
                     {
+                      "clientId": "question-1",
                       "questionNo": 1,
                       "questionType": "SINGLE_CHOICE",
                       "prompt": "Câu 1",
                       "options": ["A", "B"],
                       "answer": { "value": "1" },
                       "explanationVi": "Vì đúng",
+                      "explanationStrategy": {
+                        "registryVersion": "rl-explanation-strategy-registry-v1",
+                        "strategyCode": "EVIDENCE_ONLY",
+                        "strategyVersion": "v1"
+                      },
                       "points": 5.0
                     }
                   ]
@@ -2637,6 +2657,7 @@ class PracticeIntegrationTest {
                 "Draft test", "Desc", "GLOBAL", null, "DRAFT", lecturer.getId(), draftJson
         );
         draft = draftRepository.saveAndFlush(draft);
+        approveObjectiveExplanation(draft, "question-1");
 
         mockMvc.perform(post("/practice/manage/drafts/" + draft.getId() + "/publish")
                         .with(csrf()))
@@ -2691,12 +2712,18 @@ class PracticeIntegrationTest {
                   "instruction": "Chỉ dẫn",
                   "questions": [
                     {
+                      "clientId": "question-1",
                       "questionNo": 1,
                       "questionType": "SINGLE_CHOICE",
                       "prompt": "Câu 1 ban đầu",
                       "options": ["A", "B"],
                       "answer": { "value": "1" },
                       "explanationVi": "Vì đúng",
+                      "explanationStrategy": {
+                        "registryVersion": "rl-explanation-strategy-registry-v1",
+                        "strategyCode": "EVIDENCE_ONLY",
+                        "strategyVersion": "v1"
+                      },
                       "points": 5.0
                     }
                   ]
@@ -2711,6 +2738,7 @@ class PracticeIntegrationTest {
                 "Học liệu gốc", "Desc", "GLOBAL", null, "DRAFT", lecturer.getId(), draftJson
         );
         draft = draftRepository.saveAndFlush(draft);
+        approveObjectiveExplanation(draft, "question-1");
 
         // 1. Publish first time
         mockMvc.perform(post("/practice/manage/drafts/" + draft.getId() + "/publish").with(csrf()))
@@ -2744,6 +2772,7 @@ class PracticeIntegrationTest {
                         .contentType("application/json")
                         .content("{\"draftJson\":" + objectMapper.writeValueAsString(updatedJson) + ",\"title\":\"Học liệu đã sửa\",\"version\":" + editDraft.getVersion() + "}"))
                 .andExpect(status().isOk());
+        approveObjectiveExplanation(editDraft, "question-1");
 
         // 3. Publish modified draft to update original set
         mockMvc.perform(post("/practice/manage/drafts/" + editDraft.getId() + "/publish").with(csrf()))
@@ -3819,7 +3848,8 @@ class PracticeIntegrationTest {
                                 WritingTaskType.Q51,
                                 "8",
                                 "Bài tốt </script> <script>alert(1)</script> "
-                                        + "\"nháy\" \\ gạch"));
+                                        + "\"nháy\" \\ gạch",
+                                maliciousAnswer));
         qFeedback.put("upgraded_answer", "Nâng cấp </script> <script>alert(2)</script>");
 
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap =
@@ -3853,7 +3883,8 @@ class PracticeIntegrationTest {
                     return currentWritingFeedback(
                             WritingTaskType.Q51,
                             "8",
-                            "Đánh giá đồng thời");
+                            "Đánh giá đồng thời",
+                            invocation.getArgument(2, String.class));
                 });
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -3942,7 +3973,8 @@ class PracticeIntegrationTest {
                     return currentWritingFeedback(
                             WritingTaskType.Q51,
                             "8",
-                            "Đánh giá trước xung đột");
+                            "Đánh giá trước xung đột",
+                            invocation.getArgument(2, String.class));
                 });
 
         assertThrows(PracticeAttemptConflictException.class,
@@ -3974,7 +4006,8 @@ class PracticeIntegrationTest {
                         return currentWritingFeedback(
                                 WritingTaskType.Q51,
                                 "8",
-                                "Đánh giá trước xung đột");
+                                "Đánh giá trước xung đột",
+                                invocation.getArgument(2, String.class));
                     });
 
             assertThrows(PracticeAttemptConflictException.class,
@@ -4016,7 +4049,8 @@ class PracticeIntegrationTest {
                     return currentWritingFeedback(
                             WritingTaskType.Q51,
                             "9",
-                            "Đánh giá lại");
+                            "Đánh giá lại",
+                            invocation.getArgument(2, String.class));
                 });
 
         PracticeAttemptConflictException ex = assertThrows(PracticeAttemptConflictException.class,
@@ -4042,7 +4076,8 @@ class PracticeIntegrationTest {
         String winnerFeedback = currentWritingFeedback(
                 WritingTaskType.Q51,
                 "6",
-                "Kết quả thắng xung đột");
+                "Kết quả thắng xung đột",
+                "Existing essay");
         try {
             when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(true), any()))
                     .thenAnswer(invocation -> {
@@ -4058,7 +4093,8 @@ class PracticeIntegrationTest {
                         return currentWritingFeedback(
                                 WritingTaskType.Q51,
                                 "9",
-                                "Đánh giá bị xung đột");
+                                "Đánh giá bị xung đột",
+                                invocation.getArgument(2, String.class));
                     });
 
             assertThrows(PracticeAttemptConflictException.class,
@@ -4432,7 +4468,8 @@ class PracticeIntegrationTest {
                         return currentWritingFeedback(
                                 WritingTaskType.Q51,
                                 "9",
-                                "Đánh giá lại câu hỏi");
+                                "Đánh giá lại câu hỏi",
+                                invocation.getArgument(2, String.class));
                     });
 
             assertThrows(PracticeAttemptConflictException.class,
@@ -4467,7 +4504,8 @@ class PracticeIntegrationTest {
                         return currentWritingFeedback(
                                 WritingTaskType.Q51,
                                 "9",
-                                "Đánh giá trước khi bài làm bị xóa");
+                                "Đánh giá trước khi bài làm bị xóa",
+                                invocation.getArgument(2, String.class));
                     });
 
             assertThrows(jakarta.persistence.EntityNotFoundException.class,
@@ -4492,7 +4530,8 @@ class PracticeIntegrationTest {
                     return currentWritingFeedback(
                             WritingTaskType.Q51,
                             "9",
-                            "Đánh giá lại đồng thời");
+                            "Đánh giá lại đồng thời",
+                            invocation.getArgument(2, String.class));
                 });
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -4547,7 +4586,8 @@ class PracticeIntegrationTest {
                     return currentWritingFeedback(
                             WritingTaskType.Q51,
                             "8",
-                            "Đánh giá đồng thời");
+                            "Đánh giá đồng thời",
+                            invocation.getArgument(2, String.class));
                 });
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -4645,8 +4685,10 @@ class PracticeIntegrationTest {
                   "sections": [{
                     "title":"Replacement section","skill":"READING","durationMinutes":40,
                     "groups":[{"label":"1","questionFrom":1,"questionTo":1,"instruction":"Instruction",
-                      "questions":[{"questionNo":1,"questionType":"SINGLE_CHOICE","prompt":"Replacement prompt",
-                        "options":["A","B"],"answer":{"value":"1"},"explanationVi":"Because","points":5.0}]
+                      "questions":[{"clientId":"question-1","questionNo":1,"questionType":"SINGLE_CHOICE","prompt":"Replacement prompt",
+                        "options":["A","B"],"answer":{"value":"1"},"explanationVi":"Because",
+                        "explanationStrategy":{"registryVersion":"rl-explanation-strategy-registry-v1",
+                          "strategyCode":"EVIDENCE_ONLY","strategyVersion":"v1"},"points":5.0}]
                     }]
                   }]
                 }
@@ -4654,7 +4696,24 @@ class PracticeIntegrationTest {
         com.ksh.entities.PracticeDraft draft = new com.ksh.entities.PracticeDraft(
                 title, "Desc", "GLOBAL", null, "DRAFT", lecturer.getId(), draftJson);
         draft.setPublishedSetId(setId);
-        return draftRepository.saveAndFlush(draft);
+        draft = draftRepository.saveAndFlush(draft);
+        approveObjectiveExplanation(draft, "question-1");
+        return draft;
+    }
+
+    private void approveObjectiveExplanation(
+            com.ksh.entities.PracticeDraft draft,
+            String questionClientId) {
+        var revision = objectiveExplanationEditorialService.saveEditedDraft(
+                draft.getId(),
+                questionClientId,
+                "{\"fixture\":\"strict-validation-owned-by-client-tests\"}",
+                lecturer.getId());
+        objectiveExplanationEditorialService.approve(
+                draft.getId(),
+                questionClientId,
+                revision.revisionId(),
+                lecturer.getId());
     }
 
     private com.ksh.entities.PracticeEditLog createRestoreLog(Long setId, String title) {
@@ -4860,7 +4919,8 @@ class PracticeIntegrationTest {
                         return currentWritingFeedback(
                                 WritingTaskType.Q51,
                                 "8",
-                                "Đánh giá bất đồng bộ");
+                                "Đánh giá bất đồng bộ",
+                                invocation.getArgument(2, String.class));
                     });
 
             practiceService.submitAttempt(
@@ -5399,7 +5459,8 @@ class PracticeIntegrationTest {
                 + currentWritingFeedback(
                         WritingTaskType.Q51,
                         "8",
-                        "Kết quả đã lưu")
+                        "Kết quả đã lưu",
+                        "Existing answer")
                 + "}";
         if (graded) {
             attempt.markGraded(BigDecimal.valueOf(80.00), BigDecimal.TEN, answersJson, oldFeedbackJson);
@@ -5568,7 +5629,8 @@ class PracticeIntegrationTest {
                 + currentWritingFeedback(
                         WritingTaskType.Q51,
                         "8",
-                        "Kết quả đã lưu")
+                        "Kết quả đã lưu",
+                        "Existing essay")
                 + "}";
         attempt.markGraded(BigDecimal.valueOf(90.00), BigDecimal.valueOf(20), answersJson, feedbackJson);
         attempt = attemptRepository.saveAndFlush(attempt);
@@ -5782,66 +5844,30 @@ class PracticeIntegrationTest {
     private String currentWritingFeedback(
             WritingTaskType taskType,
             String rawScore,
-            String summary
+            String summary,
+            String learnerAnswer
     ) {
-        BigDecimal maximum = switch (taskType) {
-            case Q51, Q52 -> BigDecimal.TEN;
-            case Q53 -> BigDecimal.valueOf(30);
-            case Q54 -> BigDecimal.valueOf(50);
-        };
-        com.fasterxml.jackson.databind.node.ObjectNode node =
-                objectMapper.createObjectNode();
-        BigDecimal earned = new BigDecimal(rawScore);
-        BigDecimal percentage =
-                WritingScoringPolicy.percentage(earned, maximum);
-        node.put("score", percentage);
-        node.put("overall_score", percentage);
-        node.put("percentage", percentage);
-        node.put("raw_score", earned);
-        node.put("raw_score_max", maximum);
-        node.put("task_type", taskType.name());
-        node.put("engine", "KSH_WRITING_EVALUATOR_V2");
-        node.put(
-                "scoring_contract",
-                WritingScoringPolicy.SCORING_CONTRACT);
-        node.put(
-                "policy_bundle_id",
-                WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
-        node.put("evaluation_status", "EVALUATED");
-        node.put("evaluation_source", "PROVIDER");
-        node.put("evaluation_reason", "NONE");
-        node.put("evaluation_retryable", false);
-        node.put("score_available", true);
-        node.put("summary", summary);
-        node.put("summary_vi", summary);
-        com.fasterxml.jackson.databind.node.ArrayNode rubricScores =
-                node.putArray("rubric_scores");
-        BigDecimal remaining = earned;
-        for (var criterion :
-                WritingScoringPolicy.rubricFor(
-                        taskType.name()).criteria()) {
-            BigDecimal criterionMaximum =
-                    BigDecimal.valueOf(criterion.maxScore());
-            BigDecimal criterionScore =
-                    remaining.max(BigDecimal.ZERO)
-                            .min(criterionMaximum);
-            remaining = remaining.subtract(criterionScore);
-            com.fasterxml.jackson.databind.node.ObjectNode row =
-                    rubricScores.addObject();
-            row.put("criterionId", criterion.criterionId());
-            row.put("name", criterion.displayName());
-            row.put("score", criterionScore);
-            row.put("maxScore", criterionMaximum);
-            row.put("feedback", "Nhận xét kiểm thử.");
+        int earned = new BigDecimal(rawScore).intValueExact();
+        com.fasterxml.jackson.databind.node.ObjectNode providerEnvelope =
+                WritingContractTestFixtures.zeroEnvelope(
+                        objectMapper, taskType.name(), learnerAnswer);
+        WritingContractTestFixtures.applyRawScore(
+                providerEnvelope,
+                taskType.name(),
+                learnerAnswer,
+                earned);
+        String normalized = new WritingEvaluationNormalizer(
+                objectMapper).normalize(
+                providerEnvelope.toString(),
+                taskType.name(),
+                learnerAnswer,
+                null);
+        if (normalized.contains("\"score_available\":false")) {
+            throw new IllegalStateException(
+                    "Production-shaped Writing fixture was rejected: "
+                            + summary);
         }
-        node.putArray("strengths");
-        node.putArray("needs_improvement");
-        node.putArray("annotations");
-        node.put("upgraded_answer", "");
-        node.put("upgraded_answer_annotated", "");
-        node.put("sample_answer", "");
-        node.putArray("sentence_rewrites");
-        return node.toString();
+        return normalized;
     }
 
     private String currentWritingUnavailable(

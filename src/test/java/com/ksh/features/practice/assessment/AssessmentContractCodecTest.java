@@ -241,6 +241,54 @@ class AssessmentContractCodecTest {
     }
 
     @Test
+    void v3LanguageRegionRoundTripsOnlyAllowlistedLanguageTags() {
+        QuestionContent korean = contentFor(
+                CanonicalQuestionType.SINGLE_CHOICE).withLanguageTag("ko");
+        QuestionContent vietnamese = contentFor(
+                CanonicalQuestionType.ESSAY).withLanguageTag("vi");
+
+        for (QuestionContent content : List.of(korean, vietnamese)) {
+            CanonicalQuestionType type = content.options().isEmpty()
+                    ? CanonicalQuestionType.ESSAY
+                    : CanonicalQuestionType.SINGLE_CHOICE;
+            String json = codec.writeQuestionContent(content, type);
+
+            assertThat(json)
+                    .contains("\"schemaVersion\":\"question-content-v3\"")
+                    .contains("\"languageTag\":\"" + content.languageTag() + "\"");
+            assertThat(codec.readQuestionContent(json, type)).isEqualTo(content);
+        }
+
+        assertThatThrownBy(() -> codec.readQuestionContent(
+                """
+                {
+                  "schemaVersion":"question-content-v3",
+                  "options":[{"id":"opt_1","text":"정답"}],
+                  "languageTag":"en"
+                }
+                """,
+                CanonicalQuestionType.SINGLE_CHOICE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("languageTag must be ko or vi");
+    }
+
+    @Test
+    void legacySchemasCannotSmuggleLanguageRegionMetadata() {
+        assertThatThrownBy(() -> codec.readQuestionContent(
+                """
+                {
+                  "schemaVersion":"question-content-v1",
+                  "options":[{"id":"opt_1","text":"정답"}],
+                  "languageTag":"ko"
+                }
+                """,
+                CanonicalQuestionType.SINGLE_CHOICE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "Language region metadata requires question-content-v3");
+    }
+
+    @Test
     void playerPayloadSerializationCannotLeakAnswerSpec() throws Exception {
         PlayerQuestionPayload payload = new PlayerQuestionPayload(
                 PlayerQuestionPayload.SCHEMA_VERSION,
@@ -281,7 +329,7 @@ class AssessmentContractCodecTest {
     }
 
     @Test
-    void legacyMcqAndGapFillAliasesAdaptButRemovedTypesFailClosed() {
+    void legacyMcqAndGapFillAliasesAdaptButTypedOnlyTypesFailClosed() {
         QuestionContent content = codec.adaptLegacyContent("[\"하나\",\"둘\",\"셋\"]", "MCQ");
         AnswerSpec answerSpec = codec.adaptLegacyAnswerSpec("MCQ", "B", content);
         LearnerAnswer learnerAnswer = codec.adaptLegacyLearnerAnswer("SINGLE_CHOICE", "2", content);
@@ -292,10 +340,10 @@ class AssessmentContractCodecTest {
         assertThat(learnerAnswer.selectedOptionIds()).containsExactly("opt_2");
         assertThatThrownBy(() -> codec.adaptLegacyContent("[]", "MATCHING_INFORMATION"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported canonical practice question type");
+                .hasMessageContaining("requires a typed assessment contract");
         assertThatThrownBy(() -> codec.adaptLegacyContent("[]", "MCQ_MULTIPLE"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported canonical practice question type");
+                .hasMessageContaining("requires a typed assessment contract");
     }
 
     private QuestionContent contentFor(CanonicalQuestionType type) {
@@ -307,6 +355,21 @@ class AssessmentContractCodecTest {
                             new QuestionContent.Option("opt_2", "둘"),
                             new QuestionContent.Option("opt_3", "셋")),
                     List.of());
+            case MULTIPLE_ANSWER -> new QuestionContent(
+                    QuestionContent.SCHEMA_VERSION,
+                    List.of(
+                            new QuestionContent.Option("opt_a", "A"),
+                            new QuestionContent.Option("opt_b", "B"),
+                            new QuestionContent.Option("opt_c", "C")),
+                    List.of());
+            case MATCHING -> new QuestionContent(
+                    QuestionContent.SCHEMA_VERSION,
+                    List.of(
+                            new QuestionContent.Option("label_a", "A. 김민수"),
+                            new QuestionContent.Option("label_b", "B. 박하나")),
+                    List.of(
+                            new QuestionContent.Blank("target_1", "첫 번째 설명"),
+                            new QuestionContent.Blank("target_2", "두 번째 설명")));
             case FILL_BLANK -> new QuestionContent(
                     QuestionContent.SCHEMA_VERSION,
                     List.of(),
@@ -328,6 +391,15 @@ class AssessmentContractCodecTest {
             case SINGLE_CHOICE -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of("opt_2"), null,
                     List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
+            case MULTIPLE_ANSWER -> new AnswerSpec(
+                    AnswerSpec.SCHEMA_VERSION, type, List.of("opt_a", "opt_c"), null,
+                    List.of(), ScoringPolicyCode.ALL_OR_NOTHING);
+            case MATCHING -> new AnswerSpec(
+                    AnswerSpec.SCHEMA_VERSION, type, List.of(), null,
+                    List.of(
+                            new AnswerSpec.BlankAnswer("target_1", List.of("label_b")),
+                            new AnswerSpec.BlankAnswer("target_2", List.of("label_a"))),
+                    ScoringPolicyCode.NORMALIZED_EXACT);
             case TRUE_FALSE_NOT_GIVEN -> new AnswerSpec(
                     AnswerSpec.SCHEMA_VERSION, type, List.of(), "NOT_GIVEN",
                     List.of(), ScoringPolicyCode.ALL_OR_NOTHING);

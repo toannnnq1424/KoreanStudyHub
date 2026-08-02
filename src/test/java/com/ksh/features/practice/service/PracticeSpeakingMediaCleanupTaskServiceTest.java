@@ -454,7 +454,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
     }
 
     @Test
-    void processorRetryBackoffIsDeterministicAndIndefinite() {
+    void processorRetryBackoffIsDeterministicAndBounded() {
         Long taskId = taskService.enqueueCompensationOrphan(PracticeSpeakingStorageProvider.LOCAL, SECRET_KEY);
         TrackingStorage storage = new TrackingStorage();
         storage.failDeletes = true;
@@ -467,6 +467,15 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertBackoff(processor, taskId, 4L, NOW.plusHours(6));
         assertBackoff(processor, taskId, 5L, NOW.plusHours(24));
         assertBackoff(processor, taskId, 6L, NOW.plusHours(24));
+        assertBackoff(processor, taskId, 7L, NOW.plusHours(24));
+        jdbcTemplate.update(
+                "UPDATE practice_speaking_media_cleanup_tasks SET next_attempt_at = ? WHERE id = ?",
+                NOW,
+                taskId);
+        assertThat(processor.processTaskNow(taskId).outcome()).isEqualTo(Outcome.TERMINAL);
+        var terminal = repository.findById(taskId).orElseThrow();
+        assertThat(terminal.getAttemptCount()).isEqualTo(8L);
+        assertThat(terminal.getStatus()).isEqualTo(PracticeSpeakingMediaCleanupStatus.TERMINAL);
     }
 
     @Test
@@ -481,10 +490,11 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         PracticeSpeakingMediaCleanupProcessor processor =
                 new PracticeSpeakingMediaCleanupProcessor(taskService, storage);
 
-        assertThat(processor.processTaskNow(taskId).outcome()).isEqualTo(Outcome.RETRY);
+        assertThat(processor.processTaskNow(taskId).outcome()).isEqualTo(Outcome.TERMINAL);
         var task = repository.findById(taskId).orElseThrow();
         assertThat(task.getAttemptCount()).isEqualTo(Long.MAX_VALUE);
-        assertThat(task.getNextAttemptAt()).isEqualTo(NOW.plusHours(24));
+        assertThat(task.getStatus()).isEqualTo(PracticeSpeakingMediaCleanupStatus.TERMINAL);
+        assertThat(task.getCompletedAt()).isEqualTo(NOW);
     }
 
     @Test

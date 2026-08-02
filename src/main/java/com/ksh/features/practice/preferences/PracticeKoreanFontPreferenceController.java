@@ -19,7 +19,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequestMapping(PracticeRoutes.BASE)
-@PreAuthorize(Roles.PREAUTH_STUDENT)
+@PreAuthorize(Roles.PREAUTH_STUDENT_OR_LECTURER)
 public class PracticeKoreanFontPreferenceController {
 
     private static final String ATTR_UPDATED = "practiceKoreanFontUpdated";

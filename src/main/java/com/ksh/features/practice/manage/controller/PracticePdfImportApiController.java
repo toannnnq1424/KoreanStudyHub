@@ -1,15 +1,18 @@
 package com.ksh.features.practice.manage.controller;
 
 import com.ksh.entities.LecturerAsset;
-import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.PracticePdfImportSession;
 import com.ksh.entities.PracticePdfRegionAnnotation;
 import com.ksh.entities.PracticePdfPageExtraction;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateException;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CandidateView;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
 import com.ksh.features.practice.manage.service.*;
-import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.manage.validator.ImportAiPayloadValidator.ValidationError;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
@@ -28,7 +31,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -45,11 +50,9 @@ public class PracticePdfImportApiController {
     private final PracticePdfPayloadPreviewService payloadPreviewService;
     private final PracticePdfAiPayloadBuilder payloadBuilder;
     private final PracticePdfAiOrchestrator aiOrchestrator;
-    private final PracticePdfDraftAssembler draftAssembler;
+    private final PracticePdfAuthoringCandidateAssembler candidateAssembler;
     private final PracticePdfAiGenerationService generationService;
-    private final PracticeDraftRepository draftRepository;
     private final PracticeAuthorizationService authorizationService;
-    private final PracticeImportDraftService importDraftService;
     private final PracticeImportSnapshotService snapshotService;
     private final PracticePdfPreviewService previewService;
 
@@ -60,11 +63,9 @@ public class PracticePdfImportApiController {
                                           PracticePdfPayloadPreviewService payloadPreviewService,
                                           PracticePdfAiPayloadBuilder payloadBuilder,
                                           PracticePdfAiOrchestrator aiOrchestrator,
-                                          PracticePdfDraftAssembler draftAssembler,
+                                          PracticePdfAuthoringCandidateAssembler candidateAssembler,
                                           PracticePdfAiGenerationService generationService,
-                                          PracticeDraftRepository draftRepository,
                                           PracticeAuthorizationService authorizationService,
-                                          PracticeImportDraftService importDraftService,
                                           PracticeImportSnapshotService snapshotService,
                                           PracticePdfPreviewService previewService) {
         this.sessionService = sessionService;
@@ -74,11 +75,9 @@ public class PracticePdfImportApiController {
         this.payloadPreviewService = payloadPreviewService;
         this.payloadBuilder = payloadBuilder;
         this.aiOrchestrator = aiOrchestrator;
-        this.draftAssembler = draftAssembler;
+        this.candidateAssembler = candidateAssembler;
         this.generationService = generationService;
-        this.draftRepository = draftRepository;
         this.authorizationService = authorizationService;
-        this.importDraftService = importDraftService;
         this.snapshotService = snapshotService;
         this.previewService = previewService;
     }
@@ -211,20 +210,18 @@ public class PracticePdfImportApiController {
     }
 
     @PostMapping("/import-sessions/{sessionId}/generate")
-    public ResponseEntity<?> generateDraft(@PathVariable Long sessionId,
-                                           @AuthenticationPrincipal KshUserDetails user) {
+    public ResponseEntity<?> generateCandidate(
+            @PathVariable Long sessionId,
+            @RequestBody(required = false) AdvancedGenerateRequest request,
+            @AuthenticationPrincipal KshUserDetails user) {
         // The short claim transaction commits before any crop/provider work. A
         // duplicate request therefore cannot start a second provider call.
         PracticePdfAiGenerationService.ClaimResult claim =
                 generationService.claim(sessionId, user.getId());
         if (claim.outcome() == PracticePdfAiGenerationService.Outcome.COMPLETED) {
-            authorizationService.requireDraft(
-                    claim.completedDraftId(), user.getId(), PracticeAction.EDIT);
-            PracticeDraft completedDraft = draftRepository
-                    .findById(claim.completedDraftId())
-                    .orElseThrow(() -> new IllegalStateException(
-                            "PDF AI generation completed draft is unavailable."));
-            return ResponseEntity.ok(completedDraft);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "code", "LEGACY_PDF_GENERATION_ALREADY_COMPLETED",
+                    "error", "Phiên PDF cũ đã tạo draft trực tiếp. Hãy mở lại PDF để tạo candidate mới."));
         }
         if (claim.outcome() == PracticePdfAiGenerationService.Outcome.IN_PROGRESS) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
@@ -256,16 +253,43 @@ public class PracticePdfImportApiController {
                         "warnings", payloadInfo.validationErrors()
                 ));
             }
-            String rawAiJson = aiOrchestrator.callAi(payloadInfo, sessionId, session.getExtractionStrategy());
-            PracticeDraft draft = draftAssembler.assembleAndSaveDraft(
-                    session, rawAiJson, user.getId(), claimToken);
-            return ResponseEntity.ok(draft);
+            SourceOperation operation = operation(
+                    request == null ? null : request.operation());
+            PracticePdfAuthoringRequest authoring =
+                    payloadBuilder.buildAdvancedAuthoringRequest(
+                            session, payloadInfo, operation,
+                            request == null ? "" : request.lecturerRequest());
+            PracticePdfAiOrchestrator.GenerationResult generation =
+                    aiOrchestrator.generate(authoring);
+            CandidateView candidate = candidateAssembler.assemble(
+                    authoring, generation, user.getId());
+            generationService.release(
+                    sessionId, user.getId(), claimToken, "REVIEWING");
+            return ResponseEntity.ok(candidateResponse(candidate));
         } catch (AccessDeniedException e) {
             releaseClaimIfOwned(
                     sessionId, user.getId(), claimToken, "READY_FOR_AI");
             throw e;
+        } catch (PracticeAuthoringCandidateException e) {
+            releaseClaimIfOwned(
+                    sessionId, user.getId(), claimToken, "AI_FAILED_RETRYABLE");
+            return ResponseEntity.unprocessableEntity().body(Map.of(
+                    "code", e.code(), "error", e.getMessage()));
+        } catch (PracticeAiContractException e) {
+            releaseClaimIfOwned(
+                    sessionId, user.getId(), claimToken, "AI_FAILED_RETRYABLE");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                    "code", e.category(),
+                    "error", "Purpose PRACTICE_PDF_AUTHORING hiện chưa sẵn sàng."));
+        } catch (IllegalArgumentException e) {
+            releaseClaimIfOwned(
+                    sessionId, user.getId(), claimToken, "READY_FOR_AI");
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", "PDF_AUTHORING_REQUEST_INVALID",
+                    "error", e.getMessage()));
         } catch (Exception e) {
-            log.error("[ImportApiController] AI Job analysis failed for sessionId={}", sessionId, e);
+            log.error("[ImportApiController] PDF authoring failed sessionId={} code=PDF_AUTHORING_FAILED",
+                    sessionId);
             releaseClaimIfOwned(
                     sessionId,
                     user.getId(),
@@ -273,21 +297,136 @@ public class PracticePdfImportApiController {
                     "AI_FAILED_RETRYABLE");
             return ResponseEntity.internalServerError().body(Map.of(
                     "status", "FAILED_RETRYABLE",
-                    "message", "Phân tích AI thất bại. Vùng crop và bản nháp hiện tại vẫn được giữ nguyên.",
+                    "message", "Phân tích AI thất bại. Vùng crop và candidate hiện tại vẫn được giữ nguyên.",
                     "error", "AI_PROCESSING_FAILED"
             ));
+        }
+    }
+
+    @PostMapping(value = "/pdf-authoring/candidates",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> createBasicCandidate(
+            @RequestParam("sourceType") String sourceType,
+            @RequestParam("operation") String rawOperation,
+            @RequestParam(value = "sourceText", required = false) String sourceText,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "lecturerRequest", required = false) String lecturerRequest,
+            @RequestParam("draftId") Long draftId,
+            @RequestParam("testNo") Integer testNo,
+            @RequestParam("skill") String skill,
+            @RequestParam("lessonCode") String lessonCode,
+            @RequestParam(value = "startPage", required = false) Integer startPage,
+            @RequestParam(value = "endPage", required = false) Integer endPage,
+            @AuthenticationPrincipal KshUserDetails user) {
+        try {
+            TargetRoute target = authorizedTarget(
+                    draftId, testNo, skill, lessonCode, user.getId());
+            SourceOperation operation = operation(rawOperation);
+            PracticePdfAuthoringRequest authoring;
+            String normalizedSourceType = sourceType == null ? ""
+                    : sourceType.trim().toUpperCase(Locale.ROOT);
+            if ("TEXT".equals(normalizedSourceType)) {
+                authoring = payloadBuilder.buildBasicText(
+                        sourceText, operation, lecturerRequest, target);
+            } else if ("PDF".equals(normalizedSourceType)) {
+                if (file == null || file.isEmpty()) {
+                    throw new IllegalArgumentException("Vui lòng chọn file PDF.");
+                }
+                PracticePdfImportSession session = sessionService.createSession(
+                        user.getId(), file, null, draftId,
+                        testNo, target.skill(), target.lessonCode());
+                int first = startPage == null ? 1 : startPage;
+                int last = endPage == null ? session.getTotalPages() : endPage;
+                session = sessionService.updatePageRange(
+                        session.getId(), first, last, user.getId());
+                authoring = payloadBuilder.buildBasicPdf(
+                        session, operation, lecturerRequest);
+            } else {
+                throw new IllegalArgumentException("sourceType chỉ nhận TEXT hoặc PDF.");
+            }
+            PracticePdfAiOrchestrator.GenerationResult generation =
+                    aiOrchestrator.generate(authoring);
+            CandidateView candidate = candidateAssembler.assemble(
+                    authoring, generation, user.getId());
+            return ResponseEntity.ok(candidateResponse(candidate));
+        } catch (AccessDeniedException exception) {
+            throw exception;
+        } catch (PracticeAuthoringCandidateException exception) {
+            return ResponseEntity.unprocessableEntity().body(Map.of(
+                    "code", exception.code(), "error", exception.getMessage()));
+        } catch (PracticeAiContractException exception) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                    "code", exception.category(),
+                    "error", "Purpose PRACTICE_PDF_AUTHORING hiện chưa sẵn sàng."));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", "PDF_AUTHORING_REQUEST_INVALID",
+                    "error", exception.getMessage()));
+        } catch (Exception exception) {
+            log.error("[ImportApiController] Basic PDF authoring failed code=PDF_AUTHORING_FAILED");
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "code", "PDF_AUTHORING_FAILED",
+                    "error", "Không thể tạo authoring candidate lúc này."));
         }
     }
 
     private void authorizeGenerationTarget(
             PracticePdfImportSession session,
             Long userId) {
-        if (session.getLinkedDraftId() != null) {
-            authorizationService.requireDraft(
-                    session.getLinkedDraftId(), userId, PracticeAction.EDIT);
-        } else {
-            authorizationService.requireGlobal(userId, PracticeAction.CREATE);
+        if (session.getLinkedDraftId() == null) {
+            throw new IllegalArgumentException(
+                    "Advanced PDF cần liên kết một bản nháp trước khi tạo candidate.");
         }
+        authorizationService.requireDraft(
+                session.getLinkedDraftId(), userId, PracticeAction.EDIT);
+    }
+
+    private TargetRoute authorizedTarget(
+            Long draftId,
+            Integer testNo,
+            String skill,
+            String lessonCode,
+            Long actorId) {
+        if (draftId == null || testNo == null || testNo < 1
+                || skill == null || lessonCode == null) {
+            throw new IllegalArgumentException("Target draft/section là bắt buộc.");
+        }
+        PracticePdfImportSessionService.PdfImportStartContext context =
+                sessionService.resolveStartContext(
+                        draftId, testNo, lessonCode, actorId);
+        if (context == null
+                || context.selected().testNo() != testNo
+                || !context.selected().skill().equalsIgnoreCase(skill)
+                || !context.selected().lessonCode().equalsIgnoreCase(lessonCode)) {
+            throw new IllegalArgumentException(
+                    "Target Test/skill/lesson không khớp bản nháp được cấp quyền.");
+        }
+        return new TargetRoute(draftId, testNo,
+                context.selected().skill(), context.selected().lessonCode());
+    }
+
+    private static SourceOperation operation(String value) {
+        try {
+            SourceOperation operation = SourceOperation.valueOf(
+                    value == null || value.isBlank()
+                            ? "EXTRACT" : value.trim().toUpperCase(Locale.ROOT));
+            if (operation == SourceOperation.NONE) throw new IllegalArgumentException();
+            return operation;
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "operation chỉ nhận EXTRACT hoặc GENERATE.");
+        }
+    }
+
+    private static Map<String, Object> candidateResponse(CandidateView candidate) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("candidateId", candidate.candidateId());
+        response.put("state", candidate.state().name());
+        response.put("candidateVersion", candidate.version());
+        response.put("candidateDigest", candidate.contentDigest());
+        response.put("reviewUrl", "/practice/manage/authoring-candidates/"
+                + candidate.candidateId());
+        return response;
     }
 
     private void releaseClaimIfOwned(
@@ -303,24 +442,6 @@ public class PracticePdfImportApiController {
                     "[ImportApiController] generation claim no longer owned for sessionId={}",
                     sessionId);
         }
-    }
-
-    @PostMapping("/import-sessions/{sessionId}/create-manual-draft")
-    public ResponseEntity<PracticeDraft> createManualDraft(@PathVariable Long sessionId,
-                                                           @AuthenticationPrincipal KshUserDetails user) {
-        sessionService.getSession(sessionId, user.getId());
-        PracticeDraft draft = importDraftService.createManualDraftFromSession(
-                sessionId, user.getId());
-        return ResponseEntity.ok(draft);
-    }
-
-    @PostMapping("/import-sessions/{sessionId}/attach-to-draft")
-    public ResponseEntity<PracticeDraft> attachToDraft(@PathVariable Long sessionId,
-                                                       @RequestParam("targetDraftId") Long targetDraftId,
-                                                       @AuthenticationPrincipal KshUserDetails user) {
-        PracticeDraft draft = importDraftService.attachToExistingDraft(
-                sessionId, targetDraftId, user.getId());
-        return ResponseEntity.ok(draft);
     }
 
     // Lecturer asset library endpoints
@@ -393,6 +514,7 @@ public class PracticePdfImportApiController {
 
     public record SaveStateRequest(Integer currentPage, Integer startPage, Integer endPage, String extractionStrategy) {}
     public record PageRangeRequest(Integer startPage, Integer endPage, String extractionMode) {}
+    public record AdvancedGenerateRequest(String operation, String lecturerRequest) {}
     public record UpdateAssetRequest(String title, String tagsJson, String assetType, String lecturerNote, String status) {}
 
     public record AssetView(Long id,

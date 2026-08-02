@@ -234,10 +234,15 @@
         <div class="lf-panel-actions">
           <a th:if="${mode == 'edit'}" class="tst-btn" th:href="@{/lecturer/question-bank}">Mở ngân hàng câu hỏi</a>
           <button type="button" class="tst-btn" id="lfOpenBankPicker" th:if="${mode == 'edit'}">+ Chọn câu đã duyệt</button>
+          <button type="button" class="tst-btn tst-btn-primary" id="lfSaveForAi"
+                  th:if="${mode == 'create'}">Tạo nháp &amp; sinh bằng AI</button>
           <button type="button" class="tst-btn" id="lfOpenAiGen" th:if="${mode == 'edit'}">Sinh câu hỏi bằng AI</button>
           <button type="button" class="tst-btn" id="lfAddQuestion">+ Thêm câu hỏi</button>
         </div>
       </div>
+      <p class="lf-ai-create-hint" th:if="${mode == 'create'}">
+        Muốn dùng AI ngay? Điền tiêu đề và lớp, KSH sẽ lưu một bản nháp rồi tự mở khung sinh câu hỏi.
+      </p>
 
       <section class="lf-bank-picker" id="lfBankPicker"
                data-dirty-guard="ignore" hidden>

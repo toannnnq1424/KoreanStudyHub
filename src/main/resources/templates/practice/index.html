@@ -159,7 +159,8 @@
           <p aria-live="polite"><strong th:text="${catalog.totalElements()}">0</strong> bộ đề</p>
         </div>
 
-        <div class="pc-card-grid" id="pc-catalog-grid">
+        <div class="pc-card-grid" id="pc-catalog-grid"
+             th:classappend="${catalog.totalElements() == 1} ? ' is-single'">
           <th:block th:replace="~{practice/fragments/catalog-cards :: cards}"></th:block>
         </div>
 

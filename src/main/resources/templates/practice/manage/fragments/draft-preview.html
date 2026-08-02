@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="modal" class="modal-overlay" id="preview-modal"
+     role="dialog" aria-modal="true" aria-labelledby="preview-modal-title"
+     aria-hidden="true" inert onclick="closePreviewModal()"
+     style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:20px">
+  <style>
+    .preview-grp-tab{padding:8px 14px;font-size:.8rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;white-space:nowrap}
+    .preview-grp-tab:hover{background:#e2e8f0;color:#0f172a}
+    .preview-grp-tab.active{background:#315efb;color:#fff;border-color:#315efb}
+    .preview-q-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:16px}
+    .preview-option{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;font-size:.88rem;color:#334155;font-weight:500;background:#f8fafc}
+    .preview-option-letter{background:#e2e8f0;color:#475569;font-weight:700;font-size:11px;width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+    .preview-modal-content{background:#fff;border-radius:16px;width:95%;max-width:1200px;height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)}
+    .preview-question-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid #f1f5f9;padding-bottom:8px}
+    .preview-question-heading h4{margin:0;font-size:.95rem;color:#315efb}
+    .preview-question-heading span{font-size:.75rem;font-weight:700;background:#eff6ff;color:#315efb;padding:2px 8px;border-radius:4px}
+    .preview-question-prompt{margin:0 0 12px;font-size:.9rem;font-weight:600;color:#1e293b;white-space:pre-wrap}
+    .preview-fill-input{display:inline-block;width:110px;height:28px;margin:0 5px;border:1px solid #94a3b8;border-radius:5px;background:#fff;vertical-align:middle}
+    @media(max-width:720px){#preview-modal{padding:0!important}.preview-modal-content{width:100%;height:100vh;border-radius:0}.preview-player-body{overflow:auto}.preview-group-nav{padding-inline:14px}}
+  </style>
+  <div class="preview-modal-content" tabindex="-1" onclick="event.stopPropagation()">
+    <div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h3 id="preview-modal-title" style="margin:0;font-size:1.15rem;color:#0f172a">Xem trước đề thi</h3>
+        <span style="font-size:.75rem;color:#64748b">Giao diện learner dùng projection chuẩn, không lưu bản nháp</span>
+      </div>
+      <button type="button" id="preview-modal-close" onclick="closePreviewModal()"
+              aria-label="Đóng bản xem trước"
+              style="background:none;border:0;color:#64748b;cursor:pointer;padding:8px;font-size:1.2rem">×</button>
+    </div>
+    <div class="preview-group-nav">
+      <span>Nhóm câu hỏi</span>
+      <div id="preview-group-selector" role="tablist" aria-label="Nhóm câu hỏi xem trước"></div>
+    </div>
+    <div class="preview-player-body" id="preview-player-body">
+      <div class="preview-source-pane" id="preview-source-pane">
+        <div id="preview-group-instruction" class="preview-group-instruction"></div>
+        <div id="preview-group-audio-container" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;display:none">
+          <div style="font-size:.8rem;font-weight:700;color:#475569;margin-bottom:8px">ÂM THANH BÀI THI (NGHE)</div>
+          <audio id="preview-group-audio" controls style="width:100%"></audio>
+        </div>
+        <div id="preview-group-image-container" style="display:none;text-align:center">
+          <img id="preview-group-image" alt="Ảnh dùng chung của nhóm câu hỏi"
+               style="max-width:100%;border-radius:8px;border:1px solid #e2e8f0;max-height:280px">
+        </div>
+        <div id="preview-group-passage" style="display:none;border:1.5px solid #e2e8f0;border-radius:12px;padding:20px;font-size:.92rem;color:#334155;line-height:1.7;background:#f8fafc;white-space:pre-wrap"></div>
+        <div id="preview-writing-prompts" class="preview-writing-prompts"></div>
+      </div>
+      <div class="preview-questions-pane" id="preview-questions-pane">
+        <div id="preview-focus-instruction" class="preview-focus-instruction"></div>
+        <div id="preview-questions-stack" style="display:flex;flex-direction:column;gap:20px"></div>
+      </div>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;background:#fff;gap:12px;align-items:center">
+      <span id="preview-total-points-label" style="font-size:.8rem;color:#64748b;font-weight:600">Tổng điểm: 0đ</span>
+      <button type="button" onclick="closePreviewModal()" class="btn-action btn-sec">Đóng xem trước</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

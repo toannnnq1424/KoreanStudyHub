@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai.speaking;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ksh.features.practice.ai.transport.PracticeAiAuthoritySnapshot;
+import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.features.practice.ai.transport.PracticeAiCapability;
 import com.ksh.features.practice.ai.transport.PracticeAiContractException;
 import com.ksh.features.practice.ai.transport.PracticeModelCapabilityProfile;
@@ -117,8 +118,9 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
                 "policy=" + request.policyBundleId());
         PracticeStructuredGenerationRequest structuredRequest =
                 new PracticeStructuredGenerationRequest(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION,
                         "speaking-transcript-evaluation",
-                        PracticeAiCapability.ASSESSMENT_TEXT_VISION,
+                        PracticeAiCapability.STRICT_STRUCTURED_TEXT_VISION,
                         new PracticeAiAuthoritySnapshot(
                                 request.schemaVersion(),
                                 request.promptVersion(),
@@ -145,17 +147,17 @@ public class OpenAiCompatibleSpeakingEvaluationClient implements SpeakingEvaluat
 
     private boolean providerAvailable() {
         return structuredGeneration.identity(
-                PracticeAiCapability.ASSESSMENT_TEXT_VISION).available();
+                PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION).available();
     }
 
     private String evaluatorModel() {
         return structuredGeneration.identity(
-                PracticeAiCapability.ASSESSMENT_TEXT_VISION).model();
+                PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION).model();
     }
 
     private String providerName() {
         return structuredGeneration.identity(
-                PracticeAiCapability.ASSESSMENT_TEXT_VISION).provider();
+                PracticeAiPurpose.PRACTICE_SPEAKING_EVALUATION).provider();
     }
 
     @SuppressWarnings("unchecked")

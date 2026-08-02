@@ -171,6 +171,28 @@ class PracticePublisherServiceTest {
     }
 
     @Test
+    void legacyEssayShapedQ51IsBlockedBeforeGraphMutation()
+            throws Exception {
+        JsonNode root = objectMapper.readTree(completeWritingDraftJson());
+        com.fasterxml.jackson.databind.node.ObjectNode q51 =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        root.path("sections").get(0)
+                                .path("groups").get(0)
+                                .path("questions").get(0);
+        q51.remove("questionContent");
+        q51.remove("answerSpec");
+        q51.put(
+                "writingCompatibilityMode",
+                "LEGACY_ESSAY_READ_ONLY");
+
+        PracticeDraft draft = newDraft(root.toString());
+
+        assertThrows(IllegalStateException.class, () -> publish(draft));
+        verify(setRepository, never()).save(any());
+        verify(questionRepository, never()).save(any());
+    }
+
+    @Test
     void invalidWritingTaskFailsBeforeGraphMutation() {
         PracticeDraft draft = newDraft(draftJson("WRITING", "ESSAY", "GENERAL"));
 
@@ -260,6 +282,60 @@ class PracticePublisherServiceTest {
     }
 
     @Test
+    void historicalRestoreKeepsLegacyObjectiveQuestionWithoutInventingStrategy()
+            throws Exception {
+        PracticeDraft draft = newDraft(validReadingDraftJson());
+        JsonNode root = objectMapper.readTree(draft.getDraftJson());
+        ((com.fasterxml.jackson.databind.node.ObjectNode) root.path("sections")
+                .get(0).path("groups").get(0).path("questions").get(0))
+                .remove("explanationStrategy");
+        draft.setDraftJson(root.toString());
+        when(draftRepository.findByIdAndOwnerId(1L, 99L))
+                .thenReturn(Optional.of(draft));
+
+        service.publishRestored(1L, 99L);
+
+        assertEquals(1, savedQuestions.size());
+        assertNull(savedQuestions.get(0).getExplanationStrategyCode());
+        assertNull(savedQuestions.get(0).getExplanationStrategyVersion());
+        assertNull(savedQuestions.get(0)
+                .getExplanationStrategyRegistryVersion());
+    }
+
+    @Test
+    void historicalRestoreKeepsLegacyQ51Q52ReadOnlyWithoutGuessingBlanks()
+            throws Exception {
+        JsonNode root = objectMapper.readTree(completeWritingDraftJson());
+        JsonNode questions = root.path("sections").get(0)
+                .path("groups").get(0).path("questions");
+        for (int index = 0; index < 2; index++) {
+            com.fasterxml.jackson.databind.node.ObjectNode question =
+                    (com.fasterxml.jackson.databind.node.ObjectNode)
+                            questions.get(index);
+            question.remove("questionContent");
+            question.remove("answerSpec");
+            question.put("answerKey", "값/표현;그대로");
+            question.putObject("answer").put(
+                    "value", "값/표현;그대로");
+            question.put(
+                    "writingCompatibilityMode",
+                    "LEGACY_ESSAY_READ_ONLY");
+        }
+        PracticeDraft draft = newDraft(root.toString());
+        when(draftRepository.findByIdAndOwnerId(1L, 99L))
+                .thenReturn(Optional.of(draft));
+
+        service.publishRestored(1L, 99L);
+
+        assertEquals(4, savedQuestions.size());
+        assertEquals("값/표현;그대로",
+                savedQuestions.get(0).getAnswerKey());
+        assertEquals(false, objectMapper.readTree(
+                        savedQuestions.get(0).getQuestionContentJson())
+                .path("writingResponse").isObject());
+    }
+
+    @Test
     void crossOwnerCannotPublishDraft() {
         when(draftRepository.findByIdAndOwnerId(1L, 100L)).thenReturn(Optional.empty());
 
@@ -303,8 +379,10 @@ class PracticePublisherServiceTest {
                       "label": "Dialogue",
                       "instruction": "Nghe và chọn đáp án.",
                       "stimulus": {
-                        "schemaVersion": "practice-stimulus-v1",
+                        "schemaVersion": "practice-stimulus-v2",
                         "type": "LISTENING_AUDIO",
+                        "languageTag": "ko",
+                        "instructionLanguageTag": "vi",
                         "transcriptText": "대화 원문",
                         "mediaReference": "/practice/materials/12/content",
                         "imageReference": "/practice/materials/13/content",
@@ -326,6 +404,8 @@ class PracticePublisherServiceTest {
         PracticeQuestionGroup group = savedGroups.get(0);
         assertEquals("Nghe và chọn đáp án.", group.getInstruction());
         assertEquals("LISTENING_AUDIO", group.getStimulusType());
+        assertEquals("ko", group.getStimulusLanguageTag());
+        assertEquals("vi", group.getInstructionLanguageTag());
         assertNull(group.getPassageText());
         assertEquals("대화 원문", group.getTranscriptText());
         assertEquals("/practice/materials/12/content", group.getAudioUrl());
@@ -384,6 +464,31 @@ class PracticePublisherServiceTest {
                         } else {
                             question.put("questionNo", questionNo);
                         }
+                        if ("READING".equals(skill)
+                                || "LISTENING".equals(skill)) {
+                            String questionType = question.path(
+                                    "questionType").asText("");
+                            String strategyCode = switch (questionType) {
+                                case "FILL_BLANK", "GAP_FILL" ->
+                                        "CONSTRAINTS_AND_EVIDENCE";
+                                case "TRUE_FALSE_NOT_GIVEN", "TFNG" ->
+                                        "CLAIM_EVIDENCE_RELATION";
+                                default -> "EVIDENCE_ONLY";
+                            };
+                            com.fasterxml.jackson.databind.node.ObjectNode
+                                    strategy =
+                                    question.putObject(
+                                            "explanationStrategy");
+                            strategy.put(
+                                    "registryVersion",
+                                    "rl-explanation-strategy-registry-v1");
+                            strategy.put("strategyCode", strategyCode);
+                            strategy.put("strategyVersion", "v1");
+                        }
+                        question.put(
+                                "clientId",
+                                "question-" + testNo + "-"
+                                        + questionNo);
                         questionNo = question.path("questionNo").asInt() + 1;
                     }
                 }
@@ -477,6 +582,16 @@ class PracticePublisherServiceTest {
                     default -> 10;
                 }
                 : 10;
+        if ("WRITING".equals(skill)
+                && "ESSAY".equals(questionType)
+                && ("Q51".equals(taskValue)
+                || "Q52".equals(taskValue))) {
+            return structuredWritingQuestionJson(
+                    taskValue,
+                    points,
+                    "값/표현;그대로",
+                    "두 번째 답");
+        }
         return """
                 {
                   "skill": "%s",
@@ -489,6 +604,81 @@ class PracticePublisherServiceTest {
                   "essayTaskType": "%s"
                 }
                 """.formatted(skill, questionType, points, taskValue);
+    }
+
+    private static String structuredWritingQuestionJson(
+            String taskType,
+            int points,
+            String firstAnswer,
+            String secondAnswer
+    ) {
+        String prefix = taskType.toLowerCase();
+        return """
+                {
+                  "skill":"WRITING",
+                  "questionType":"ESSAY",
+                  "prompt":"%s",
+                  "options":[],
+                  "answer":{"value":""},
+                  "explanationVi":"",
+                  "points":%d,
+                  "essayTaskType":"%s",
+                  "writingCompatibilityMode":"STRUCTURED_BLANKS",
+                  "questionContent":{
+                    "schemaVersion":"question-content-v3",
+                    "options":[],
+                    "blanks":[],
+                    "writingResponse":{
+                      "responseSchemaVersion":"writing-blanks.v1",
+                      "responseMode":"STRUCTURED_BLANKS",
+                      "taskType":"%s",
+                      "blanks":[
+                        {"blankId":"%s-b1","ordinal":1,
+                         "context":"첫 번째 문맥"},
+                        {"blankId":"%s-b2","ordinal":2,
+                         "context":"두 번째 문맥"}
+                      ]
+                    },
+                    "languageTag":"ko"
+                  },
+                  "answerSpec":{
+                    "schemaVersion":"answer-spec-v1",
+                    "questionType":"ESSAY",
+                    "correctOptionIds":[],
+                    "blanks":[],
+                    "scoringPolicyCode":"PROFILE_BASED",
+                    "writingBlankAuthority":{
+                      "contractVersion":"writing-blank-authority.v1",
+                      "taskType":"%s",
+                      "normalization":"NFC",
+                      "whitespacePolicy":"TRIM_COLLAPSE",
+                      "blanks":[
+                        {"blankId":"%s-b1","ordinal":1,
+                         "acceptedAnswers":[
+                           {"text":"%s","equivalence":"EXACT",
+                            "evidenceIds":[]}
+                         ]},
+                        {"blankId":"%s-b2","ordinal":2,
+                         "acceptedAnswers":[
+                           {"text":"%s","equivalence":"EXACT",
+                            "evidenceIds":[]}
+                         ]}
+                      ]
+                    }
+                  }
+                }
+                """.formatted(
+                taskType,
+                points,
+                taskType,
+                taskType,
+                prefix,
+                prefix,
+                taskType,
+                prefix,
+                firstAnswer,
+                prefix,
+                secondAnswer);
     }
 
     private String draftJsonWithQuestions(String... questionJsons) {

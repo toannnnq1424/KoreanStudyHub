@@ -6,6 +6,7 @@ import com.ksh.entities.QuestionExplanationArtifact;
 import com.ksh.entities.QuestionVersionExplanationBinding;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
+import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
 import com.ksh.features.practice.repository.QuestionExplanationArtifactRepository;
 import com.ksh.features.practice.repository.QuestionVersionExplanationBindingRepository;
@@ -178,17 +179,84 @@ public class QuestionExplanationReadService {
             throw new IllegalArgumentException("artifact discriminator does not match question");
         }
         JsonNode input = readObject(artifact.getInputContractJson(), "artifact input contract");
-        if (!ExplanationArtifactInput.SCHEMA_VERSION.equals(text(input, "schemaVersion"))
-                || !expectedType.name().equals(text(input, "questionType"))) {
+        if (!expectedType.name().equals(text(input, "questionType"))) {
             throw new IllegalArgumentException("artifact input contract does not match question type");
         }
         return switch (artifact.getResponseSchemaVersion()) {
             case ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION ->
+                    parseV4(artifact, expectedType, input);
+            case ReadingListeningExplanationClient.PREVIOUS_EXPLANATION_SCHEMA_VERSION ->
                     parseV3(artifact, expectedType, input);
             case ReadingListeningExplanationClient.LEGACY_EXPLANATION_SCHEMA_VERSION ->
                     parseV2SingleChoice(artifact, expectedType, input);
             default -> throw new IllegalArgumentException(
                     "unsupported explanation response schema");
+        };
+    }
+
+    private ObjectiveExplanationArtifact parseV4(
+            QuestionExplanationArtifact artifact,
+            CanonicalQuestionType expectedType,
+            JsonNode input) {
+        if (!ExplanationArtifactInput.SCHEMA_VERSION.equals(
+                text(input, "schemaVersion"))) {
+            throw new IllegalArgumentException(
+                    "v4 explanation requires the v3 immutable input contract");
+        }
+        JsonNode inputStrategy = object(input, "explanationStrategy");
+        ObjectiveExplanationStrategyRegistry.Selection selection =
+                ObjectiveExplanationStrategyRegistry.requireSelection(
+                        expectedType,
+                        text(inputStrategy, "registryVersion"),
+                        text(inputStrategy, "strategyCode"),
+                        text(inputStrategy, "strategyVersion"));
+        JsonNode root = readObject(
+                artifact.getExplanationJson(), "explanation artifact");
+        requireFields(root, Set.of(
+                "schemaVersion",
+                "strategyRegistryVersion",
+                "strategyCode",
+                "strategyVersion",
+                "questionType",
+                "explanation"));
+        if (!ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION
+                        .equals(text(root, "schemaVersion"))
+                || !selection.registryVersion().equals(
+                        text(root, "strategyRegistryVersion"))
+                || !selection.strategyCode().equals(
+                        text(root, "strategyCode"))
+                || !selection.strategyVersion().equals(
+                        text(root, "strategyVersion"))
+                || !expectedType.name().equals(text(root, "questionType"))) {
+            throw new IllegalArgumentException(
+                    "v4 explanation strategy discriminator mismatch");
+        }
+        JsonNode explanation = object(root, "explanation");
+        requireFields(explanation, Set.of(
+                "strategyBlock",
+                "textEvidenceRefs",
+                "imageEvidenceRefs",
+                "relevantTranslations"));
+        CommonExplanation common = groundedCommonExplanation(
+                explanation, input);
+        if (common.evidence().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "v4 explanation needs approved evidence");
+        }
+        return switch (expectedType) {
+            case SINGLE_CHOICE -> parseV4SingleChoice(
+                    artifact, input, explanation, common, selection);
+            case MULTIPLE_ANSWER -> parseV4MultipleAnswer(
+                    artifact, input, explanation, common, selection);
+            case MATCHING -> parseV4Matching(
+                    artifact, input, explanation, common, selection);
+            case FILL_BLANK -> parseV4FillBlank(
+                    artifact, input, explanation, common, selection);
+            case TRUE_FALSE_NOT_GIVEN -> parseV4Tfng(
+                    artifact, input, explanation, common, selection);
+            case ESSAY, SPEAKING ->
+                    throw new IllegalArgumentException(
+                            "explanation artifact parser is not available for this detail type");
         };
     }
 
@@ -198,7 +266,7 @@ public class QuestionExplanationReadService {
             JsonNode input) {
         JsonNode root = readObject(artifact.getExplanationJson(), "explanation artifact");
         requireFields(root, Set.of("schemaVersion", "questionType", "explanation"));
-        if (!ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION.equals(
+        if (!ReadingListeningExplanationClient.PREVIOUS_EXPLANATION_SCHEMA_VERSION.equals(
                 text(root, "schemaVersion"))
                 || !expectedType.name().equals(text(root, "questionType"))) {
             throw new IllegalArgumentException("explanation root discriminator mismatch");
@@ -208,9 +276,554 @@ public class QuestionExplanationReadService {
             case SINGLE_CHOICE -> parseV3SingleChoice(artifact, input, explanation);
             case FILL_BLANK -> parseV3FillBlank(artifact, input, explanation);
             case TRUE_FALSE_NOT_GIVEN -> parseV3Tfng(artifact, input, explanation);
-            case ESSAY, SPEAKING -> throw new IllegalArgumentException(
-                    "subjective explanation is not objective detail");
+            case MULTIPLE_ANSWER, MATCHING, ESSAY, SPEAKING ->
+                    throw new IllegalArgumentException(
+                            "explanation artifact parser is not available for this detail type");
         };
+    }
+
+    private ObjectiveExplanationArtifact parseV4SingleChoice(
+            QuestionExplanationArtifact artifact,
+            JsonNode input,
+            JsonNode explanation,
+            CommonExplanation common,
+            ObjectiveExplanationStrategyRegistry.Selection selection) {
+        JsonNode inputOptions = input.path("questionContent").path("options");
+        JsonNode correctOptions = input.path("answerSpec")
+                .path("correctOptionIds");
+        if (!inputOptions.isArray()
+                || inputOptions.isEmpty()
+                || !correctOptions.isArray()
+                || correctOptions.size() != 1) {
+            throw new IllegalArgumentException(
+                    "single-choice input authority is incomplete");
+        }
+        Set<String> expectedOptionIds = canonicalIds(
+                inputOptions, "option_", "single-choice option");
+        String correctOptionId = correctOptions.get(0).asText("");
+        if (!expectedOptionIds.contains(correctOptionId)) {
+            throw new IllegalArgumentException(
+                    "single-choice official option is not canonical");
+        }
+        JsonNode block = object(explanation, "strategyBlock");
+        List<ExplanationClaim> claims = new java.util.ArrayList<>();
+        List<OptionRationale> rationales = new java.util.ArrayList<>();
+        Set<String> claimIds = new LinkedHashSet<>();
+        switch (selection.generationFamily()) {
+            case EVIDENCE -> {
+                requireFields(block, Set.of("evidenceClaims"));
+                claims.addAll(parseClaims(
+                        array(block, "evidenceClaims"),
+                        common.evidenceIds(),
+                        claimIds));
+                rationales.add(new OptionRationale(
+                        claims.get(0).claimId(),
+                        correctOptionId,
+                        joinClaims(claims),
+                        unionEvidence(claims)));
+            }
+            case OPTION_ELIMINATION -> {
+                requireFields(block, Set.of("optionRationales"));
+                parseOptionRationales(
+                        array(block, "optionRationales"),
+                        expectedOptionIds,
+                        common.evidenceIds(),
+                        claimIds,
+                        claims,
+                        rationales);
+            }
+            case FULL_CONTEXT -> {
+                requireFields(block, Set.of(
+                        "contextClaims", "answerClaim"));
+                claims.addAll(parseClaims(
+                        array(block, "contextClaims"),
+                        common.evidenceIds(),
+                        claimIds));
+                ExplanationClaim answer = parseClaim(
+                        object(block, "answerClaim"),
+                        common.evidenceIds(),
+                        claimIds);
+                claims.add(answer);
+                rationales.add(new OptionRationale(
+                        answer.claimId(),
+                        correctOptionId,
+                        answer.textVi(),
+                        answer.evidenceIds()));
+            }
+            case EVIDENCE_AND_ELIMINATION -> {
+                requireFields(block, Set.of(
+                        "contextClaims",
+                        "answerClaim",
+                        "optionRationales"));
+                claims.addAll(parseClaims(
+                        array(block, "contextClaims"),
+                        common.evidenceIds(),
+                        claimIds));
+                ExplanationClaim answer = parseClaim(
+                        object(block, "answerClaim"),
+                        common.evidenceIds(),
+                        claimIds);
+                claims.add(answer);
+                parseOptionRationales(
+                        array(block, "optionRationales"),
+                        expectedOptionIds,
+                        common.evidenceIds(),
+                        claimIds,
+                        claims,
+                        rationales);
+            }
+            case TFNG_RELATION, FILL_CONSTRAINTS ->
+                    throw new IllegalArgumentException(
+                            "single-choice explanation strategy is incompatible");
+        }
+        String correctReason = rationales.stream()
+                .filter(rationale ->
+                        correctOptionId.equals(rationale.optionId()))
+                .map(OptionRationale::reasonVi)
+                .findFirst()
+                .orElseGet(() -> joinClaims(claims));
+        return new ObjectiveExplanationArtifact(
+                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                CanonicalQuestionType.SINGLE_CHOICE,
+                selection.registryVersion(),
+                selection.strategyCode(),
+                selection.strategyVersion(),
+                joinClaims(claims),
+                correctReason,
+                claims,
+                common.evidence(),
+                common.translations(),
+                new SingleChoiceExplanation(
+                        correctOptionId, rationales),
+                artifact.getId());
+    }
+
+    private ObjectiveExplanationArtifact parseV4FillBlank(
+            QuestionExplanationArtifact artifact,
+            JsonNode input,
+            JsonNode explanation,
+            CommonExplanation common,
+            ObjectiveExplanationStrategyRegistry.Selection selection) {
+        JsonNode inputBlanks = input.path("questionContent").path("blanks");
+        if (!inputBlanks.isArray() || inputBlanks.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "fill-blank input authority is incomplete");
+        }
+        Set<String> expectedBlankIds = canonicalIds(
+                inputBlanks, "blank_", "fill-blank");
+        JsonNode block = object(explanation, "strategyBlock");
+        requireFields(block, Set.of("blankExplanations"));
+        Set<String> seen = new LinkedHashSet<>();
+        Set<String> claimIds = new LinkedHashSet<>();
+        List<ExplanationClaim> claims = new java.util.ArrayList<>();
+        List<BlankExplanation> blanks = new java.util.ArrayList<>();
+        for (JsonNode node : array(block, "blankExplanations")) {
+            requireFields(node, Set.of(
+                    "claimId",
+                    "blankId",
+                    "contextExplanationVi",
+                    "semanticConstraintVi",
+                    "grammarConstraintVi",
+                    "registerConstraintVi",
+                    "evidenceIds"));
+            String blankId = text(node, "blankId");
+            if (!expectedBlankIds.contains(blankId)
+                    || !seen.add(blankId)) {
+                throw new IllegalArgumentException(
+                        "fill-blank explanation references an unknown blank");
+            }
+            ExplanationClaim claim = parseClaimFields(
+                    node,
+                    "contextExplanationVi",
+                    common.evidenceIds(),
+                    claimIds);
+            claims.add(claim);
+            blanks.add(new BlankExplanation(
+                    claim.claimId(),
+                    blankId,
+                    claim.textVi(),
+                    textAllowBlank(node, "semanticConstraintVi"),
+                    textAllowBlank(node, "grammarConstraintVi"),
+                    textAllowBlank(node, "registerConstraintVi"),
+                    claim.evidenceIds()));
+        }
+        if (!seen.equals(expectedBlankIds)) {
+            throw new IllegalArgumentException(
+                    "fill-blank explanation coverage is incomplete");
+        }
+        return new ObjectiveExplanationArtifact(
+                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                CanonicalQuestionType.FILL_BLANK,
+                selection.registryVersion(),
+                selection.strategyCode(),
+                selection.strategyVersion(),
+                joinClaims(claims),
+                joinClaims(claims),
+                claims,
+                common.evidence(),
+                common.translations(),
+                new FillBlankExplanation(blanks),
+                artifact.getId());
+    }
+
+    private ObjectiveExplanationArtifact parseV4MultipleAnswer(
+            QuestionExplanationArtifact artifact,
+            JsonNode input,
+            JsonNode explanation,
+            CommonExplanation common,
+            ObjectiveExplanationStrategyRegistry.Selection selection) {
+        JsonNode inputOptions = input.path("questionContent").path("options");
+        JsonNode correctOptions = input.path("answerSpec").path("correctOptionIds");
+        if (!inputOptions.isArray() || inputOptions.isEmpty()
+                || !correctOptions.isArray() || correctOptions.size() < 2) {
+            throw new IllegalArgumentException(
+                    "multiple-answer input authority is incomplete");
+        }
+        Set<String> expectedOptionIds = canonicalIds(
+                inputOptions, "option_", "multiple-answer option");
+        List<String> officialOptionIds = new java.util.ArrayList<>();
+        for (JsonNode option : correctOptions) {
+            String optionId = option.asText("");
+            if (!expectedOptionIds.contains(optionId)
+                    || officialOptionIds.contains(optionId)) {
+                throw new IllegalArgumentException(
+                        "multiple-answer official options are not canonical");
+            }
+            officialOptionIds.add(optionId);
+        }
+        JsonNode block = object(explanation, "strategyBlock");
+        List<ExplanationClaim> claims = new java.util.ArrayList<>();
+        List<OptionRationale> rationales = new java.util.ArrayList<>();
+        Set<String> claimIds = new LinkedHashSet<>();
+        switch (selection.generationFamily()) {
+            case EVIDENCE -> {
+                requireFields(block, Set.of("evidenceClaims"));
+                claims.addAll(parseClaims(
+                        array(block, "evidenceClaims"),
+                        common.evidenceIds(), claimIds));
+            }
+            case OPTION_ELIMINATION -> {
+                requireFields(block, Set.of("optionRationales"));
+                parseOptionRationales(
+                        array(block, "optionRationales"),
+                        expectedOptionIds,
+                        common.evidenceIds(),
+                        claimIds,
+                        claims,
+                        rationales);
+            }
+            case FULL_CONTEXT -> {
+                requireFields(block, Set.of("contextClaims", "answerClaim"));
+                claims.addAll(parseClaims(
+                        array(block, "contextClaims"),
+                        common.evidenceIds(), claimIds));
+                claims.add(parseClaim(
+                        object(block, "answerClaim"),
+                        common.evidenceIds(), claimIds));
+            }
+            case EVIDENCE_AND_ELIMINATION -> {
+                requireFields(block, Set.of(
+                        "contextClaims", "answerClaim", "optionRationales"));
+                claims.addAll(parseClaims(
+                        array(block, "contextClaims"),
+                        common.evidenceIds(), claimIds));
+                claims.add(parseClaim(
+                        object(block, "answerClaim"),
+                        common.evidenceIds(), claimIds));
+                parseOptionRationales(
+                        array(block, "optionRationales"),
+                        expectedOptionIds,
+                        common.evidenceIds(),
+                        claimIds,
+                        claims,
+                        rationales);
+            }
+            case TFNG_RELATION, FILL_CONSTRAINTS ->
+                    throw new IllegalArgumentException(
+                            "multiple-answer explanation strategy is incompatible");
+        }
+        String correctReason = rationales.stream()
+                .filter(rationale -> officialOptionIds.contains(rationale.optionId()))
+                .map(OptionRationale::reasonVi)
+                .distinct()
+                .collect(java.util.stream.Collectors.joining(" "));
+        if (correctReason.isBlank()) correctReason = joinClaims(claims);
+        return new ObjectiveExplanationArtifact(
+                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                CanonicalQuestionType.MULTIPLE_ANSWER,
+                selection.registryVersion(),
+                selection.strategyCode(),
+                selection.strategyVersion(),
+                joinClaims(claims),
+                correctReason,
+                claims,
+                common.evidence(),
+                common.translations(),
+                new MultipleAnswerExplanation(officialOptionIds, rationales),
+                artifact.getId());
+    }
+
+    private ObjectiveExplanationArtifact parseV4Matching(
+            QuestionExplanationArtifact artifact,
+            JsonNode input,
+            JsonNode explanation,
+            CommonExplanation common,
+            ObjectiveExplanationStrategyRegistry.Selection selection) {
+        JsonNode inputOptions = input.path("questionContent").path("options");
+        JsonNode inputTargets = input.path("questionContent").path("blanks");
+        JsonNode inputAnswers = input.path("answerSpec").path("blanks");
+        Set<String> expectedCandidates = canonicalIds(
+                inputOptions, "option_", "matching candidate");
+        Set<String> expectedTargets = canonicalIds(
+                inputTargets, "blank_", "matching target");
+        Map<String, String> officialByTarget = new java.util.LinkedHashMap<>();
+        if (!inputAnswers.isArray()) {
+            throw new IllegalArgumentException(
+                    "matching answer authority is incomplete");
+        }
+        for (JsonNode answer : inputAnswers) {
+            String targetId = text(answer, "blankId");
+            JsonNode accepted = answer.path("acceptedValues");
+            if (!expectedTargets.contains(targetId)
+                    || officialByTarget.containsKey(targetId)
+                    || !accepted.isArray()
+                    || accepted.size() != 1
+                    || !expectedCandidates.contains(accepted.get(0).asText(""))) {
+                throw new IllegalArgumentException(
+                        "matching answer authority contradicts canonical IDs");
+            }
+            officialByTarget.put(targetId, accepted.get(0).asText());
+        }
+        if (!officialByTarget.keySet().equals(expectedTargets)) {
+            throw new IllegalArgumentException(
+                    "matching answer target coverage is incomplete");
+        }
+        JsonNode block = object(explanation, "strategyBlock");
+        requireFields(block, Set.of("targetExplanations"));
+        Set<String> seenTargets = new LinkedHashSet<>();
+        Set<String> claimIds = new LinkedHashSet<>();
+        List<ExplanationClaim> claims = new java.util.ArrayList<>();
+        List<MatchingRationale> rationales = new java.util.ArrayList<>();
+        for (JsonNode node : array(block, "targetExplanations")) {
+            requireFields(node, Set.of(
+                    "claimId", "targetId", "candidateOptionId",
+                    "reasonVi", "evidenceIds"));
+            String targetId = text(node, "targetId");
+            String candidateId = text(node, "candidateOptionId");
+            if (!expectedTargets.contains(targetId)
+                    || !seenTargets.add(targetId)
+                    || !candidateId.equals(officialByTarget.get(targetId))) {
+                throw new IllegalArgumentException(
+                        "matching explanation contradicts official mapping");
+            }
+            ExplanationClaim claim = parseClaimFields(
+                    node, "reasonVi", common.evidenceIds(), claimIds);
+            claims.add(claim);
+            rationales.add(new MatchingRationale(
+                    claim.claimId(),
+                    targetId,
+                    candidateId,
+                    claim.textVi(),
+                    claim.evidenceIds()));
+        }
+        if (!seenTargets.equals(expectedTargets)) {
+            throw new IllegalArgumentException(
+                    "matching explanation coverage is incomplete");
+        }
+        return new ObjectiveExplanationArtifact(
+                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                CanonicalQuestionType.MATCHING,
+                selection.registryVersion(),
+                selection.strategyCode(),
+                selection.strategyVersion(),
+                joinClaims(claims),
+                joinClaims(claims),
+                claims,
+                common.evidence(),
+                common.translations(),
+                new MatchingExplanation(rationales),
+                artifact.getId());
+    }
+
+    private ObjectiveExplanationArtifact parseV4Tfng(
+            QuestionExplanationArtifact artifact,
+            JsonNode input,
+            JsonNode explanation,
+            CommonExplanation common,
+            ObjectiveExplanationStrategyRegistry.Selection selection) {
+        String officialValue = normalizeTfngValue(
+                text(input.path("answerSpec"), "correctValue"));
+        if (!Set.of("TRUE", "FALSE", "NOT_GIVEN")
+                .contains(officialValue)) {
+            throw new IllegalArgumentException(
+                    "TFNG input authority is invalid");
+        }
+        JsonNode block = object(explanation, "strategyBlock");
+        requireFields(block, Set.of(
+                "claim",
+                "whyTrue",
+                "whyFalse",
+                "whyNotGiven",
+                "missingInformation"));
+        Set<String> claimIds = new LinkedHashSet<>();
+        ExplanationClaim claim = parseClaim(
+                object(block, "claim"),
+                common.evidenceIds(),
+                claimIds);
+        ExplanationClaim whyTrue = parseClaim(
+                object(block, "whyTrue"),
+                common.evidenceIds(),
+                claimIds);
+        ExplanationClaim whyFalse = parseClaim(
+                object(block, "whyFalse"),
+                common.evidenceIds(),
+                claimIds);
+        ExplanationClaim whyNotGiven = parseClaim(
+                object(block, "whyNotGiven"),
+                common.evidenceIds(),
+                claimIds);
+        ExplanationClaim missing = parseClaim(
+                object(block, "missingInformation"),
+                common.evidenceIds(),
+                claimIds);
+        List<ExplanationClaim> claims = List.of(
+                claim, whyTrue, whyFalse, whyNotGiven, missing);
+        String officialReason = switch (officialValue) {
+            case "TRUE" -> whyTrue.textVi();
+            case "FALSE" -> whyFalse.textVi();
+            case "NOT_GIVEN" -> whyNotGiven.textVi();
+            default -> throw new IllegalStateException();
+        };
+        return new ObjectiveExplanationArtifact(
+                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
+                selection.registryVersion(),
+                selection.strategyCode(),
+                selection.strategyVersion(),
+                claim.textVi(),
+                officialReason,
+                claims,
+                common.evidence(),
+                common.translations(),
+                new TfngExplanation(
+                        officialReason,
+                        whyTrue.textVi(),
+                        whyFalse.textVi(),
+                        whyNotGiven.textVi(),
+                        missing.textVi()),
+                artifact.getId());
+    }
+
+    private static Set<String> canonicalIds(
+            JsonNode rows,
+            String prefix,
+            String label) {
+        Set<String> ids = new LinkedHashSet<>();
+        for (int index = 0; index < rows.size(); index++) {
+            String id = text(rows.get(index), "id");
+            if (!(prefix + (index + 1)).equals(id) || !ids.add(id)) {
+                throw new IllegalArgumentException(
+                        label + " input lacks canonical stable IDs");
+            }
+        }
+        return ids;
+    }
+
+    private static void parseOptionRationales(
+            JsonNode nodes,
+            Set<String> expectedOptionIds,
+            Set<String> evidenceIds,
+            Set<String> claimIds,
+            List<ExplanationClaim> claims,
+            List<OptionRationale> rationales) {
+        Set<String> seen = new LinkedHashSet<>();
+        for (JsonNode node : nodes) {
+            requireFields(node, Set.of(
+                    "claimId", "optionId", "reasonVi", "evidenceIds"));
+            String optionId = text(node, "optionId");
+            if (!expectedOptionIds.contains(optionId)
+                    || !seen.add(optionId)) {
+                throw new IllegalArgumentException(
+                        "option rationale references an unknown option");
+            }
+            ExplanationClaim claim = parseClaimFields(
+                    node,
+                    "reasonVi",
+                    evidenceIds,
+                    claimIds);
+            claims.add(claim);
+            rationales.add(new OptionRationale(
+                    claim.claimId(),
+                    optionId,
+                    claim.textVi(),
+                    claim.evidenceIds()));
+        }
+        if (!seen.equals(expectedOptionIds)) {
+            throw new IllegalArgumentException(
+                    "option rationale coverage is incomplete");
+        }
+    }
+
+    private static List<ExplanationClaim> parseClaims(
+            JsonNode nodes,
+            Set<String> evidenceIds,
+            Set<String> claimIds) {
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "explanation claim list must not be empty");
+        }
+        List<ExplanationClaim> claims = new java.util.ArrayList<>();
+        for (JsonNode node : nodes) {
+            claims.add(parseClaim(node, evidenceIds, claimIds));
+        }
+        return List.copyOf(claims);
+    }
+
+    private static ExplanationClaim parseClaim(
+            JsonNode node,
+            Set<String> evidenceIds,
+            Set<String> claimIds) {
+        requireFields(node, Set.of(
+                "claimId", "textVi", "evidenceIds"));
+        return parseClaimFields(
+                node, "textVi", evidenceIds, claimIds);
+    }
+
+    private static ExplanationClaim parseClaimFields(
+            JsonNode node,
+            String textField,
+            Set<String> evidenceIds,
+            Set<String> claimIds) {
+        String claimId = text(node, "claimId");
+        if (!claimIds.add(claimId)) {
+            throw new IllegalArgumentException(
+                    "explanation claim IDs must be unique");
+        }
+        List<String> references = stringList(node, "evidenceIds");
+        if (references.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "explanation claim must reference evidence");
+        }
+        requireKnownEvidence(references, evidenceIds);
+        return new ExplanationClaim(
+                claimId,
+                text(node, textField),
+                references);
+    }
+
+    private static String joinClaims(
+            List<ExplanationClaim> claims) {
+        return claims.stream()
+                .map(ExplanationClaim::textVi)
+                .distinct()
+                .collect(Collectors.joining(" "));
+    }
+
+    private static List<String> unionEvidence(
+            List<ExplanationClaim> claims) {
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        claims.forEach(claim -> ids.addAll(claim.evidenceIds()));
+        return List.copyOf(ids);
     }
 
     private ObjectiveExplanationArtifact parseV3SingleChoice(
@@ -261,7 +874,7 @@ public class QuestionExplanationReadService {
                     "single-choice rationale coverage is incomplete");
         }
         return new ObjectiveExplanationArtifact(
-                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                ReadingListeningExplanationClient.PREVIOUS_EXPLANATION_SCHEMA_VERSION,
                 CanonicalQuestionType.SINGLE_CHOICE,
                 common.meaningVi(),
                 common.correctReasonVi(),
@@ -322,7 +935,7 @@ public class QuestionExplanationReadService {
             throw new IllegalArgumentException("fill-blank explanation coverage is incomplete");
         }
         return new ObjectiveExplanationArtifact(
-                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                ReadingListeningExplanationClient.PREVIOUS_EXPLANATION_SCHEMA_VERSION,
                 CanonicalQuestionType.FILL_BLANK,
                 common.meaningVi(),
                 common.correctReasonVi(),
@@ -356,7 +969,7 @@ public class QuestionExplanationReadService {
                     "TRUE/FALSE explanation needs approved evidence");
         }
         return new ObjectiveExplanationArtifact(
-                ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION,
+                ReadingListeningExplanationClient.PREVIOUS_EXPLANATION_SCHEMA_VERSION,
                 CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN,
                 common.meaningVi(),
                 common.correctReasonVi(),
@@ -451,7 +1064,9 @@ public class QuestionExplanationReadService {
                 artifact.getId());
     }
 
-    private CommonExplanation commonExplanation(JsonNode explanation, JsonNode input) {
+    private CommonExplanation groundedCommonExplanation(
+            JsonNode explanation,
+            JsonNode input) {
         List<ArtifactEvidence> evidence = parseEvidence(
                 array(explanation, "textEvidenceRefs"),
                 array(explanation, "imageEvidenceRefs"),
@@ -462,11 +1077,24 @@ public class QuestionExplanationReadService {
         List<EvidenceTranslation> translations = parseTranslations(
                 array(explanation, "relevantTranslations"), evidenceIds);
         return new CommonExplanation(
-                text(explanation, "meaningVi"),
-                text(explanation, "correctReasonVi"),
+                "",
+                "",
                 evidence,
                 evidenceIds,
                 translations);
+    }
+
+    private CommonExplanation commonExplanation(
+            JsonNode explanation,
+            JsonNode input) {
+        CommonExplanation grounded = groundedCommonExplanation(
+                explanation, input);
+        return new CommonExplanation(
+                text(explanation, "meaningVi"),
+                text(explanation, "correctReasonVi"),
+                grounded.evidence(),
+                grounded.evidenceIds(),
+                grounded.translations());
     }
 
     private List<ArtifactEvidence> parseEvidence(
@@ -528,14 +1156,40 @@ public class QuestionExplanationReadService {
                 "evidenceId", "kind", "purpose", "sourceRole",
                 "exactQuoteKo", "startOffset", "endOffset"));
         String sourceRole = text(node, "sourceRole");
-        if (("TEXT_SPAN".equals(kind) && !"PASSAGE".equals(sourceRole))
-                || ("TRANSCRIPT_SPAN".equals(kind) && !"TRANSCRIPT".equals(sourceRole))) {
+        boolean compatible = ("TEXT_SPAN".equals(kind)
+                && Set.of("PASSAGE", "QUESTION_PROMPT").contains(sourceRole))
+                || ("TRANSCRIPT_SPAN".equals(kind)
+                && "TRANSCRIPT".equals(sourceRole));
+        if (!compatible) {
             throw new IllegalArgumentException("text evidence source role is incompatible");
         }
         JsonNode stimulus = object(input, "stimulus");
-        String source = "PASSAGE".equals(sourceRole)
-                ? textAllowBlank(stimulus, "passageText")
-                : approvedTranscript(stimulus);
+        String stimulusType = text(stimulus, "type");
+        String source = switch (sourceRole) {
+            case "PASSAGE" -> {
+                if (!"READING_PASSAGE".equals(stimulusType)) {
+                    throw new IllegalArgumentException(
+                            "passage evidence lacks passage authority");
+                }
+                yield textAllowBlank(stimulus, "passageText");
+            }
+            case "TRANSCRIPT" -> {
+                if (!"LISTENING_AUDIO".equals(stimulusType)) {
+                    throw new IllegalArgumentException(
+                            "transcript evidence lacks audio authority");
+                }
+                yield approvedTranscript(stimulus);
+            }
+            case "QUESTION_PROMPT" -> {
+                if (!"STANDALONE_PROMPT".equals(stimulusType)
+                        || !stimulus.path("approved").asBoolean(false)) {
+                    throw new IllegalArgumentException(
+                            "standalone evidence lacks prompt authority");
+                }
+                yield text(input, "prompt");
+            }
+            default -> "";
+        };
         int start = integer(node, "startOffset");
         int end = integer(node, "endOffset");
         String quote = text(node, "exactQuoteKo");
@@ -572,7 +1226,18 @@ public class QuestionExplanationReadService {
         String transcript = passage.isBlank() ? approvedTranscript(stimulus) : "";
         String source = passage.isBlank() ? transcript : passage;
         String role = passage.isBlank() ? "TRANSCRIPT" : "PASSAGE";
-        int start = requestedStart >= 0 ? requestedStart : source.indexOf(quote);
+        int start;
+        if (requestedStart >= 0) {
+            start = requestedStart;
+        } else {
+            int first = source.indexOf(quote);
+            int last = source.lastIndexOf(quote);
+            if (first < 0 || first != last) {
+                throw new IllegalArgumentException(
+                        "v2 quote occurrence is missing or ambiguous");
+            }
+            start = first;
+        }
         int end = requestedEnd >= 0 ? requestedEnd : start + quote.length();
         if (start < 0 || end > source.length()
                 || !source.substring(start, end).equals(quote)) {
@@ -805,23 +1470,105 @@ public class QuestionExplanationReadService {
     public record ObjectiveExplanationArtifact(
             String schemaVersion,
             CanonicalQuestionType questionType,
+            String strategyRegistryVersion,
+            String strategyCode,
+            String strategyVersion,
             String meaningVi,
             String correctReasonVi,
+            List<ExplanationClaim> claims,
             List<ArtifactEvidence> evidence,
             List<EvidenceTranslation> relevantTranslations,
             TypeExplanation typeExplanation,
             Long artifactId
     ) {
         public ObjectiveExplanationArtifact {
+            strategyRegistryVersion = strategyRegistryVersion == null
+                    ? ""
+                    : strategyRegistryVersion;
+            strategyCode = strategyCode == null ? "" : strategyCode;
+            strategyVersion = strategyVersion == null ? "" : strategyVersion;
+            claims = claims == null ? List.of() : List.copyOf(claims);
             evidence = evidence == null ? List.of() : List.copyOf(evidence);
             relevantTranslations = relevantTranslations == null
                     ? List.of()
                     : List.copyOf(relevantTranslations);
         }
+
+        public ObjectiveExplanationArtifact(
+                String schemaVersion,
+                CanonicalQuestionType questionType,
+                String meaningVi,
+                String correctReasonVi,
+                List<ArtifactEvidence> evidence,
+                List<EvidenceTranslation> relevantTranslations,
+                TypeExplanation typeExplanation,
+                Long artifactId) {
+            this(
+                    schemaVersion,
+                    questionType,
+                    "",
+                    "",
+                    "",
+                    meaningVi,
+                    correctReasonVi,
+                    List.of(),
+                    evidence,
+                    relevantTranslations,
+                    typeExplanation,
+                    artifactId);
+        }
+    }
+
+    public record ExplanationClaim(
+            String claimId,
+            String textVi,
+            List<String> evidenceIds
+    ) {
+        public ExplanationClaim {
+            if (blank(claimId) || blank(textVi)
+                    || evidenceIds == null || evidenceIds.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Objective explanation claim is incomplete");
+            }
+            evidenceIds = List.copyOf(evidenceIds);
+        }
     }
 
     public sealed interface TypeExplanation
-            permits SingleChoiceExplanation, FillBlankExplanation, TfngExplanation {
+            permits SingleChoiceExplanation, MultipleAnswerExplanation,
+            MatchingExplanation, FillBlankExplanation, TfngExplanation {
+    }
+
+    public record MultipleAnswerExplanation(
+            List<String> correctOptionIds,
+            List<OptionRationale> optionRationales
+    ) implements TypeExplanation {
+        public MultipleAnswerExplanation {
+            correctOptionIds = correctOptionIds == null
+                    ? List.of() : List.copyOf(correctOptionIds);
+            optionRationales = optionRationales == null
+                    ? List.of() : List.copyOf(optionRationales);
+        }
+    }
+
+    public record MatchingExplanation(
+            List<MatchingRationale> targets
+    ) implements TypeExplanation {
+        public MatchingExplanation {
+            targets = targets == null ? List.of() : List.copyOf(targets);
+        }
+    }
+
+    public record MatchingRationale(
+            String claimId,
+            String targetId,
+            String candidateOptionId,
+            String reasonVi,
+            List<String> evidenceIds
+    ) {
+        public MatchingRationale {
+            evidenceIds = evidenceIds == null ? List.of() : List.copyOf(evidenceIds);
+        }
     }
 
     public record SingleChoiceExplanation(
@@ -836,12 +1583,21 @@ public class QuestionExplanationReadService {
     }
 
     public record OptionRationale(
+            String claimId,
             String optionId,
             String reasonVi,
             List<String> evidenceIds
     ) {
         public OptionRationale {
+            claimId = claimId == null ? "" : claimId;
             evidenceIds = evidenceIds == null ? List.of() : List.copyOf(evidenceIds);
+        }
+
+        public OptionRationale(
+                String optionId,
+                String reasonVi,
+                List<String> evidenceIds) {
+            this("", optionId, reasonVi, evidenceIds);
         }
     }
 
@@ -854,6 +1610,7 @@ public class QuestionExplanationReadService {
     }
 
     public record BlankExplanation(
+            String claimId,
             String blankId,
             String contextExplanationVi,
             String semanticConstraintVi,
@@ -862,7 +1619,25 @@ public class QuestionExplanationReadService {
             List<String> evidenceIds
     ) {
         public BlankExplanation {
+            claimId = claimId == null ? "" : claimId;
             evidenceIds = evidenceIds == null ? List.of() : List.copyOf(evidenceIds);
+        }
+
+        public BlankExplanation(
+                String blankId,
+                String contextExplanationVi,
+                String semanticConstraintVi,
+                String grammarConstraintVi,
+                String registerConstraintVi,
+                List<String> evidenceIds) {
+            this(
+                    "",
+                    blankId,
+                    contextExplanationVi,
+                    semanticConstraintVi,
+                    grammarConstraintVi,
+                    registerConstraintVi,
+                    evidenceIds);
         }
     }
 

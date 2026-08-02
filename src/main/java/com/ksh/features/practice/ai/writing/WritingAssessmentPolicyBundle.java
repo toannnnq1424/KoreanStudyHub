@@ -12,12 +12,13 @@ import java.util.Set;
  */
 public final class WritingAssessmentPolicyBundle {
 
-    public static final String POLICY_BUNDLE_ID = "KSH_WRITING_POLICY_BUNDLE_V2";
-    public static final String TASK_SPEC_VERSION = "writing-task-spec-v2";
+    public static final String POLICY_BUNDLE_ID = "KSH_WRITING_POLICY_BUNDLE_V3";
+    public static final String TASK_SPEC_VERSION = "writing-task-spec-v3";
     public static final String DESCRIPTOR_VERSION =
             "ksh-writing-detail-diagnostics-seam-v1";
-    public static final String EVIDENCE_POLICY_VERSION = "writing-evidence-v2";
-    public static final String NORMALIZER_VERSION = "writing-normalizer-v2";
+    public static final String EVIDENCE_POLICY_VERSION =
+            WritingEvidenceLedgerVerifier.CONTRACT_VERSION;
+    public static final String NORMALIZER_VERSION = "writing-normalizer-v3";
     public static final String RULE_ENGINE_VERSION = "writing-rules-advisory-v2";
     public static final String SCORE_AVAILABILITY_VERSION = "writing-score-availability-v2";
     public static final String FIELD_LANGUAGE_VERSION = "writing-fields-vi-ko-v2";
@@ -46,6 +47,8 @@ public final class WritingAssessmentPolicyBundle {
                 "diagnostics=" + WritingDiagnosticContract.VERSION,
                 "descriptors=" + DESCRIPTOR_VERSION,
                 "evidence=" + EVIDENCE_POLICY_VERSION,
+                "score-anchors=" + WritingScoreAnchorPolicy.VERSION,
+                "task-requirements=" + WritingTaskRequirementPolicy.VERSION,
                 "normalizer=" + NORMALIZER_VERSION,
                 "rules=" + RULE_ENGINE_VERSION,
                 "availability=" + SCORE_AVAILABILITY_VERSION,

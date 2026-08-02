@@ -20,6 +20,10 @@ public final class PracticeModelAttributes {
     public static final String ATTEMPT_DEADLINE_EPOCH_MS = "attemptDeadlineEpochMs";
     public static final String SERVER_NOW_EPOCH_MS = "serverNowEpochMs";
     public static final String SAVED_ANSWERS = "savedAnswers";
+    public static final String SAVED_WRITING_BLANK_ANSWERS =
+            "savedWritingBlankAnswers";
+    public static final String LEGACY_WRITING_ANSWER_DOCUMENT =
+            "legacyWritingAnswerDocument";
     public static final String RESULT = "result";
     public static final String RESULT_DETAIL = "resultDetail";
     public static final String QUESTIONS_JSON = "questionsJson";

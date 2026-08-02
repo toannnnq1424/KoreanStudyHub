@@ -9,6 +9,7 @@ import com.ksh.features.student.service.StudentLessonDetailService;
 import com.ksh.features.student.service.StudentLessonsService;
 import com.ksh.security.Role;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,7 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_CLASS_LESSONS;
  */
 @Controller
 @RequestMapping("/my/classes/{classId}/lessons")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class StudentLessonsController {
 
     private static final Logger log = LoggerFactory.getLogger(StudentLessonsController.class);
