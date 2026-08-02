@@ -12,7 +12,14 @@ import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionContent;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ScoringPolicyCode;
-import com.ksh.features.practice.manage.speaking.SpeakingPromptLifecycleService;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateJson;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CandidateView;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CreateCommand;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceKind;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceSnapshot;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateService;
 import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.governance.PracticeAction;
@@ -29,7 +36,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,6 +49,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 @Service
 public class PracticeAssessmentExcelService {
@@ -45,6 +58,8 @@ public class PracticeAssessmentExcelService {
     public static final String SCHEMA_VERSION = "practice-excel-v2";
     private static final String LEGACY_SCHEMA_VERSION = "practice-excel-v1";
     private static final long MAX_BYTES = 10L * 1024 * 1024;
+    private static final long MAX_UNCOMPRESSED_BYTES = 50L * 1024 * 1024;
+    private static final int MAX_ZIP_ENTRIES = 1_000;
     private static final int MAX_MEDIA_OVERRIDES = 200;
     private static final Pattern MANAGED_MEDIA_URL = Pattern.compile(
             "^/practice/materials/(\\d+)/content$");
@@ -77,7 +92,8 @@ public class PracticeAssessmentExcelService {
     private final PracticeAssessmentExcelV2Codec v2Codec;
     private final PracticeAuthorizationService authorizationService;
     private final LecturerAssetService assetService;
-    private SpeakingPromptLifecycleService speakingPromptLifecycleService;
+    private final PracticeAuthoringCandidateService candidateService;
+    private final PracticeAssessmentQuickExcelCodec quickCodec;
 
     @org.springframework.beans.factory.annotation.Autowired
     public PracticeAssessmentExcelService(
@@ -89,7 +105,8 @@ public class PracticeAssessmentExcelService {
             QuestionTypeResolver questionTypeResolver,
             ObjectMapper objectMapper,
             PracticeAuthorizationService authorizationService,
-            LecturerAssetService assetService) {
+            LecturerAssetService assetService,
+            PracticeAuthoringCandidateService candidateService) {
         this.catalogService = catalogService;
         this.draftContractService = draftContractService;
         this.draftValidator = draftValidator;
@@ -99,14 +116,11 @@ public class PracticeAssessmentExcelService {
         this.objectMapper = objectMapper;
         this.authorizationService = authorizationService;
         this.assetService = assetService;
+        this.candidateService = candidateService;
         this.v2Codec = new PracticeAssessmentExcelV2Codec(
                 draftContractService, draftValidator, contractCodec, objectMapper);
-    }
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public void setSpeakingPromptLifecycleService(
-            SpeakingPromptLifecycleService speakingPromptLifecycleService) {
-        this.speakingPromptLifecycleService = speakingPromptLifecycleService;
+        this.quickCodec = new PracticeAssessmentQuickExcelCodec(
+                objectMapper, catalogService);
     }
 
     public PracticeAssessmentExcelService(
@@ -118,28 +132,53 @@ public class PracticeAssessmentExcelService {
             QuestionTypeResolver questionTypeResolver,
             ObjectMapper objectMapper) {
         this(catalogService, draftContractService, draftValidator, draftRepository,
-                contractCodec, questionTypeResolver, objectMapper, null, null);
+                contractCodec, questionTypeResolver, objectMapper,
+                null, null, null);
     }
 
     public byte[] buildTemplate() {
         return v2Codec.buildTemplate(catalogService.defaultTemplate());
     }
 
+    public byte[] buildQuickTemplate() {
+        return quickCodec.buildTemplate();
+    }
+
     public ExcelPreview preview(MultipartFile file) {
         byte[] bytes = validateAndRead(file);
+        return preview(bytes, null);
+    }
+
+    public ExcelPreview preview(
+            MultipartFile file, ExcelImportContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Route Excel target là bắt buộc.");
+        }
+        byte[] bytes = validateAndRead(file);
+        return preview(bytes, context);
+    }
+
+    private ExcelPreview preview(byte[] bytes, ExcelImportContext context) {
         List<ImportIssue> issues = new ArrayList<>();
+        PracticeAssessmentQuickExcelCodec.PackageInspection packageInspection =
+                inspectPackage(bytes);
+        failUnsafeQuickPackage(packageInspection);
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
-            if (workbook.getSheet("01_THONG_TIN_SET") != null) {
-                return v2Codec.preview(workbook, catalogService.defaultTemplate(), issues);
-            }
-            for (String required : LEGACY_REQUIRED_SHEETS) {
-                if (workbook.getSheet(required) == null) {
-                    issues.add(blocking("SHEET_MISSING", required, 0, null,
-                            "Thiếu sheet bắt buộc: " + required));
+            WorkbookFormat format = detect(workbook);
+            if (format == WorkbookFormat.QUICK_V1) {
+                if (context == null) {
+                    throw new PracticeAssessmentExcelException(
+                            "CANDIDATE_TARGET_INVALID",
+                            "Quick Excel cần route draftId + testNo + skill + lessonCode.");
                 }
+                PracticeAssessmentQuickExcelCodec.QuickParseResult parsed =
+                        quickCodec.parse(
+                                workbook, context.skill(), packageInspection);
+                validateQuickTargetAuthority(context, parsed.groups());
+                return quickPreview(parsed);
             }
-            if (hasBlocking(issues)) {
-                return previewResult(null, issues, List.of(), 0, 0, BigDecimal.ZERO);
+            if (format == WorkbookFormat.ADVANCED_V2) {
+                return v2Codec.preview(workbook, catalogService.defaultTemplate(), issues);
             }
 
             List<QuestionRowSeed> questionRows = readQuestionRows(workbook.getSheet("Questions"));
@@ -204,6 +243,9 @@ public class PracticeAssessmentExcelService {
             return previewResult(importableDraftJson, issues, questionRows,
                     finalBuild.sectionCount, finalBuild.groupCount, finalBuild.totalPoints);
         } catch (Exception exception) {
+            if (exception instanceof PracticeAssessmentExcelException excelException) {
+                throw excelException;
+            }
             if (exception instanceof IllegalArgumentException illegalArgumentException) {
                 throw illegalArgumentException;
             }
@@ -212,221 +254,141 @@ public class PracticeAssessmentExcelService {
     }
 
     @Transactional
-    public PracticeDraft importDraft(MultipartFile file,
-                                     Long linkedDraftId,
-                                     Long ownerId) {
-        return importDraft(file, linkedDraftId, ownerId, null);
+    public CandidateView createCandidate(
+            MultipartFile file,
+            ExcelImportContext context,
+            Long actorId,
+            String mediaOverridesJson) {
+        if (context == null || actorId == null || actorId < 1) {
+            throw new IllegalArgumentException(
+                    "Route và actor của Excel candidate là bắt buộc.");
+        }
+        if (candidateService == null) {
+            throw new IllegalStateException(
+                    "Authoring candidate service chưa được cấu hình.");
+        }
+        byte[] bytes = validateAndRead(file);
+        AdaptedWorkbook adapted = adapt(
+                bytes, context, mediaOverridesJson);
+        SourceSnapshot source = new SourceSnapshot(
+                adapted.sourceKind(),
+                adapted.sourceKind().contractVersion(),
+                "sha256:" + digest(bytes),
+                "upload-1",
+                normalizedFileName(file),
+                SourceOperation.NONE,
+                null);
+        TargetRoute target = new TargetRoute(
+                context.draft().getId(),
+                context.testNo(),
+                context.skill(),
+                context.lessonCode());
+        return candidateService.createOrReuse(new CreateCommand(
+                actorId, source, target, adapted.groups()));
     }
 
-    @Transactional
-    public PracticeDraft importDraft(MultipartFile file,
-                                     Long linkedDraftId,
-                                     Long ownerId,
-                                     String mediaOverridesJson) {
-        ExcelPreview preview = preview(file);
-        if (!preview.canImport()) {
-            throw new IllegalArgumentException("File Excel không còn dòng hợp lệ để nhập hoặc có lỗi cấp file.");
-        }
-        ObjectNode root;
-        try {
-            root = (ObjectNode) objectMapper.readTree(preview.draftJson());
-        } catch (Exception exception) {
-            throw new IllegalStateException("Không thể tạo draft từ Excel.", exception);
-        }
+    private AdaptedWorkbook adapt(
+            byte[] bytes,
+            ExcelImportContext context,
+            String mediaOverridesJson) {
+        ExcelPreview preview = preview(bytes, context);
         Map<String, String> mediaOverrides =
                 parseMediaOverrides(mediaOverridesJson);
-        Map<String, String> speakingMaterialReferences =
-                speakingMaterialReferences(root);
-        Set<String> importedMaterialReferences =
-                importedMaterialReferences(root);
-        applyMediaOverrides(root, mediaOverrides);
-        PracticeDraft linkedDraft = linkedDraftId == null
-                ? null
-                : requireLinkedDraftForUpdate(linkedDraftId, ownerId);
-        Long assetOwnerId = linkedDraft == null
-                ? ownerId
-                : linkedDraft.getOwnerId();
-        List<SpeakingExcelBinding> speakingAudioBindings =
+        PracticeAssessmentQuickExcelCodec.PackageInspection packageInspection =
+                inspectPackage(bytes);
+        try (Workbook workbook = WorkbookFactory.create(
+                new ByteArrayInputStream(bytes))) {
+            WorkbookFormat format = detect(workbook);
+            if (format == WorkbookFormat.QUICK_V1) {
+                if (!mediaOverrides.isEmpty()) {
+                    throw new PracticeAssessmentExcelException(
+                            "ADVANCED_AUTHORING_REQUIRED",
+                            "Quick Excel không hỗ trợ media upload/reference.");
+                }
+                PracticeAssessmentQuickExcelCodec.QuickParseResult parsed =
+                        quickCodec.parse(
+                                workbook, context.skill(), packageInspection);
+                validateQuickTargetAuthority(context, parsed.groups());
+                return new AdaptedWorkbook(
+                        SourceKind.QUICK_EXCEL, parsed.groups());
+            }
+            if (!preview.canImport()) {
+                throw new PracticeAssessmentExcelException(
+                        "WORKBOOK_SCHEMA_UNSUPPORTED",
+                        "Workbook không còn nội dung hợp lệ để tạo candidate.");
+            }
+            ObjectNode root = readObject(preview.draftJson());
+            applyMediaOverrides(root, mediaOverrides);
+            SourceKind sourceKind = format == WorkbookFormat.ADVANCED_V2
+                    ? SourceKind.ADVANCED_EXCEL_V2
+                    : SourceKind.LEGACY_EXCEL_V1;
+            if ("SPEAKING".equals(context.skill())) {
                 requireVerifiedSpeakingUploadAssets(
-                        root,
-                        linkedDraftId,
-                        assetOwnerId,
-                        speakingMaterialReferences);
-        PracticeDraft draft;
-        String finalJson = writeJson(root);
-        if (linkedDraftId == null) {
-            if (authorizationService != null) {
-                authorizationService.requireGlobal(ownerId, PracticeAction.CREATE);
+                        exactTargetSection(root, context),
+                        context.draft().getId(),
+                        context.draft().getOwnerId());
             }
-            String title = root.path("document").path("title").asText("Bộ đề nhập từ Excel");
-            String description = root.path("document").path("description").asText("");
-            draft = new PracticeDraft(title, description, "GLOBAL", null, "DRAFT", ownerId,
-                    finalJson);
-            draft.setCreationMethod("EXCEL");
-        } else {
-            draft = linkedDraft;
-            ObjectNode existing = normalizedRoot(draft.getDraftJson(), draft.getCreationMethod());
-            root = mergeImportedLessons(existing, root);
-            PracticeDraftContractService.NormalizedDraft normalized =
-                    draftContractService.normalize(root, "EXCEL");
-            finalJson = normalized.json();
-            try {
-                root = (ObjectNode) objectMapper.readTree(finalJson);
-            } catch (Exception exception) {
-                throw new IllegalStateException("Không thể đọc draft sau khi gộp Excel.", exception);
-            }
-            if (speakingPromptLifecycleService == null) {
-                throw new IllegalStateException(
-                        "Vòng đời Speaking chưa được cấu hình; không thể thay thế phần Excel an toàn.");
-            }
-            speakingPromptLifecycleService.reconcileDraftQuestions(
-                    draft.getId(),
-                    draft.getOwnerId(),
-                    ownerId,
-                    finalJson);
+            return new AdaptedWorkbook(
+                    sourceKind,
+                    adaptExactTargetGroups(root, context, sourceKind));
+        } catch (PracticeAssessmentExcelException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new PracticeAssessmentExcelException(
+                    "WORKBOOK_SCHEMA_UNSUPPORTED",
+                    "Không thể chuyển workbook sang authoring candidate.",
+                    exception);
         }
-        draft.setDraftJson(finalJson);
-        draft.setDraftSchemaVersion(PracticeDraftContractService.SCHEMA_VERSION);
-        PracticeDraft saved = draftRepository.saveAndFlush(draft);
-        linkManagedMedia(saved.getId(), ownerId,
-                mediaOverrides,
-                speakingAudioBindings,
-                importedMaterialReferences);
-        return saved;
     }
 
-    private List<SpeakingExcelBinding> requireVerifiedSpeakingUploadAssets(
-            JsonNode importedRoot,
+    private void requireVerifiedSpeakingUploadAssets(
+            JsonNode targetSection,
             Long linkedDraftId,
-            Long assetOwnerId,
-            Map<String, String> speakingMaterialReferences) {
-        List<SpeakingExcelBinding> bindings = new ArrayList<>();
-        for (JsonNode section : importedRoot.path("sections")) {
-            for (JsonNode group : section.path("groups")) {
-                for (JsonNode question : group.path("questions")) {
-                    if (!CanonicalQuestionType.SPEAKING.name().equals(
-                            question.path("questionType").asText())) {
-                        continue;
-                    }
-                    JsonNode content = question.path("questionContent");
-                    JsonNode delivery = content.path("speakingDelivery");
-                    String reference = delivery.path(
-                            "promptAudioReference").asText("").trim();
-                    java.util.regex.Matcher matcher =
-                            MANAGED_MEDIA_URL.matcher(reference);
-                    if (!QuestionContent.supportsTypedSpeakingDelivery(
-                                content.path("schemaVersion").asText())
-                            || !"audio_upload".equals(
-                                delivery.path("inputType").asText())
-                            || !"audio_only".equals(
-                                delivery.path("deliveryMode").asText())
-                            || !"teacher_upload".equals(
-                                delivery.path("audioOrigin").asText())
-                            || !matcher.matches()) {
-                        throw new IllegalArgumentException(
-                                "Speaking qua Excel chỉ nhận audio riêng tư đã tải lên. "
-                                        + "Hãy tải tệp ở màn hình nhập, rồi mở từng câu trong Editor "
-                                        + "để xác minh và tạo bản chép lời; Excel không gọi TTS.");
-                    }
-                    Long assetId = Long.valueOf(matcher.group(1));
-                    if (linkedDraftId == null || assetService == null) {
-                        throw new IllegalStateException(
-                                "Không thể xác minh audio Speaking theo đúng bản nháp. "
-                                        + "Hãy mở Nhập Excel từ Editor và tải audio vào bản nháp đó.");
-                    }
-                    String clientId = question.path("clientId").asText("").trim();
-                    if (clientId.isBlank() || clientId.length() > 100) {
-                        throw new IllegalArgumentException(
-                                "Câu Speaking trong Excel thiếu clientId hợp lệ.");
-                    }
-                    assetService.requireVerifiedPrivateManualAudioForExcel(
-                            assetId,
-                            assetOwnerId,
-                            linkedDraftId,
-                            clientId);
-                    bindings.add(new SpeakingExcelBinding(
-                            assetId,
-                            clientId,
-                            speakingMaterialReferences.get(clientId)));
+            Long assetOwnerId) {
+        for (JsonNode group : targetSection.path("groups")) {
+            for (JsonNode question : group.path("questions")) {
+                if (!CanonicalQuestionType.SPEAKING.name().equals(
+                        question.path("questionType").asText())) {
+                    continue;
                 }
-            }
-        }
-        return List.copyOf(bindings);
-    }
-
-    private Map<String, String> speakingMaterialReferences(JsonNode root) {
-        Map<String, String> result = new LinkedHashMap<>();
-        for (JsonNode section : root.path("sections")) {
-            for (JsonNode group : section.path("groups")) {
-                for (JsonNode question : group.path("questions")) {
-                    if (!CanonicalQuestionType.SPEAKING.name().equals(
-                            question.path("questionType").asText())) {
-                        continue;
-                    }
-                    String clientId =
-                            question.path("clientId").asText("").trim();
-                    String reference = question.path("questionContent")
-                            .path("speakingDelivery")
-                            .path("promptAudioReference")
-                            .asText("")
-                            .trim();
-                    if (!clientId.isBlank()
-                            && reference.startsWith("material:")
-                            && reference.length() > "material:".length()) {
-                        result.put(
-                                clientId,
-                                reference.substring("material:".length()));
-                    }
+                JsonNode content = question.path("questionContent");
+                JsonNode delivery = content.path("speakingDelivery");
+                String reference = delivery.path(
+                        "promptAudioReference").asText("").trim();
+                java.util.regex.Matcher matcher =
+                        MANAGED_MEDIA_URL.matcher(reference);
+                if (!QuestionContent.supportsTypedSpeakingDelivery(
+                            content.path("schemaVersion").asText())
+                        || !"audio_upload".equals(
+                            delivery.path("inputType").asText())
+                        || !"audio_only".equals(
+                            delivery.path("deliveryMode").asText())
+                        || !"teacher_upload".equals(
+                            delivery.path("audioOrigin").asText())
+                        || !matcher.matches()) {
+                    throw new IllegalArgumentException(
+                            "Speaking qua Excel chỉ nhận audio riêng tư đã tải lên. "
+                                    + "Hãy tải tệp ở màn hình nhập, rồi mở từng câu trong Editor "
+                                    + "để xác minh và tạo bản chép lời; Excel không gọi TTS.");
                 }
+                Long assetId = Long.valueOf(matcher.group(1));
+                if (linkedDraftId == null || assetService == null) {
+                    throw new IllegalStateException(
+                            "Không thể xác minh audio Speaking theo đúng bản nháp. "
+                                    + "Hãy mở Nhập Excel từ Editor và tải audio vào bản nháp đó.");
+                }
+                String clientId = question.path("clientId").asText("").trim();
+                if (clientId.isBlank() || clientId.length() > 100) {
+                    throw new IllegalArgumentException(
+                            "Câu Speaking trong Excel thiếu clientId hợp lệ.");
+                }
+                assetService.requireVerifiedPrivateManualAudioForExcel(
+                        assetId,
+                        assetOwnerId,
+                        linkedDraftId,
+                        clientId);
             }
         }
-        return Map.copyOf(result);
-    }
-
-    private Set<String> importedMaterialReferences(JsonNode root) {
-        Set<String> result = new LinkedHashSet<>();
-        collectMaterialReferences(root, result);
-        return Set.copyOf(result);
-    }
-
-    private void collectMaterialReferences(
-            JsonNode node, Set<String> result) {
-        if (node == null || node.isNull()) {
-            return;
-        }
-        if (node.isTextual()) {
-            String value = node.asText("").trim();
-            if (value.startsWith("material:")
-                    && value.length() > "material:".length()) {
-                result.add(value.substring("material:".length()));
-            }
-            return;
-        }
-        if (node.isContainerNode()) {
-            node.elements().forEachRemaining(
-                    child -> collectMaterialReferences(child, result));
-        }
-    }
-
-    private PracticeDraft requireLinkedDraftForUpdate(
-            Long draftId, Long actorId) {
-        if (draftId == null) {
-            throw new IllegalArgumentException(
-                    "Nhập Excel phải được mở từ một bản nháp thủ công.");
-        }
-        if (authorizationService != null) {
-            authorizationService.requireDraft(
-                    draftId, actorId, PracticeAction.EDIT);
-        }
-        PracticeDraft draft = draftRepository.findByIdForUpdate(draftId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
-                        "Bản nháp liên kết không tồn tại."));
-        if (authorizationService == null
-                && !actorId.equals(draft.getOwnerId())) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Bạn không có quyền nhập dữ liệu vào bản nháp này.");
-        }
-        return draft;
     }
 
     private Map<String, String> parseMediaOverrides(String rawJson) {
@@ -523,7 +485,370 @@ public class PracticeAssessmentExcelService {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (Exception exception) {
-            throw new IllegalStateException("Không thể lưu tài nguyên vào draft Excel.", exception);
+            throw new IllegalStateException(
+                    "Không thể tạo JSON typed từ Excel.", exception);
+        }
+    }
+
+    private ObjectNode readObject(String value) {
+        try {
+            JsonNode parsed = objectMapper.readTree(value);
+            if (parsed instanceof ObjectNode object) return object;
+        } catch (Exception exception) {
+            throw new PracticeAssessmentExcelException(
+                    "WORKBOOK_SCHEMA_UNSUPPORTED",
+                    "Workbook không tạo được JSON typed hợp lệ.", exception);
+        }
+        throw new PracticeAssessmentExcelException(
+                "WORKBOOK_SCHEMA_UNSUPPORTED",
+                "Workbook không tạo được JSON typed hợp lệ.");
+    }
+
+    private WorkbookFormat detect(Workbook workbook) {
+        if (quickCodec.hasIdentityMarker(workbook)) {
+            return WorkbookFormat.QUICK_V1;
+        }
+        if (workbook.getSheet("01_THONG_TIN_SET") != null) {
+            return WorkbookFormat.ADVANCED_V2;
+        }
+        Set<String> names = new LinkedHashSet<>();
+        for (int index = 0; index < workbook.getNumberOfSheets(); index++) {
+            names.add(workbook.getSheetName(index));
+        }
+        if (names.equals(LEGACY_REQUIRED_SHEETS)) {
+            return WorkbookFormat.LEGACY_V1;
+        }
+        throw new PracticeAssessmentExcelException(
+                "WORKBOOK_SCHEMA_UNSUPPORTED",
+                "Workbook không thuộc Quick v1, Advanced v2 hoặc Legacy v1.");
+    }
+
+    private PracticeAssessmentQuickExcelCodec.PackageInspection inspectPackage(
+            byte[] bytes) {
+        boolean macro = false;
+        boolean external = false;
+        boolean quickMarker = false;
+        int entries = 0;
+        long total = 0;
+        byte[] buffer = new byte[8_192];
+        try (ZipInputStream zip = new ZipInputStream(
+                new ByteArrayInputStream(bytes), StandardCharsets.UTF_8)) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                entries++;
+                if (entries > MAX_ZIP_ENTRIES) {
+                    throw unsafePackage("Workbook có quá nhiều ZIP entries.");
+                }
+                String name = entry.getName().toLowerCase(Locale.ROOT);
+                macro |= name.endsWith("vbaproject.bin")
+                        || name.contains("/activex/");
+                external |= name.startsWith("xl/externallinks/");
+                boolean quickIdentityXml = "xl/workbook.xml".equals(name)
+                        || "xl/sharedstrings.xml".equals(name)
+                        || (name.startsWith("xl/worksheets/")
+                        && name.endsWith(".xml"));
+                boolean inspectXml = name.endsWith(".rels")
+                        || quickIdentityXml;
+                ByteArrayOutputStream relationship = inspectXml
+                        ? new ByteArrayOutputStream() : null;
+                int read;
+                while ((read = zip.read(buffer)) >= 0) {
+                    if (read == 0) continue;
+                    total += read;
+                    if (total > MAX_UNCOMPRESSED_BYTES) {
+                        throw unsafePackage(
+                                "Workbook vượt giới hạn dữ liệu giải nén.");
+                    }
+                    if (relationship != null
+                            && relationship.size() < 1_000_000) {
+                        relationship.write(buffer, 0, read);
+                    }
+                }
+                if (relationship != null) {
+                    String xml = relationship.toString(StandardCharsets.UTF_8);
+                    external |= Pattern.compile(
+                                    "TargetMode\\s*=\\s*['\"]External['\"]",
+                            Pattern.CASE_INSENSITIVE)
+                            .matcher(xml).find();
+                    quickMarker |= quickIdentityXml
+                            && (xml.contains("QUICK_QUESTIONS")
+                            || xml.contains("KSH_PRACTICE_QUICK_EXCEL")
+                            || xml.contains("practice-quick-excel-v1"));
+                }
+                zip.closeEntry();
+            }
+        } catch (PracticeAssessmentExcelException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new PracticeAssessmentExcelException(
+                    "WORKBOOK_PACKAGE_UNSAFE",
+                    "Không kiểm tra được package XLSX an toàn.", exception);
+        }
+        return new PracticeAssessmentQuickExcelCodec.PackageInspection(
+                macro, external, quickMarker);
+    }
+
+    private static void failUnsafeQuickPackage(
+            PracticeAssessmentQuickExcelCodec.PackageInspection inspection) {
+        if (!inspection.quickMarker()) return;
+        if (inspection.macro()) {
+            throw new PracticeAssessmentExcelException(
+                    "QUICK_MACRO_NOT_ALLOWED",
+                    "Quick Excel không cho phép macro.");
+        }
+        if (inspection.externalLink()) {
+            throw new PracticeAssessmentExcelException(
+                    "QUICK_EXTERNAL_LINK_NOT_ALLOWED",
+                    "Quick Excel không cho phép external link.");
+        }
+    }
+
+    private static PracticeAssessmentExcelException unsafePackage(
+            String message) {
+        return new PracticeAssessmentExcelException(
+                "WORKBOOK_PACKAGE_UNSAFE", message);
+    }
+
+    private ExcelPreview quickPreview(
+            PracticeAssessmentQuickExcelCodec.QuickParseResult parsed) {
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("schemaVersion", PracticeAssessmentQuickExcelCodec.CONTRACT_VERSION);
+        root.set("groups", parsed.groups().deepCopy());
+        return new ExcelPreview(
+                writeJson(root),
+                List.of(),
+                parsed.rows(),
+                1,
+                parsed.groupCount(),
+                parsed.questionCount(),
+                parsed.questionCount(),
+                0,
+                0,
+                parsed.totalPoints());
+    }
+
+    private void validateQuickTargetAuthority(
+            ExcelImportContext context, JsonNode candidateGroups) {
+        ObjectNode targetRoot = normalizedRoot(
+                context.draft().getDraftJson(),
+                context.draft().getCreationMethod());
+        JsonNode targetSection = exactTargetSection(targetRoot, context);
+        if ("LISTENING".equals(context.skill())) {
+            String schema = targetSection.path("sectionDelivery")
+                    .path("schemaVersion").asText("");
+            String reference = targetSection.path("sectionDelivery")
+                    .path("listeningDelivery")
+                    .path("checkAudioReference").asText("");
+            if (!"practice-section-delivery-v1".equals(schema)
+                    || !MANAGED_MEDIA_URL.matcher(reference).matches()) {
+                throw new PracticeAssessmentExcelException(
+                        "LISTENING_CHECK_AUDIO_REQUIRED",
+                        "Target Listening phải có check-audio authority trước khi dùng Quick Excel.");
+            }
+        }
+        if ("WRITING".equals(context.skill())) {
+            validateQuickWritingSimulation(targetSection, candidateGroups);
+        }
+    }
+
+    private void validateQuickWritingSimulation(
+            JsonNode targetSection, JsonNode candidateGroups) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        Map<String, BigDecimal> points = new LinkedHashMap<>();
+        for (JsonNode group : targetSection.path("groups")) {
+            collectWritingTasks(group.path("questions"), counts, points);
+        }
+        for (JsonNode group : candidateGroups) {
+            collectWritingTasks(group.path("questions"), counts, points);
+        }
+        Map<String, BigDecimal> expected = Map.of(
+                "Q51", BigDecimal.TEN,
+                "Q52", BigDecimal.TEN,
+                "Q53", BigDecimal.valueOf(30),
+                "Q54", BigDecimal.valueOf(50));
+        boolean valid = counts.keySet().equals(expected.keySet());
+        for (Map.Entry<String, BigDecimal> entry : expected.entrySet()) {
+            valid &= counts.getOrDefault(entry.getKey(), 0) == 1;
+            valid &= entry.getValue().compareTo(
+                    points.getOrDefault(entry.getKey(), BigDecimal.ZERO)) == 0;
+        }
+        if (!valid) {
+            throw new PracticeAssessmentExcelException(
+                    "WRITING_TASK_CARDINALITY_INVALID",
+                    "Section Writing mô phỏng sau apply phải có đúng Q51–Q54 với điểm 10/10/30/50.");
+        }
+    }
+
+    private static void collectWritingTasks(
+            JsonNode questions,
+            Map<String, Integer> counts,
+            Map<String, BigDecimal> points) {
+        for (JsonNode question : questions) {
+            String task = question.path("essayTaskType").asText("");
+            if (task.isBlank()) continue;
+            counts.merge(task, 1, Integer::sum);
+            points.put(task, question.path("points").decimalValue());
+        }
+    }
+
+    private ArrayNode adaptExactTargetGroups(
+            ObjectNode root,
+            ExcelImportContext context,
+            SourceKind sourceKind) {
+        JsonNode section = exactTargetSection(root, context);
+        ArrayNode result = objectMapper.createArrayNode();
+        int groupOrder = 0;
+        for (JsonNode sourceGroup : section.path("groups")) {
+            groupOrder++;
+            ObjectNode group = result.addObject();
+            group.put("candidateGroupId", stableAdapterId(
+                    sourceGroup.path("clientId").asText(""),
+                    "excel_group_" + groupOrder));
+            group.put("groupOrder", groupOrder);
+            group.put("label", sourceGroup.path("label").asText(
+                    "Nhóm " + groupOrder));
+            group.put("instruction",
+                    sourceGroup.path("instruction").asText(""));
+            String sharedImage = firstNonBlank(
+                    sourceGroup.path("stimulus").path("imageReference").asText(""),
+                    sourceGroup.path("imageUrl").asText(""));
+            group.set("stimulus", adaptStimulus(sourceGroup, sourceKind));
+            group.putArray("sourceRefs");
+            ArrayNode questions = group.putArray("questions");
+            int questionOrder = 0;
+            for (JsonNode sourceQuestion : sourceGroup.path("questions")) {
+                questionOrder++;
+                questions.add(adaptQuestion(
+                        sourceQuestion, groupOrder,
+                        questionOrder, sharedImage));
+            }
+        }
+        if (result.isEmpty()) {
+            throw new PracticeAssessmentExcelException(
+                    "CANDIDATE_TARGET_SECTION_NOT_FOUND",
+                    "Workbook không có group hợp lệ cho exact route target.");
+        }
+        return result;
+    }
+
+    private JsonNode exactTargetSection(
+            JsonNode root, ExcelImportContext context) {
+        List<JsonNode> matches = new ArrayList<>();
+        for (JsonNode section : root.path("sections")) {
+            if (section.path("testNo").asInt() == context.testNo()
+                    && context.skill().equalsIgnoreCase(
+                    section.path("skill").asText())
+                    && context.lessonCode().equalsIgnoreCase(
+                    section.path("lessonCode").asText())) {
+                matches.add(section);
+            }
+        }
+        if (matches.size() != 1) {
+            throw new PracticeAssessmentExcelException(
+                    "CANDIDATE_TARGET_SECTION_NOT_FOUND",
+                    "Workbook phải có đúng một section khớp route Test/skill/lesson.");
+        }
+        return matches.get(0);
+    }
+
+    private ObjectNode adaptStimulus(
+            JsonNode sourceGroup, SourceKind sourceKind) {
+        JsonNode raw = sourceGroup.path("stimulus");
+        ObjectNode stimulus = objectMapper.createObjectNode();
+        stimulus.put("schemaVersion", "practice-stimulus-v2");
+        stimulus.put("type", raw.path("type").asText("NONE"));
+        stimulus.put("instruction", raw.path("instruction").asText(""));
+        stimulus.put("passageText", raw.path("passageText").asText(""));
+        stimulus.put("transcriptText", raw.path("transcriptText").asText(""));
+        String media = raw.path("mediaReference").asText("");
+        if (media.isBlank()) stimulus.putNull("mediaReference");
+        else stimulus.put("mediaReference", media);
+        ObjectNode provenance = stimulus.putObject("provenance");
+        provenance.put("source", sourceKind.name());
+        provenance.put("approved", raw.path("provenance")
+                .path("approved").asBoolean(true));
+        provenance.putArray("sourceRefs");
+        return stimulus;
+    }
+
+    private ObjectNode adaptQuestion(
+            JsonNode source,
+            int groupOrder,
+            int order,
+            String sharedImage) {
+        ObjectNode question = objectMapper.createObjectNode();
+        question.put("candidateQuestionId", stableAdapterId(
+                source.path("clientId").asText(""),
+                "excel_question_" + groupOrder + "_" + order));
+        question.put("questionOrder", order);
+        copy(source, question, "questionType");
+        copy(source, question, "essayTaskType");
+        copy(source, question, "prompt");
+        copy(source, question, "points");
+        copy(source, question, "explanationVi");
+        copy(source, question, "explanationStrategy");
+        ObjectNode content = source.path("questionContent") instanceof ObjectNode object
+                ? object.deepCopy() : objectMapper.createObjectNode();
+        String questionImage = firstNonBlank(
+                content.path("imageReference").asText(""),
+                source.path("imageUrl").asText(""),
+                sharedImage);
+        String questionAudio = firstNonBlank(
+                content.path("audioReference").asText(""),
+                source.path("audioUrl").asText(""));
+        if (!questionImage.isBlank()) content.put("imageReference", questionImage);
+        if (!questionAudio.isBlank()) content.put("audioReference", questionAudio);
+        question.set("questionContent", content);
+        question.set("answerSpec", source.path("answerSpec").deepCopy());
+        question.put("reviewState",
+                source.path("reviewRequired").asBoolean(false)
+                        ? "REVIEW_REQUIRED" : "ACCEPTED");
+        question.putArray("sourceRefs");
+        return question;
+    }
+
+    private static void copy(
+            JsonNode source, ObjectNode target, String field) {
+        if (source.has(field)) target.set(field, source.get(field).deepCopy());
+    }
+
+    private static String stableAdapterId(
+            String raw, String fallback) {
+        String normalized = PracticeAuthoringCandidateJson.normalizedText(raw);
+        if (normalized.matches("[A-Za-z0-9._-]{1,80}")) return normalized;
+        return fallback;
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            String normalized = PracticeAuthoringCandidateJson.normalizedText(value);
+            if (!normalized.isBlank()) return normalized;
+        }
+        return "";
+    }
+
+    private static String normalizedFileName(MultipartFile file) {
+        String name = file == null ? "" : PracticeAuthoringCandidateJson
+                .normalizedText(file.getOriginalFilename());
+        if (name.isBlank() || name.length() > 255) {
+            throw new PracticeAssessmentExcelException(
+                    "WORKBOOK_FILE_NAME_INVALID",
+                    "Tên file XLSX phải có từ 1 đến 255 ký tự.");
+        }
+        return name;
+    }
+
+    private static String digest(byte[] bytes) {
+        try {
+            byte[] value = MessageDigest.getInstance("SHA-256").digest(bytes);
+            StringBuilder result = new StringBuilder(64);
+            for (byte current : value) {
+                result.append(Character.forDigit((current >>> 4) & 0x0f, 16));
+                result.append(Character.forDigit(current & 0x0f, 16));
+            }
+            return result.toString();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 không khả dụng.", exception);
         }
     }
 
@@ -548,33 +873,42 @@ public class PracticeAssessmentExcelService {
     public ExcelImportContext requireExcelImportContext(Long draftId,
                                                         Long ownerId,
                                                         Integer testNo,
+                                                        String skill,
                                                         String lessonCode) {
         PracticeDraft draft = requireLinkedDraft(draftId, ownerId);
-        if (testNo == null || testNo <= 0 || lessonCode == null || lessonCode.isBlank()) {
+        String routeSkill = skill == null
+                ? "" : skill.trim().toUpperCase(Locale.ROOT);
+        if (testNo == null || testNo <= 0
+                || routeSkill.isBlank()
+                || lessonCode == null || lessonCode.isBlank()) {
             throw new IllegalArgumentException("Hãy mở Nhập Excel từ một phần kỹ năng trong editor.");
         }
         ObjectNode root = normalizedRoot(draft.getDraftJson(), draft.getCreationMethod());
-        JsonNode selected = null;
+        List<JsonNode> matches = new ArrayList<>();
         for (JsonNode section : root.path("sections")) {
             if (testNo == section.path("testNo").asInt()
+                    && routeSkill.equalsIgnoreCase(
+                    section.path("skill").asText())
                     && lessonCode.equalsIgnoreCase(section.path("lessonCode").asText())) {
-                selected = section;
-                break;
+                matches.add(section);
             }
         }
-        if (selected == null) {
-            throw new IllegalArgumentException("Không tìm thấy phần thi được chọn trong bản nháp.");
+        if (matches.size() != 1) {
+            throw new PracticeAssessmentExcelException(
+                    "CANDIDATE_TARGET_IDENTITY_MISMATCH",
+                    "Không tìm thấy đúng một section khớp route draftId/Test/skill/lesson.");
         }
-        String skill = selected.path("skill").asText("").toUpperCase(Locale.ROOT);
-        if (!Set.of("READING", "LISTENING", "WRITING", "SPEAKING").contains(skill)) {
+        JsonNode selected = matches.get(0);
+        if (!Set.of("READING", "LISTENING", "WRITING", "SPEAKING")
+                .contains(routeSkill)) {
             throw new IllegalArgumentException("Kỹ năng của phần thi không hỗ trợ nhập Excel.");
         }
         AssessmentAuthoringCatalogService.ExamTemplatePolicy template = catalogService.defaultTemplate();
-        if (!template.requireSkill(skill).excelImportEnabled()) {
+        if (!template.requireSkill(routeSkill).excelImportEnabled()) {
             throw new IllegalArgumentException("Kỹ năng này không hỗ trợ nhập Excel.");
         }
         return new ExcelImportContext(draft, testNo,
-                selected.path("lessonCode").asText(), skill);
+                selected.path("lessonCode").asText(), routeSkill);
     }
 
     private ObjectNode normalizedRoot(String draftJson, String source) {
@@ -585,116 +919,6 @@ public class PracticeAssessmentExcelService {
         } catch (Exception exception) {
             throw new IllegalStateException("Không thể chuẩn hóa bản nháp hiện tại.", exception);
         }
-    }
-
-    private void linkManagedMedia(Long draftId, Long actorId,
-                                  Map<String, String> overrides,
-                                  List<SpeakingExcelBinding> speakingAudioBindings,
-                                  Set<String> importedMaterialReferences) {
-        if (assetService == null) return;
-        Set<String> speakingMaterialRefs = speakingAudioBindings.stream()
-                .map(SpeakingExcelBinding::materialReference)
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toSet());
-        Set<Long> linked = new LinkedHashSet<>();
-        for (Map.Entry<String, String> override : overrides.entrySet()) {
-            if (!importedMaterialReferences.contains(override.getKey())) continue;
-            if (speakingMaterialRefs.contains(override.getKey())) continue;
-            String url = override.getValue();
-            java.util.regex.Matcher matcher = MANAGED_MEDIA_URL.matcher(url);
-            if (!matcher.matches()) continue;
-            Long assetId = Long.valueOf(matcher.group(1));
-            if (!linked.add(assetId)) continue;
-            assetService.linkExcelManagedUploadToDraft(
-                    draftId, assetId, actorId);
-        }
-        for (SpeakingExcelBinding binding : speakingAudioBindings) {
-            assetService.linkAssetToDraft(
-                    draftId,
-                    binding.assetId(),
-                    actorId,
-                    null,
-                    null,
-                    binding.questionClientId(),
-                    PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING,
-                    null);
-            assetService.consumeExcelSpeakingUploadReference(
-                    draftId,
-                    binding.assetId(),
-                    actorId,
-                    binding.questionClientId());
-        }
-    }
-
-    private record SpeakingExcelBinding(
-            Long assetId,
-            String questionClientId,
-            String materialReference) {
-    }
-
-    private ObjectNode mergeImportedLessons(ObjectNode existing, ObjectNode imported) {
-        JsonNode currentDocument = existing.get("document");
-        ObjectNode existingDocument = currentDocument instanceof ObjectNode object
-                ? object : existing.putObject("document");
-        JsonNode importedDocument = imported.path("document");
-        for (String field : List.of("title", "description")) {
-            if (importedDocument.has(field)) {
-                existingDocument.set(field, importedDocument.get(field).deepCopy());
-            }
-        }
-
-        ArrayNode existingTests = existing.withArray("tests");
-        Map<Integer, ObjectNode> testsByNumber = new LinkedHashMap<>();
-        for (JsonNode value : existingTests) {
-            if (value instanceof ObjectNode test) testsByNumber.put(test.path("testNo").asInt(), test);
-        }
-        for (JsonNode value : imported.path("tests")) {
-            if (!(value instanceof ObjectNode importedTest)) continue;
-            int testNo = importedTest.path("testNo").asInt();
-            testsByNumber.computeIfAbsent(testNo, ignored -> {
-                ObjectNode copy = importedTest.deepCopy();
-                existingTests.add(copy);
-                return copy;
-            });
-        }
-
-        ArrayNode existingSections = existing.withArray("sections");
-        for (JsonNode value : imported.path("sections")) {
-            if (!(value instanceof ObjectNode importedSection)) continue;
-            ObjectNode copy = importedSection.deepCopy();
-            int testNo = copy.path("testNo").asInt(1);
-            ObjectNode targetTest = testsByNumber.get(testNo);
-            if (targetTest == null) continue;
-            copy.put("testClientId", targetTest.path("clientId").asText());
-            String lessonCode = copy.path("lessonCode").asText("");
-            int existingIndex = -1;
-            for (int index = 0; index < existingSections.size(); index++) {
-                if (lessonCode.equalsIgnoreCase(existingSections.get(index).path("lessonCode").asText())) {
-                    existingIndex = index;
-                    break;
-                }
-            }
-            if (existingIndex >= 0) existingSections.set(existingIndex, copy);
-            else existingSections.add(copy);
-        }
-
-        ArrayNode existingMaterials = existing.withArray("materials");
-        Map<String, Integer> materialIndexes = new LinkedHashMap<>();
-        for (int index = 0; index < existingMaterials.size(); index++) {
-            materialIndexes.put(existingMaterials.get(index).path("materialRef").asText(), index);
-        }
-        for (JsonNode material : imported.path("materials")) {
-            String ref = material.path("materialRef").asText("");
-            Integer index = materialIndexes.get(ref);
-            if (index == null || ref.isBlank()) {
-                existingMaterials.add(material.deepCopy());
-                if (!ref.isBlank()) materialIndexes.put(ref, existingMaterials.size() - 1);
-            } else {
-                existingMaterials.set(index, material.deepCopy());
-            }
-        }
-        existing.put("schemaVersion", PracticeDraftContractService.SCHEMA_VERSION);
-        return existing;
     }
 
     private DraftBuild buildDraft(Map<String, String> manifest,
@@ -1247,6 +1471,13 @@ public class PracticeAssessmentExcelService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Vui lòng chọn file Excel.");
         }
+        String name = file.getOriginalFilename();
+        if (name == null
+                || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
+            throw new PracticeAssessmentExcelException(
+                    "WORKBOOK_FILE_TYPE_INVALID",
+                    "Chỉ chấp nhận file có đuôi .xlsx.");
+        }
         if (file.getSize() > MAX_BYTES) {
             throw new IllegalArgumentException("File Excel vượt quá 10MB.");
         }
@@ -1471,6 +1702,17 @@ public class PracticeAssessmentExcelService {
                                      Integer testNo,
                                      String lessonCode,
                                      String skill) {
+    }
+
+    private enum WorkbookFormat {
+        QUICK_V1,
+        ADVANCED_V2,
+        LEGACY_V1
+    }
+
+    private record AdaptedWorkbook(
+            SourceKind sourceKind,
+            ArrayNode groups) {
     }
 
     private record QuestionRowSeed(int row, String rowKey, String questionId, String questionNo,

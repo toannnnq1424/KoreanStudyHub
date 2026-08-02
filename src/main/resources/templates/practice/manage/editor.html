@@ -2765,6 +2765,7 @@
     if (allowed && action) {
       action.href = `/practice/manage/excel?draftId=${encodeURIComponent(DRAFT_ID)}`
         + `&testNo=${encodeURIComponent(section.testNo)}`
+        + `&skill=${encodeURIComponent(section.skill)}`
         + `&lessonCode=${encodeURIComponent(section.lessonCode)}`;
     }
     if (pdfAction) {
