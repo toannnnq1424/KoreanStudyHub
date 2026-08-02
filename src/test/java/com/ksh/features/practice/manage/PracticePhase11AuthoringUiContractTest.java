@@ -597,7 +597,8 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
-    void excelImportSurfaceIncludesRowPreviewAndAutomaticValidRowImport() throws Exception {
+    void excelImportSurfaceIncludesRowPreviewAndCandidateHandoff()
+            throws Exception {
         String excel = read("src/main/resources/templates/practice/manage/excel-import.html");
         String dashboard = read("src/main/resources/templates/practice/manage/dashboard.html");
 
@@ -607,7 +608,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("Tệp XLSX"));
         assertTrue(excel.contains("Với câu Nói"));
         assertTrue(excel.contains("Âm thanh câu hỏi"));
-        assertTrue(excel.contains("Tải tệp mẫu"));
+        assertTrue(excel.contains("Tải mẫu Quick v1"));
+        assertTrue(excel.contains("Tải mẫu Advanced v2"));
         assertTrue(excel.contains("Ảnh/âm thanh đi kèm"));
         assertTrue(excel.contains("Xem trước Excel"));
         assertTrue(excel.contains("Bài kiểm tra / Phần"));
@@ -629,7 +631,10 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(excel.contains("câu hợp lệ"));
         assertFalse(excel.contains("templateCode"));
         assertTrue(excel.contains("SELECTED_TEST_NO"));
+        assertTrue(excel.contains("SELECTED_SKILL"));
         assertTrue(excel.contains("SELECTED_LESSON_CODE"));
+        assertTrue(excel.contains("Đã tạo authoring candidate"));
+        assertFalse(excel.contains("window.location.href = result.redirectUrl"));
         assertTrue(excel.contains("row.detail?.groupImageReference"));
         assertTrue(excel.contains("row.correctAnswer"));
         assertTrue(excel.contains("row.importedQuestionNo"));
