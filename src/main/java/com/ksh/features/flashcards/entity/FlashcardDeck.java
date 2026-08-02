@@ -63,6 +63,12 @@ public class FlashcardDeck {
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted = false;
 
+    @Column(name = "share_token", length = 40)
+    private String shareToken;
+
+    @Column(name = "is_public", nullable = false)
+    private boolean publicLink = false;
+
     /** JPA-only constructor; do not call from application code. */
     protected FlashcardDeck() {
     }
@@ -122,6 +128,24 @@ public class FlashcardDeck {
         this.deleted = true;
     }
 
+    /** Enables the public link, retaining an existing token when available. */
+    public void enablePublicLink(String freshToken) {
+        if (shareToken == null) {
+            shareToken = freshToken;
+        }
+        publicLink = true;
+    }
+
+    /** Disables anonymous access without invalidating an already distributed URL. */
+    public void disablePublicLink() {
+        publicLink = false;
+    }
+
+    /** Replaces a leaked token; the caller decides whether access stays enabled. */
+    public void regeneratePublicToken(String freshToken) {
+        shareToken = freshToken;
+    }
+
     public boolean isShared() {
         return VISIBILITY_SHARED.equals(visibility);
     }
@@ -162,5 +186,13 @@ public class FlashcardDeck {
 
     public boolean isDeleted() {
         return deleted;
+    }
+
+    public String getShareToken() {
+        return shareToken;
+    }
+
+    public boolean isPublicLink() {
+        return publicLink;
     }
 }

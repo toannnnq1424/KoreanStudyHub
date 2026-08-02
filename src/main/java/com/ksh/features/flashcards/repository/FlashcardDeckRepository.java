@@ -21,6 +21,9 @@ public interface FlashcardDeckRepository extends JpaRepository<FlashcardDeck, Lo
 
     Optional<FlashcardDeck> findFirstByOwnerIdAndTitleOrderByIdAsc(Long ownerId, String title);
 
+    /** Resolves an anonymous public link; soft-deleted rows remain filtered. */
+    Optional<FlashcardDeck> findByShareToken(String shareToken);
+
     /**
      * One page of the caller's non-deleted own decks. Ordering is governed by the
      * {@link Pageable}'s sort (newest-first by created_at + id in the service). The

@@ -12,6 +12,7 @@ import com.ksh.features.flashcards.dto.FlashcardDtos.CardItem;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ksh.features.flashcards.service.CardService;
 import com.ksh.features.flashcards.service.DeckService;
+import com.ksh.features.flashcards.service.DeckPublicLinkService;
 import com.ksh.features.flashcards.repository.FlashcardRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +69,7 @@ class FlashcardControllerTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private DeckService deckService;
+    @Autowired private DeckPublicLinkService publicLinkService;
     @Autowired private CardService cardService;
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
@@ -124,6 +126,27 @@ class FlashcardControllerTest {
     @WithUserDetails(OWNER)
     void detail_page_ok() throws Exception {
         mockMvc.perform(get("/my/flashcards/" + deckId)).andExpect(status().isOk());
+    }
+
+    @Test
+    void enabled_public_link_is_readable_without_authentication() throws Exception {
+        Long ownerId = userRepository.findByEmailIgnoreCase(OWNER).orElseThrow().getId();
+        String token = publicLinkService.enable(deckId, ownerId);
+
+        mockMvc.perform(get("/s/" + token))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Bộ thẻ công khai trên Korean Study Hub")))
+                .andExpect(content().string(containsString("front")))
+                .andExpect(content().string(containsString("back")));
+    }
+
+    @Test
+    void disabled_public_link_returns_not_found_without_leaking_deck() throws Exception {
+        Long ownerId = userRepository.findByEmailIgnoreCase(OWNER).orElseThrow().getId();
+        String token = publicLinkService.enable(deckId, ownerId);
+        publicLinkService.disable(deckId, ownerId);
+
+        mockMvc.perform(get("/s/" + token)).andExpect(status().isNotFound());
     }
 
     @Test

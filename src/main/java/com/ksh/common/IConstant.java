@@ -304,6 +304,7 @@ public interface IConstant {
     // ───────── Flashcards (KSH-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
+    String PATH_PUBLIC_DECK     = "/s";
     String API_FLASHCARDS       = "/api/flashcards";
     String SUBPATH_AI_GENERATE  = "/ai-generate";
 
@@ -311,6 +312,7 @@ public interface IConstant {
     String VIEW_FLASHCARD_LIST   = "flashcards/list";
     String VIEW_FLASHCARD_FORM   = "flashcards/deck-form";
     String VIEW_FLASHCARD_DETAIL = "flashcards/deck-detail";
+    String VIEW_PUBLIC_DECK      = "flashcards/public-deck";
     String VIEW_FLASHCARD_FLIP   = "flashcards/flashcard-flip";
     String VIEW_FLASHCARD_REVIEW = "flashcards/flashcard-review";
     String VIEW_FLASHCARD_LEARNING = "flashcards/flashcard-learning";
@@ -330,6 +332,9 @@ public interface IConstant {
     String MSG_DECK_DELETED    = "Đã xoá bộ thẻ";
     String MSG_DECK_SHARED     = "Đã chia sẻ bộ thẻ cho lớp";
     String MSG_DECK_UNSHARED   = "Đã chuyển bộ thẻ về riêng tư";
+    String MSG_DECK_PUBLIC_LINK_ENABLED = "Đã bật link công khai";
+    String MSG_DECK_PUBLIC_LINK_DISABLED = "Đã tắt link công khai";
+    String MSG_DECK_PUBLIC_LINK_REGENERATED = "Đã tạo link mới; link cũ không còn hiệu lực";
     String MSG_DECK_TITLE_BLANK = "Tiêu đề không được để trống";
     String MSG_CARD_SIDE_BLANK = "Mỗi thẻ phải có cả mặt trước và mặt sau";
     String MSG_CARD_NOT_FOUND  = "Không tìm thấy thẻ";

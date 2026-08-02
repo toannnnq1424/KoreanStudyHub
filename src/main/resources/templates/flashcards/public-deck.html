@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${deck.title()} + ' | Bộ thẻ chia sẻ', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/flashcards.css(v='2')}">
+</head>
+<body>
+<main class="fc-page fc-set-page">
+  <header class="fc-set-header">
+    <div>
+      <p class="fc-page-sub">Bộ thẻ công khai trên Korean Study Hub</p>
+      <h1 class="fc-set-title" th:text="${deck.title()}">Tên bộ thẻ</h1>
+      <p class="fc-set-description" th:if="${deck.description() != null}"
+         th:text="${deck.description()}">Mô tả</p>
+    </div>
+  </header>
+
+  <p class="fc-empty" th:if="${deck.cardCount()} == 0">
+    Bộ thẻ này chưa có thuật ngữ nào để học.
+  </p>
+
+  <section class="fc-term-section" th:if="${deck.cardCount()} > 0">
+    <h2 th:text="'Thuật ngữ trong bộ thẻ này (' + ${deck.cardCount()} + ')'">Thuật ngữ</h2>
+    <div class="fc-term-list">
+      <article class="fc-term-row" th:each="card : ${cards}"
+               th:classappend="${card.frontImage() != null or card.backImage() != null} ? ' fc-term-row-with-image' : ''">
+        <div class="fc-term-cell fc-term-front">
+          <img th:if="${card.frontImage() != null}" th:src="${card.frontImage()}" alt="">
+          <span th:text="${card.front()}">Thuật ngữ</span>
+        </div>
+        <div class="fc-term-separator"></div>
+        <div class="fc-term-cell">
+          <img th:if="${card.backImage() != null}" th:src="${card.backImage()}" alt="">
+          <span th:text="${card.back()}">Định nghĩa</span>
+        </div>
+      </article>
+    </div>
+  </section>
+</main>
+</body>
+</html>

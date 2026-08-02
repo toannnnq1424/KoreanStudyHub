@@ -108,7 +108,8 @@ public class DeckService {
         String ownerName = assembler.toSummaries(List.of(deck), userId).get(0).ownerName();
         return new DeckDetailView(deck.getId(), deck.getTitle(), deck.getDescription(),
                 count, resolved.isOwner(), deck.isShared(), deck.getClassId(),
-                className, shareClasses, ownerName);
+                className, shareClasses, ownerName, deck.isPublicLink(),
+                resolved.isOwner() ? deck.getShareToken() : null);
     }
 
     /**
