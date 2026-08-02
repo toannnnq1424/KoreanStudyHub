@@ -2,8 +2,8 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <!--
   Fragment: leaderSidebar(activeTab)
-    activeTab : 'dashboard' | 'assign' | 'report' | 'question-bank'
--->
+    activeTab : 'dashboard' | 'approvals' | 'report' | 'question-bank'
+    -->
 <aside th:fragment="leaderSidebar(activeTab)" class="col">
   <div class="side">
     <div class="class-head">
@@ -18,22 +18,22 @@
 
     <ul class="side-nav">
       <li>
-        <a th:href="@{/leader/approvals}"
-           th:classappend="${activeTab == 'approvals'} ? 'active' : ''">
-          Duyệt lớp
-        </a>
-      </li>
-      <li>
         <a th:href="@{/leader}"
            th:classappend="${activeTab == 'dashboard'} ? 'active' : ''">
-          Dashboard
+            Dashboard
         </a>
       </li>
       <li>
-        <a th:href="@{/leader/assign}"
-           th:classappend="${activeTab == 'assign'} ? 'active' : ''">
-          Phân công GV
+        <a th:href="@{/leader/approvals}"
+           th:classappend="${activeTab == 'approvals'} ? 'active' : ''">
+            Duyệt lớp
         </a>
+<!--      </li>-->
+<!--      <li>-->
+<!--        <a th:href="@{/leader/assign}"-->
+<!--           th:classappend="${activeTab == 'assign'} ? 'active' : ''">-->
+<!--          Phân công GV-->
+<!--        </a>-->
       </li>
       <li>
         <a th:href="@{/leader/report}"

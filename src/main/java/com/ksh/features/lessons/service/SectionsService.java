@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Section CRUD service for the lessons tab (KSH-4.0a).
+ * Section CRUD service for the lessons tab (ksh-4.0a).
  *
  * <p>Covers list, create, rename, and soft-delete. Reorder + its
  * ordering-shape validation live on {@link SectionsReorderService}; this
@@ -25,8 +25,7 @@ import java.util.Map;
  *
  * <p>Every mutating method enforces ownership via
  * {@link ClassesService#getEditable}: a LECTURER may only manage sections
- * inside classes they own; LEADER may manage classes in their resolved
- * department and ADMIN may manage any class. Read
+ * inside classes they own; LEADER and ADMIN may manage any class. Read
  * operations go through {@link ClassesService#getViewable}, which today
  * applies the same rule but is decoupled so a future sprint can relax it
  * for enrolled students.
@@ -76,7 +75,7 @@ public class SectionsService {
      */
     @Transactional
     public SectionRow create(Long classId, String title, Long userId, Role role) {
-        ClassEntity clazz = classesService.getEditableForUpdate(classId, userId, role);
+        ClassEntity clazz = classesService.getEditable(classId, userId, role);
         short nextOrder = (short) (sectionRepository.findMaxDisplayOrder(clazz.getId()) + 1);
         Section section = new Section(clazz.getId(), title, nextOrder, userId);
         Section saved = sectionRepository.save(section);

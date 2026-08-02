@@ -1,5 +1,7 @@
 package com.ksh.features.admin.dto;
 
+import com.ksh.entities.ClassEntity;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -26,7 +28,7 @@ public class AdminDashboardDtos {
             return switch (role) {
                 case "STUDENT" -> "#42A5F5";
                 case "LECTURER" -> "#26A69A";
-                case "LEADER" -> "#7E57C2";
+                case "HEAD" -> "#7E57C2";
                 case "ADMIN" -> "#EF5350";
                 default -> "#9AA0AB";
             };
@@ -41,7 +43,7 @@ public class AdminDashboardDtos {
             return switch (role) {
                 case "STUDENT" -> "Sinh viên";
                 case "LECTURER" -> "Giảng viên";
-                case "LEADER" -> "Trưởng bộ môn";
+                case "HEAD" -> "Trưởng bộ môn";
                 case "ADMIN" -> "Quản trị viên";
                 default -> role;
             };
@@ -76,13 +78,7 @@ public class AdminDashboardDtos {
          * @return a human-readable status string
          */
         public String displayStatus() {
-            return switch (status) {
-                case "UPCOMING" -> "Sắp khai giảng";
-                case "ACTIVE" -> "Đang hoạt động";
-                case "COMPLETED" -> "Đã kết thúc";
-                case "CANCELLED" -> "Đã huỷ";
-                default -> status;
-            };
+            return ClassEntity.statusLabel(status);
         }
     }
 }

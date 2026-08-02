@@ -1,12 +1,10 @@
 package com.ksh.features.leader.controller;
 
-import com.ksh.features.leader.dto.LeaderDtos.AssignView;
+import com.ksh.features.leader.dto.LeaderDtos.ApprovalQueueView;
 import com.ksh.features.leader.dto.LeaderDtos.DashboardView;
 import com.ksh.features.leader.dto.LeaderDtos.ReportView;
-import com.ksh.features.leader.dto.LeaderDtos.ApprovalQueueView;
 import com.ksh.features.leader.service.LeaderClassApprovalService;
 import com.ksh.features.leader.service.LeaderDashboardService;
-import com.ksh.features.leader.service.LeaderLecturerAssignmentService;
 import com.ksh.features.leader.service.LeaderReportService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
@@ -24,7 +22,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import static com.ksh.common.IConstant.*;
 
 /**
- * LEADER product shell: dashboard, lecturer assignment, and department report.
+ * LEADER product shell: dashboard, class approval queue, and department report.
  */
 @Controller
 @RequestMapping(BASE_LEADER)
@@ -32,54 +30,15 @@ import static com.ksh.common.IConstant.*;
 public class LeaderController {
 
     private final LeaderDashboardService dashboardService;
-    private final LeaderLecturerAssignmentService assignmentService;
-    private final LeaderReportService reportService;
     private final LeaderClassApprovalService approvalService;
+    private final LeaderReportService reportService;
 
     public LeaderController(LeaderDashboardService dashboardService,
-                          LeaderLecturerAssignmentService assignmentService,
-                          LeaderReportService reportService,
-                          LeaderClassApprovalService approvalService) {
+                            LeaderClassApprovalService approvalService,
+                            LeaderReportService reportService) {
         this.dashboardService = dashboardService;
-        this.assignmentService = assignmentService;
-        this.reportService = reportService;
         this.approvalService = approvalService;
-    }
-
-    @GetMapping("/approvals")
-    public String approvals(@AuthenticationPrincipal KshUserDetails user, Model model) {
-        ApprovalQueueView view = approvalService.load(user.getId());
-        model.addAttribute(ATTR_LEADER_DEPARTMENT, view.department());
-        model.addAttribute("pendingClasses", view.pendingClasses());
-        model.addAttribute(ATTR_LEADER_EMPTY, view.emptyDepartment());
-        return "leader/approvals";
-    }
-
-    @PostMapping("/approvals/{classId}/approve")
-    public String approveClass(@PathVariable Long classId,
-                               @AuthenticationPrincipal KshUserDetails user,
-                               RedirectAttributes ra) {
-        try {
-            ra.addFlashAttribute(ATTR_FLASH_SUCCESS,
-                    "Đã duyệt lớp " + approvalService.approve(user.getId(), classId));
-        } catch (IllegalStateException ex) {
-            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
-        }
-        return "redirect:/leader/approvals";
-    }
-
-    @PostMapping("/approvals/{classId}/reject")
-    public String rejectClass(@PathVariable Long classId,
-                              @RequestParam(required = false) String note,
-                              @AuthenticationPrincipal KshUserDetails user,
-                              RedirectAttributes ra) {
-        try {
-            ra.addFlashAttribute(ATTR_FLASH_SUCCESS,
-                    "Đã từ chối lớp " + approvalService.reject(user.getId(), classId, note));
-        } catch (IllegalStateException ex) {
-            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
-        }
-        return "redirect:/leader/approvals";
+        this.reportService = reportService;
     }
 
     @GetMapping({"", "/"})
@@ -93,30 +52,42 @@ public class LeaderController {
         return VIEW_LEADER_DASHBOARD;
     }
 
-    @GetMapping("/assign")
-    public String assign(@AuthenticationPrincipal KshUserDetails user, Model model) {
-        AssignView view = assignmentService.load(user.getId());
+    @GetMapping("/approvals")
+    public String approvals(@AuthenticationPrincipal KshUserDetails user, Model model) {
+        ApprovalQueueView view = approvalService.load(user.getId());
         model.addAttribute(ATTR_LEADER_DEPARTMENT, view.department());
-        model.addAttribute(ATTR_LEADER_CLASS_ROWS, view.classRows());
-        model.addAttribute(ATTR_LEADER_LECTURERS, view.lecturers());
+        model.addAttribute(ATTR_LEADER_PENDING_CLASSES, view.pendingClasses());
         model.addAttribute(ATTR_LEADER_EMPTY, view.emptyDepartment());
-        model.addAttribute(ATTR_ACTIVE_TAB, "assign");
-        return VIEW_LEADER_ASSIGN;
+        model.addAttribute(ATTR_ACTIVE_TAB, "approvals");
+        return VIEW_LEADER_APPROVALS;
     }
 
-    @PostMapping("/assign/{classId}")
-    public String reassign(@PathVariable Long classId,
-                           @RequestParam Long lecturerId,
-                           @AuthenticationPrincipal KshUserDetails user,
-                           RedirectAttributes ra) {
+    @PostMapping("/approvals/{classId}/approve")
+    public String approveClass(@PathVariable Long classId,
+                               @AuthenticationPrincipal KshUserDetails user,
+                               RedirectAttributes ra) {
         try {
-            String className = assignmentService.reassign(user.getId(), classId, lecturerId);
-            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_LEADER_REASSIGNED + className);
-        } catch (IllegalArgumentException ex) {
+            String className = approvalService.approve(user.getId(), classId);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_LEADER_CLASS_APPROVED + className);
+        } catch (IllegalStateException ex) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
         }
         // AccessDeniedException / EntityNotFoundException bubble to global handler (403/404).
-        return "redirect:" + URL_LEADER_ASSIGN;
+        return "redirect:" + URL_LEADER_APPROVALS;
+    }
+
+    @PostMapping("/approvals/{classId}/reject")
+    public String rejectClass(@PathVariable Long classId,
+                              @RequestParam(required = false) String note,
+                              @AuthenticationPrincipal KshUserDetails user,
+                              RedirectAttributes ra) {
+        try {
+            String className = approvalService.reject(user.getId(), classId, note);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_LEADER_CLASS_REJECTED + className);
+        } catch (IllegalStateException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        }
+        return "redirect:" + URL_LEADER_APPROVALS;
     }
 
     @GetMapping("/report")
@@ -130,6 +101,6 @@ public class LeaderController {
     }
 
     // The department question bank management screen is served by
-    // LeaderQuestionBankController at /leader/question-bank; no handler here.
+    // LEADERQuestionBankController at /LEADER/question-bank; no handler here.
 
 }

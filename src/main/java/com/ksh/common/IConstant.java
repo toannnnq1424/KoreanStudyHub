@@ -580,10 +580,12 @@ public interface IConstant {
     // LEADER product area.
     String BASE_LEADER              = "/leader";
     String URL_LEADER_DASHBOARD     = BASE_LEADER;
-    String URL_LEADER_ASSIGN        = BASE_LEADER + "/assign";
+    String URL_LEADER_APPROVALS     = BASE_LEADER + "/approvals";
     String URL_LEADER_REPORT        = BASE_LEADER + "/report";
     String URL_LEADER_QUESTION_BANK = BASE_LEADER + "/question-bank/review";
     String VIEW_LEADER_DASHBOARD    = "leader/dashboard";
+    String VIEW_LEADER_APPROVALS    = "leader/approvals";
+
     String VIEW_LEADER_ASSIGN       = "leader/assign";
     String VIEW_LEADER_REPORT       = "leader/report";
     String VIEW_LEADER_QUESTION_BANK = "questionbank/review";
@@ -592,7 +594,7 @@ public interface IConstant {
     String ATTR_LEADER_DEPARTMENT   = "leaderDepartment";
     String ATTR_LEADER_KPIS         = "kpis";
     String ATTR_LEADER_RECENT       = "recentClasses";
-    String ATTR_LEADER_CLASS_ROWS   = "classRows";
+    String ATTR_LEADER_PENDING_CLASSES = "pendingClasses";
     String ATTR_LEADER_LECTURERS    = "lecturers";
     String ATTR_LEADER_REPORT_ROWS  = "reportRows";
     String ATTR_LEADER_EMPTY        = "emptyDepartment";
@@ -609,6 +611,8 @@ public interface IConstant {
     String ATTR_QB_DETAIL         = "detail";
     String MSG_LEADER_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
     String MSG_LEADER_REASSIGN_FAIL = "Không thể phân công giảng viên";
+    String MSG_LEADER_CLASS_APPROVED = "Đã duyệt lớp ";
+    String MSG_LEADER_CLASS_REJECTED = "Đã từ chối lớp ";
     String MSG_QB_DRAFT_SAVED     = "Đã lưu câu hỏi nháp";
     String MSG_QB_SUBMITTED       = "Đã gửi câu hỏi lên hàng chờ duyệt";
     String MSG_QB_UPDATED         = "Đã cập nhật câu hỏi";

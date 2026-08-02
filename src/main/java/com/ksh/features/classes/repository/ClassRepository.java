@@ -22,23 +22,11 @@ import java.util.Optional;
  */
 public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
 
-    /**
-     * Locks the class row for admission decisions. Acquiring this lock before
-     * any ordinary read makes the subsequent capacity count observe approvals
-     * committed by an earlier transaction under MySQL REPEATABLE READ.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT c FROM ClassEntity c WHERE c.id = :id")
-    Optional<ClassEntity> findByIdForUpdate(@Param("id") Long id);
-
     List<ClassEntity> findAllByLecturerIdOrderByCreatedAtDesc(Long lecturerId);
 
     List<ClassEntity> findAllByOrderByCreatedAtDesc();
 
     Optional<ClassEntity> findByCode(String code);
-
-    @Query(value = "SELECT COUNT(*) FROM classes WHERE code = :code", nativeQuery = true)
-    long countAnyByCode(@Param("code") String code);
 
     /**
      * Returns the (non-deleted) classes owned by the supplied lecturer.
@@ -63,7 +51,7 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     Page<ClassEntity> findAllByLecturerId(Long lecturerId, Pageable pageable);
 
     /**
-     * Paginated variant of the all-non-deleted query used by LEADER / ADMIN
+     * Paginated variant of the all-non-deleted query used by HEAD / ADMIN
      * viewing the lecturer class list. The {@code @SQLRestriction} on
      * {@link ClassEntity} keeps soft-deleted rows out of the result.
      *
@@ -99,9 +87,29 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     @Query("SELECT c.id FROM ClassEntity c WHERE c.lecturerId = :lecturerId")
     List<Long> findClassIdsForLecturer(@Param("lecturerId") Long lecturerId);
 
+    /**
+     * Pessimistic-locked load by primary key. Capacity checks must run under
+     * this lock: two admissions to the same class otherwise each read the same
+     * pre-admission active count and both pass a {@code max_students} that only
+     * has room for one.
+     *
+     * <p>Serialising on the class row (rather than on the enrollment rows) is
+     * what makes the check correct — concurrent approvals target *different*
+     * enrollment rows, so locking those would not order them against each other.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM ClassEntity c WHERE c.id = :id")
+    Optional<ClassEntity> findByIdForUpdate(@Param("id") Long id);
+
     /** Non-deleted classes owned by a department, newest first. */
     List<ClassEntity> findAllByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
 
+    /**
+     * Classes of a department in the given status, newest first. Backs the HEAD
+     * approval queue, which passes {@code ClassEntity.STATUS_DRAFT} so only
+     * classes awaiting review are listed. Soft-deleted rows are excluded by the
+     * entity's {@code @SQLRestriction}.
+     */
     List<ClassEntity> findAllByDepartmentIdAndStatusOrderByCreatedAtDesc(
             Long departmentId, String status);
 

@@ -41,31 +41,20 @@ public final class LeaderDtos {
     ) {
     }
 
-    public record PendingClassRow(Long classId, String className, String classCode,
-                                  String lecturerName, LocalDateTime createdAt) {
-    }
-
-    public record ApprovalQueueView(DepartmentSummary department,
-                                    List<PendingClassRow> pendingClasses,
-                                    boolean emptyDepartment) {
-    }
-
-    public record LecturerOption(Long id, String fullName, String email) {
-    }
-
-    public record AssignClassRow(
+    /** One DRAFT class awaiting the department LEADER's review. */
+    public record PendingClassRow(
             Long classId,
             String className,
             String classCode,
-            Long lecturerId,
-            String lecturerName
+            String lecturerName,
+            LocalDateTime createdAt
     ) {
     }
 
-    public record AssignView(
+    /** Payload for the LEADER class-approval queue screen. */
+    public record ApprovalQueueView(
             DepartmentSummary department,
-            List<AssignClassRow> classRows,
-            List<LecturerOption> lecturers,
+            List<PendingClassRow> pendingClasses,
             boolean emptyDepartment
     ) {
     }

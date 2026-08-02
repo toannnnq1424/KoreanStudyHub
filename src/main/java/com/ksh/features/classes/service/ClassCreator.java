@@ -6,9 +6,14 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.service.approval.ClassReviewNotifier;
 import com.ksh.features.classes.service.codes.ClassCodeGenerationException;
 import com.ksh.features.classes.service.codes.ClassCodeGenerator;
 import com.ksh.features.classes.service.invites.InviteCodeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * Encapsulates the {@link ClassEntity} creation flow including the collision-
@@ -26,6 +31,7 @@ import com.ksh.features.classes.service.invites.InviteCodeService;
  */
 final class ClassCreator {
 
+    private static final Logger log = LoggerFactory.getLogger(ClassCreator.class);
     static final int MAX_CODE_GEN_ATTEMPTS = 3;
 
     private final ClassRepository classRepository;
@@ -33,49 +39,82 @@ final class ClassCreator {
     private final ClassCodeGenerator codeGenerator;
     private final InviteCodeService inviteCodeService;
     private final UserRepository userRepository;
+    private final ClassReviewNotifier reviewNotifier;
 
     ClassCreator(ClassRepository classRepository,
                  ClassActivityWriter activityWriter,
                  ClassCodeGenerator codeGenerator,
                  InviteCodeService inviteCodeService,
-                 UserRepository userRepository) {
+                 UserRepository userRepository,
+                 ClassReviewNotifier reviewNotifier) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
         this.codeGenerator = codeGenerator;
         this.inviteCodeService = inviteCodeService;
         this.userRepository = userRepository;
+        this.reviewNotifier = reviewNotifier;
     }
 
     /**
-     * Selects an unused class code before performing one transactional flush.
-     * A concurrent unique violation aborts the whole unit atomically rather
-     * than being retried in a rollback-only persistence context.
+     * Inserts a fresh {@link ClassEntity} for the given lecturer, retrying
+     * up to {@value #MAX_CODE_GEN_ATTEMPTS} times on
+     * {@code uk_classes_code} collisions and rethrowing other unique-violation
+     * causes immediately.
      */
     ClassEntity create(ClassForm form, Long userId) {
-        String code = null;
+        DataIntegrityViolationException lastCollision = null;
         for (int attempt = 1; attempt <= MAX_CODE_GEN_ATTEMPTS; attempt++) {
-            String candidate = codeGenerator.generate();
-            if (classRepository.countAnyByCode(candidate) == 0) {
-                code = candidate;
-                break;
+            ClassEntity entity = new ClassEntity(
+                    form.name(), userId, userId,
+                    form.description(), form.startDate(), form.endDate(),
+                    form.maxStudents());
+            entity.setCode(codeGenerator.generate());
+            // Inherit department from lecturer when available so LEADER scope works.
+            userRepository.findById(userId)
+                    .map(User::getDepartmentId)
+                    .ifPresent(entity::setDepartmentId);
+            try {
+                ClassEntity saved = classRepository.saveAndFlush(entity);
+                activityWriter.write(
+                        saved.getId(),
+                        ClassActivity.TYPE_CREATED,
+                        "Tạo lớp " + saved.getName(),
+                        userId
+                );
+                // Atomically provision the default CODE + LINK invite
+                // tokens for the new class. Token-provisioning failure
+                // (DB error, repeated collision) propagates out of the
+                // surrounding @Transactional method, rolling the class
+                // creation back together with the audit row.
+                inviteCodeService.provisionDefaults(saved.getId(), userId);
+                // The class is persisted DRAFT — tell the department LEADER it
+                // awaits review. The notifier swallows its own failures, but we
+                // do not rely on that: notification is strictly secondary to
+                // creation, so a broken notifier must never roll back a class
+                // the lecturer already submitted for review.
+                try {
+                    reviewNotifier.notifyLeaderPendingApproval(saved);
+                } catch (RuntimeException ex) {
+                    log.warn("Không gửi được thông báo chờ duyệt cho lớp {}", saved.getId(), ex);
+                }
+                return saved;
+            } catch (DataIntegrityViolationException ex) {
+                if (!isCodeCollision(ex)) {
+                    throw ex;
+                }
+                lastCollision = ex;
+                log.warn("Class code collision on attempt {} — retrying", attempt);
             }
         }
-        if (code == null) {
-            throw new ClassCodeGenerationException(
-                    "Không sinh được mã lớp sau " + MAX_CODE_GEN_ATTEMPTS + " lần thử", null);
-        }
-        ClassEntity entity = new ClassEntity(
-                form.name(), userId, userId,
-                form.description(), form.startDate(), form.endDate(),
-                form.maxStudents());
-        entity.setCode(code);
-        userRepository.findById(userId)
-                .map(User::getDepartmentId)
-                .ifPresent(entity::setDepartmentId);
-        ClassEntity saved = classRepository.saveAndFlush(entity);
-        activityWriter.write(saved.getId(), ClassActivity.TYPE_CREATED,
-                "Tạo lớp " + saved.getName(), userId);
-        inviteCodeService.provisionDefaults(saved.getId(), userId);
-        return saved;
+        throw new ClassCodeGenerationException(
+                "Không sinh được mã lớp sau " + MAX_CODE_GEN_ATTEMPTS + " lần thử",
+                lastCollision);
+    }
+
+    /** True when the unique-violation cause names the {@code uk_classes_code} index. */
+    private static boolean isCodeCollision(DataIntegrityViolationException ex) {
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String msg = cause.getMessage();
+        return msg != null && msg.contains("uk_classes_code");
     }
 }

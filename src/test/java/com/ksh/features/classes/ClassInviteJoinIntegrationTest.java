@@ -67,13 +67,13 @@ class ClassInviteJoinIntegrationTest {
     @PersistenceContext private EntityManager em;
 
     private User lecturer;
-    private User leader;
+    private User head;
     private User student;
 
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        leader = userRepository.findByEmailIgnoreCase("leader@ksh.edu.vn").orElseThrow();
+        head = userRepository.findByEmailIgnoreCase("head@ksh.edu.vn").orElseThrow();
         student = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
     }
 
@@ -128,9 +128,9 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
-    void regenerate_by_leader_on_other_lecturers_class_succeeds() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "LeaderRegen");
+    @WithUserDetails("head@ksh.edu.vn")
+    void regenerate_by_head_on_other_lecturers_class_succeeds() throws Exception {
+        ClassEntity c = createClassViaController(lecturer.getId(), "HeadRegen");
 
         mockMvc.perform(post("/lecturer/classes/" + c.getId() + "/invite/regenerate")
                         .with(csrf()).param("type", "LINK"))
@@ -313,8 +313,8 @@ class ClassInviteJoinIntegrationTest {
 
         // Seed ACTIVE membership, then re-join should no-op.
         em.createNativeQuery(
-                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
-                        + "VALUES (:u, :c, 'ACTIVE', 'CODE')")
+                        "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                                + "VALUES (:u, :c, 'ACTIVE', 'CODE')")
                 .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
         em.flush(); em.clear();
 
@@ -433,8 +433,8 @@ class ClassInviteJoinIntegrationTest {
         ClassEntity c = createClassViaController(lecturer.getId(), "LeaveHappy");
         // Seed ACTIVE enrollment directly (leave requires admitted membership).
         em.createNativeQuery(
-                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
-                        + "VALUES (:u, :c, 'ACTIVE', 'CODE')")
+                        "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                                + "VALUES (:u, :c, 'ACTIVE', 'CODE')")
                 .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
         em.flush(); em.clear();
 
@@ -569,9 +569,9 @@ class ClassInviteJoinIntegrationTest {
 
         // Student requests join (need student session — use service path via native insert PENDING).
         em.createNativeQuery(
-                "INSERT INTO enrollments(user_id, class_id, status, joined_via, invite_code_id) "
-                        + "VALUES (:u, :c, 'PENDING', 'CODE', "
-                        + "(SELECT id FROM class_invite_codes WHERE class_id = :c AND type='CODE' AND is_active=1 LIMIT 1))")
+                        "INSERT INTO enrollments(user_id, class_id, status, joined_via, invite_code_id) "
+                                + "VALUES (:u, :c, 'PENDING', 'CODE', "
+                                + "(SELECT id FROM class_invite_codes WHERE class_id = :c AND type='CODE' AND is_active=1 LIMIT 1))")
                 .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
         em.flush(); em.clear();
 
@@ -597,8 +597,8 @@ class ClassInviteJoinIntegrationTest {
     void owner_rejects_pending_marks_rejected_without_use_count() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "RejectHappy");
         em.createNativeQuery(
-                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
-                        + "VALUES (:u, :c, 'PENDING', 'CODE')")
+                        "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                                + "VALUES (:u, :c, 'PENDING', 'CODE')")
                 .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
         em.flush(); em.clear();
 
@@ -620,12 +620,12 @@ class ClassInviteJoinIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails("head@ksh.edu.vn")
     void non_owner_cannot_approve() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "NonOwnerApprove");
         em.createNativeQuery(
-                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
-                        + "VALUES (:u, :c, 'PENDING', 'CODE')")
+                        "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                                + "VALUES (:u, :c, 'PENDING', 'CODE')")
                 .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
         em.flush(); em.clear();
 
@@ -639,8 +639,8 @@ class ClassInviteJoinIntegrationTest {
     void members_tab_shows_pending_count() throws Exception {
         ClassEntity c = createClassViaController(lecturer.getId(), "MembersPending");
         em.createNativeQuery(
-                "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
-                        + "VALUES (:u, :c, 'PENDING', 'CODE')")
+                        "INSERT INTO enrollments(user_id, class_id, status, joined_via) "
+                                + "VALUES (:u, :c, 'PENDING', 'CODE')")
                 .setParameter("u", student.getId()).setParameter("c", c.getId()).executeUpdate();
         em.flush(); em.clear();
 
@@ -661,9 +661,16 @@ class ClassInviteJoinIntegrationTest {
 
     // ───────────────── helpers ───────────────────
 
+    /**
+     * Creates a class and lifts it out of DRAFT, since a newly created class
+     * awaits HEAD approval and is not joinable. These scenarios exercise the
+     * invite and enrollment flow, not the approval gate.
+     */
     private ClassEntity createClassViaController(Long lecturerId, String name) {
         ClassForm form = new ClassForm(name, null, null, null, 100);
         ClassEntity saved = classesService.create(form, lecturerId);
+        saved.approve(lecturerId, java.time.LocalDateTime.now());
+        classRepository.saveAndFlush(saved);
         em.flush();
         em.clear();
         return classRepository.findById(saved.getId()).orElseThrow();

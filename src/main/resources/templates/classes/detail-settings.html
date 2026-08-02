@@ -61,8 +61,8 @@
       <div class="meta-badges">
         <span class="status-pill"
               th:classappend="${'status-' + #strings.toLowerCase(clazz.status)}"
-              th:text="${clazz.status}">STATUS</span>
-        <span class="code-badge" th:text="'Mã lớp: ' + ${clazz.code}">Mã lớp: CODE</span>
+              th:text="${clazz.statusLabel}">Trạng thái</span>
+          <span class="code-badge" th:text="'Mã lớp: ' + ${clazz.code}">Mã lớp: CODE</span>
       </div>
       <span>Tạo lúc:
         <em th:text="${clazz.createdAt != null ? #temporals.format(clazz.createdAt, 'dd/MM/yyyy HH:mm') : '—'}">—</em>

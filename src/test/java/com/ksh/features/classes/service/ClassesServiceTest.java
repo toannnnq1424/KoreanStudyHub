@@ -8,6 +8,7 @@ import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
 import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.service.approval.ClassReviewNotifier;
 import com.ksh.features.classes.service.codes.ClassCodeGenerationException;
 import com.ksh.features.classes.service.codes.ClassCodeGenerator;
 import com.ksh.features.classes.service.invites.InviteCodeService;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -60,7 +62,7 @@ class ClassesServiceTest {
     private ClassCodeGenerator codeGenerator;
     private InviteCodeService inviteCodeService;
     private UserRepository userRepository;
-    private ClassRoleAccessPolicy accessPolicy;
+    private ClassReviewNotifier reviewNotifier;
     private ClassesService service;
 
     @BeforeEach
@@ -71,18 +73,10 @@ class ClassesServiceTest {
         codeGenerator = mock(ClassCodeGenerator.class);
         inviteCodeService = mock(InviteCodeService.class);
         userRepository = mock(UserRepository.class);
-        accessPolicy = mock(ClassRoleAccessPolicy.class);
+        reviewNotifier = mock(ClassReviewNotifier.class);
         when(userRepository.findById(any())).thenReturn(Optional.empty());
-        when(accessPolicy.canAccess(any(), any(), any())).thenAnswer(invocation -> {
-            ClassEntity clazz = invocation.getArgument(0);
-            Long userId = invocation.getArgument(1);
-            Role role = invocation.getArgument(2);
-            return role == Role.ADMIN
-                    || (role == Role.LECTURER && userId.equals(clazz.getLecturerId()))
-                    || role == Role.LEADER;
-        });
         service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository, accessPolicy);
+                codeGenerator, inviteCodeService, userRepository, reviewNotifier);
         when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
                 .thenReturn(Optional.empty());
     }
@@ -103,10 +97,9 @@ class ClassesServiceTest {
     }
 
     @Test
-    void list_for_leader_returns_only_resolved_department() {
+    void list_for_leader_returns_all() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(accessPolicy.leaderDepartmentId(LEADER_ID)).thenReturn(Optional.of(12L));
-        when(classRepository.findAllByDepartmentId(eq(12L), any(Pageable.class)))
+        when(classRepository.findAllBy(any(Pageable.class)))
                 .thenReturn(new PageImpl<>(
                         List.of(buildClass(1L, "A", LECTURER_ID), buildClass(2L, "B", OTHER_LECTURER_ID)),
                         pageable, 2));
@@ -115,7 +108,6 @@ class ClassesServiceTest {
 
         assertThat(rows.getContent()).hasSize(2);
         verify(classRepository, never()).findAllByLecturerId(any(), any(Pageable.class));
-        verify(classRepository, never()).findAllBy(any(Pageable.class));
     }
 
     @Test
@@ -161,6 +153,7 @@ class ClassesServiceTest {
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
+        // New classes await LEADER review before becoming operational.
         assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
         verify(activityWriter).write(eq(100L), eq(ClassActivity.TYPE_CREATED),
@@ -172,11 +165,14 @@ class ClassesServiceTest {
     }
 
     @Test
-    void create_skips_preexisting_code_before_single_flush() {
+    void create_retries_when_code_collision_then_succeeds() {
         when(codeGenerator.generate()).thenReturn("DUPED", "NILXM");
-        when(classRepository.countAnyByCode("DUPED")).thenReturn(1L);
-        when(classRepository.countAnyByCode("NILXM")).thenReturn(0L);
+
+        DataIntegrityViolationException collision = new DataIntegrityViolationException(
+                "Duplicate key",
+                new RuntimeException("Duplicate entry 'DUPED' for key 'classes.uk_classes_code'"));
         when(classRepository.saveAndFlush(any(ClassEntity.class)))
+                .thenThrow(collision)
                 .thenAnswer(inv -> {
                     ClassEntity e = inv.getArgument(0);
                     ReflectionTestUtils.setField(e, "id", 101L);
@@ -187,7 +183,7 @@ class ClassesServiceTest {
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
-        verify(classRepository, times(1)).saveAndFlush(any(ClassEntity.class));
+        verify(classRepository, times(2)).saveAndFlush(any(ClassEntity.class));
         verify(activityWriter).write(eq(101L), eq(ClassActivity.TYPE_CREATED),
                 any(), eq(LECTURER_ID));
     }
@@ -213,19 +209,75 @@ class ClassesServiceTest {
     }
 
     @Test
-    void create_throws_after_three_preexisting_codes_without_flushing() {
+    void create_throws_after_three_collisions() {
         when(codeGenerator.generate()).thenReturn("A", "B", "C");
-        when(classRepository.countAnyByCode(any())).thenReturn(1L);
+
+        DataIntegrityViolationException collision = new DataIntegrityViolationException(
+                "x",
+                new RuntimeException("Duplicate entry for key 'uk_classes_code'"));
+        when(classRepository.saveAndFlush(any(ClassEntity.class))).thenThrow(collision);
 
         ClassForm form = new ClassForm("Java", "x", null, null, 100);
 
         assertThatThrownBy(() -> service.create(form, LECTURER_ID))
                 .isInstanceOf(ClassCodeGenerationException.class);
 
-        verify(classRepository, never()).saveAndFlush(any(ClassEntity.class));
+        verify(classRepository, times(3)).saveAndFlush(any(ClassEntity.class));
         verify(activityWriter, never()).write(any(), any(), any(), any());
         verify(activityWriter, never()).write(any(), any(), any(), any(), any());
         verify(inviteCodeService, never()).provisionDefaults(any(), any());
+    }
+
+    /**
+     * Spec: notification failure must not roll back class creation. The notifier
+     * swallows its own errors, but the service must not depend on that — even a
+     * notifier that throws leaves the class persisted and the activity written.
+     */
+    @Test
+    void create_succeeds_when_review_notifier_throws() {
+        when(codeGenerator.generate()).thenReturn("NILXM");
+        when(classRepository.saveAndFlush(any(ClassEntity.class)))
+                .thenAnswer(inv -> {
+                    ClassEntity e = inv.getArgument(0);
+                    ReflectionTestUtils.setField(e, "id", 102L);
+                    return e;
+                });
+        doThrow(new IllegalStateException("notification backend down"))
+                .when(reviewNotifier).notifyLeaderPendingApproval(any(ClassEntity.class));
+
+        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassEntity saved = service.create(form, LECTURER_ID);
+
+        assertThat(saved.getId()).isEqualTo(102L);
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        verify(activityWriter).write(eq(102L), eq(ClassActivity.TYPE_CREATED),
+                any(), eq(LECTURER_ID));
+        verify(inviteCodeService).provisionDefaults(102L, LECTURER_ID);
+    }
+
+    /**
+     * Spec: a department with no LEADER assigned has nobody to notify, but the
+     * class must still be created in DRAFT rather than failing or skipping
+     * review. Modelled here by a notifier that no-ops (its real behaviour when
+     * {@code department.leaderUserId} is null).
+     */
+    @Test
+    void create_stays_draft_when_department_has_no_leader() {
+        when(codeGenerator.generate()).thenReturn("NILXM");
+        when(classRepository.saveAndFlush(any(ClassEntity.class)))
+                .thenAnswer(inv -> {
+                    ClassEntity e = inv.getArgument(0);
+                    ReflectionTestUtils.setField(e, "id", 103L);
+                    return e;
+                });
+        // Default mock behaviour: notifyLeaderPendingApproval does nothing.
+
+        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassEntity saved = service.create(form, LECTURER_ID);
+
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        verify(reviewNotifier).notifyLeaderPendingApproval(any(ClassEntity.class));
+        verify(inviteCodeService).provisionDefaults(103L, LECTURER_ID);
     }
 
     // ───────────────── Authz: owner check ─────────────────
@@ -273,7 +325,7 @@ class ClassesServiceTest {
     }
 
     @Test
-    void update_by_leader_succeeds_whenPolicyAdmitsDepartment() {
+    void update_by_leader_succeeds_for_any_class() {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID);
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));

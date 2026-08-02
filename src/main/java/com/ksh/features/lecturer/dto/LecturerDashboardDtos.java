@@ -1,5 +1,6 @@
 package com.ksh.features.lecturer.dto;
 
+import com.ksh.entities.ClassEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -8,7 +9,7 @@ import java.util.List;
 
 import static com.ksh.common.IConstant.DEFAULT_TEACHING_PAGE_SIZE;
 
-/** DTOs for the lecturer teaching dashboard (KSH-9.1). */
+/** DTOs for the lecturer teaching dashboard (ksh-9.1). */
 public final class LecturerDashboardDtos {
 
     private LecturerDashboardDtos() {
@@ -46,13 +47,7 @@ public final class LecturerDashboardDtos {
             if (status == null) {
                 return "—";
             }
-            return switch (status) {
-                case "UPCOMING" -> "Sắp khai giảng";
-                case "ACTIVE" -> "Đang hoạt động";
-                case "COMPLETED" -> "Đã kết thúc";
-                case "CANCELLED" -> "Đã huỷ";
-                default -> status;
-            };
+            return ClassEntity.statusLabel(status);
         }
     }
 

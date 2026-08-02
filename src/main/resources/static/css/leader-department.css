@@ -1,47 +1,51 @@
 .leader-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
 }
 
 .leader-kpi-card {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  padding: 1rem 1.25rem;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
 }
 
 .leader-kpi-label {
-  font-size: 0.85rem;
-  color: var(--muted, #6b7280);
+    font-size: 0.85rem;
+    color: var(--muted, #6b7280);
 }
 
 .leader-kpi-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin-top: 0.25rem;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
 }
 
-.leader-assign-form {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
+/* Approval-queue row actions: the approve button and the reject
+   note-plus-button pair sit side by side and wrap on narrow viewports. */
+.leader-approve-form,
+.leader-reject-form {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-right: 0.5rem;
 }
 
-.leader-assign-form select {
-  min-width: 160px;
+.leader-reject-form input[name="note"] {
+    min-width: 180px;
 }
 
 .btn-sm {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.875rem;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.875rem;
 }
 
 .muted {
-  color: var(--muted, #6b7280);
-  font-style: italic;
+    color: var(--muted, #6b7280);
+    font-style: italic;
 }
 
 /* Class approval queue */
