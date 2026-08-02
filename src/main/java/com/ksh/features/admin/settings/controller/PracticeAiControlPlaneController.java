@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -89,15 +90,27 @@ public class PracticeAiControlPlaneController {
         if (form.id() == null
                 && (form.credentialSecret() == null
                 || form.credentialSecret().isBlank())) {
-            result.rejectValue("credentialSecret", "required", "Secret is required");
+            result.rejectValue(
+                    "credentialSecret", "required",
+                    "Vui lòng nhập API key / credential");
         }
         if (result.hasErrors()) {
             populateProfileForm(model, form.id() == null ? "create" : "edit");
             return "admin/settings-practice-ai-profile-form";
         }
         try {
-            adminService.saveProfile(form, principal.getId());
-            redirect.addFlashAttribute(ATTR_FLASH_SUCCESS, "Practice AI profile saved");
+            boolean creating = form.id() == null;
+            Long savedId = adminService.saveProfile(form, principal.getId());
+            redirect.addFlashAttribute(
+                    ATTR_FLASH_SUCCESS,
+                    creating
+                            ? "Đã lưu nhà cung cấp. Tiếp theo, hãy chọn model cho mục đích đầu tiên."
+                            : "Đã lưu thay đổi nhà cung cấp Practice AI.");
+            if (creating) {
+                return "redirect:/admin/settings/practice-ai/bindings/"
+                        + PracticeAiPurpose.PRACTICE_PDF_AUTHORING.name()
+                        + "/edit?profileId=" + savedId;
+            }
             return REDIRECT;
         } catch (RuntimeException exception) {
             result.reject("profile", safeCode(exception));
@@ -148,9 +161,19 @@ public class PracticeAiControlPlaneController {
     }
 
     @GetMapping("/bindings/{purpose}/edit")
-    public String editBinding(@PathVariable PracticeAiPurpose purpose, Model model) {
-        model.addAttribute("form", adminService.bindingForm(purpose));
-        model.addAttribute("profiles", adminService.profiles());
+    public String editBinding(
+            @PathVariable PracticeAiPurpose purpose,
+            @RequestParam(required = false) Long profileId,
+            Model model) {
+        var profiles = adminService.profiles();
+        BindingForm form = adminService.bindingForm(purpose);
+        if (form.providerProfileId() == null
+                && profileId != null
+                && profiles.stream().anyMatch(profile -> profile.id().equals(profileId))) {
+            form = form.withProviderProfileId(profileId);
+        }
+        model.addAttribute("form", form);
+        model.addAttribute("profiles", profiles);
         model.addAttribute("purpose", purpose);
         model.addAttribute("requiredCapabilities",
                 purpose.requiredCapabilities().stream().sorted()
@@ -235,8 +258,22 @@ public class PracticeAiControlPlaneController {
     }
 
     private void populateList(Model model) {
-        model.addAttribute("profiles", adminService.profiles());
-        model.addAttribute("bindings", adminService.bindings());
+        var profiles = adminService.profiles();
+        var bindings = adminService.bindings();
+        long enabledProfileCount = profiles.stream().filter(profile -> profile.enabled()).count();
+        long configuredBindingCount = bindings.stream().filter(binding -> binding.configured()).count();
+        long enabledBindingCount = bindings.stream()
+                .filter(binding -> binding.configured() && binding.enabled()).count();
+        var nextBinding = bindings.stream()
+                .filter(binding -> !binding.configured() || !binding.enabled())
+                .findFirst().orElse(null);
+
+        model.addAttribute("profiles", profiles);
+        model.addAttribute("bindings", bindings);
+        model.addAttribute("enabledProfileCount", enabledProfileCount);
+        model.addAttribute("configuredBindingCount", configuredBindingCount);
+        model.addAttribute("enabledBindingCount", enabledBindingCount);
+        model.addAttribute("nextBinding", nextBinding);
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
     }
 

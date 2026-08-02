@@ -182,7 +182,7 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(editorCss.contains("justify-content: flex-end"));
         assertTrue(editorCss.contains("gap: 0"));
         assertTrue(editorCss.contains("overflow-x: auto"));
-        assertTrue(editorCss.contains("@media (max-width: 1180px)"));
+        assertTrue(editorCss.contains("@media (max-width: 720px)"));
         assertTrue(editorCss.contains("@media (max-width: 900px)"));
         assertTrue(editorCss.contains("@media (max-width: 620px)"));
         assertTrue(editorCss.contains(".panel-structure.is-expanded > .tree-wrapper"));
@@ -224,7 +224,7 @@ class PracticePhase11AuthoringUiContractTest {
         String treeMetaRule = between(
                 editorCss, ".tree-meta-text {", "/* circular badge for question numbers */");
         String compactToolbarRules = between(
-                editorCss, "@media (max-width: 1180px) {", "@media (max-width: 900px) {");
+                editorCss, "@media (max-width: 720px) {", "@media (max-width: 900px) {");
         String structureDrawerRules = between(
                 editorCss, "@media (max-width: 900px) {", "@media (max-width: 620px) {");
         String mobileRules = between(
@@ -270,9 +270,11 @@ class PracticePhase11AuthoringUiContractTest {
                 "document.documentElement.scrollTop = 0;"));
         assertTrue(editor.contains(
                 "document.body.scrollTop = 0;"));
-        assertTrue(editorCss.contains(
-                "html {\n  height: 100%;\n  overflow: hidden;"));
+        assertTrue(editorCss.contains("body.practice-editor-body"));
         assertTrue(editorCss.contains("height: 100dvh"));
+        assertFalse(editorCss.contains(
+                "html {\n  height: 100%;\n  overflow: hidden;"));
+        assertTrue(editor.contains("class=\"pi-body practice-editor-body\""));
 
         assertTrue(validationRule.contains("position: fixed"));
         assertTrue(validationRule.contains("transform: translateX(100%)"));

@@ -15,8 +15,7 @@
 }
 
 html {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
 }
 
 .sr-only {
@@ -35,9 +34,13 @@ body.pi-body {
   background-color: var(--pp-bg);
   color: var(--pp-text);
   font-family: "Be Vietnam Pro", "Noto Sans KR", Inter, sans-serif;
-  height: 100dvh;
+  min-height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+body.practice-editor-body {
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -668,6 +671,8 @@ input, select, textarea, button {
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: clamp(16px, 2vw, 32px);
   display: flex;
   justify-content: center;
@@ -2031,7 +2036,7 @@ select.form-input {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 720px) {
   :root {
     --editor-toolbar-height: 116px;
   }
@@ -2075,7 +2080,9 @@ select.form-input {
   }
 
   .toolbar-actions-scroll {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    margin-left: auto;
+    justify-content: flex-end;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;

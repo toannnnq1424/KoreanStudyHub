@@ -1,126 +1,60 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Admin | Cài đặt Lưu trữ', ~{::link.page-css})}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+<head th:replace="~{fragments/head :: head('Admin | Lưu trữ toàn hệ thống', ~{::link.page-css})}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin-settings-hub.css}">
 </head>
-<body>
+<body class="settings-body">
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
-
 <div class="class-detail-layout">
-  <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+    <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
+    <main class="col settings-page">
+        <nav class="settings-breadcrumb" aria-label="Breadcrumb"><a th:href="@{/admin/settings}">Cài đặt hệ thống</a><span class="sep">/</span><span aria-current="page">Lưu trữ toàn hệ thống</span></nav>
+        <header class="settings-page-header">
+            <span class="settings-eyebrow">Toàn hệ thống</span>
+            <h1 class="detail-title">Lưu trữ toàn hệ thống</h1>
+            <p class="detail-sub">Quản lý duy nhất <code>GENERAL_UPLOADS</code>, nơi lưu file dùng chung của các module ngoài Practice.
+                Hai profile Practice được quản lý riêng và không fallback về đây.</p>
+        </header>
+        <div th:if="${flashSuccess != null or flashError != null}" id="flash-data" th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
 
-  <main class="col">
-    <nav class="settings-breadcrumb" aria-label="Breadcrumb">
-      <a th:href="@{/admin/settings}">Cài đặt hệ thống</a>
-      <span class="sep" aria-hidden="true">/</span>
-      <span aria-current="page">Lưu trữ (Storage)</span>
-    </nav>
+        <aside class="settings-official-links" aria-label="Tài liệu Cloudflare R2 chính thức">
+            <div><strong>Dùng Cloudflare R2?</strong><span>Tạo token theo hướng dẫn chính thức. KSH không suy đoán URL từ endpoint bạn nhập.</span></div>
+            <a href="https://developers.cloudflare.com/r2/api/tokens/" target="_blank" rel="noopener noreferrer">Tạo token Cloudflare R2 <span aria-hidden="true">↗</span></a>
+        </aside>
 
-    <h1 class="detail-title">Cấu hình lưu trữ đối tượng</h1>
-    <p class="detail-sub">Chọn nơi lưu tệp tải lên (local disk hoặc Cloudflare R2).
-      Thay đổi có hiệu lực ngay, không cần khởi động lại ứng dụng.</p>
-
-    <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
-         th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
-
-    <div th:if="${form != null and form.provider == 'local'}"
-         class="alert alert-info" role="status">
-      Đang dùng lưu trữ local. Điền thông tin R2 bên dưới và đổi provider khi sẵn sàng.
-    </div>
-
-    <section class="settings-form-panel">
-      <form th:action="@{/admin/settings/storage}" method="post"
-            th:object="${form}" class="settings-form" novalidate>
-
-        <fieldset class="settings-fieldset">
-          <legend>Nhà cung cấp</legend>
-
-          <div class="form-row">
-            <label for="provider">Provider <span class="req" aria-hidden="true">*</span></label>
-            <select id="provider" th:field="*{provider}" required aria-required="true"
-                    th:attr="aria-invalid=${#fields.hasErrors('provider')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('provider')} ? 'provider-error' : ''">
-              <option value="local">Local disk</option>
-              <option value="r2">Cloudflare R2</option>
-            </select>
-            <span id="provider-error" class="field-error" role="alert"
-                  th:if="${#fields.hasErrors('provider')}" th:errors="*{provider}">Lỗi provider</span>
-          </div>
-        </fieldset>
-
-        <fieldset class="settings-fieldset">
-          <legend>Cloudflare R2</legend>
-
-          <div class="form-row">
-            <label for="accountId">Account ID</label>
-            <input type="text" id="accountId" th:field="*{accountId}"
-                   placeholder="(tuỳ chọn)" autocomplete="off" maxlength="64">
-          </div>
-
-          <div class="form-row">
-            <label for="accessKeyId">Access Key ID</label>
-            <input type="text" id="accessKeyId" th:field="*{accessKeyId}"
-                   placeholder="R2 access key" autocomplete="off" maxlength="255">
-          </div>
-
-          <div class="form-row">
-            <label for="secretAccessKey">Secret Access Key</label>
-            <input type="password" id="secretAccessKey" th:field="*{secretAccessKey}"
-                   autocomplete="new-password"
-                   aria-describedby="secret-hint">
-            <p id="secret-hint" class="field-hint">Để trống hoặc giữ <code>********</code>
-              để giữ nguyên secret hiện tại.</p>
-          </div>
-
-          <div class="form-row">
-            <label for="bucket">Bucket</label>
-            <input type="text" id="bucket" th:field="*{bucket}"
-                   placeholder="ksh-uploads" autocomplete="off" maxlength="255">
-          </div>
-
-          <div class="form-row">
-            <label for="endpoint">Endpoint</label>
-            <input type="text" id="endpoint" th:field="*{endpoint}"
-                   placeholder="https://&lt;accountid&gt;.r2.cloudflarestorage.com"
-                   autocomplete="off" maxlength="512">
-          </div>
-
-          <div class="form-row">
-            <label for="region">Region</label>
-            <input type="text" id="region" th:field="*{region}"
-                   placeholder="auto" autocomplete="off" maxlength="64">
-          </div>
-        </fieldset>
-
-        <div class="settings-form-actions">
-          <a th:href="@{/admin/settings}" class="btn btn-ghost">Hủy</a>
-          <button type="submit" class="btn btn-primary">Lưu cài đặt</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="settings-form-panel">
-      <h2 class="panel-title">Kiểm tra kết nối</h2>
-      <p class="panel-sub">Gọi HeadBucket với cấu hình R2 đã lưu để xác nhận
-        credential và bucket hợp lệ.</p>
-
-      <div class="form-row test-send-row">
-        <span class="form-row-label">R2 connection</span>
-        <span class="field-hint" style="padding-top:8px">Dùng cấu hình đã lưu (không phải form nháp).</span>
-        <button type="button" id="testStorageBtn" class="btn btn-primary"
-                aria-controls="testStorageResult">
-          Kiểm tra kết nối
-        </button>
-      </div>
-
-      <div id="testStorageResult" class="sr-only" role="status" aria-live="polite"></div>
-    </section>
-  </main>
+        <section class="settings-content-section" aria-labelledby="global-storage-title">
+            <div class="settings-section-head"><div><span class="settings-step-label">Profile dùng chung</span><h2 id="global-storage-title">File ngoài Practice</h2><p>Một identity cố định giúp tách ownership và key prefix.</p></div></div>
+            <article class="settings-storage-card" th:if="${generalProfile != null}">
+                <div class="settings-card-main">
+                    <span class="settings-provider-mark" aria-hidden="true">ST</span>
+                    <div><h3>Lưu trữ file dùng chung</h3><p>Ảnh, tài liệu và tệp do các module ngoài Practice quản lý.</p><code class="settings-meta-code" th:text="${generalProfile.profileCode}">GENERAL_UPLOADS</code></div>
+                </div>
+                <div class="settings-storage-summary">
+                    <div><span>Backend</span><strong th:text="${generalProfile.backend == T(com.ksh.features.storage.profile.StorageBackend).R2 ? 'Cloudflare R2' : 'Local'}">Local</strong></div>
+                    <div><span>Trạng thái</span><strong class="settings-status" th:classappend="${generalProfile.enabled} ? ' settings-status-ready' : ' settings-status-paused'" th:text="${generalProfile.enabled} ? 'Sẵn sàng' : 'Tạm tắt'">Tạm tắt</strong></div>
+                    <div><span>Revision</span><strong th:text="${generalProfile.revision}">0</strong></div>
+                </div>
+                <details class="settings-technical">
+                    <summary>Chi tiết kỹ thuật</summary>
+                    <dl><div><dt>Key prefix</dt><dd th:text="${generalProfile.keyPrefix}">general-uploads</dd></div><div><dt>Bucket</dt><dd th:text="${#strings.isEmpty(generalProfile.bucket) ? '—' : generalProfile.bucket}">—</dd></div><div><dt>Endpoint</dt><dd th:text="${#strings.isEmpty(generalProfile.endpoint) ? '—' : generalProfile.endpoint}">—</dd></div></dl>
+                </details>
+                <div class="settings-actions">
+                    <a class="btn btn-primary" th:href="@{/admin/settings/storage-profiles/GENERAL_UPLOADS/edit}">Sửa cấu hình</a>
+                    <form method="post" th:action="@{/admin/settings/storage-profiles/GENERAL_UPLOADS/toggle}"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><input type="hidden" name="revision" th:value="${generalProfile.revision}"><button class="btn-ghost" type="submit" th:text="${generalProfile.enabled} ? 'Tạm tắt' : 'Bật lại'">Bật lại</button></form>
+                </div>
+            </article>
+            <div class="settings-empty" role="status" th:if="${generalProfileMissing}">
+                <strong>Chưa thiết lập lưu trữ toàn hệ thống</strong>
+                <p>Tạo lại identity GENERAL_UPLOADS để các module ngoài Practice có nơi lưu file.</p>
+                <a class="btn btn-primary" th:href="@{/admin/settings/storage-profiles/GENERAL_UPLOADS/new}">Thiết lập GENERAL_UPLOADS</a>
+            </div>
+        </section>
+        <aside class="settings-boundary-note"><strong>Ranh giới dữ liệu:</strong> Practice Authoring và Speaking dùng profile riêng, fail closed và không đọc cấu hình global này làm fallback.</aside>
+    </main>
 </div>
-
-<script th:src="@{/js/app.js}"></script>
-<script th:src="@{/js/admin.js(v='2')}"></script>
-<script th:src="@{/js/admin-settings-storage.js}"></script>
+<script th:src="@{/js/app.js}"></script><script th:src="@{/js/admin.js}"></script>
 </body>
 </html>

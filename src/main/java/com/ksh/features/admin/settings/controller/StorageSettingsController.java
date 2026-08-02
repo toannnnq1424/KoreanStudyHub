@@ -4,6 +4,8 @@ import com.ksh.features.admin.settings.dto.StorageSettingsDtos;
 import com.ksh.features.admin.settings.dto.StorageSettingsDtos.StorageSettingsForm;
 import com.ksh.features.admin.settings.dto.StorageSettingsDtos.TestResult;
 import com.ksh.features.admin.settings.service.StorageSettingsService;
+import com.ksh.features.admin.settings.service.StorageProfileAdminService;
+import com.ksh.features.storage.profile.StorageProfileCode;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
@@ -40,9 +42,12 @@ public class StorageSettingsController {
     private static final String VIEW_SETTINGS_STORAGE = "admin/settings-storage";
 
     private final StorageSettingsService service;
+    private final StorageProfileAdminService profileService;
 
-    public StorageSettingsController(StorageSettingsService service) {
+    public StorageSettingsController(StorageSettingsService service,
+                                     StorageProfileAdminService profileService) {
         this.service = service;
+        this.profileService = profileService;
     }
 
     /** Renders the storage settings form. */
@@ -57,6 +62,11 @@ public class StorageSettingsController {
                 model.addAttribute(ATTR_FORM, withMaskedSecret(form));
             }
         }
+        var generalProfile = profileService.profiles().stream()
+                .filter(profile -> profile.profileCode() == StorageProfileCode.GENERAL_UPLOADS)
+                .findFirst().orElse(null);
+        model.addAttribute("generalProfile", generalProfile);
+        model.addAttribute("generalProfileMissing", generalProfile == null);
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
         return VIEW_SETTINGS_STORAGE;
     }

@@ -21,17 +21,25 @@ public final class PracticeAiSettingsDtos {
     public record ProfileForm(
             Long id,
             Long revision,
-            @NotBlank @Size(max = 64)
-            @Pattern(regexp = "^[A-Z][A-Z0-9_]{1,63}$") String profileCode,
-            @NotBlank @Size(max = 120) String displayName,
+            @NotBlank(message = "Mã profile không được để trống")
+            @Size(max = 64, message = "Mã profile tối đa 64 ký tự")
+            @Pattern(regexp = "^[A-Z][A-Z0-9_]{1,63}$",
+                    message = "Mã profile phải viết hoa và chỉ gồm chữ, số, dấu gạch dưới")
+            String profileCode,
+            @NotBlank(message = "Vui lòng nhập tên dễ nhận biết")
+            @Size(max = 120, message = "Tên tối đa 120 ký tự") String displayName,
             @NotBlank @Pattern(regexp = "OPENAI_COMPATIBLE") String providerFamily,
-            @NotBlank @Size(max = 500)
-            @Pattern(regexp = "^https?://.+") String baseUrl,
+            @NotBlank(message = "Vui lòng nhập Base URL")
+            @Size(max = 500, message = "Base URL tối đa 500 ký tự")
+            @Pattern(regexp = "^https?://.+", message = "Base URL phải bắt đầu bằng http:// hoặc https://")
+            String baseUrl,
             @Size(max = 4096) String credentialSecret,
             boolean enabled
     ) {
         public static ProfileForm empty() {
-            return new ProfileForm(null, null, "", "", "OPENAI_COMPATIBLE", "", "", false);
+            return new ProfileForm(
+                    null, null, "PRACTICE_PRIMARY", "",
+                    "OPENAI_COMPATIBLE", "", "", false);
         }
     }
 
@@ -81,6 +89,22 @@ public final class PracticeAiSettingsDtos {
                     null);
         }
 
+        public BindingForm withProviderProfileId(Long selectedProfileId) {
+            return new BindingForm(
+                    purpose,
+                    selectedProfileId,
+                    model,
+                    pdfImageInput,
+                    connectTimeoutMs,
+                    readTimeoutMs,
+                    maxRetries,
+                    maxRequestBytes,
+                    maxResponseBytes,
+                    retentionCode,
+                    enabled,
+                    revision);
+        }
+
         private static String defaultRetention(PracticeAiPurpose purpose) {
             return switch (purpose) {
                 case PRACTICE_PDF_AUTHORING -> "PRACTICE_AUTHORING_V1";
@@ -108,6 +132,31 @@ public final class PracticeAiSettingsDtos {
     ) {
         public boolean configured() {
             return providerProfileId != null;
+        }
+
+        public String statusCode() {
+            if (!configured()) {
+                return "missing";
+            }
+            if (!enabled) {
+                return "paused";
+            }
+            if (recentRuns == null || recentRuns.isEmpty()
+                    || !"PASS".equalsIgnoreCase(recentRuns.get(0).status())
+                    || recentRuns.get(0).bindingRevision() == null
+                    || recentRuns.get(0).bindingRevision() != revision) {
+                return "check";
+            }
+            return "ready";
+        }
+
+        public String statusLabel() {
+            return switch (statusCode()) {
+                case "ready" -> "Sẵn sàng";
+                case "paused" -> "Tạm tắt";
+                case "check" -> "Cần kiểm tra";
+                default -> "Chưa thiết lập";
+            };
         }
     }
 

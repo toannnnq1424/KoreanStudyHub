@@ -211,6 +211,9 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (payload.code === 'PRACTICE_PDF_AUTHORING_UNAVAILABLE') {
+          throw new Error('PDF không bị cấm. AI cho “Biên soạn từ PDF” chưa sẵn sàng. Hãy liên hệ quản trị viên để bật nhà cung cấp, gán model và kiểm tra lại mục đích này.');
+        }
         throw new Error(payload.error || payload.code || 'Không thể tạo candidate.');
       }
       if (typeof payload.reviewUrl !== 'string'

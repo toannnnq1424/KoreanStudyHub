@@ -4,9 +4,9 @@ Recorded: `2026-08-02`
 
 Program: `PRACTICE_PREPRODUCTION_LEGACY_IMPORT_RETIREMENT_AND_SCHEMA_COMPACTION`
 
-Current slice: `CLEAN_CUT_4_STORAGE_AND_SCHEMA_COMPACTION`
+Current slice: `CLEAN_CUT_5_ADMIN_SETTINGS_IA_AND_VISUAL_REDESIGN`
 
-Status: `CLEAN_CUT_4_IMPLEMENTED__COORDINATOR_AUDIT_PENDING__CLEAN_CUT_5_NOT_STARTED`
+Status: `CLEAN_CUT_5_IMPLEMENTED__COORDINATOR_AUDIT_PENDING__CLEAN_CUT_6_NOT_STARTED`
 
 ## 1. Checkpoint and authority
 
@@ -685,12 +685,11 @@ push or begin CLEAN_CUT_5 in the same audit step.
 
 Entry gate: CLEAN_CUT_4 audited/committed locally; worktree clean.
 
-The user has inserted this slice after C4. Its detailed implementation scope is
-coordinator-owned and intentionally not inferred here. The C4 compatibility
-freeze is that `/admin/settings/storage` and its shared `GENERAL_UPLOADS`
-control-plane ownership remain operational; C4 performs no Admin IA or visual
-redesign. C5 must receive its explicit scope before work begins and must return
-to its own coordinator audit/commit checkpoint without opening C6.
+The user inserted this slice after C4 and supplied its explicit locked scope.
+It separates global and Practice AI/storage control planes, preserves the C4
+data-plane contracts and compatibility routes, and applies the KSH Admin visual
+system to the overview, forms, status, progress and empty states. It must return
+to coordinator audit/commit without opening C6.
 
 ### CLEAN_CUT_6 — Consolidated validation
 
@@ -1278,4 +1277,199 @@ read-only startup/probes against V86. No shared database or object store was
 used, and real external calls remain `AI/R2/STT/TTS = 0/0/0/0`.
 
 Verdict: `CLEAN_CUT_4_ACCEPTED_FOR_ONE_LOCAL_COMMIT`. The commit is coordinator
+owned, remains local and does not authorize a push, PR or merge.
+
+## 16. CLEAN_CUT_5 Admin settings IA and visual redesign checkpoint
+
+### 16.1 Entry and scope freeze
+
+C5 started from a clean worktree on
+`codex/practice-clean-cut-legacy-retirement-schema-compaction` at exact `HEAD`
+`e11254bec581df6a5f72b3d10953989bfa3f87af`. The C4 coordinator acceptance and
+local commit were already present. The refreshed controller/service/template/
+fragment/JS/CSS/test inventory found no need for a migration or schema change;
+V86 remains the maximum and no migration file changed in C5.
+
+The six `PracticeAiPurpose` identities, exact Practice provider/profile and
+storage-profile dispatch, fail-closed behavior, revision `0`, CSRF, permission,
+ownership and secret-sentinel contracts remain unchanged. Practice still does
+not fall back to global AI or `GENERAL_UPLOADS`.
+
+### 16.2 Before/after information architecture
+
+| Before | After | Authority and next action |
+|---|---|---|
+| flat settings cards with adjacent `Lưu trữ` and `Storage profiles` | two named zones: `Toàn hệ thống` and `Riêng cho Practice`, each with intro and grouped cards | overview sends Admin to one unambiguous control plane |
+| global AI provider table mixed primary information with transport details | `AI toàn hệ thống` keeps provider/fallback order, health and logs; technical fields are secondary | existing global AI routes and non-Practice fallback order stay authoritative |
+| `/admin/settings/storage` exposed legacy/global storage concepts without the profile boundary | `Lưu trữ toàn hệ thống` presents only `GENERAL_UPLOADS`, with purpose, backend, state, revision and action | direct legacy route remains compatible; edit/toggle uses the retained profile route |
+| Practice profiles and six bindings were dense technical lists | `AI cho Practice` is a three-step control plane: provider/key, model, then purpose binding; progress and next incomplete purpose are explicit | exact six-purpose bindings only; no global fallback |
+| all storage profiles appeared in one list | `Lưu trữ Practice` shows only `PRACTICE_AUTHORING` and `PRACTICE_SPEAKING` as separate cards | each keeps its own backend, state, revision, action and key prefix |
+
+Primary status copy is now `Chưa thiết lập`, `Sẵn sàng`, `Tạm tắt` or
+`Cần kiểm tra`; enum values, capability codes, revision, retention, timeout,
+retry and request/response byte limits appear only as metadata or inside
+`Chi tiết kỹ thuật / Nâng cao`. Empty states state the safe stop and next
+action instead of exposing raw status codes.
+
+### 16.3 Provider, model and official-link UX
+
+The provider control no longer opens an oversized native select. It is a
+keyboard-operable listbox with an accessible trigger, Arrow/Home/End/Enter/
+Space/Escape behavior, outside-click close and a hidden synchronized native
+select for form binding. The model field is an editable searchable combobox:
+opening it shows every verified model relevant to the selected provider and
+purpose even when a saved value already exists; typing filters by name, cost or
+workload; count, selected state, empty state and keyboard navigation remain
+visible and deterministic.
+
+The structured-output OpenAI catalog is ordered cost-first, not flagship-first:
+`gpt-5-nano`, `gpt-5.4-nano`, `gpt-5-mini`, `gpt-5.4-mini`, then the retained
+`gpt-5.6-luna/terra/sol` choices. The current page labels the official price
+snapshot per one million tokens and makes `gpt-5-nano` the cheapest visible
+choice. STT and TTS receive their own compatible lists. Gemini gets its own
+verified OpenAI-compatibility catalog. DeepSeek and Alibaba Model Studio/Qwen
+profiles are recognized, but models documented only for JSON Object rather
+than Practice's required strict `json_schema` are shown disabled with the exact
+compatibility gap; C5 does not lower validation or pretend protocol format is
+feature parity. Free-form exact model entry remains available for custom
+providers and is still capability-tested before use.
+
+No page-load or search action calls a provider `/models` endpoint. This keeps
+C5 at zero real calls and avoids transmitting secrets merely to render a form.
+The TTS page explicitly states that the current backend uses OpenAI-compatible
+`/audio/speech`; native ElevenLabs `eleven_multilingual_v2` needs an adapter
+because its route, `xi-api-key` header and `model_id` payload are not the same
+contract.
+
+Only fixed official URLs are rendered, all with `target="_blank"` and
+`rel="noopener noreferrer"`; none is derived from the Admin-entered base URL:
+
+- OpenAI API keys: `https://platform.openai.com/api-keys`;
+- Google AI Studio keys: `https://aistudio.google.com/apikey`;
+- DeepSeek API keys: `https://platform.deepseek.com/api_keys`;
+- Alibaba Model Studio key guide:
+  `https://www.alibabacloud.com/help/en/model-studio/get-api-key`; and
+- Cloudflare R2 token guide: `https://developers.cloudflare.com/r2/api/tokens/`.
+
+Model/protocol decisions were checked against the current primary OpenAI model
+pages, `https://developers.openai.com/api/docs/models`, Gemini OpenAI
+compatibility documentation at `https://ai.google.dev/gemini-api/docs/openai`,
+DeepSeek API documentation at `https://api-docs.deepseek.com/`, Alibaba Model
+Studio model/structured-output documentation and ElevenLabs text-to-speech API
+documentation. No key, token or credential appears in rendered HTML after
+save; explicit reveal endpoints remain no-store.
+
+### 16.4 Compatibility routes and user-reported adjacent UI defects
+
+The following route families remain live and direct-bookmark compatible:
+
+- `/admin/settings`, `/admin/settings/ai`, `/admin/settings/ai/prompts` and the
+  existing global AI create/edit/toggle/delete/test/key/log actions;
+- `/admin/settings/storage` including its compatibility POST/test routes, while
+  its visible C5 page owns only `GENERAL_UPLOADS`;
+- `/admin/settings/storage-profiles` and every existing profile
+  create/edit/toggle/delete/secret route; the list now filters to the two
+  Practice identities and direct `GENERAL_UPLOADS` edit still returns to the
+  global page;
+- `/admin/settings/practice-ai`, Practice profile create/edit/toggle/delete/
+  secret, and binding edit/save/toggle/test for all six purposes.
+
+Profile creation now rejects a blank create-secret in the form, supplies the
+stable default profile code, and on success redirects to the first binding with
+the saved provider preselected. Validation errors render in place instead of a
+silent no-op. Existing secret sentinels and update semantics are preserved.
+
+The same visual QA cycle closed the directly reported authoring defects without
+opening another product phase: the canonical editor no longer globally locks
+body scroll, its top and one-row toolbar remain reachable, the validation rail
+auto-hides after pointer departure, and preview exposes `Chỉnh sửa nội dung`
+back to the canonical editor. Quick Excel has a stable downloadable template,
+styled file control and bounded scrolling. Basic PDF accepted a valid local
+PDF, reached exact-purpose validation, then failed closed with stable HTTP 503
+copy saying `PDF không bị cấm` and directing the lecturer to configure
+`PRACTICE_PDF_AUTHORING`; the submit control recovered. No PDF session or
+workspace surface returned.
+
+The orphan `admin-settings-storage.js` had no remaining template, selector or
+route consumer and was removed. Prompt textarea and all touched Admin inputs,
+select replacements, cards, disclosures, actions and errors now use the shared
+C5 stylesheet rather than raw browser controls.
+
+### 16.5 Browser, static and JDK17 evidence
+
+Browser walkthroughs used only the isolated local C5 application and disposable
+catalog:
+
+- desktop `1280` CSS px: the two-column binding form and 429 px searchable
+  catalog rendered with `scrollWidth == innerWidth == 1280`; all seven relevant
+  OpenAI entries appeared cost-first;
+- compact in-app width `816` CSS px: the form collapsed to one 465 px column,
+  catalog remained inside the content rail and horizontal overflow was zero;
+- mobile Chromium `390x844`: `clientWidth == scrollWidth == 390`, sidebar was
+  hidden, form/grid/catalog were one 320 px column, the native provider select
+  remained hidden and the seven-item searchable listbox was expanded without
+  clipping;
+- model search `nano` and `rẻ nhất` each reduced the visible list to the exact
+  matching option; selection synchronized the submitted model and closed the
+  list; provider selection and Escape/Arrow keyboard behavior were also
+  exercised; and
+- Basic PDF upload used a 1,540-byte generated local PDF. Quick Excel download,
+  upload/preview/candidate handoff and the canonical editor/preview return path
+  were exercised in the same disposable browser session.
+
+Validation after the final picker and responsive changes:
+
+- JDK17 production plus all test-source compilation: `test-compile` PASS;
+- Admin IA/status, official-link/rel/static ownership, storage-route authority,
+  Practice exact-purpose/no-global-fallback, PDF failure contract, Quick Excel
+  compatibility and the three touched Phase 11 UI methods: `8` suites / `36`
+  tests / `0` failures / `0` errors / `0` skipped;
+- both touched JavaScript files: `node --check` PASS;
+- `git diff --check`: PASS;
+- no migration/schema diff, no production reference to the deleted storage JS,
+  and no model-picker `/models` fetch: PASS; and
+- real external calls throughout C5 implementation and validation:
+  `AI/R2/STT/TTS = 0/0/0/0`.
+
+### 16.6 CLEAN_CUT_5 checkpoint
+
+`CLEAN_CUT_5_ADMIN_SETTINGS_IA_AND_VISUAL_REDESIGN` is implemented and ready
+for coordinator audit. `HEAD` remains the accepted C4 commit
+`e11254bec581df6a5f72b3d10953989bfa3f87af`; all C5 source, static, tests and
+this live-report update are intentionally uncommitted. No shared database,
+bucket, real provider or user secret was touched.
+
+`CLEAN_CUT_6` has not started. Only the coordinator may audit and create the
+single local C5 commit; this task must not commit, push, open a PR or merge.
+
+### 16.7 Coordinator acceptance evidence
+
+The coordinator independently audited the complete C5 delta at clean entry
+`e11254bec581df6a5f72b3d10953989bfa3f87af`: `32` paths in total, comprising
+`29` tracked paths with `1236` insertions and `794` deletions plus three new
+static/test paths. No migration or schema file changed. The Admin information
+architecture, global-versus-Practice authority boundaries, exact six-purpose
+Practice AI flow, two-profile Practice storage view, fixed official links,
+secret handling, compatibility routes and the adjacent authoring UI fixes were
+reviewed against the C5 scope.
+
+Coordinator reruns with JDK 17 produced:
+
+- full production and all test-source compilation: PASS;
+- the exact C5 focused selection: `8` suites / `36` tests / `0` failures /
+  `0` errors / `0` skipped, including the three selected Phase 11 UI methods;
+- both changed JavaScript files passed `node --check`;
+- `git diff --check`: PASS; and
+- production scans found no `/models` fetch, no retained reference to the
+  deleted `admin-settings-storage.js`, and no migration/schema delta.
+
+The complete Phase 11 class probe still exposes only the documented pre-existing
+writing-result arrow-glyph baseline in an unchanged file; all three C5-selected
+methods pass. The coordinator also accepted the recorded disposable-browser
+evidence at desktop `1280`, compact `816` and mobile `390x844`, including zero
+horizontal overflow, keyboard/listbox behavior, fixed-link safety and the
+fail-closed Basic PDF path. No shared database, object store or secret was used,
+and real external calls remain `AI/R2/STT/TTS = 0/0/0/0`.
+
+Verdict: `CLEAN_CUT_5_ACCEPTED_FOR_ONE_LOCAL_COMMIT`. The commit is coordinator
 owned, remains local and does not authorize a push, PR or merge.

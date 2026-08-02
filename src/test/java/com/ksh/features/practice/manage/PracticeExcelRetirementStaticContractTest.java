@@ -37,6 +37,9 @@ class PracticeExcelRetirementStaticContractTest {
         assertThat(template)
                 .contains("Quick Excel v1 · text-only")
                 .contains("/practice/manage/excel/template/quick-v1")
+                .contains("download=\"ksh-practice-quick-v1.xlsx\"")
+                .contains("thư mục Downloads")
+                .contains("overscroll-behavior:contain")
                 .contains("window.location.assign(result.reviewUrl)")
                 .doesNotContain(
                         "Advanced v2",

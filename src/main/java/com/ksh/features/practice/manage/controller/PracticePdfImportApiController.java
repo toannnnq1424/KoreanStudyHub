@@ -109,8 +109,10 @@ public class PracticePdfImportApiController {
                     "code", exception.code(), "error", exception.getMessage()));
         } catch (PracticeAiContractException exception) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
-                    "code", exception.category(),
-                    "error", "Purpose PRACTICE_PDF_AUTHORING hiện chưa sẵn sàng."));
+                    "code", "PRACTICE_PDF_AUTHORING_UNAVAILABLE",
+                    "causeCode", exception.category(),
+                    "error", "PDF không bị chặn. AI cho Biên soạn từ PDF chưa sẵn sàng; "
+                            + "hãy liên hệ quản trị viên để bật profile và gán model."));
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", "PDF_AUTHORING_REQUEST_INVALID",

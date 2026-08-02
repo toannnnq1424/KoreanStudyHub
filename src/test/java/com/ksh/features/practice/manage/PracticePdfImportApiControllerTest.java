@@ -12,6 +12,7 @@ import com.ksh.features.practice.manage.service.PracticePdfAiOrchestrator;
 import com.ksh.features.practice.manage.service.PracticePdfAiPayloadBuilder;
 import com.ksh.features.practice.manage.service.PracticePdfAuthoringCandidateAssembler;
 import com.ksh.features.practice.manage.service.PracticePdfAuthoringRequest;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
 import com.ksh.security.KshUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -130,6 +131,35 @@ class PracticePdfImportApiControllerTest {
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         verify(payloadBuilder).buildBasicPdf(
                 file, 2, 3, SourceOperation.GENERATE, "Tạo câu mới", target);
+    }
+
+    @Test
+    void unavailablePurposeReturnsStableActionableCodeWithoutCallingItForbidden() {
+        TargetRoute target = new TargetRoute(91L, 1, "READING", "R1");
+        PracticePdfAuthoringRequest authoring = request(
+                PracticePdfAuthoringRequest.SourceType.TEXT,
+                SourceOperation.EXTRACT, target);
+        when(targetService.requireExactTarget(
+                91L, 1, "READING", "R1", 1L)).thenReturn(target);
+        when(payloadBuilder.buildBasicText(
+                "Nguồn câu hỏi", SourceOperation.EXTRACT, "", target))
+                .thenReturn(authoring);
+        when(aiOrchestrator.generate(authoring)).thenThrow(
+                new PracticeAiContractException("PROVIDER_PURPOSE_UNAVAILABLE", false));
+
+        ResponseEntity<?> response = controller.createBasicCandidate(
+                "TEXT", "EXTRACT", "Nguồn câu hỏi", null, "",
+                91L, 1, "READING", "R1", null, null, lecturer);
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body)
+                .containsEntry("code", "PRACTICE_PDF_AUTHORING_UNAVAILABLE")
+                .containsEntry("causeCode", "PROVIDER_PURPOSE_UNAVAILABLE");
+        assertThat(body.get("error").toString()).contains("PDF không bị chặn")
+                .doesNotContain("bị cấm");
+        verifyNoInteractions(candidateAssembler);
     }
 
     @Test

@@ -5,7 +5,7 @@
   <link class="page-css" rel="stylesheet" href="../../../static/css/practice/manage-editor.css" th:href="@{/css/practice/manage-editor.css}">
   <link class="page-css" rel="stylesheet" href="../../../static/css/practice/manage-speaking-prompt-authoring.css" th:href="@{/css/practice/manage-speaking-prompt-authoring.css}">
 </head>
-<body class="pi-body">
+<body class="pi-body practice-editor-body">
 
 <div id="editor-toast-region" class="editor-toast" role="status"
      aria-live="assertive" aria-atomic="true" hidden></div>
@@ -130,7 +130,7 @@
       </button>
       <span class="panel-title">Cấu trúc đề</span>
       <div class="structure-add-controls" style="position:relative;">
-        <button id="add-structure-trigger" type="button" data-action="toggle-add-menu" onclick="toggleAddMenu(event)" aria-expanded="false" aria-controls="add-structure-menu" style="background:none; border:none; color:var(--pp-accent); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:4px;" title="Thêm mục cấu trúc">
+        <button id="add-structure-trigger" type="button" data-action="toggle-add-menu" aria-expanded="false" aria-controls="add-structure-menu" style="background:none; border:none; color:var(--pp-accent); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:4px;" title="Thêm mục cấu trúc">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         <div id="add-structure-menu" class="practice-add-menu" hidden style="position:absolute; right:0; top:32px; background:#fff; border:1px solid var(--pp-border); border-radius:10px; box-shadow:0 8px 24px -4px rgba(0,0,0,0.12); z-index:2000; width:220px; padding:6px;">
@@ -853,6 +853,7 @@
             aria-label="Mở bảng kiểm tra chất lượng đề"
             aria-controls="editor-validation-panel"
             aria-expanded="false"
+            onpointerdown="markValidationPanelPointerActivation()"
             onclick="toggleValidationPanel(event)">Kiểm tra</button>
     <div id="editor-validation-panel" class="validation-panel-surface"
          role="region" aria-labelledby="validation-panel-title"
@@ -973,6 +974,7 @@
   let previewReturnFocus = null;
   let validationPanelReturnFocus = null;
   let validationPanelPinned = false;
+  let validationPanelPointerActivation = false;
 
   function activateUploadZone(event, inputId) {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -6358,11 +6360,24 @@
     setValidationPanelOpen(false);
   }
 
+  function markValidationPanelPointerActivation() {
+    validationPanelPointerActivation = true;
+  }
+
   function toggleValidationPanel(event) {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
+    // A pointer click is a peek: leave closes the panel. Keyboard activation
+    // pins it and moves focus inside so the complete inspector stays usable.
+    if (validationPanelPointerActivation || event?.detail > 0) {
+      validationPanelPointerActivation = false;
+      validationPanelPinned = false;
+      setValidationPanelOpen(true);
+      return;
+    }
+    validationPanelPointerActivation = false;
     if (validationPanelPinned) {
       closeValidationPanel(true);
       return;
@@ -6816,6 +6831,21 @@
     }
     previewReturnFocus = null;
   }
+
+  window.returnFromPreviewToEditor = function returnFromPreviewToEditor() {
+    closePreviewModal();
+    requestAnimationFrame(() => {
+      const activeCard = Array.from(document.querySelectorAll('.editor-card'))
+        .find(card => getComputedStyle(card).display !== 'none');
+      const editTarget = activeCard?.querySelector('textarea:not([disabled])')
+        || activeCard?.querySelector(
+          'input:not([type="hidden"]):not([readonly]):not([disabled])')
+        || activeCard?.querySelector('select:not([disabled])');
+      if (!(editTarget instanceof HTMLElement)) return;
+      editTarget.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      editTarget.focus({ preventScroll: true });
+    });
+  };
 </script>
 
 <!-- Context Menu for Tree Items -->

@@ -23,7 +23,8 @@
           <p>Sử dụng đúng một sheet để nhập nhanh nội dung văn bản. Media, MATCHING và complex blanks được hoàn thiện trong Editor sau khi rà soát candidate.</p>
         </div>
         <a id="download-quick-template" class="btn-action btn-sec"
-           th:href="@{/practice/manage/excel/template/quick-v1}">Tải mẫu Quick v1</a>
+           th:href="@{/practice/manage/excel/template/quick-v1}"
+           download="ksh-practice-quick-v1.xlsx">Tải mẫu Quick v1</a>
       </div>
 
       <div class="quick-parity-note" th:switch="${skill}">
@@ -35,6 +36,7 @@
       <label class="form-label" for="excel-file">Tệp Quick XLSX</label>
       <input id="excel-file" class="form-input" type="file"
              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <p class="quick-field-hint">Chưa có tệp? Nút “Tải mẫu Quick v1” sẽ lưu file .xlsx vào thư mục Downloads của trình duyệt.</p>
       <div id="page-error" class="quick-error" role="alert"
            aria-live="assertive" tabindex="-1" hidden></div>
       <div class="quick-actions">
@@ -82,13 +84,18 @@
   .quick-import-shell{max-width:900px;margin:0 auto}
   .quick-import-heading,.quick-contract-row,.quick-preview-header,.quick-preview-footer{display:flex;justify-content:space-between;align-items:center;gap:16px}
   .quick-import-heading{margin-bottom:24px}.quick-import-heading h1{margin:4px 0 0;font-size:1.7rem;color:#172033}
-  .quick-import-card{background:#fff;border:1px solid #e3e7ef;border-radius:8px;padding:24px}
+  .quick-import-card{background:#fff;border:1px solid #dce4ee;border-radius:16px;padding:24px;box-shadow:0 10px 28px rgba(15,23,42,.05)}
   .quick-contract-row{align-items:flex-start;margin-bottom:18px}.quick-contract-row h2{margin:0 0 6px;font-size:1.12rem}.quick-contract-row p{margin:0;color:#667085;line-height:1.5}
   .quick-parity-note{margin:0 0 18px;padding:12px 14px;border-left:3px solid #6366f1;background:#f5f5ff;color:#3f4770}.quick-parity-note p{margin:0;line-height:1.5}
-  .quick-actions{display:flex;justify-content:flex-end;margin-top:20px}.quick-error{margin-top:14px;padding:11px 12px;border:1px solid #fecaca;border-radius:6px;background:#fff1f2;color:#9f1239}
-  .quick-preview-modal{position:fixed;inset:0;margin:auto;width:min(980px,calc(100vw - 32px));max-width:none;max-height:calc(100vh - 32px);padding:0;border:0;border-radius:8px;box-shadow:0 24px 70px rgba(23,32,51,.28);overflow:hidden}.quick-preview-modal::backdrop{background:rgba(23,32,51,.58)}
+  #excel-file{min-height:46px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#172033}
+  #excel-file::file-selector-button{margin-right:12px;padding:8px 12px;border:0;border-radius:8px;background:#eef2ff;color:#3343a5;font:inherit;font-weight:700;cursor:pointer;transition:background .15s ease,color .15s ease}
+  #excel-file::file-selector-button:hover{background:#dfe7ff;color:#24358d}
+  #excel-file:hover{border-color:#94a3b8}#excel-file:focus-visible{outline:3px solid rgba(49,94,251,.22);outline-offset:2px;border-color:#315efb}
+  .quick-field-hint{margin:7px 0 0;color:#64748b;font-size:.78rem;line-height:1.5}
+  .quick-actions{display:flex;justify-content:flex-end;margin-top:18px}.quick-error{margin-top:14px;padding:11px 12px;border:1px solid #fecaca;border-radius:8px;background:#fff1f2;color:#9f1239}
+  .quick-preview-modal{position:fixed;inset:0;margin:auto;width:min(980px,calc(100vw - 32px));max-width:none;max-height:calc(100vh - 32px);padding:0;border:0;border-radius:14px;box-shadow:0 24px 70px rgba(23,32,51,.28);overflow:hidden;overscroll-behavior:contain}.quick-preview-modal::backdrop{background:rgba(23,32,51,.58)}
   .quick-preview-dialog{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:calc(100vh - 32px);background:#fff}.quick-preview-header,.quick-preview-footer{padding:18px 22px;border-bottom:1px solid #e3e7ef}.quick-preview-footer{border-top:1px solid #e3e7ef;border-bottom:0}.quick-preview-header h2{margin:3px 0 0;font-size:1.2rem}
-  .quick-icon-button{border:0;background:transparent;font-size:1.8rem;line-height:1;cursor:pointer}.quick-preview-body{overflow:auto;padding:20px 22px}.quick-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.quick-summary div{padding:10px;border:1px solid #e3e7ef;border-radius:6px}.quick-summary span{display:block;color:#667085;font-size:.78rem}.quick-summary strong{display:block;margin-top:4px}
+  .quick-icon-button{border:0;background:transparent;font-size:1.8rem;line-height:1;cursor:pointer}.quick-preview-body{overflow:auto;padding:20px 22px;overscroll-behavior:contain;scrollbar-gutter:stable}.quick-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.quick-summary div{padding:10px;border:1px solid #e3e7ef;border-radius:8px}.quick-summary span{display:block;color:#667085;font-size:.78rem}.quick-summary strong{display:block;margin-top:4px}
   .quick-table-wrap{overflow:auto;border:1px solid #e3e7ef;border-radius:6px}.quick-preview-table{width:100%;border-collapse:collapse;font-size:.84rem}.quick-preview-table th,.quick-preview-table td{padding:9px 10px;border-bottom:1px solid #eef0f4;text-align:left;vertical-align:top}.quick-preview-table th{background:#f8fafc;white-space:nowrap}
   @media(max-width:720px){.quick-import-heading,.quick-contract-row{align-items:stretch;flex-direction:column}.quick-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
