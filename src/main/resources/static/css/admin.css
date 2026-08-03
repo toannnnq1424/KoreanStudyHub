@@ -404,7 +404,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Shared admin list-table shell
    Panel + horizontal-scroll + table + empty state used by /admin/users and
-   /admin/categories. Extracted from admin-users.css to remove duplication.
+   admin management screens. Extracted from admin-users.css to remove duplication.
    Pages layer their own cell/row cosmetics on top (.user-name, .cat-* …).
    ══════════════════════════════════════════════════════════════════════════ */
 .admin-list-panel {
