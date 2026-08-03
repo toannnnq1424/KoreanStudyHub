@@ -1,0 +1,67 @@
+{
+  "contract_version": "ksh-speaking-direct-audio-acoustic-v1",
+  "language": "ko-KR",
+  "evidence_mode": "DIRECT_AUDIO",
+  "evaluation_status": "OBSERVED",
+  "evaluator": {
+    "evaluator_id": "gemini-enterprise-direct-audio-v1",
+    "model": "gemini-3.5-flash",
+    "capability_id": "KSH_DIRECT_AUDIO_ACOUSTIC_EVALUATION_V1"
+  },
+  "policy": {
+    "policy_bundle_id": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1",
+    "policy_bundle_fingerprint": "840b24d390515ee813a420870760a602acdc5c53532180374315cc4cd0856fee"
+  },
+  "calibration": {
+    "profile_id": "TEST_KOREAN_ACOUSTIC_CALIBRATION",
+    "version": "TEST_V1_NON_PRODUCTION",
+    "corpus_evidence_id": "TEST_CORPUS_EVIDENCE",
+    "acoustic_calibration_evidence_id": "TEST_ACOUSTIC_EVIDENCE",
+    "fairness_evidence_id": "TEST_FAIRNESS_EVIDENCE",
+    "repeatability_evidence_id": "TEST_REPEATABILITY_EVIDENCE"
+  },
+  "audio_consumption": {
+    "provider_request_id": "provider-request-test-1",
+    "audio_consumed": true,
+    "audio_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "provider_cache_identity": "test-provider-cache-identity",
+    "provenance_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "audio_duration_ms": 5000,
+  "observations": [
+    {
+      "dimension": "PRONUNCIATION",
+      "signal_value": 0.80,
+      "confidence": 0.90,
+      "evidence": [
+        {
+          "evidence_id": "pronunciation-span-1",
+          "start_ms": 500,
+          "end_ms": 1500,
+          "confidence": 0.90,
+          "observation": "TEST_ONLY_PROVIDER_OBSERVATION"
+        }
+      ]
+    },
+    {
+      "dimension": "FLUENCY",
+      "signal_value": 0.70,
+      "confidence": 0.80,
+      "evidence": [
+        {
+          "evidence_id": "fluency-span-1",
+          "start_ms": 1800,
+          "end_ms": 3200,
+          "confidence": 0.80,
+          "observation": "TEST_ONLY_PROVIDER_OBSERVATION"
+        }
+      ]
+    }
+  ],
+  "provider_observation_total": 1.50,
+  "provider_confidence": 0.85,
+  "score_release": {
+    "eligible": false,
+    "reason": "DARK_ROLLOUT_ONLY"
+  }
+}

@@ -950,3 +950,72 @@ response decoder, acoustic evidence/rubric reconciliation and non-score-bearing
 normalizer. Score release must remain off until real captured responses plus
 approved calibration/fairness/repeatability evidence satisfy that contract;
 none of those results are fabricated here.
+
+### 6.15 B3 strict acoustic observation contract boundary
+
+Status: `STRICT_V1_OBSERVATIONS_GREEN / DARK_ONLY / PRODUCTION_CALIBRATION_RED / NO_SCORE_RELEASE`.
+
+This slice defines the separately versioned
+`ksh-speaking-direct-audio-acoustic-v1` JSON contract. The provider response is
+an observation envelope, not a backend grading result: it carries exactly the
+Korean locale, direct-audio evidence mode, evaluator/model/capability identity,
+policy bundle, immutable calibration references, audio-consumption receipt,
+pronunciation and fluency observations, timestamped evidence spans and provider
+confidence. Every object is closed to unknown fields. The release section is
+fixed to `eligible=false` and `DARK_ROLLOUT_ONLY`; holistic score and attempt
+points are absent from both schema and result type.
+
+`DirectAudioAcousticProviderResponseParser` first applies the existing strict
+structured-response envelope checks, including completion state and outer
+provider request identity. `DirectAudioAcousticResponseNormalizer` then accepts
+only the exact current contract and exact governed request context. It rejects
+malformed or transcript-only payloads, unsupported language, wrong
+evaluator/model/capability/policy/calibration, unavailable calibration,
+unproven audio consumption, receipt/provenance/cache mismatches, invalid or
+duplicate evidence spans, incomplete/duplicate dimensions, values outside
+`0..1`, and inconsistent provider total/confidence. Rejections are bounded and
+non-score-bearing.
+
+No scoring weights, fairness thresholds or Korean corpus conclusions were
+invented. The immutable calibration authority requires corpus, acoustic,
+fairness and repeatability evidence IDs, while the only production bean returns
+no profile. The test authority and fixture use conspicuous `TEST-*` identities
+and approve observation parsing only; any profile claiming score-release
+approval is rejected. The dark result constructor independently forces
+presenter eligibility and score-release eligibility false and forces holistic
+score/attempt points to null. Static consumer scans prove the new acoustic
+result/parser/version are not referenced by `SpeakingResultPresenter`,
+`PracticeService`, `PracticeProgressService`, result DTOs or the current
+Speaking score policy.
+
+Dated `2026-08-03` JDK `17.0.19` evidence:
+
+- focused acoustic/Enterprise/service command
+  `mvnw -Dtest=DirectAudioAcousticResponseNormalizerTest,DirectAudioAcousticContractStaticTest,GeminiEnterpriseDirectAudioEvaluationAdapterTest,DirectAudioSpeakingEvaluationServiceTest test`
+  passed `21/21`;
+- captured fixtures include one internally consistent dark observation and
+  adversarial unknown-field, transcript-only, wrong model/capability/policy/
+  calibration, missing/false receipt, invalid timestamp/range/total/confidence,
+  unsupported-language and attempted-score-release cases;
+- strict provider-envelope cases cover malformed JSON, incomplete generation,
+  response/request receipt mismatch and one valid captured fake response;
+- combined B1/B2/B3/control-plane/readiness/acoustic command
+  `mvnw -Dtest=PracticeAi*Test,DirectAudio*Test,GoogleCloud*Test,GeminiEnterprise*Test,*Acoustic*Test,SpeakingProviderRolloutReadinessTest,ProviderOperationalReadinessPolicyTest,AdminSettingsInformationArchitectureStaticContractTest test`
+  passed `113` tests: `107` executed green and `6` existing DB/auth guards
+  skipped; and
+- real provider/storage/DB calls, dependency additions, migrations and learner
+  score releases remained `0`.
+
+Remaining evidence is deliberately external and exact: capture real response
+envelopes from the selected endpoint/model with matching request receipts;
+validate schema stability across the approved Korean device/environment/voice
+corpus; issue immutable corpus/acoustic/fairness/repeatability evidence IDs;
+and approve any weights, acceptance thresholds and release policy. Until then
+production calibration resolution is empty and readiness remains red.
+
+Next isolated boundary audit: determine whether dark observations can be
+persisted and exposed to explicitly authorized reviewers without importing a
+learner score path. Any persistence must be a new forward-only migration and
+must store bounded observation/provenance data without raw audio, tokens or
+secrets. Learner presenter/progress/result surfaces and score release must stay
+disconnected.
