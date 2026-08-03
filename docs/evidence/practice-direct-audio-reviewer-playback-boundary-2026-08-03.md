@@ -1,6 +1,6 @@
 # Direct-audio reviewer playback boundary — 2026-08-03
 
-Status: `IMPLEMENTED_DEFAULT_OFF / REVIEWER_ONLY / AUTHORIZED_ACCESS_AUDITED / NON_SCORE_BEARING`.
+Status: `IMPLEMENTED_DEFAULT_OFF / REVIEWER_ONLY / AUTHORIZED_ACCESS_AUDITED / NON_SCORE_BEARING_UI`.
 
 ## Current authoritative boundary
 
@@ -13,6 +13,7 @@ Status: `IMPLEMENTED_DEFAULT_OFF / REVIEWER_ONLY / AUTHORIZED_ACCESS_AUDITED / N
 | Retention / deletion | The linked dark observation must be undeleted and before `delete_after`; media must be `READY`. Cleanup/deletion or expiry blocks the next request. | same query |
 | Transport | Only the original private `PRACTICE_SPEAKING` object is opened after all SQL guards. HTTP ranges are served with `Cache-Control: no-store, private`, no URL/presign, storage key, token or audio bytes in logs/audit. | `DirectAudioReviewerPlaybackService`, controller tests |
 | Authorized access audit | V95 records only reviewer/attempt/question/media/observation identity, exact purpose, `INSPECTION_METADATA` or `PLAYBACK_OPEN`, and time. V96 requires an explicit immutable retention-policy ID and per-row deletion deadline. Missing policy/duration or a failed insert blocks metadata response and storage open. | V95/V96 migrations, `DirectAudioReviewerAccessAudit` |
+| Reviewer page | Separate default-off, server-rendered page uses the same audited metadata coordinator and same-origin range URL. `preload=none` prevents automatic byte open; no script, provider values, payload, score, URL signing or storage identity enters its model. | `DirectAudioReviewerPageController`, `direct-audio-reviewer.html`, focused/static tests |
 | Learner score release | None. Reviewer routes are not imported by result, progress, presenter or learner DTO paths. Inspection exposes only contract/provenance/completeness/retention metadata and explicit `scoreReleaseEligible=false`; provider observations, aggregates, payload and score values remain server-side. | `DirectAudioDarkObservationService`, inspection controller/static scan |
 
 ## Negative cases
@@ -59,8 +60,9 @@ remain fail-closed until an approved policy identity and duration are supplied.
   remains off by default.
 - Provider capture, immutable provider policy evidence and Korean acoustic
   corpus/calibration/fairness/repeatability evidence are still red.
-- Reviewer visual UI and audit event presentation remain separate
-  non-score-bearing slices. Denied-probe auditing is intentionally not in V95:
+- The minimal visual inspection/playback page is implemented default-off; an
+  audit-event history presenter remains a separate non-score-bearing slice.
+  Denied-probe auditing is intentionally not in V95:
   identifiers/network metadata and their retention require a separate approved
   privacy/security policy. The purge mechanism is implemented in V96, but the
   retention term/policy identity must be approved before either reviewer API

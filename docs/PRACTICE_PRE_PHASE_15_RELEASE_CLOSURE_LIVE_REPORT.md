@@ -1479,3 +1479,42 @@ created. Denied-probe/IP/user-agent auditing remains a separate optional policy;
 recommended default is not to collect it. Provider evidence, Korean acoustic
 calibration/fairness/repeatability, reviewer visual UI and learner score release
 remain red and were not fabricated by this slice.
+
+### 6.26 Default-off reviewer inspection/playback page
+
+Status: `REVIEWER_UI_GREEN / SAME_ORIGIN_RANGE_ONLY / DEFAULT_OFF / NO_SCORE`.
+
+A separately named server-rendered reviewer page now composes the already gated
+metadata inspection and same-origin range-playback boundaries without adding a
+learner route or generic-role shortcut. Page entry resolves the authenticated
+local user, invokes the named-grant/active-consent/retention-aware coordinator
+and therefore records the authorized metadata inspection audit before render.
+Missing authorization or missing V96 retention configuration collapses to the
+existing bounded failure path.
+
+The page model contains only attempt/question/media binding,
+contract/language/evaluator/model/calibration identity, completeness status/
+reason/rejected count, and capture/deletion timestamps. It excludes the dark
+payload, provider observation values/aggregate/confidence, holistic score,
+attempt points, storage key, presigned URL and secret. Its explicit copy says
+that pronunciation/fluency and all scores remain unavailable. The audio element
+uses `preload="none"`; only an explicit play action reaches the existing audited
+range endpoint over the original private object. No JavaScript or per-word
+audio object was added. CSS is responsive, wraps long identifiers and honors
+reduced-motion preference.
+
+The page, metadata API, playback API, access-audit retention policy and purge
+worker remain independently default-off. Enabling the page alone cannot bypass
+any byte or audit gate.
+
+JDK `17.0.19` focused reviewer page/controller/service/audit gate passed
+`15/15`; the combined direct-audio/Korean alignment/Enterprise fake transport/
+cleanup/migration-authority selector passed `91/91`; package passed. No new
+migration, real provider/storage/DB call, secret, learner playback surface or
+score release was added.
+
+Remaining visual target is evidence-linked word/eojjeol/syllable span
+highlighting and range seeking. That cannot be truthfully populated until a
+dedicated Korean forced-aligner/ASR timestamp component and captured acoustic
+evidence exist; Gemini/LLM output alone is not treated as timestamp proof. The
+current page intentionally stops at original-audio playback and metadata.

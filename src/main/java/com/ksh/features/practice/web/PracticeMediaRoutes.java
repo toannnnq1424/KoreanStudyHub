@@ -15,12 +15,22 @@ public final class PracticeMediaRoutes {
                     + "/speaking-media/{mediaId}/content";
     public static final String DIRECT_AUDIO_REVIEW_LATEST_OBSERVATION =
             "/direct-audio/review/attempts/{attemptId}/observations/latest";
+    public static final String DIRECT_AUDIO_REVIEW_PAGE =
+            "/direct-audio/review/attempts/{attemptId}";
 
     private PracticeMediaRoutes() {
     }
 
     public static String playbackPath(Long attemptId, Long questionId, Long mediaId) {
         return PracticeRoutes.BASE + "/attempts/" + attemptId
+                + "/questions/" + questionId
+                + "/speaking-media/" + mediaId
+                + "/content";
+    }
+
+    public static String directAudioReviewerPlaybackPath(
+            Long attemptId, Long questionId, Long mediaId) {
+        return PracticeRoutes.BASE + "/direct-audio/review/attempts/" + attemptId
                 + "/questions/" + questionId
                 + "/speaking-media/" + mediaId
                 + "/content";

@@ -1,0 +1,135 @@
+.dar-page {
+  min-height: 100vh;
+  background: #f5f8fc;
+  color: #172033;
+}
+
+.dar-main {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.dar-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.dar-hero h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.dar-eyebrow {
+  margin: 0;
+  color: #245e9b;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.dar-lock,
+.dar-notice {
+  border: 1px solid #b8cce3;
+  border-radius: 12px;
+  background: #edf5ff;
+}
+
+.dar-lock {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+.dar-notice {
+  margin: 24px 0;
+  padding: 14px 16px;
+  line-height: 1.55;
+}
+
+.dar-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.dar-card,
+.dar-unavailable {
+  border: 1px solid #d9e2ef;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgb(23 32 51 / 6%);
+  padding: 22px;
+}
+
+.dar-card h2,
+.dar-unavailable h2 {
+  margin-top: 0;
+}
+
+.dar-card audio {
+  width: 100%;
+  margin: 14px 0;
+}
+
+.dar-identity,
+.dar-details {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.dar-identity {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dar-identity div,
+.dar-details div {
+  min-width: 0;
+  border-top: 1px solid #e7edf5;
+  padding-top: 10px;
+}
+
+.dar-identity dt,
+.dar-details dt {
+  color: #5d6b80;
+  font-size: .82rem;
+}
+
+.dar-identity dd,
+.dar-details dd {
+  overflow-wrap: anywhere;
+  margin: 3px 0 0;
+  font-weight: 650;
+}
+
+.dar-unavailable {
+  margin-top: 20px;
+  border-color: #e4cf9c;
+  background: #fffaf0;
+}
+
+@media (max-width: 760px) {
+  .dar-main {
+    width: min(100% - 20px, 1120px);
+    padding-top: 20px;
+  }
+
+  .dar-hero,
+  .dar-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .dar-lock {
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+  }
+}

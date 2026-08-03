@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Rà soát bản ghi Speaking | KSH', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/direct-audio-reviewer.css}">
+</head>
+<body class="dar-page">
+<header th:replace="~{fragments/app-header :: appHeader('practice')}"></header>
+<main class="dar-main" aria-labelledby="dar-title">
+  <section class="dar-hero">
+    <div>
+      <p class="dar-eyebrow">Khu vực reviewer được cấp quyền</p>
+      <h1 id="dar-title">Rà soát bản ghi Speaking</h1>
+      <p>Chỉ phục vụ kiểm định nội bộ. Trang này không phát hành điểm cho người học.</p>
+    </div>
+    <span class="dar-lock">Không có điểm số</span>
+  </section>
+
+  <section class="dar-notice" role="status">
+    Mỗi lần mở metadata hoặc bản ghi đều kiểm tra lại consent, grant, thời hạn
+    lưu giữ và được ghi audit. Không sao chép URL hoặc chia sẻ bản ghi ra ngoài KSH.
+  </section>
+
+  <div class="dar-grid">
+    <section class="dar-card" aria-labelledby="dar-listen-title">
+      <h2 id="dar-listen-title">Nghe đoạn của người học</h2>
+      <p>Audio gốc được phát theo range, không tạo file riêng cho từng từ.</p>
+      <audio controls preload="none" th:src="${reviewAudioPath}">
+        Trình duyệt không hỗ trợ phát audio.
+      </audio>
+      <dl class="dar-identity">
+        <div><dt>Attempt</dt><dd th:text="${review.attemptId()}">—</dd></div>
+        <div><dt>Question</dt><dd th:text="${review.questionId()}">—</dd></div>
+        <div><dt>Media</dt><dd th:text="${review.mediaId()}">—</dd></div>
+        <div><dt>Ngôn ngữ</dt><dd th:text="${review.language()}">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="dar-card" aria-labelledby="dar-evidence-title">
+      <h2 id="dar-evidence-title">Trạng thái evidence</h2>
+      <dl class="dar-details">
+        <div><dt>Completeness</dt><dd th:text="${review.completenessStatus()}">—</dd></div>
+        <div><dt>Lý do</dt><dd th:text="${review.completenessReasonCode()}">—</dd></div>
+        <div><dt>Item bị loại</dt><dd th:text="${review.rejectedItemCount()}">0</dd></div>
+        <div><dt>Contract</dt><dd th:text="${review.contractVersion()}">—</dd></div>
+        <div><dt>Evaluator</dt><dd th:text="${review.evaluatorId()}">—</dd></div>
+        <div><dt>Model</dt><dd th:text="${review.model()}">—</dd></div>
+        <div><dt>Calibration</dt><dd th:text="${review.calibrationProfileId() + ' / ' + review.calibrationVersion()}">—</dd></div>
+        <div><dt>Ghi nhận</dt><dd th:text="${review.capturedAt()}">—</dd></div>
+        <div><dt>Xóa sau</dt><dd th:text="${review.deleteAfter()}">—</dd></div>
+      </dl>
+    </section>
+  </div>
+
+  <section class="dar-unavailable" aria-labelledby="dar-score-title">
+    <h2 id="dar-score-title">Pronunciation / Fluency</h2>
+    <p>Chưa phát hành. Không có điểm tổng, attempt points hoặc tiến độ được tạo từ trang này.</p>
+  </section>
+</main>
+</body>
+</html>
