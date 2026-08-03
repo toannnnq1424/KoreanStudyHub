@@ -1,6 +1,6 @@
 # KoreanStudyHub non-Practice product/schema audit
 
-Status: audit baseline complete; implementation decisions approved and tracked below. Date: 2026-08-03 (Asia/Ho_Chi_Minh).
+Status: audit baseline complete; approved non-Practice implementation slices are committed locally; disposable-DB migration rehearsal and Manual UAT remain. Date: 2026-08-03 (Asia/Ho_Chi_Minh).
 
 ## 1. Baseline, method, and hard boundary
 
@@ -52,9 +52,9 @@ Recommended default: Model A. Seed stable unique codes `KOR311`, `KOR321`, `KOR4
 | `activity_courses` | REMOVE | Parent is removed and no production writer/entity was found. |
 | `activity_departments` | REMOVE | V3 duplicate has no entity, repository, writer, reader, route or template caller. |
 | `department_activities` | RENAME → `subject_activities` | This is not dead: `DepartmentService` writes create/update/toggle/leader events through `SubjectAuditWriter`; `DepartmentQueryService.listActivities` reads it for the paged “Lịch sử cập nhật” tab in `admin/departments-form.html`. Rename table/column/entity/repository/writer/DTO vocabulary to subject; do not keep a table named `department_activities`. |
-| `activity_sections`, `activity_lessons`, `activity_classes`, `activity_tests` | MERGE | These have active writer/entity code. Uniform shape supports one append-only audit table; index by `(entity_type, entity_id, created_at)` and `(type, created_at)`. |
+| `activity_sections`, `activity_lessons`, `activity_classes`, `activity_tests` | KEEP for this release | These have active writer/entity code. Their uniform shape could support one append-only audit table, but the approved single new table is already `class_co_lecturers`; merging without a replacement table would lose history. |
 | other V3 `activity_*` (`enrollments`, assignments, submissions, users, comments, content_versions, flashcard_decks) | REMOVE | No matching application writer/entity/reader exists. Comments were removed in V94; V96 removes the other six. `user_activities` and `permission_activities` are separate live audit implementations and remain protected. |
-| proposed `entity_activities` | ADD only if audit retention is required | Columns: id, entity_type, entity_id, event_type, description, metadata, actor_id, created_at. No polymorphic FK. Ownership by a single audit service; monthly/age retention; indexes above. This is one replacement for up to 15 fragmented logs. |
+| proposed `entity_activities` | DO NOT ADD in this release | It remains a possible later consolidation model, but would be a second new table. Current implementation removes only proven dead activity tables and preserves seven live streams. |
 | `classes` | KEEP/RESHAPE | Replace `department_id` with `subject_id`; drop random class `code` if it is only an invite identifier; statuses exactly three; immutable DB `created_at`; optional `end_date`; approval DRAFT→ACTIVE; end-date worker ACTIVE→ARCHIVED. Keep `created_by` and owner lecturer. |
 | `class_invite_codes` | REMOVE | CODE/LINK flow is explicitly removed. Drop enrollment FK first and remove provisioning/backfill/UI/tests. |
 | `enrollments` | KEEP/RESHAPE | Supports PENDING→ACTIVE/REJECTED teacher approval. Remove invite FK; normalize `joined_via` to REQUEST/MANUAL/IMPORT or remove if unused. Student catalog query must show ACTIVE non-deleted non-archived classes only. |
@@ -210,9 +210,9 @@ Difficulty is not the only ordering rule: a low-code deletion stays behind its r
 | 13 | Hard | Snapshot Library lesson to classes and make class lessons read-only | Reuses current sections/lessons because the single approved new table is co-lecturers. | Multi-class same-subject snapshot is atomic; duplicate/cross-subject denied; both roles view; no class authoring endpoint remains. |
 | 14 | Hard | Remove old class authoring and loose attach/clone surfaces | Deletion becomes safe only after Library create/distribute exists. Requires static/API caller cleanup and content validation. | No dead attach-target/clone/class-upload route; retained content counts match; Practice `lecturer_assets` unchanged. |
 | 15 | Hard | Remove class lesson comments | Code deletion is moderate, but must follow the final lesson access model to avoid misclassifying callers. | Comment API/UI/moderation/activity callers absent; unrelated comments/Practice feedback untouched. |
-| 16 | Very hard | Department→subject physical rename/removal across all remaining domains | Broad FK, authorization, admin, leader, report and seed migration. Semantic subject work lands earlier; physical cleanup waits until dependencies are drained. | No live `department*` product concept/reference; upgrade/fresh migrations and role gates pass. |
+| 16 | Closed by decision | Keep physical `departments`, complete subject semantic cutover | User approved reuse of `departments` as the catalog to avoid another table/broad FK migration. Compatibility route/class names remain internal; visible product vocabulary uses môn học/mã môn. | KOR codes, class/QB/Library scope and admin UI all use subject semantics; `subject_activities` is the physical audit name. |
 | 17 | Very hard | Courses/categories/table cleanup and migration compaction | Physical deletion/rewrite is checksum- and FK-sensitive. Do after all semantic replacements and deployment proof. | Empty-schema + supported-upgrade + rollback rehearsal; no caller; exact row/FK validation. |
-| 18 | Very hard / last | Consolidate `activity_*` | Requires real volume/retention data, batch backfill, writer cutover and audit reconciliation. It has the highest data-integrity/operational risk and little user-visible urgency. | Per-source counts/event samples reconcile, retention/index plan observed under load, old writers stopped before old tables are removed. |
+| 18 | Deferred beyond current table ceiling | Consolidate the seven live audit streams | Requires a replacement table plus real volume/retention data, batch backfill, writer cutover and reconciliation. This release instead removes all proven dead V3 streams. | Revisit only if a second table is approved and per-source counts/event samples can reconcile on a disposable snapshot. |
 
 ### Practical release slices
 
@@ -235,8 +235,8 @@ The requested direction is feasible without touching Practice. The approved mini
 - `273c297f`: scopes the non-Practice Question Bank to subject and removes its category ownership.
 - `54e5a2d8`: removes class lesson comments and their audit table.
 - `d58dafa7`: V95 reuses `lesson_templates` for subject → chapter → lesson → materials, snapshots published lessons into existing same-subject class rows, removes class-scoped authoring/loose-attach routes, and adds no table.
-- Activity cleanup under validation: V96 removes the six remaining V3 tables with no application writer or reader, while retaining all seven live audit streams.
-- Random class-code cleanup under validation: V97 drops `classes.code`; class lists/search/sidebar/approval/assign/report use the catalog subject code instead, and the generator/repository lookup are removed. V98 normalizes historical `joined_via` CODE/LINK rows to REQUEST and removes those invite values from the constraint/enum.
-- Subject-catalog UI under validation: `/admin/departments` remains the compatibility route and `departments` remains the physical table, while visible admin copy now consistently says catalog môn học/mã môn; “trưởng bộ môn” is retained only as the responsible role.
+- `9252a23f`: V96 removes the six remaining V3 tables with no application writer or reader, while retaining all seven live audit streams.
+- `e1b3e526`: V97 drops `classes.code`; class lists/search/sidebar/approval/assign/report use the catalog subject code instead, and the generator/repository lookup are removed. V98 normalizes historical `joined_via` CODE/LINK rows to REQUEST and removes those invite values from the constraint/enum.
+- `146f84b2`: `/admin/departments` remains the compatibility route and `departments` remains the physical table, while visible admin copy consistently says catalog môn học/mã môn; “trưởng bộ môn” is retained only as the responsible role.
 
-The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V98 create no tables. Practice paths and migrations remain outside every implementation diff.
+The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V98 create no tables. Practice paths and migrations remain outside every implementation diff. Source/unit/static contracts and `test-compile` pass; Spring integration and migration rehearsal remain blocked by the required missing `TEST_DB_URL`/disposable MySQL target, not by a code failure.
