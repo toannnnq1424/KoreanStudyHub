@@ -121,6 +121,12 @@ public class StudentClassesService {
         for (User u : userRepository.findAllById(lecturerIds)) {
             lecturerNames.put(u.getId(), u.getFullName());
         }
+        Map<Long, String> subjectCodes = new HashMap<>();
+        for (Department subject : subjectRepository.findAllById(classById.values().stream()
+                .map(ClassEntity::getDepartmentId).filter(java.util.Objects::nonNull)
+                .distinct().toList())) {
+            subjectCodes.put(subject.getId(), subject.getCode());
+        }
 
         List<EnrolledClassRow> rows = new ArrayList<>(enrollments.size());
         int idx = 0;
@@ -133,7 +139,7 @@ public class StudentClassesService {
             rows.add(new EnrolledClassRow(
                     c.getId(),
                     c.getName(),
-                    c.getCode(),
+                    subjectCodes.getOrDefault(c.getDepartmentId(), "—"),
                     lecName,
                     e.getJoinedAt(),
                     gradient

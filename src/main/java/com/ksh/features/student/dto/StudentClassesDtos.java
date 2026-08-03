@@ -10,7 +10,7 @@ public class StudentClassesDtos {
      *
      * @param classId        target class id (used by the leave form)
      * @param className      class name as shown in the row title
-     * @param classCode      5-char {@code classes.code} (display only)
+     * @param classCode      subject catalog code (legacy accessor name)
      * @param lecturerName   lecturer's full name for the row subtitle
      * @param joinedAt       when the student joined (timestamp shown)
      * @param avatarGradient CSS gradient string used by the card visual

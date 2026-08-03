@@ -72,7 +72,7 @@ public class AdminDashboardService {
     /**
      * Returns the most recently created classes for the dashboard activity feed.
      *
-     * <p>Each result includes the class id, name, code, status, creation timestamp,
+     * <p>Each result includes the class id, name, subject code, status, creation timestamp,
      * and the full name of the assigned lecturer (via a {@code LEFT JOIN} so classes
      * without a lecturer are still included).
      *
@@ -82,15 +82,16 @@ public class AdminDashboardService {
     @Transactional(readOnly = true)
     public List<RecentClass> recentClasses(int limit) {
         return jdbc.query(
-                "SELECT c.id, c.name, c.code, c.status, c.created_at, u.full_name AS lecturer_name " +
+                "SELECT c.id, c.name, d.code AS subject_code, c.status, c.created_at, u.full_name AS lecturer_name " +
                         "FROM classes c " +
+                        "LEFT JOIN departments d ON d.id = c.department_id " +
                         "LEFT JOIN users u ON u.id = c.lecturer_id " +
                         "WHERE c.is_deleted = 0 " +
                         "ORDER BY c.created_at DESC LIMIT ?",
                 (rs, i) -> new RecentClass(
                         rs.getLong("id"),
                         rs.getString("name"),
-                        rs.getString("code"),
+                        rs.getString("subject_code"),
                         rs.getString("status"),
                         rs.getTimestamp("created_at").toLocalDateTime(),
                         rs.getString("lecturer_name")

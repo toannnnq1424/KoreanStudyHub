@@ -5,6 +5,7 @@ import com.ksh.entities.Lesson;
 import com.ksh.entities.Section;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.service.support.ProgressMath;
 import com.ksh.features.lessons.repository.LessonRepository;
@@ -54,19 +55,22 @@ public class StudentLessonsService {
     private final UserRepository userRepository;
     private final LearningProgressRepository progressRepository;
     private final ClassAccessPolicy accessPolicy;
+    private final DepartmentRepository subjectRepository;
 
     public StudentLessonsService(ClassRepository classRepository,
                                  SectionRepository sectionRepository,
                                  LessonRepository lessonRepository,
                                  UserRepository userRepository,
                                  LearningProgressRepository progressRepository,
-                                 ClassAccessPolicy accessPolicy) {
+                                 ClassAccessPolicy accessPolicy,
+                                 DepartmentRepository subjectRepository) {
         this.classRepository = classRepository;
         this.sectionRepository = sectionRepository;
         this.lessonRepository = lessonRepository;
         this.userRepository = userRepository;
         this.progressRepository = progressRepository;
         this.accessPolicy = accessPolicy;
+        this.subjectRepository = subjectRepository;
     }
 
     /**
@@ -141,9 +145,12 @@ public class StudentLessonsService {
         String lecturerName = userRepository.findById(clazz.getLecturerId())
                 .map(User::getFullName)
                 .orElse(null);
+        String subjectCode = clazz.getDepartmentId() == null ? "—"
+                : subjectRepository.findById(clazz.getDepartmentId())
+                        .map(com.ksh.entities.Department::getCode).orElse("—");
 
         return new ClassLessonsView(clazz.getId(), clazz.getName(),
-                clazz.getCode(), lecturerName, sectionRows,
+                subjectCode, lecturerName, sectionRows,
                 completedTotal, publishedTotal, percent);
     }
 

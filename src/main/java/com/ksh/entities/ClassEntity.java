@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import jakarta.persistence.Transient;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
@@ -18,9 +19,8 @@ import java.time.LocalDateTime;
 /**
  * JPA entity mapping the {@code classes} table.
  *
- * <p>As of Sprint 2 there is no Course dependency: migration V7 dropped the
- * {@code course_id} foreign key and added the {@code code} column
- * (5-character unique identifier).
+ * <p>There is no Course dependency and no random class/invite code. Classes
+ * are discovered by name and their catalog subject code.
  *
  * <p>{@link SQLRestriction} ensures that every default query filters out
  * soft-deleted records ({@code is_deleted = 0}).
@@ -43,9 +43,9 @@ public class ClassEntity {
     @Column(nullable = false, length = 300)
     private String name;
 
-    @Setter
-    @Column(length = 10, unique = true)
-    private String code;
+    /** Test-fixture compatibility only; V97 removed the persisted random code. */
+    @Transient
+    private String legacyCode;
 
     @Column(name = "lecturer_id", nullable = false)
     private Long lecturerId;
@@ -170,6 +170,18 @@ public class ClassEntity {
         if (STATUS_ACTIVE.equals(status)) {
             this.status = STATUS_ARCHIVED;
         }
+    }
+
+    /** @deprecated Class codes are no longer persisted or used by the product. */
+    @Deprecated(forRemoval = true)
+    public String getCode() {
+        return legacyCode;
+    }
+
+    /** @deprecated Kept temporarily so legacy test fixtures can migrate independently. */
+    @Deprecated(forRemoval = true)
+    public void setCode(String ignored) {
+        this.legacyCode = ignored;
     }
 
     private void requireDraft() {

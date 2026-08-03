@@ -70,7 +70,7 @@ public class LeaderDashboardService {
         List<RecentClassRow> rows = new ArrayList<>(recent.size());
         for (ClassEntity c : recent) {
             rows.add(new RecentClassRow(
-                    c.getId(), c.getName(), c.getCode(), c.getStatus(),
+                    c.getId(), c.getName(), dept.getCode(), c.getStatus(),
                     lecturerNames.getOrDefault(c.getLecturerId(), "—"),
                     c.getCreatedAt()));
         }

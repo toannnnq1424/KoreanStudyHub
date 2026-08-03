@@ -8,8 +8,6 @@ import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Department;
 import com.ksh.features.classes.repository.ClassRepository;
-import com.ksh.features.classes.service.codes.ClassCodeGenerationException;
-import com.ksh.features.classes.service.codes.ClassCodeGenerator;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,8 +37,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit test cho {@link ClassesService}. Mock toan bo repository + generator.
- * Bao phu: list-by-role, owner check, code collision retry (both branches),
+ * Unit test cho {@link ClassesService}. Mock repositories and access policy.
+ * Bao phu: list-by-role, owner check, required subject binding,
  * activity write tren moi mutation, edge case 404/403.
  *
  * <p>Wave 2 refactor (perf-services-cache-and-principal): service no longer
@@ -56,7 +54,6 @@ class ClassesServiceTest {
 
     private ClassRepository classRepository;
     private ClassActivityWriter activityWriter;
-    private ClassCodeGenerator codeGenerator;
     private DepartmentRepository subjectRepository;
     private ClassRoleAccessPolicy accessPolicy;
     private ApplicationEventPublisher eventPublisher;
@@ -66,13 +63,13 @@ class ClassesServiceTest {
     void setUp() {
         classRepository = mock(ClassRepository.class);
         activityWriter = mock(ClassActivityWriter.class);
-        codeGenerator = mock(ClassCodeGenerator.class);
         subjectRepository = mock(DepartmentRepository.class);
         accessPolicy = mock(ClassRoleAccessPolicy.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         Department subject = new Department("Tiếng Hàn 3.1.1", "KOR311", null, true);
         ReflectionTestUtils.setField(subject, "id", 12L);
         when(subjectRepository.findById(12L)).thenReturn(Optional.of(subject));
+        when(subjectRepository.findAllById(any())).thenReturn(List.of(subject));
         when(accessPolicy.canAccess(any(), any(), any())).thenAnswer(invocation -> {
             ClassEntity clazz = invocation.getArgument(0);
             Long userId = invocation.getArgument(1);
@@ -82,7 +79,7 @@ class ClassesServiceTest {
                     || role == Role.LEADER;
         });
         service = new ClassesService(classRepository, activityWriter,
-                codeGenerator, subjectRepository, accessPolicy, eventPublisher);
+                subjectRepository, accessPolicy, eventPublisher);
     }
 
     // ───────────────── List by role ─────────────────
@@ -141,11 +138,10 @@ class ClassesServiceTest {
         assertThat(row.materialCount()).isZero();
     }
 
-    // ───────────────── Create + collision retry ─────────────────
+    // ───────────────── Create ─────────────────
 
     @Test
     void create_persists_and_writes_created_activity() {
-        when(codeGenerator.generate()).thenReturn("NILXM");
         when(classRepository.saveAndFlush(any(ClassEntity.class)))
                 .thenAnswer(inv -> {
                     ClassEntity e = inv.getArgument(0);
@@ -157,7 +153,7 @@ class ClassesServiceTest {
                 LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31), 50, 12L);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
-        assertThat(saved.getCode()).isEqualTo("NILXM");
+        assertThat(saved.getDepartmentId()).isEqualTo(12L);
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
         assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
@@ -167,7 +163,7 @@ class ClassesServiceTest {
     }
 
     @Test
-    void create_rejects_unknown_or_inactive_subject_before_generating_code() {
+    void create_rejects_unknown_or_inactive_subject_before_persisting() {
         when(subjectRepository.findById(99L)).thenReturn(Optional.empty());
         ClassForm form = new ClassForm("Tiếng Hàn", null, null, null, 50, 99L);
 
@@ -175,35 +171,11 @@ class ClassesServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Mã môn");
 
-        verify(codeGenerator, never()).generate();
         verify(classRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    void create_skips_preexisting_code_before_single_flush() {
-        when(codeGenerator.generate()).thenReturn("DUPED", "NILXM");
-        when(classRepository.countAnyByCode("DUPED")).thenReturn(1L);
-        when(classRepository.countAnyByCode("NILXM")).thenReturn(0L);
-        when(classRepository.saveAndFlush(any(ClassEntity.class)))
-                .thenAnswer(inv -> {
-                    ClassEntity e = inv.getArgument(0);
-                    ReflectionTestUtils.setField(e, "id", 101L);
-                    return e;
-                });
-
-        ClassForm form = new ClassForm("Java", "x", null, null, 100, 12L);
-        ClassEntity saved = service.create(form, LECTURER_ID);
-
-        assertThat(saved.getCode()).isEqualTo("NILXM");
-        verify(classRepository, times(1)).saveAndFlush(any(ClassEntity.class));
-        verify(activityWriter).write(eq(101L), eq(ClassActivity.TYPE_CREATED),
-                any(), eq(LECTURER_ID));
-    }
-
-    @Test
     void create_rethrows_non_code_collision_without_retry() {
-        when(codeGenerator.generate()).thenReturn("NILXM");
-
         DataIntegrityViolationException other = new DataIntegrityViolationException(
                 "Some other constraint",
                 new RuntimeException("Cannot be null: classes.name"));
@@ -215,21 +187,6 @@ class ClassesServiceTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
 
         verify(classRepository, times(1)).saveAndFlush(any(ClassEntity.class));
-        verify(activityWriter, never()).write(any(), any(), any(), any());
-        verify(activityWriter, never()).write(any(), any(), any(), any(), any());
-    }
-
-    @Test
-    void create_throws_after_three_preexisting_codes_without_flushing() {
-        when(codeGenerator.generate()).thenReturn("A", "B", "C");
-        when(classRepository.countAnyByCode(any())).thenReturn(1L);
-
-        ClassForm form = new ClassForm("Java", "x", null, null, 100, 12L);
-
-        assertThatThrownBy(() -> service.create(form, LECTURER_ID))
-                .isInstanceOf(ClassCodeGenerationException.class);
-
-        verify(classRepository, never()).saveAndFlush(any(ClassEntity.class));
         verify(activityWriter, never()).write(any(), any(), any(), any());
         verify(activityWriter, never()).write(any(), any(), any(), any(), any());
     }

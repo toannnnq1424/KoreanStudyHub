@@ -272,7 +272,7 @@ class LessonAttachmentsServiceTest {
 
     private void enrollStudent() {
         Enrollment e = Enrollment.createFor(student, clazz.getId(),
-                Enrollment.JoinedVia.CODE, null);
+                Enrollment.JoinedVia.REQUEST, null);
         enrollmentRepository.saveAndFlush(e);
     }
 

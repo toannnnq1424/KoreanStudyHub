@@ -48,7 +48,7 @@ public class LeaderReportService {
             BigDecimal avgTest = avgTestScore(c.getId());
             BigDecimal avgAsg = avgAssignmentScore(c.getId());
             rows.add(new ReportClassRow(
-                    c.getId(), c.getName(), c.getCode(),
+                    c.getId(), c.getName(), dept.getCode(),
                     enrollments, avgTest, avgAsg));
         }
         return new ReportView(

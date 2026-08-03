@@ -4,6 +4,7 @@ import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.tests.dto.TestDtos.ClassTestsView;
@@ -44,6 +45,7 @@ public class TestCatalogService {
     private final EnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
     private final TestAccessResolver accessResolver;
+    private final DepartmentRepository subjectRepository;
 
     public TestCatalogService(TestAccessQueries accessQueries,
                               TestAttemptRepository attemptRepository,
@@ -51,7 +53,8 @@ public class TestCatalogService {
                               TestRepository testRepository,
                               EnrollmentRepository enrollmentRepository,
                               UserRepository userRepository,
-                              TestAccessResolver accessResolver) {
+                              TestAccessResolver accessResolver,
+                              DepartmentRepository subjectRepository) {
         this.accessQueries = accessQueries;
         this.attemptRepository = attemptRepository;
         this.classRepository = classRepository;
@@ -59,6 +62,7 @@ public class TestCatalogService {
         this.enrollmentRepository = enrollmentRepository;
         this.userRepository = userRepository;
         this.accessResolver = accessResolver;
+        this.subjectRepository = subjectRepository;
     }
 
     /**
@@ -115,7 +119,10 @@ public class TestCatalogService {
 
         String lecturerName = userRepository.findById(clazz.getLecturerId())
                 .map(User::getFullName).orElse(null);
-        return new ClassTestsView(clazz.getId(), clazz.getName(), clazz.getCode(),
+        String subjectCode = clazz.getDepartmentId() == null ? "—"
+                : subjectRepository.findById(clazz.getDepartmentId())
+                        .map(com.ksh.entities.Department::getCode).orElse("—");
+        return new ClassTestsView(clazz.getId(), clazz.getName(), subjectCode,
                 lecturerName, normalized, rows);
     }
 

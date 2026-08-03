@@ -61,7 +61,7 @@ class ClassProgressControllerTest {
         lessonRepository.saveAndFlush(pub);
         User student = ensureUser("pgtab-student@ksh.edu.vn", "Pg Student", Role.STUDENT);
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     @Test
@@ -98,7 +98,7 @@ class ClassProgressControllerTest {
         for (int i = 1; i <= 3; i++) {
             User s = ensureUser("pgenc" + i + "@ksh.edu.vn", term + " Student " + i, Role.STUDENT);
             enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                    s, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                    s, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
         }
         mockMvc.perform(get(progressUrl())
                         .param("status", "all")

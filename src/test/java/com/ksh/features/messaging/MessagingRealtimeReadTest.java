@@ -4,6 +4,7 @@ import com.ksh.entities.Conversation;
 import com.ksh.entities.Message;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.messaging.dto.MessagingDtos.PushPayload;
@@ -118,7 +119,8 @@ class MessagingRealtimeReadTest {
         SimpMessagingTemplate template = mock(SimpMessagingTemplate.class);
         MessagingService service = new MessagingService(
                 conversations, messages, users, mock(MessagingAccess.class), template,
-                mock(ClassRepository.class), mock(EnrollmentRepository.class));
+                mock(ClassRepository.class), mock(EnrollmentRepository.class),
+                mock(DepartmentRepository.class));
         return new Fixture(service, conversations, messages, users, template);
     }
 

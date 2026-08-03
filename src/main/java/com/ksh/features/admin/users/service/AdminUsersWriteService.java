@@ -165,7 +165,7 @@ public class AdminUsersWriteService {
             List<ClassEntity> owned = classRepository.findAllByLecturerId(saved.getId());
             if (!owned.isEmpty()) {
                 String classList = owned.stream()
-                        .map(c -> c.getName() + " (" + c.getCode() + ")")
+                        .map(ClassEntity::getName)
                         .reduce((a, b) -> a + ", " + b)
                         .orElse("");
                 return List.of(

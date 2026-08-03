@@ -47,7 +47,7 @@ public class LeaderClassApprovalService {
         pending.forEach(clazz -> userRepository.findById(clazz.getLecturerId())
                 .ifPresent(user -> names.put(user.getId(), user.getFullName())));
         List<PendingClassRow> rows = pending.stream().map(clazz -> new PendingClassRow(
-                clazz.getId(), clazz.getName(), clazz.getCode(),
+                clazz.getId(), clazz.getName(), department.getCode(),
                 names.getOrDefault(clazz.getLecturerId(), "—"), clazz.getCreatedAt())).toList();
         return new ApprovalQueueView(new DepartmentSummary(department.getId(),
                 department.getCode(), department.getName()), rows, false);

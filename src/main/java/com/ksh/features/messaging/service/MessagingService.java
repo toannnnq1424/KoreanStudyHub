@@ -6,6 +6,7 @@ import com.ksh.entities.Enrollment;
 import com.ksh.entities.Message;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.messaging.dto.MessagingDtos.ClassMessagesView;
@@ -65,6 +66,7 @@ public class MessagingService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ClassRepository classRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final DepartmentRepository subjectRepository;
 
     public MessagingService(ConversationRepository conversationRepository,
                             MessageRepository messageRepository,
@@ -72,7 +74,8 @@ public class MessagingService {
                             MessagingAccess access,
                             SimpMessagingTemplate messagingTemplate,
                             ClassRepository classRepository,
-                            EnrollmentRepository enrollmentRepository) {
+                            EnrollmentRepository enrollmentRepository,
+                            DepartmentRepository subjectRepository) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.userRepository = userRepository;
@@ -80,6 +83,7 @@ public class MessagingService {
         this.messagingTemplate = messagingTemplate;
         this.classRepository = classRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.subjectRepository = subjectRepository;
     }
 
     // ── Conversation creation ───────────────────────────────────────────
@@ -212,7 +216,10 @@ public class MessagingService {
         ConversationView conversation = openConversation(meId, convId, page);
         String lecturerName = userRepository.findById(lecturerId)
                 .map(User::getFullName).orElse(null);
-        return new ClassMessagesView(clazz.getId(), clazz.getName(), clazz.getCode(),
+        String subjectCode = clazz.getDepartmentId() == null ? "—"
+                : subjectRepository.findById(clazz.getDepartmentId())
+                        .map(com.ksh.entities.Department::getCode).orElse("—");
+        return new ClassMessagesView(clazz.getId(), clazz.getName(), subjectCode,
                 lecturerName, conversation);
     }
 

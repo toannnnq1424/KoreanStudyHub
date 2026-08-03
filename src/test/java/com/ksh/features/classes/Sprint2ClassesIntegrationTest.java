@@ -155,8 +155,7 @@ class Sprint2ClassesIntegrationTest {
 
         ClassEntity saved = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lecturer.getId())
                 .stream().filter(c -> "Java cơ bản".equals(c.getName())).findFirst().orElseThrow();
-        assertThat(saved.getCode()).hasSize(5);
-        assertThat(saved.getCode()).matches("[A-HJ-NP-Z2-9]+");
+        assertThat(saved.getDepartmentId()).isEqualTo(lecturer.getDepartmentId());
         assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
     }
@@ -411,13 +410,13 @@ class Sprint2ClassesIntegrationTest {
         assertThat(saved.getLecturerId()).isEqualTo(leader.getId());
     }
 
-    // ───────────────────── Edit: code immutable + delete-twice 404 ────────
+    // ───────────────────── Edit: subject immutable + delete-twice 404 ────────
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void edit_does_not_change_code() throws Exception {
+    void edit_does_not_change_subject() throws Exception {
         ClassEntity entity = saveClass("CodeStays", lecturer.getId(), "CDST1");
-        String originalCode = entity.getCode();
+        Long originalSubjectId = entity.getDepartmentId();
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "Renamed")
@@ -425,7 +424,7 @@ class Sprint2ClassesIntegrationTest {
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
-        assertThat(reloaded.getCode()).isEqualTo(originalCode);
+        assertThat(reloaded.getDepartmentId()).isEqualTo(originalSubjectId);
     }
 
     @Test

@@ -80,7 +80,7 @@ class StudentLessonDetailControllerTest {
         draft = lessonRepository.saveAndFlush(dr);
 
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     /**

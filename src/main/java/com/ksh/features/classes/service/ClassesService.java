@@ -6,7 +6,6 @@ import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.features.classes.repository.ClassRepository;
-import com.ksh.features.classes.service.codes.ClassCodeGenerator;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -22,6 +21,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Business service for class CRUD operations on the lecturer-facing screens.
@@ -52,20 +52,21 @@ public class ClassesService {
 
     private final ClassRepository classRepository;
     private final ClassActivityWriter activityWriter;
+    private final DepartmentRepository subjectRepository;
     private final ClassCreator creator;
     private final ClassRoleAccessPolicy accessPolicy;
 
     public ClassesService(ClassRepository classRepository,
                           ClassActivityWriter activityWriter,
-                          ClassCodeGenerator codeGenerator,
                           DepartmentRepository subjectRepository,
                           ClassRoleAccessPolicy accessPolicy,
                           ApplicationEventPublisher eventPublisher) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
+        this.subjectRepository = subjectRepository;
         this.accessPolicy = accessPolicy;
         this.creator = new ClassCreator(classRepository, activityWriter,
-                codeGenerator, subjectRepository, eventPublisher);
+                subjectRepository, eventPublisher);
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────
@@ -98,10 +99,15 @@ public class ClassesService {
         }
 
         List<ClassEntity> content = page.getContent();
+        Map<Long, String> subjectCodes = new HashMap<>();
+        subjectRepository.findAllById(content.stream().map(ClassEntity::getDepartmentId)
+                        .filter(java.util.Objects::nonNull).distinct().toList())
+                .forEach(subject -> subjectCodes.put(subject.getId(), subject.getCode()));
         List<ClassRow> rows = new ArrayList<>(content.size());
         for (int i = 0; i < content.size(); i++) {
             ClassEntity entity = content.get(i);
-            rows.add(ClassRowMapper.toRow(entity, i));
+            rows.add(ClassRowMapper.toRow(entity, i,
+                    subjectCodes.getOrDefault(entity.getDepartmentId(), "—")));
         }
         return new PageImpl<>(rows, pageable, page.getTotalElements());
     }

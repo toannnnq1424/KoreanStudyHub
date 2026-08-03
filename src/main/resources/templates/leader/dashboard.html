@@ -55,7 +55,7 @@
         <table class="admin-list-table" th:if="${recentClasses != null and !recentClasses.isEmpty()}">
           <thead>
             <tr>
-              <th>Mã</th>
+              <th>Mã môn</th>
               <th>Tên lớp</th>
               <th>Giảng viên</th>
               <th>Trạng thái</th>
@@ -63,7 +63,7 @@
           </thead>
           <tbody>
             <tr th:each="c : ${recentClasses}">
-              <td><code th:text="${c.code()}">CODE</code></td>
+              <td><code th:text="${c.code()}">KOR311</code></td>
               <td th:text="${c.name()}">Tên</td>
               <td th:text="${c.lecturerName()}">GV</td>
               <td th:text="${c.status()}">STATUS</td>

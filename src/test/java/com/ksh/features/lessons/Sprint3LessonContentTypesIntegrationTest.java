@@ -75,7 +75,7 @@ class Sprint3LessonContentTypesIntegrationTest {
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         // Enroll the student so they can view the student detail page.
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     @Test

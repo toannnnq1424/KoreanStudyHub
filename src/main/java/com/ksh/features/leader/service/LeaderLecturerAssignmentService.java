@@ -25,7 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Lists department classes and reassigns lecturers within the LEADER's department.
+ * Lists subject classes and adds co-lecturers without transferring ownership.
  */
 @Service
 public class LeaderLecturerAssignmentService {
@@ -61,7 +61,7 @@ public class LeaderLecturerAssignmentService {
         List<AssignClassRow> rows = new ArrayList<>(classes.size());
         for (ClassEntity c : classes) {
             rows.add(new AssignClassRow(
-                    c.getId(), c.getName(), c.getCode(),
+                    c.getId(), c.getName(), dept.getCode(),
                     c.getLecturerId(),
                     names.getOrDefault(c.getLecturerId(), "—"),
                     coLecturerNames.getOrDefault(c.getId(), List.of())));

@@ -233,7 +233,7 @@ class MessagingIntegrationTest {
 
     private void enroll(User u, ClassEntity clazz) {
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                u, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                u, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     private ClassEntity saveClass(User lecturer) {

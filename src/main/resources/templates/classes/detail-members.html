@@ -94,14 +94,14 @@
 
       <!-- Empty state -->
       <div class="m-empty" th:unless="${memberTotal > 0}">
-        Chưa có học sinh nào trong lớp. Mã mời đã hiển thị ở thanh bên (hoặc tại trang Cài đặt lớp học).
+        Chưa có học sinh nào trong lớp. Sinh viên có thể tìm lớp ACTIVE và gửi yêu cầu tham gia.
       </div>
 
       <!-- Pending join requests -->
       <div class="pending">
         <h4>Chờ duyệt <span th:text="'&bull; ' + ${pendingTotal != null ? pendingTotal : 0}">&bull; 0</span></h4>
         <p th:if="${pendingTotal == null or pendingTotal == 0}">
-          Yêu cầu vào lớp sẽ được hiển thị khi có học sinh dùng mã mời tham gia.
+          Yêu cầu vào lớp sẽ xuất hiện khi sinh viên chọn lớp trong danh mục và gửi yêu cầu.
         </p>
         <ul class="pending-list" th:if="${pendingTotal != null and pendingTotal > 0}">
           <li class="pending-item" th:each="p : ${pendingMembers}">

@@ -94,7 +94,7 @@
           <thead>
             <tr>
               <th>Tên lớp</th>
-              <th class="col-code">Mã</th>
+              <th class="col-code">Mã môn</th>
               <th>Giảng viên</th>
               <th>Trạng thái</th>
               <th>Tạo lúc</th>
@@ -103,7 +103,7 @@
           <tbody>
             <tr th:each="r : ${recentClasses}">
               <td data-label="Tên lớp" th:text="${r.name}">Lớp</td>
-              <td data-label="Mã" class="col-code"><b th:text="${r.code}">CODE</b></td>
+              <td data-label="Mã môn" class="col-code"><b th:text="${r.code}">KOR311</b></td>
               <td data-label="Giảng viên" th:text="${r.lecturerName != null ? r.lecturerName : '—'}">GV</td>
               <td data-label="Trạng thái">
                 <span class="status-pill"

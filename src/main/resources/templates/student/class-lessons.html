@@ -107,7 +107,7 @@
     <aside th:if="${teachingView}" class="student-lessons-sidebar">
       <div class="student-lessons-class-card">
         <p class="student-lessons-class-name" th:text="${view.className()}">Tên lớp</p>
-        <p class="student-lessons-class-code">Mã lớp: <b th:text="${view.classCode()}">KSH01</b></p>
+        <p class="student-lessons-class-code">Mã môn: <b th:text="${view.classCode()}">KOR311</b></p>
         <p class="student-lessons-class-lecturer" th:if="${view.lecturerName() != null}">
           Giảng viên: <b th:text="${view.lecturerName()}">Giảng viên</b>
         </p>

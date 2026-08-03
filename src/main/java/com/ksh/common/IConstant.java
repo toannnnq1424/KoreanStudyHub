@@ -164,7 +164,7 @@ public interface IConstant {
 
     // ───────── Flash messages (Vietnamese UI text) ───────────────────
     // Migrate to messages.properties once MessageSource is wired up.
-    String MSG_CLASS_CREATED       = "Đã tạo lớp ";
+    String MSG_CLASS_CREATED       = "Đã tạo lớp";
     String MSG_CLASS_UPDATED       = "Đã cập nhật lớp";
     String MSG_CLASS_DELETED       = "Đã xoá lớp";
     // Cross-controller membership messages.

@@ -8,7 +8,7 @@
   active       — which nav item to highlight: 'lessons' or 'tests'.
   classId      — used to build the class-scoped nav hrefs.
   className    — class name shown in the info card.
-  classCode    — class code shown in the info card.
+  classCode    — subject code shown in the info card (legacy parameter name).
   lecturerName — lecturer full name, or null to hide the line.
   progressSlot — fragment expression rendered inside the class card (lessons
                  passes its progress bar; tests passes the no-op ~{}).
@@ -22,8 +22,8 @@
        class="student-lessons-sidebar">
   <div class="student-lessons-class-card">
     <p class="student-lessons-class-name" th:text="${className}">Tên lớp</p>
-    <p class="student-lessons-class-code">
-      Mã lớp: <b th:text="${classCode}">NILXM</b>
+    <p class="student-lessons-class-code" th:if="${classCode != null}">
+      Mã môn: <b th:text="${classCode}">KOR311</b>
     </p>
     <p class="student-lessons-class-lecturer"
        th:if="${lecturerName != null}">

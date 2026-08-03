@@ -95,7 +95,7 @@ class StudentLessonsControllerTest {
         defaultLesson = lessonRepository.saveAndFlush(l);
         // Enroll the seeded primary student into this fresh class.
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     @Test

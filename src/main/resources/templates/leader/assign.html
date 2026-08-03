@@ -33,7 +33,7 @@
       <table class="admin-list-table" th:if="${classRows != null and !classRows.isEmpty()}">
         <thead>
           <tr>
-            <th>Mã</th>
+            <th>Mã môn</th>
             <th>Tên lớp</th>
             <th>GV chủ lớp</th>
             <th>Đồng giảng hiện tại</th>
@@ -42,7 +42,7 @@
         </thead>
         <tbody>
           <tr th:each="row : ${classRows}">
-            <td><code th:text="${row.classCode()}">CODE</code></td>
+            <td><code th:text="${row.subjectCode()}">KOR311</code></td>
             <td th:text="${row.className()}">Tên</td>
             <td th:text="${row.lecturerName()}">GV</td>
             <td>
@@ -53,7 +53,9 @@
             <td>
               <form th:action="@{'/leader/assign/' + ${row.classId()}}" method="post" class="leader-assign-form">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <select name="lecturerId" required>
+                <label class="sr-only" th:for="${'co-lecturer-' + row.classId()}">Chọn giảng viên đồng giảng</label>
+                <select name="lecturerId" th:id="${'co-lecturer-' + row.classId()}" required>
+                  <option value="" selected disabled>Chọn giảng viên</option>
                   <option th:each="l : ${lecturers}"
                           th:value="${l.id()}"
                           th:text="${l.fullName()}">GV</option>

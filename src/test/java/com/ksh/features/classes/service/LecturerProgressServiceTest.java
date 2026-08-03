@@ -292,7 +292,7 @@ class LecturerProgressServiceTest {
     private User enrollStudent(String email, String name) {
         User u = ensureUser(email, name);
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                u, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                u, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
         return u;
     }
 

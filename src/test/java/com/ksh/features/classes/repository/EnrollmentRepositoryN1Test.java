@@ -121,18 +121,14 @@ class EnrollmentRepositoryN1Test {
      * Returns the generated id.
      */
     private long insertClass(long lecturerId) {
-        String randomCode = randomCode();
         em.createNativeQuery(
-                        "INSERT INTO classes (code, name, lecturer_id, created_by, status, max_students, is_deleted) " +
-                                "VALUES (:code, :name, :lec, :lec, 'UPCOMING', 100, 0)")
-                .setParameter("code", randomCode)
-                .setParameter("name", "N1Test-" + randomCode)
+                        "INSERT INTO classes (name, lecturer_id, created_by, status, max_students, is_deleted) " +
+                                "VALUES (:name, :lec, :lec, 'ACTIVE', 100, 0)")
+                .setParameter("name", "N1Test-" + System.nanoTime())
                 .setParameter("lec", lecturerId)
                 .executeUpdate();
         em.flush();
-        Number id = (Number) em.createNativeQuery("SELECT id FROM classes WHERE code = :code")
-                .setParameter("code", randomCode)
-                .getSingleResult();
+        Number id = (Number) em.createNativeQuery("SELECT LAST_INSERT_ID()").getSingleResult();
         return id.longValue();
     }
 
@@ -145,12 +141,4 @@ class EnrollmentRepositoryN1Test {
                 .executeUpdate();
     }
 
-    private static String randomCode() {
-        // 5 chars upper-case alnum, matches V7 pattern (validation lives at code-generator).
-        String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        StringBuilder sb = new StringBuilder(5);
-        java.util.Random rnd = new java.util.Random();
-        for (int i = 0; i < 5; i++) sb.append(alphabet.charAt(rnd.nextInt(alphabet.length())));
-        return sb.toString();
-    }
 }

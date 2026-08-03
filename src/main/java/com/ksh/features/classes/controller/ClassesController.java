@@ -115,9 +115,8 @@ public class ClassesController {
             addSubjectOptions(model);
             return VIEW_CLASS_FORM;
         }
-        ClassEntity saved;
         try {
-            saved = classesService.create(form, user.getId());
+            classesService.create(form, user.getId());
         } catch (IllegalArgumentException exception) {
             result.rejectValue("departmentId", "subject.invalid", exception.getMessage());
             model.addAttribute(ATTR_MODE, MODE_CREATE);
@@ -125,7 +124,7 @@ public class ClassesController {
             addSubjectOptions(model);
             return VIEW_CLASS_FORM;
         }
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_CREATED + saved.getCode());
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_CREATED);
         return "redirect:" + URL_CLASSES_LIST;
     }
 

@@ -313,7 +313,7 @@
    Detail-page extensions for the class settings page
    ----------------------------------------------------------------------------
    Adds page-specific bits the generic detail-page.css cannot ship:
-   - .code-badge: a monospace "Mã lớp: ABC12" badge in the header meta row,
+   - .code-badge: a monospace metadata badge in the header meta row,
      since the class entity carries a public code that the design system
      does not model.
    - Status-pill modifiers for the class status enum (UPCOMING / ACTIVE /

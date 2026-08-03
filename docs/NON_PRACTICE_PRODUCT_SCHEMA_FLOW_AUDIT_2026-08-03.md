@@ -236,5 +236,6 @@ The requested direction is feasible without touching Practice. The approved mini
 - `54e5a2d8`: removes class lesson comments and their audit table.
 - `d58dafa7`: V95 reuses `lesson_templates` for subject → chapter → lesson → materials, snapshots published lessons into existing same-subject class rows, removes class-scoped authoring/loose-attach routes, and adds no table.
 - Activity cleanup under validation: V96 removes the six remaining V3 tables with no application writer or reader, while retaining all seven live audit streams.
+- Random class-code cleanup under validation: V97 drops `classes.code`; class lists/search/sidebar/approval/assign/report use the catalog subject code instead, and the generator/repository lookup are removed. V98 normalizes historical `joined_via` CODE/LINK rows to REQUEST and removes those invite values from the constraint/enum.
 
-The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V96 create no tables. Practice paths and migrations remain outside every implementation diff.
+The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V98 create no tables. Practice paths and migrations remain outside every implementation diff.

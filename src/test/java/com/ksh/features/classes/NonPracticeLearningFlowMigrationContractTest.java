@@ -34,7 +34,9 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "V93__scope_question_bank_by_subject.sql",
                 "V94__remove_lesson_comments.sql",
                 "V95__subject_library_hierarchy.sql",
-                "V96__remove_unused_activity_tables.sql");
+                "V96__remove_unused_activity_tables.sql",
+                "V97__remove_random_class_code.sql",
+                "V98__remove_legacy_invite_provenance.sql");
         String combined = files.stream().map(this::readUnchecked).reduce("", String::concat);
 
         assertThat(count(combined, "CREATE TABLE")).isEqualTo(1);
@@ -75,6 +77,35 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "DROP TABLE user_activities",
                 "DROP TABLE permission_activities",
                 "DROP TABLE subject_activities");
+    }
+
+    @Test
+    void random_class_code_is_removed_after_invite_retirement() throws IOException {
+        String migration = read("V97__remove_random_class_code.sql");
+        String creator = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/classes/service/ClassCreator.java"));
+        String templates = Files.readString(Path.of(
+                "src/main/resources/templates/classes/manage.html"))
+                + Files.readString(Path.of(
+                "src/main/resources/templates/student/my-classes.html"));
+
+        assertThat(migration).contains(
+                "DROP INDEX uk_classes_code",
+                "DROP COLUMN code");
+        assertThat(creator).doesNotContain(
+                "ClassCodeGenerator", "countAnyByCode", "setCode(");
+        assertThat(templates).doesNotContain("Mã mời", "Mã lớp");
+        assertThat(templates).contains("Mã môn");
+    }
+
+    @Test
+    void legacy_invite_provenance_is_normalized_out_of_enrollments() throws IOException {
+        String migration = read("V98__remove_legacy_invite_provenance.sql");
+
+        assertThat(migration).contains(
+                "SET joined_via = 'REQUEST'",
+                "CHECK (joined_via IN ('IMPORT','MANUAL','REQUEST'))");
+        assertThat(migration).doesNotContain("CREATE TABLE", "practice_");
     }
 
     @Test

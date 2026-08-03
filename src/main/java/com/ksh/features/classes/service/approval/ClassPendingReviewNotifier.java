@@ -40,8 +40,8 @@ public class ClassPendingReviewNotifier {
                     .ifPresent(leaderId -> notificationService.create(
                             leaderId,
                             "Lớp mới chờ duyệt",
-                            "Lớp \"" + event.className() + "\" (" + event.classCode()
-                                    + ") đang chờ bạn duyệt.",
+                            "Lớp \"" + event.className() + "\" thuộc mã môn "
+                                    + event.subjectCode() + " đang chờ bạn duyệt.",
                             NotificationType.CLASS_PENDING_APPROVAL,
                             NotificationType.REF_CLASS,
                             event.classId()));

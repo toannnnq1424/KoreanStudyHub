@@ -62,7 +62,7 @@ class AssignmentsIntegrationTest {
         clazz    = saveClass("Sprint6 IT class", lecturer.getId(), "S6IT" + System.nanoTime() % 10000);
         classId  = clazz.getId();
         enrollmentRepository.saveAndFlush(
-                Enrollment.createFor(student, classId, Enrollment.JoinedVia.CODE, null));
+                Enrollment.createFor(student, classId, Enrollment.JoinedVia.REQUEST, null));
     }
 
     // ── Lecturer list page ────────────────────────────────────────────────

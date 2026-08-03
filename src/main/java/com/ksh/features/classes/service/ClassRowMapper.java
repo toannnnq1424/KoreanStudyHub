@@ -36,7 +36,7 @@ final class ClassRowMapper {
         int assignmentCount = 0;
         int materialCount = 0;
         String createdAtIso = e.getCreatedAt() != null ? e.getCreatedAt().toString() : "";
-        String code = displayCode != null && !displayCode.isBlank() ? displayCode : e.getCode();
+        String code = displayCode != null && !displayCode.isBlank() ? displayCode : "—";
         return new ClassRow(
                 e.getId(),
                 e.getName(),
@@ -45,11 +45,6 @@ final class ClassRowMapper {
                 studentCount, lectureCount, assignmentCount, materialCount,
                 createdAtIso
         );
-    }
-
-    /** Convenience overload using the class's internal display code. */
-    static ClassRow toRow(ClassEntity e, int index) {
-        return toRow(e, index, e.getCode());
     }
 
     /**

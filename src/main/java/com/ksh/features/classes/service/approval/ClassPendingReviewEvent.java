@@ -6,6 +6,6 @@ public record ClassPendingReviewEvent(
         Long departmentId,
         Long lecturerId,
         String className,
-        String classCode
+        String subjectCode
 ) {
 }

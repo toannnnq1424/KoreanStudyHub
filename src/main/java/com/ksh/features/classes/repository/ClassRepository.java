@@ -36,11 +36,6 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
 
     List<ClassEntity> findAllByOrderByCreatedAtDesc();
 
-    Optional<ClassEntity> findByCode(String code);
-
-    @Query(value = "SELECT COUNT(*) FROM classes WHERE code = :code", nativeQuery = true)
-    long countAnyByCode(@Param("code") String code);
-
     /**
      * Returns the (non-deleted) classes owned by the supplied lecturer.
      *

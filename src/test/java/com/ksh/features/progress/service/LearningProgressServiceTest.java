@@ -204,7 +204,7 @@ class LearningProgressServiceTest {
 
     private Enrollment enrollActive() {
         return enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     private ClassEntity saveClass(String name, String code) {
