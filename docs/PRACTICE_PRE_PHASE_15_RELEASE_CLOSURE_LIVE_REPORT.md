@@ -114,8 +114,10 @@ not receive learner audio or acoustic measurements. Fluency and
 pronunciation/delivery remain non-score-bearing, and no holistic Speaking score
 is exposed.
 
-`AUDIO_DIRECT_FULL_RESERVED` remains a disabled extension seam. Pre-15 must
-close exactly one branch:
+`AUDIO_DIRECT_FULL_RESERVED` remains a disabled historical extension seam. It
+is not the implementation mechanism for direct audio. The product owner has
+selected branch B; branch A below is retained as dated proof of the old/current
+transcript path, not as the intended Speaking release target:
 
 - **A — disabled with proof:** preserve transcript-only scoring, prove no scorer
   request can contain audio, keep acoustic readiness blocked, and expose no
@@ -126,13 +128,14 @@ close exactly one branch:
   approval. This must be a separately named evaluator whose captured request
   proves authorized audio reached the scorer.
 
-Until that decision is approved, the implementation remains fail-closed on
-branch A behavior. Configuration alone cannot enable branch B.
+Branch B must remain separately named, fail closed and non-score-bearing until
+its consent, provider-policy, deletion, reviewer-access and acoustic-readiness
+evidence is materialized. Configuration still cannot turn
+`AUDIO_DIRECT_FULL_RESERVED` into branch B.
 
 ### 3.1 Branch-A automated proof slice (`2026-08-03`)
 
-Status: `IMPLEMENTED_AND_FOCUSED_TESTED`; product selection of branch A remains
-an explicit release decision.
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED / HISTORICAL_BRANCH_A_PROOF`.
 
 - Added a transport-boundary regression that supplies distinctive learner
   media ID, media version, MIME type, byte size and duration to the internal
@@ -150,8 +153,8 @@ an explicit release decision.
 - V87/AIM-7/AIM-8/storage static gate: `16` tests, `0` failures, `0` errors,
   `0` skips. Combined slice evidence is `69/69` green.
 
-This slice proves the current branch-A mechanism but does not manufacture the
-missing product/privacy/SME decision and does not claim acoustic readiness.
+This slice proves the transcript mechanism remains isolated while branch B is
+built. It does not claim branch-B acoustic readiness.
 
 ## 4. Dated dependency/SBOM/advisory baseline (`2026-08-03`)
 
@@ -257,8 +260,9 @@ Status: `IMPLEMENTED_AND_FOCUSED_TESTED / BLOCKED_SME_REQUIRED`.
   `SME_REQUIRED`. Only the learner-recording target contract is classified
   `TECHNICAL`. No Korean content, approval, fairness or calibration evidence
   was fabricated.
-- Speaking is pinned to `TRANSCRIPT_ONLY`, no holistic score. The manifest
-  cannot enable `AUDIO_DIRECT_FULL_RESERVED` or branch B.
+- This dated skeleton is pinned to `TRANSCRIPT_ONLY`, no holistic score. It
+  cannot enable `AUDIO_DIRECT_FULL_RESERVED`; a separately versioned branch-B
+  manifest revision is required before direct-audio UAT.
 - The fail-closed validator rejects ungrouped questions, incomplete version
   locks and a falsely `READY_FOR_LOAD` skeleton retaining SME blockers; it
   also binds policy IDs to implementation constants. Focused JDK 17 gate:
@@ -275,7 +279,9 @@ and load nothing until all three evidence records are supplied.
 
 ## 5. Remaining release blockers
 
-- Select and approve Speaking branch A or B.
+- Materialize and verify branch-B consent, reviewer ACL, provider data-policy,
+  deletion-SLA and acoustic-readiness evidence; complete dark rollout before
+  any pronunciation/fluency score is enabled.
 - Produce retained/canonical-UAT data disposition for compatibility payloads,
   grouping, version locks, old routes, and import aliases.
 - Complete versioned Korean SME corpus, multi-rater/adjudication, agreement,
@@ -297,7 +303,7 @@ and load nothing until all three evidence records are supplied.
 | grouping/transcription (`COMP-06/21`) | Canonically group/reset/migrate data, or retain ungrouped display fallback while transcription stays unavailable. | Weakening the repository join can cross owner/attempt/question authority. | Group canonical/UAT data and migrate retained rows; never weaken authorization. |
 | legacy routes (`COMP-07`) | Remove now, retain indefinitely, or publish a dated redirect window with telemetry/caller inventory. | Removal breaks bookmarks/integrations; indefinite retention expands support surface. | Dated redirect window, then evidence-based removal. |
 | aliases/stored import identity (`COMP-08/09`) | Remove aliases/enum after stored-row and caller scan, or retain read-only with expiry while all writers stay canonical. | Removal can make stored candidates/content unreadable; keeping writers would prolong ambiguity. | Canonical writers plus expiring read-only adapters; current legacy workbook upload remains rejected. |
-| Speaking | Branch A transcript-only disabled-full-score, or separately approved branch B. | Branch B without consent/provider/SME evidence creates privacy and invalid-measurement risk. | Branch A; `AUDIO_DIRECT_FULL_RESERVED` remains fail-closed. |
+| Speaking | Branch B is selected. Implement a separately named direct-audio evaluator through governed dark capture, then explicitly approve score release. | Audio transfer without active consent/provider policy/reviewer ACL/deletion and acoustic evidence creates privacy and invalid-measurement risk. | Keep `AUDIO_DIRECT_FULL_RESERVED` disabled; branch-B score release stays red until captured consumption and every readiness gate are green. |
 | Spring Boot support | Move to a currently supported production line with regression evidence, buy/record commercial support for 3.5, or declare release NO-GO. | A clean CVE snapshot does not supply future fixes after OSS support. | Supported-line upgrade in a separate tested slice; otherwise explicit NO-GO rather than an ownerless exception. |
 | external advisory feeds | Supply approved CISA/OSS metadata access and rerun, or accept a named time-bounded gap. | KEV/OSS unknown can miss exploited or ecosystem-only advisories. | Restore both feeds and rerun immediately before Manual UAT; no silent waiver. |
 
@@ -329,6 +335,12 @@ The product owner has now supplied the following release decisions:
   remain recorded coverage gaps, not clean results. Both official feeds must
   be restored and rerun before the first public production release; any
   reachable High/Critical or KEV match returns the gate to `NO_GO`.
+- Speaking branch B is the selected release direction. Learner audio transfer
+  is authorized only behind explicit consent/withdrawal/disclosure, reviewer
+  least privilege, verified provider region/non-training/retention/deletion
+  evidence, approved Korean corpus/calibration/fairness/repeatability evidence
+  and dark rollout. This direction does not authorize invented evidence IDs,
+  real credentials, or immediate pronunciation/fluency score release.
 
 ### 6.1 COMP-07 legacy route retirement
 
@@ -415,8 +427,9 @@ camel-case `SpeakingEvaluationResult` contract and current evidence/rubric
 invariants. Legacy result, flat/band parsing and reuse status branches are
 gone. Malformed current payloads, reserved direct-audio payloads,
 transcription-low-confidence results, missing provenance and unsafe acoustic
-rows remain fail closed and non-score-bearing. Speaking remains transcript
-only; branch B was not opened.
+rows remain fail closed and non-score-bearing. At this historical COMP-03/04
+checkpoint Speaking remained transcript-only; branch B is opened only by the
+later isolated contract in section 6.7.
 
 Evidence (`2026-08-03`, JDK `17.0.19`):
 
@@ -466,3 +479,61 @@ before application context startup because `TEST_DB_URL` was absent; it made no
 database/storage mutation and is not counted as evidence. Real provider,
 storage and database calls remained `0/0/0`. The combined DB-free R/L/W/S
 result, service and AI contract gate also passed `329/329`.
+
+### 6.7 Speaking branch-B authorized dark-capture contract
+
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED / READINESS_RED / NO_SCORES`.
+
+The first branch-B boundary is deliberately separate from the existing
+transcript evaluator. `DirectAudioSpeakingEvaluationPort` is the only new
+provider-facing audio port; `AUDIO_DIRECT_FULL_RESERVED` remains disabled and
+was not repurposed. `DirectAudioSpeakingEvaluationService` requires all of the
+following before it creates an authorized provider request:
+
+- owner-bound, READY, non-deleted bytes whose SHA-256 matches their provenance
+  digest;
+- active purpose-specific consent, disclosure version and withdrawal support;
+- explicit reviewer-audio access with least-privilege evidence;
+- an allowlisted, verified provider profile with region, non-training,
+  retention and deletion-SLA evidence IDs;
+- approved Korean corpus, acoustic-calibration, fairness and repeatability
+  evidence IDs; and
+- `DARK_CAPTURE` rollout state.
+
+Every missing, malformed, withdrawn, deleted, unauthorized or premature
+score-enabled request is rejected before the provider port. The dedicated
+request defensively copies bytes and binds the exact policy-bundle fingerprint
+and deterministic cache identity. Its string representation and metadata-only
+audit events redact audio bytes, handles, digests and provider request IDs.
+The fake provider must return captured `audioConsumed=true`; otherwise the
+result remains rejected. Even successful dark capture always returns
+`DARK_CAPTURED_NON_SCORE_BEARING`: this slice has no pronunciation, fluency or
+holistic score-release path.
+
+Implementation plan and remaining boundaries:
+
+1. `B1 AUTHORIZED_TRANSFER_CONTRACT` — this slice; fake/captured port only.
+2. `B2 LIFECYCLE_AND_ACL` — persist consent/withdrawal/deletion-SLA and explicit
+   reviewer grants with metadata-only audit; any schema change is forward-only
+   after V87.
+3. `B3 PROVIDER_PROFILE` — bind the port to an approved runtime allowlist and
+   supplied legal/policy evidence without committing credentials or invented
+   region/retention values.
+4. `B4 CALIBRATION_AND_DARK_ROLLOUT` — materialize the approved Korean corpus,
+   device/environment/voice coverage, calibration, fairness and repeatability
+   evidence IDs; run dark evaluation and drift/repeatability gates.
+5. `B5 SCORE_RELEASE` — separately approve pronunciation/fluency availability
+   only after captured authorized consumption, deletion/withdrawal exercises,
+   readiness green and Phase 15 manual UAT. Holistic score semantics are not
+   introduced by this plan.
+
+Focused JDK 17 evidence: `DirectAudioSpeakingEvaluationServiceTest` passed
+`5/5`. It covers authorized byte capture, digest binding, defensive/redacted
+transport, consent withdrawal/deletion, owner authorization, reviewer/provider/
+calibration evidence absence, disabled/premature score rollout and unproven
+provider consumption. The combined direct-audio, existing transcript-client,
+rollout-readiness, score-policy and normalizer regression gate passed `52/52`,
+with `0` failures, errors or skips. Provider/storage/database calls were
+`0/0/0`; no migration was changed. Readiness remains red because repository
+tests use only clearly named `TEST-*` evidence and no real provider policy,
+legal, corpus or calibration record was fabricated.
