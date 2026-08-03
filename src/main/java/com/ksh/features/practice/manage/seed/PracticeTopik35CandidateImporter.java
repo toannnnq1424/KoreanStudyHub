@@ -41,12 +41,14 @@ import java.util.regex.Pattern;
 public class PracticeTopik35CandidateImporter {
 
     public static final String IMPORTER_VERSION =
-            "practice-topik35-candidate-importer-v1";
+            "practice-topik35-candidate-importer-v2";
     public static final String CREATION_METHOD = "CANONICAL_SEED";
     public static final String BUNDLE_ID = "topik35-v1";
     public static final String TEST_SEED_KEY = "topik35-v1-test-1";
     public static final String TIMING_VERIFIED =
             "MANUAL_AUDIO_QA_VERIFIED";
+    public static final String WRITING_EVALUATION_MODE =
+            "MANUAL_OR_EXPERIMENTAL_UNSCORED";
 
     private static final Pattern SHA256 = Pattern.compile("^[0-9a-f]{64}$");
     private static final Pattern LOGICAL_KEY = Pattern.compile(
@@ -138,12 +140,16 @@ public class PracticeTopik35CandidateImporter {
         if (validation.hasBlocking()) {
             List<String> blockers = validation.messages().stream()
                     .filter(message -> "BLOCKING".equals(message.type()))
+                    .filter(message -> !"LISTENING_CHECK_AUDIO_REQUIRED"
+                            .equals(message.code()))
                     .map(message -> "DRAFT_CONTRACT:" + message.code())
                     .distinct()
                     .sorted()
                     .toList();
-            return assessment.withBlockers(blockers)
-                    .withStatus(ImportStatus.REJECTED);
+            if (!blockers.isEmpty()) {
+                return assessment.withBlockers(blockers)
+                        .withStatus(ImportStatus.REJECTED);
+            }
         }
 
         users.findByIdForUpdate(ownerId)
@@ -237,7 +243,7 @@ public class PracticeTopik35CandidateImporter {
         requireListeningBindings(
                 listening, listeningQuestions, listeningTranscript,
                 listeningAudio, blockers);
-        requireListeningTiming(
+        requireOptionalListeningTiming(
                 listening, listeningTranscript, listeningAudio, blockers);
 
         requireCount(writing.path("questions"), 4,
@@ -245,23 +251,10 @@ public class PracticeTopik35CandidateImporter {
         requireWritingOwnership(writing, blockers);
         requireWritingProvenance(writing, blockers);
 
-        requireLoadReady(reading.path("loadPolicy"),
-                "READING_LOAD_NOT_READY", blockers);
-        requireLoadReady(listening.path("validationSummary"),
-                "LISTENING_LOAD_NOT_READY", blockers);
-        requireLoadReady(writing.path("loadPolicy"),
-                "WRITING_LOAD_NOT_READY", blockers);
-        if (!writing.path("qaBlockers").isEmpty()
-                || !writing.path("targetContract")
-                .path("candidateMaterialized").asBoolean(false)) {
-            blockers.add("CANONICAL_VERSION_REFERENCES_INCOMPLETE");
-        }
-        packages.documents().values().forEach(document -> {
-            if (hasRemainingPackageBlockers(document.json())) {
-                blockers.add("PACKAGE_BLOCKERS_REMAIN:"
-                        + document.filename());
-            }
-        });
+        requireCandidateContentReadiness(
+                reading, listening, listeningQuestions,
+                listeningTranscript, listeningAudio, writing, blockers);
+        requireOnlyDeferredPackageBlockers(packages, blockers);
 
         Set<String> uniqueLogicalKeys = new HashSet<>(discoveredLogicalKeys);
         String identityDigest = packages.identityDigest();
@@ -428,11 +421,14 @@ public class PracticeTopik35CandidateImporter {
         }
     }
 
-    private static void requireListeningTiming(
+    private static void requireOptionalListeningTiming(
             JsonNode importPackage,
             JsonNode transcripts,
             JsonNode audio,
             Set<String> blockers) {
+        if (allListeningTimingPending(importPackage, transcripts, audio)) {
+            return;
+        }
         boolean pending = false;
         Map<String, TimingRange> importRanges = new LinkedHashMap<>();
         for (JsonNode group : importPackage.path("groups")) {
@@ -491,7 +487,44 @@ public class PracticeTopik35CandidateImporter {
         pending |= !importRanges.equals(transcriptRanges)
                 || !importRanges.equals(audioRanges)
                 || !orderedNonOverlapping(importRanges.values());
-        if (pending) blockers.add("LISTENING_TIMING_PENDING_MANUAL_AUDIO_QA");
+        if (pending) blockers.add("LISTENING_TIMING_METADATA_INCONSISTENT");
+    }
+
+    private static boolean allListeningTimingPending(
+            JsonNode importPackage,
+            JsonNode transcripts,
+            JsonNode audio) {
+        if (importPackage.path("groups").size() != 20
+                || transcripts.path("groups").size() != 20
+                || audio.path("manualBoundaryQa").path("groups").size() != 20) {
+            return false;
+        }
+        for (JsonNode group : importPackage.path("groups")) {
+            JsonNode timing = group.path("timingQa");
+            if (!"PENDING_MANUAL_AUDIO_QA".equals(
+                    timing.path("status").asText())
+                    || !timing.path("startMs").isNull()
+                    || !timing.path("endMs").isNull()) {
+                return false;
+            }
+        }
+        for (JsonNode group : transcripts.path("groups")) {
+            if (!"PENDING_MANUAL_AUDIO_QA".equals(
+                    group.path("timingStatus").asText())
+                    || !group.path("startMs").isNull()
+                    || !group.path("endMs").isNull()) {
+                return false;
+            }
+        }
+        for (JsonNode group : audio.path("manualBoundaryQa").path("groups")) {
+            if (!"PENDING_HUMAN_AUDITORY_QA".equals(
+                    group.path("status").asText())
+                    || !group.path("startMs").isNull()
+                    || !group.path("endMs").isNull()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean orderedNonOverlapping(
@@ -538,13 +571,79 @@ public class PracticeTopik35CandidateImporter {
         }
     }
 
-    private static boolean hasRemainingPackageBlockers(JsonNode root) {
-        return nonEmptyArray(root.path("qaBlockers"))
-                || nonEmptyArray(root.path("remainingLoadBlockers"));
+    private static void requireCandidateContentReadiness(
+            JsonNode reading,
+            JsonNode listening,
+            JsonNode listeningQuestions,
+            JsonNode listeningTranscript,
+            JsonNode listeningAudio,
+            JsonNode writing,
+            Set<String> blockers) {
+        if (!reading.path("loadPolicy").path("contentQaComplete").asBoolean()
+                || !reading.path("loadPolicy").path("assetQaComplete")
+                .asBoolean()
+                || !reading.path("qaBlockers").isArray()
+                || !reading.path("qaBlockers").isEmpty()) {
+            blockers.add("READING_CONTENT_NOT_CANDIDATE_READY");
+        }
+        if (!listeningQuestions.path("validationSummary")
+                .path("payloadQaComplete").asBoolean()
+                || !listeningTranscript.path("validationSummary")
+                .path("transcriptQaComplete").asBoolean()
+                || !listeningAudio.path("validationSummary")
+                .path("sourceIdentityVerified").asBoolean()
+                || !listeningAudio.path("validationSummary")
+                .path("sourceDigestVerified").asBoolean()
+                || !listeningAudio.path("validationSummary")
+                .path("derivedDigestVerified").asBoolean()
+                || listening.path("validationSummary").path("questionCount")
+                .asInt() != 50
+                || listening.path("validationSummary")
+                .path("transcriptCoveredQuestionCount").asInt() != 50) {
+            blockers.add("LISTENING_CONTENT_NOT_CANDIDATE_READY");
+        }
+        JsonNode summary = writing.path("validationSummary");
+        if (!summary.path("sourcePromptQaComplete").asBoolean()
+                || !summary.path("sourceAnswerQaComplete").asBoolean()
+                || !summary.path("sourceAssetQaComplete").asBoolean()) {
+            blockers.add("WRITING_CONTENT_NOT_CANDIDATE_READY");
+        }
     }
 
-    private static boolean nonEmptyArray(JsonNode node) {
-        return node.isArray() && !node.isEmpty();
+    private static void requireOnlyDeferredPackageBlockers(
+            PackageSet packages,
+            Set<String> blockers) {
+        Map<String, Set<String>> allowed = Map.of(
+                "practice-topik35-reading-question-payload.json", Set.of(
+                        "CANONICAL_PRACTICE_SET_VERSION_ID_NOT_ALLOCATED",
+                        "CANONICAL_PRACTICE_TEST_VERSION_ID_NOT_ALLOCATED",
+                        "CANONICAL_QUESTION_VERSION_IDS_NOT_ALLOCATED",
+                        "DATABASE_IMPORT_NOT_AUTHORIZED_BY_THIS_SLICE"),
+                "practice-topik35-listening-question-payload.json", Set.of(
+                        "GROUP_TRANSCRIPT_TEXT_NOT_MATERIALIZED_BY_THIS_SLICE",
+                        "GROUP_TIMING_RANGES_NOT_YET_MANUALLY_VERIFIED",
+                        "CANONICAL_DRAFT_VERSION_IDS_NOT_YET_ALLOCATED"),
+                "practice-topik35-listening-transcript-payload.json", Set.of(
+                        "GROUP_TIMING_RANGES_NOT_YET_MANUALLY_VERIFIED",
+                        "CANONICAL_DRAFT_VERSION_IDS_NOT_YET_ALLOCATED"),
+                "practice-topik35-writing-import-audit.json", Set.of(
+                        "SOURCE_BOUND_TOPIK35_WRITING_REQUIREMENT_PROFILE_NOT_CREATED",
+                        "INTERNAL_RUBRIC_SUBWEIGHT_BINDING_NOT_SOURCE_AUTHORIZED",
+                        "Q51_Q52_SEMANTIC_EQUIVALENT_ANSWER_SET_NOT_REVIEWED",
+                        "CANONICAL_DRAFT_VERSION_IDS_NOT_ALLOCATED"));
+        packages.documents().values().forEach(document -> {
+            Set<String> permitted = allowed.getOrDefault(
+                    document.filename(), Set.of());
+            for (String field : List.of("qaBlockers", "remainingLoadBlockers")) {
+                for (JsonNode blocker : document.json().path(field)) {
+                    String code = blocker.asText("");
+                    if (!permitted.contains(code)) {
+                        blockers.add("PACKAGE_BLOCKER_NOT_DEFERRED:"
+                                + document.filename() + ":" + code);
+                    }
+                }
+            }
+        });
     }
 
     private static void requireWritingOwnership(
@@ -573,11 +672,6 @@ public class PracticeTopik35CandidateImporter {
         if (!array.isArray() || array.size() != expected) blockers.add(code);
     }
 
-    private static void requireLoadReady(
-            JsonNode node, String code, Set<String> blockers) {
-        if (!node.path("loadReady").asBoolean(false)) blockers.add(code);
-    }
-
     private static Set<String> ids(JsonNode array, String field) {
         Set<String> result = new LinkedHashSet<>();
         if (array.isArray()) {
@@ -600,6 +694,10 @@ public class PracticeTopik35CandidateImporter {
         seed.put("identityDigest", assessment.identityDigest());
         seed.put("publicationAllowed", false);
         seed.put("immutableVersionAllocation", "PUBLISHER_GATE_ONLY");
+        seed.put("listeningTimingState", "PENDING_OPTIONAL_POST_TEST_QA");
+        seed.put("listeningTimingRequiredForCandidate", false);
+        seed.put("listeningTimingRequiredForPublication", false);
+        seed.put("listeningTimingAllowedForExamAssistance", false);
         ArrayNode packageRefs = seed.putArray("packages");
         packages.documents().values().stream()
                 .sorted(Comparator.comparing(PackageDocument::filename))
@@ -649,6 +747,11 @@ public class PracticeTopik35CandidateImporter {
         listening.put("replayAllowed", false);
         listening.put("timestampAutoNavigation", false);
         listening.put("timestampAutoHighlight", false);
+        listening.put("programLogicalKey", packages.json(
+                        "practice-topik35-listening-audio-qa.json")
+                .path("derivedProgram").path("logicalKey").asText());
+        listening.put("candidateCheckAudioState",
+                "PENDING_MATERIAL_ID_BEFORE_PUBLICATION");
         return section;
     }
 
@@ -688,7 +791,9 @@ public class PracticeTopik35CandidateImporter {
             stimulus.putNull("mediaReference");
             stimulus.putObject("provenance")
                     .put("source", "CANONICAL_SEED")
-                    .put("groupId", groupId);
+                    .put("groupId", groupId)
+                    .put("approved", true)
+                    .put("reviewEvidenceId", BUNDLE_ID + ":" + groupId);
             ArrayNode targetQuestions = group.putArray("questions");
             for (JsonNode question : byGroup.getOrDefault(groupId, List.of())) {
                 targetQuestions.add(objectiveQuestion(question));
@@ -740,13 +845,20 @@ public class PracticeTopik35CandidateImporter {
             group.put("groupCode", "W1." + (++groupIndex));
             group.put("label", "Q" + number);
             group.put("instruction", source.path("promptInstruction").asText());
-            group.putObject("stimulus")
+            ObjectNode stimulus = group.putObject("stimulus");
+            stimulus
                     .put("schemaVersion", "practice-stimulus-v2")
                     .put("type", "WRITING_PROMPT")
                     .put("instruction", source.path("promptInstruction").asText())
                     .put("passageText", source.path("promptText").asText())
                     .put("transcriptText", "")
                     .putNull("mediaReference");
+            stimulus.putObject("provenance")
+                    .put("source", "CANONICAL_SEED")
+                    .put("approved", true)
+                    .put("reviewEvidenceId",
+                            payload.path("packageId").asText()
+                                    + ":Q" + number);
             ObjectNode question = group.putArray("questions").addObject();
             question.put("clientId", source.path("seedKey").asText());
             question.put("questionNo", number);
@@ -761,8 +873,70 @@ public class PracticeTopik35CandidateImporter {
                     source.path("answerExpectation").deepCopy());
             question.set("seedProvenance", source.deepCopy());
             question.putArray("options");
+            addWritingContracts(question, source, payload);
         }
         return section;
+    }
+
+    private void addWritingContracts(
+            ObjectNode question,
+            JsonNode source,
+            JsonNode payload) {
+        int number = source.path("questionNumber").asInt();
+        String taskType = source.path("taskType").asText();
+        ObjectNode content = question.putObject("questionContent");
+        content.put("schemaVersion", "question-content-v3");
+        content.putArray("options");
+        content.putArray("blanks");
+        content.put("languageTag", "ko");
+        for (JsonNode asset : payload.path("assetBindings")) {
+            if (asset.path("questionNumber").asInt() == number) {
+                content.put("imageReference",
+                        asset.path("logicalKey").asText());
+            }
+        }
+
+        ObjectNode answer = question.putObject("answerSpec");
+        answer.put("schemaVersion", "answer-spec-v2");
+        answer.put("questionType", "ESSAY");
+        answer.putArray("correctOptionIds");
+        answer.putArray("blanks");
+        answer.put("scoringPolicyCode", "PROFILE_BASED");
+        answer.put("evaluationMode", WRITING_EVALUATION_MODE);
+
+        if (number != 51 && number != 52) {
+            return;
+        }
+        ObjectNode response = content.putObject("writingResponse");
+        response.put("responseSchemaVersion", "writing-blanks.v1");
+        response.put("responseMode", "STRUCTURED_BLANKS");
+        response.put("taskType", taskType);
+        ArrayNode responseBlanks = response.putArray("blanks");
+        ObjectNode authority = answer.putObject("writingBlankAuthority");
+        authority.put("contractVersion", "writing-blank-authority.v1");
+        authority.put("taskType", taskType);
+        authority.put("normalization", "NFC");
+        authority.put("whitespacePolicy", "TRIM_COLLAPSE");
+        ArrayNode authorityBlanks = authority.putArray("blanks");
+        for (int index = 0; index < 2; index++) {
+            String blankId = taskType.toLowerCase(java.util.Locale.ROOT)
+                    + "-b" + (index + 1);
+            JsonNode definition = source.path("blankDefinitions").get(index);
+            responseBlanks.addObject()
+                    .put("blankId", blankId)
+                    .put("ordinal", index + 1)
+                    .put("context", definition.path("sourceMarker").asText());
+            JsonNode modelAnswer = source.path("answerExpectation")
+                    .path("modelAnswers").get(index);
+            authorityBlanks.addObject()
+                    .put("blankId", blankId)
+                    .put("ordinal", index + 1)
+                    .putArray("acceptedAnswers")
+                    .addObject()
+                    .put("text", modelAnswer.path("text").asText())
+                    .put("equivalence", "EXACT")
+                    .putArray("evidenceIds");
+        }
     }
 
     private static Map<String, List<JsonNode>> questionsByGroup(

@@ -29,7 +29,7 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
     @Autowired JdbcTemplate jdbc;
 
     @Test
-    void currentCanonicalPackagesRejectTwiceWithoutAnyDataPlaneWrite() {
+    void currentCanonicalPackagesCreateThenReuseOneDisabledCandidate() {
         String catalog = jdbc.queryForObject("SELECT DATABASE()", String.class);
         assertThat(catalog).startsWith("ksh_test_topik35_candidate_");
         assertThat(jdbc.queryForObject(
@@ -45,17 +45,41 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
         var second = importer.importCandidate(OPERATIONS, 1L);
         Map<String, Long> after = dataPlaneCounts();
 
+        assertThat(first.blockers()).isEmpty();
         assertThat(first.status()).isEqualTo(
-                PracticeTopik35CandidateImporter.ImportStatus.REJECTED);
-        assertThat(second).isEqualTo(first);
-        assertThat(first.blockers()).contains(
-                "LISTENING_TIMING_PENDING_MANUAL_AUDIO_QA",
-                "CANONICAL_VERSION_REFERENCES_INCOMPLETE");
+                PracticeTopik35CandidateImporter.ImportStatus.CREATED);
+        assertThat(second.status()).isEqualTo(
+                PracticeTopik35CandidateImporter.ImportStatus.REUSED);
+        assertThat(second.candidateDraftId())
+                .isEqualTo(first.candidateDraftId());
+        assertThat(second.identityDigest()).isEqualTo(first.identityDigest());
         assertThat(first.readingQuestionCount()).isEqualTo(50);
         assertThat(first.listeningQuestionCount()).isEqualTo(50);
         assertThat(first.writingQuestionCount()).isEqualTo(4);
         assertThat(first.providerCallCount()).isZero();
-        assertThat(after).isEqualTo(before);
+        Map<String, Long> expected = new LinkedHashMap<>(before);
+        expected.compute("practice_drafts", (ignored, count) -> count + 1);
+        assertThat(after).isEqualTo(expected);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM practice_drafts "
+                        + "WHERE id = ? AND status = 'DRAFT' "
+                        + "AND published_set_id IS NULL "
+                        + "AND creation_method = 'CANONICAL_SEED'",
+                Integer.class, first.candidateDraftId())).isEqualTo(1);
+        String draftJson = jdbc.queryForObject(
+                "SELECT draft_json FROM practice_drafts WHERE id = ?",
+                String.class,
+                first.candidateDraftId());
+        assertThat(draftJson)
+                .contains("\"listeningTimingState\":\"PENDING_OPTIONAL_POST_TEST_QA\"")
+                .contains("\"listeningTimingRequiredForCandidate\":false")
+                .contains("\"listeningTimingRequiredForPublication\":false")
+                .contains("\"timestampAutoNavigation\":false")
+                .contains("\"seekAllowed\":false")
+                .contains("\"replayAllowed\":false")
+                .contains("\"schemaVersion\":\"answer-spec-v2\"")
+                .contains("\"evaluationMode\":\"MANUAL_OR_EXPERIMENTAL_UNSCORED\"")
+                .doesNotContain("/Users/", "file://", "r2://");
     }
 
     private Map<String, Long> dataPlaneCounts() {

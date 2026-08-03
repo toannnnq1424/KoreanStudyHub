@@ -2499,6 +2499,67 @@ class PracticeServiceTest {
 
 
     @Test
+    void writingManualOrExperimentalModePersistsUnscoredWithoutProvider()
+            throws Exception {
+        PracticeSet set = new PracticeSet(
+                "Writing Set", "Desc", "WRITING", "GLOBAL",
+                null, null, null, "PUBLISHED", 1L);
+        com.ksh.entities.PracticeTest test =
+                new com.ksh.entities.PracticeTest(
+                        1L, "Test Full", "Desc", 1, 40);
+        setEntityId(test, 10L);
+        PracticeSection section = new PracticeSection(
+                1L, "Writing Section", "WRITING", "ESSAY",
+                "Instruction", 60, BigDecimal.valueOf(30), 1);
+        section.setTestId(10L);
+        setEntityId(section, 20L);
+        PracticeAttempt attempt = new PracticeAttempt(
+                2L, 1L, 10L, "WRITING", 20L);
+        attempt.setStatus("IN_PROGRESS");
+        setEntityId(attempt, 99L);
+        PracticeQuestion question = new PracticeQuestion(
+                1L, 53, "ESSAY", "Q53", "[]", "", "",
+                BigDecimal.valueOf(30), 0);
+        question.setWritingTaskType(WritingTaskType.Q53);
+        question.setQuestionContentJson("""
+                {"schemaVersion":"question-content-v3","options":[],
+                 "blanks":[],"languageTag":"ko"}
+                """);
+        question.setAnswerSpecJson("""
+                {"schemaVersion":"answer-spec-v2","questionType":"ESSAY",
+                 "correctOptionIds":[],"blanks":[],
+                 "scoringPolicyCode":"PROFILE_BASED",
+                 "evaluationMode":"MANUAL_OR_EXPERIMENTAL_UNSCORED"}
+                """);
+        setEntityId(question, 101L);
+
+        when(setRepository.findById(1L)).thenReturn(Optional.of(set));
+        when(testRepository.findById(10L)).thenReturn(Optional.of(test));
+        when(sectionRepository.findById(20L)).thenReturn(Optional.of(section));
+        when(sectionRepository.findBySetIdOrderByDisplayOrderAsc(1L))
+                .thenReturn(List.of(section));
+        when(attemptRepository.findByIdAndUserId(99L, 2L))
+                .thenReturn(Optional.of(attempt));
+        when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L))
+                .thenReturn(List.of(question));
+
+        practiceService.submitAttempt(
+                99L, 2L, Map.of("answer_101", "학습자 답안"));
+
+        assertEquals("SUBMITTED", attempt.getStatus());
+        assertNull(attempt.getScore());
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson())
+                .path("101");
+        assertEquals("EVALUATION_UNAVAILABLE",
+                feedback.path("evaluation_status").asText());
+        assertEquals("MANUAL_OR_EXPERIMENTAL_UNSCORED",
+                feedback.path("evaluation_reason").asText());
+        assertFalse(feedback.path("score_available").asBoolean(true));
+        verifyNoInteractions(evaluationClient);
+        verify(attemptRepository).saveAndFlush(attempt);
+    }
+
+    @Test
     void testWritingAggregationWithMcqAndEssay() throws Exception {
         PracticeSet set = new PracticeSet("Writing Set", "Desc", "WRITING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);

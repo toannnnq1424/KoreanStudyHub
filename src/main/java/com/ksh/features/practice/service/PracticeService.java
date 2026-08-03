@@ -2823,6 +2823,14 @@ public class PracticeService {
             if (objectiveScore.isPresent()) {
                 attemptEarnedPoints = attemptEarnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
+                if (manualOrExperimentalWritingUnscored(q)) {
+                    com.fasterxml.jackson.databind.node.ObjectNode node =
+                            manualWritingUnscored(q);
+                    readGeneratedWritingScore(node, q);
+                    allEvaluationsScoreBearing = false;
+                    feedbackMap.set(String.valueOf(q.questionId()), node);
+                    continue;
+                }
                 String singleFeedback = evaluateWriting(snapshot.userId(), q.prompt(), answer,
                         isReEvaluate, q.writingTaskType(), questionImageReference(q));
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
@@ -2870,6 +2878,20 @@ public class PracticeService {
     private WritingGradingResult gradeWritingQuestionSnapshot(WritingQuestionReEvaluationSnapshot snapshot) {
         requireEvaluationThreadActive();
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = buildValidatedFeedbackMapBeforeTargetEvaluation(snapshot);
+
+        if (manualOrExperimentalWritingUnscored(snapshot.targetQuestion())) {
+            com.fasterxml.jackson.databind.node.ObjectNode targetNode =
+                    manualWritingUnscored(snapshot.targetQuestion());
+            readGeneratedWritingScore(targetNode, snapshot.targetQuestion());
+            feedbackMap.set(String.valueOf(
+                    snapshot.targetQuestion().questionId()), targetNode);
+            return new WritingGradingResult(
+                    null,
+                    null,
+                    snapshot.expectedAnswersJson(),
+                    feedbackMap.toString(),
+                    null);
+        }
 
         String targetAnswer = snapshot.answers().getOrDefault(String.valueOf(snapshot.targetQuestion().questionId()), "").trim();
         String targetFeedback = evaluateWriting(
@@ -3046,7 +3068,7 @@ public class PracticeService {
         return parsed.value();
     }
 
-    private static boolean isCurrentWritingEnvelope(
+    private boolean isCurrentWritingEnvelope(
             WritingEvaluationResult value,
             QuestionSnapshot question) {
         if (question == null
@@ -3056,6 +3078,19 @@ public class PracticeService {
             return false;
         }
         String expectedTaskType = question.writingTaskType().name();
+        if (manualOrExperimentalWritingUnscored(question)) {
+            return value != null
+                    && !value.scoreAvailableFlag()
+                    && "EVALUATION_UNAVAILABLE".equals(
+                    value.evaluationStatus())
+                    && "SYSTEM".equals(value.evaluationSource())
+                    && "MANUAL_OR_EXPERIMENTAL_UNSCORED".equals(
+                    value.evaluationReason())
+                    && !value.evaluationRetryable()
+                    && "KSH_WRITING_EVALUATOR_STATUS".equals(value.engine())
+                    && WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
+                    value.policyBundleId());
+        }
         BigDecimal expectedMaximum = BigDecimal.valueOf(
                 WritingScoringPolicy.rubricFor(
                         expectedTaskType).totalMaxScore());
@@ -3064,6 +3099,49 @@ public class PracticeService {
         }
         return isCurrentWritingEnvelope(
                 value, expectedTaskType, expectedMaximum);
+    }
+
+    private boolean manualOrExperimentalWritingUnscored(
+            QuestionSnapshot question) {
+        if (question == null
+                || isBlank(question.answerSpecJson())) {
+            return false;
+        }
+        if (isBlank(question.questionContentJson())) {
+            throw new IllegalStateException(
+                    "Writing evaluation policy requires typed question content.");
+        }
+        CanonicalQuestionType type = questionTypeResolver.resolve(
+                question.questionType());
+        QuestionContent content = assessmentContractCodec.readQuestionContent(
+                question.questionContentJson(), type);
+        AnswerSpec spec = assessmentContractCodec.readAnswerSpec(
+                question.answerSpecJson(), content);
+        return spec.effectiveEvaluationMode()
+                == AnswerSpec.EvaluationMode
+                .MANUAL_OR_EXPERIMENTAL_UNSCORED;
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode
+    manualWritingUnscored(QuestionSnapshot question) {
+        com.fasterxml.jackson.databind.node.ObjectNode node =
+                objectMapper.createObjectNode();
+        node.put("task_type", question.writingTaskType().name());
+        node.put("engine", "KSH_WRITING_EVALUATOR_STATUS");
+        node.put("policy_bundle_id",
+                WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        node.put("evaluation_status", "EVALUATION_UNAVAILABLE");
+        node.put("evaluation_source", "SYSTEM");
+        node.put("evaluation_reason",
+                "MANUAL_OR_EXPERIMENTAL_UNSCORED");
+        node.put("evaluation_retryable", false);
+        node.put("score_available", false);
+        node.set("result_completeness", objectMapper.valueToTree(
+                com.ksh.features.practice.ai.contract
+                        .PracticeAiResultCompleteness.unavailable(
+                                "MANUAL_OR_EXPERIMENTAL_UNSCORED", 0)
+                        .toMap()));
+        return node;
     }
 
     private static boolean isCurrentWritingEnvelope(

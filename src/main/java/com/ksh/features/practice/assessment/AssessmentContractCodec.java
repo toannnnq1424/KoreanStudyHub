@@ -43,7 +43,7 @@ public class AssessmentContractCodec {
     private static final Set<String> ANSWER_SPEC_FIELDS = Set.of(
             "schemaVersion", "questionType", "correctOptionIds",
             "correctValue", "blanks", "scoringPolicyCode",
-            "writingBlankAuthority");
+            "writingBlankAuthority", "evaluationMode");
     private static final Set<String> ANSWER_BLANK_FIELDS = Set.of(
             "blankId", "acceptedValues");
     private static final Set<String> WRITING_AUTHORITY_FIELDS = Set.of(
@@ -292,7 +292,12 @@ public class AssessmentContractCodec {
     public void validateAnswerSpec(AnswerSpec spec, QuestionContent content) {
         require(spec, "answer spec");
         require(content, "question content");
-        requireVersion(spec.schemaVersion(), AnswerSpec.SCHEMA_VERSION, "answer spec");
+        if (!Set.of(AnswerSpec.SCHEMA_VERSION_V1, AnswerSpec.SCHEMA_VERSION_V2)
+                .contains(spec.schemaVersion())) {
+            throw new IllegalArgumentException(
+                    "Unsupported answer spec schema version: "
+                            + spec.schemaVersion());
+        }
         CanonicalQuestionType type = require(spec.questionType(), "answer spec question type");
         validateQuestionContent(content, type);
         ScoringPolicyCode policy = require(spec.scoringPolicyCode(), "scoring policy");
@@ -387,6 +392,17 @@ public class AssessmentContractCodec {
                             "Writing blank authority is invalid for Speaking");
                 }
             }
+        }
+        if (type != CanonicalQuestionType.ESSAY
+                && spec.evaluationMode() != null) {
+            throw new IllegalArgumentException(
+                    "Evaluation mode is only supported for Writing ESSAY questions");
+        }
+        if ((spec.evaluationMode() == null)
+                != AnswerSpec.SCHEMA_VERSION_V1.equals(
+                spec.schemaVersion())) {
+            throw new IllegalArgumentException(
+                    "answer-spec-v2 requires an explicit Writing evaluation mode");
         }
     }
 

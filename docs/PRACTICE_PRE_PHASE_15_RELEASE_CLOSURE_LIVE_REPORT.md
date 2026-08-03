@@ -2326,3 +2326,93 @@ TOPIK 35 Writing requirement/rubric authority and reviewed Q51/Q52 answer
 equivalence, then issue updated load-ready/version-reference packages. Only
 after those inputs are complete may this importer persist a disabled draft;
 publication and learner visibility still require a separate release slice.
+
+### 6.40 TOPIK 35 candidate-gate product correction
+
+Status: `CANDIDATE_IMPORT_GREEN / LISTENING_TIMING_OPTIONAL /
+WRITING_CONTENT_ALLOWED_BUT_AUTOMATED_SCORE_LOCKED`.
+
+On `2026-08-04`, the data owner corrected two release assumptions from 6.39.
+Listening group timestamps are optional post-test QA metadata; they are not a
+candidate, publication or exam-mode prerequisite. Writing content authority
+is separate from automated grading authority. This section supersedes only
+the timing and Writing-grading blockers described in 6.39; the provenance,
+digest, ownership, disabled-candidate and publisher-version boundaries remain
+in force.
+
+`PracticeTopik35CandidateImporter` is now versioned as
+`practice-topik35-candidate-importer-v2`, with deterministic package identity
+`a75eec08d809acc917780d3864eb6ec35f84ced386e3eeadbc2cedb6815035be`.
+The current source packages pass candidate preflight while all source timing
+fields remain null/PENDING. If timing metadata is partially populated or the
+three Listening packages disagree, preflight still fails with
+`LISTENING_TIMING_METADATA_INCONSISTENT`. Unknown package blockers, content-QA
+failure, bad provenance/hash/logical keys, ownership drift or package-binding
+drift remain all-or-nothing failures. Only these already-documented concerns
+are deferred from candidate import:
+
+- canonical database version IDs, because only the existing publisher may
+  allocate them;
+- Listening post-test timing QA; and
+- Writing rubric/model-answer/semantic-equivalence authority, because the
+  imported tasks are explicitly non-score-bearing.
+
+The disabled draft records
+`listeningTimingState=PENDING_OPTIONAL_POST_TEST_QA`, keeps one continuous
+logical audio-program key, and pins `seekAllowed=false`, `replayAllowed=false`,
+`timestampAutoNavigation=false` and `timestampAutoHighlight=false`. Timing is
+not copied into an in-test assistance path. The candidate still has no real
+material/delivery URL. A generic check-audio material ID remains required by
+the unchanged publisher validator before learner publication; the importer
+may defer that one check only while persisting an inaccessible DRAFT.
+
+All four TOPIK 35 Writing questions now carry the typed `answer-spec-v2`
+field `evaluationMode=MANUAL_OR_EXPERIMENTAL_UNSCORED`. Q51/Q52 retain the
+source model answers as exact source authority for their two typed response
+blanks, but no semantic-equivalence or rubric authority is inferred. The
+field survives the normal answer-spec codec and immutable question snapshot.
+The Writing snapshot grader checks it before evaluator transport: it makes
+zero provider calls, persists `EVALUATION_UNAVAILABLE` with reason
+`MANUAL_OR_EXPERIMENTAL_UNSCORED`, keeps `score_available=false`, and never
+accepts a score-bearing envelope for that question. Existing questions with
+no explicit evaluation mode retain their current behavior.
+
+Fresh-disposable evidence used MySQL 8.4 catalog
+`ksh_test_topik35_candidate_gate_correction_v2_final_20260804`. Unchanged V1–V96
+applied with zero failed migrations. The first import created one
+`status=DRAFT`, `published_set_id=NULL`, `creation_method=CANONICAL_SEED`
+candidate; the repeat import reused the same identity. Final markers were:
+
+| Marker | Result |
+|---|---:|
+| canonical candidate drafts | `1` |
+| repeat-run duplicate drafts | `0` |
+| TOPIK 35 learner sets | `0` |
+| set/test/section/group/question or version-row delta | `0` |
+| `practice_ai_execution_audits` | `0` |
+| `practice_ai_capability_test_runs` | `0` |
+| Writing mode Q51/Q54 | `MANUAL_OR_EXPERIMENTAL_UNSCORED` |
+| Listening timing state | `PENDING_OPTIONAL_POST_TEST_QA` |
+
+The final container peaked at about `506 MiB`, then was stopped and removed.
+No shared/local developer DB, migration, object store, provider or real AI
+call was used.
+
+JDK `17.0.19` evidence:
+
+- importer/content-blocker/optional-timing/idempotence gate passed `4/4`;
+- Writing runtime regression passed `PracticeServiceTest` `83/83`;
+- focused typed evaluation-mode codec test passed `1/1`;
+- combined canonical R/L/W, UAT, draft/import and storage gate passed
+  `115/115`; and
+- final fresh disposable persistence gate passed `1/1`.
+
+Learner-facing state remains locked exactly as follows: the imported object is
+a DRAFT and is absent from the learner catalogue; no Listening audio is
+delivered until its local logical object is materialized through the existing
+asset port and the publisher allocates immutable version IDs; exam playback
+cannot seek, replay or navigate by timestamp; and after later publication,
+TOPIK 35 Writing answers remain submitted/unscored with no automated result,
+best/latest/progress contribution or accepted AI score until source-bound
+grading authority is approved and a separate release changes the explicit
+evaluation mode.

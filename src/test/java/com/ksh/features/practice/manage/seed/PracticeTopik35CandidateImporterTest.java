@@ -49,7 +49,7 @@ class PracticeTopik35CandidateImporterTest {
     }
 
     @Test
-    void repositoryBundleDryRunIsDeterministicAndFailClosed() {
+    void repositoryBundleDryRunIsDeterministicAndCandidateReady() {
         var first = importer.dryRun(OPERATIONS);
         var second = importer.dryRun(OPERATIONS);
 
@@ -65,23 +65,26 @@ class PracticeTopik35CandidateImporterTest {
         assertThat(first.listeningGroupCount()).isEqualTo(20);
         assertThat(first.logicalAssetKeyCount()).isEqualTo(24);
         assertThat(first.providerCallCount()).isZero();
-        assertThat(first.blockers()).contains(
-                "LISTENING_TIMING_PENDING_MANUAL_AUDIO_QA",
-                "READING_LOAD_NOT_READY",
-                "LISTENING_LOAD_NOT_READY",
-                "WRITING_LOAD_NOT_READY",
-                "CANONICAL_VERSION_REFERENCES_INCOMPLETE");
+        assertThat(first.blockers()).isEmpty();
         assertThat(first.candidateDraftId()).isNull();
     }
 
     @Test
-    void blockedImportIsAllOrNothingAndDoesNotEvenLockOwner() {
-        var first = importer.importCandidate(OPERATIONS, 42L);
-        var second = importer.importCandidate(OPERATIONS, 42L);
+    void contentBlockedImportIsAllOrNothingAndDoesNotEvenLockOwner(
+            @TempDir Path temporary) throws Exception {
+        copyPackages(temporary);
+        mutate(temporary, "practice-topik35-reading-question-payload.json",
+                root -> ((ObjectNode) root.path("loadPolicy"))
+                        .put("contentQaComplete", false));
+
+        var first = importer.importCandidate(temporary, 42L);
+        var second = importer.importCandidate(temporary, 42L);
 
         assertThat(first.status()).isEqualTo(
                 PracticeTopik35CandidateImporter.ImportStatus.REJECTED);
         assertThat(second).isEqualTo(first);
+        assertThat(first.blockers()).contains(
+                "READING_CONTENT_NOT_CANDIDATE_READY");
         assertThat(first.providerCallCount()).isZero();
         verifyNoInteractions(drafts, users, draftContract, draftValidator);
     }
@@ -125,7 +128,6 @@ class PracticeTopik35CandidateImporterTest {
     void readyPackageCreatesThenReusesOneDisabledDraft(
             @TempDir Path temporary) throws Exception {
         copyPackages(temporary);
-        makeTestOnlyReady(temporary);
         when(draftContract.normalize(
                 any(ObjectNode.class), anyString()))
                 .thenAnswer(invocation ->
@@ -170,6 +172,17 @@ class PracticeTopik35CandidateImporterTest {
         assertThat(draft.path("sections").get(0).path("groups")).hasSize(42);
         assertThat(draft.path("sections").get(1).path("groups")).hasSize(20);
         assertThat(draft.path("sections").get(2).path("groups")).hasSize(4);
+        assertThat(draft.path("sections").get(1)
+                .path("sectionDelivery").path("listeningDelivery")
+                .path("timestampAutoNavigation").asBoolean()).isFalse();
+        assertThat(draft.path("sections").get(1)
+                .path("sectionDelivery").path("listeningDelivery")
+                .path("seekAllowed").asBoolean()).isFalse();
+        for (JsonNode group : draft.path("sections").get(2).path("groups")) {
+            assertThat(group.path("questions").get(0)
+                    .path("answerSpec").path("evaluationMode").asText())
+                    .isEqualTo("MANUAL_OR_EXPERIMENTAL_UNSCORED");
+        }
         verify(drafts).saveAndFlush(any(PracticeDraft.class));
         verify(drafts, never()).delete(any());
     }
@@ -184,79 +197,6 @@ class PracticeTopik35CandidateImporterTest {
                 Files.copy(source, target.resolve(source.getFileName()));
             }
         }
-    }
-
-    /** Test-only fixture mutation; the production importer exposes no bypass. */
-    private void makeTestOnlyReady(Path target) throws Exception {
-        mutate(target, "practice-topik35-reading-question-payload.json",
-                root -> {
-                    ((ObjectNode) root.path("loadPolicy"))
-                            .put("loadReady", true);
-                    ((ObjectNode) root).putArray("remainingLoadBlockers");
-                });
-        mutate(target, "practice-topik35-listening-import-package.json",
-                root -> {
-                    ((ObjectNode) root.path("validationSummary"))
-                            .put("loadReady", true)
-                            .put("timingReadyGroupCount", 20);
-                    int index = 0;
-                    for (JsonNode group : root.path("groups")) {
-                        ObjectNode timing = (ObjectNode) group.path("timingQa");
-                        timing.put("status",
-                                PracticeTopik35CandidateImporter.TIMING_VERIFIED);
-                        timing.put("startMs", index * 10_000L);
-                        timing.put("endMs", (++index) * 10_000L);
-                        timing.put("firstAudibleCueMatched", true);
-                        timing.put("finalAudibleCueMatched", true);
-                        timing.put("repeatPlaybackAccountedFor", true);
-                        timing.put("neighborBoundaryChecked", true);
-                        timing.put("transcriptBoundaryChecked", true);
-                        timing.put("reviewerEvidenceId",
-                                "TEST_ONLY_TIMING_" + index);
-                    }
-                });
-        mutate(target, "practice-topik35-listening-question-payload.json",
-                root -> ((ObjectNode) root)
-                        .putArray("remainingLoadBlockers"));
-        mutate(target, "practice-topik35-listening-transcript-payload.json",
-                root -> {
-                    int index = 0;
-                    for (JsonNode group : root.path("groups")) {
-                        ObjectNode object = (ObjectNode) group;
-                        object.put("timingStatus",
-                                PracticeTopik35CandidateImporter.TIMING_VERIFIED);
-                        object.put("startMs", index * 10_000L);
-                        object.put("endMs", (++index) * 10_000L);
-                    }
-                    ((ObjectNode) root).putArray("remainingLoadBlockers");
-                });
-        mutate(target, "practice-topik35-listening-audio-qa.json",
-                root -> {
-                    ((ObjectNode) root.path("validationSummary"))
-                            .put("boundaryReadyGroupCount", 20)
-                            .put("loadReady", true);
-                    ObjectNode manual = (ObjectNode) root.path(
-                            "manualBoundaryQa");
-                    manual.put("auditoryReviewerAvailable", true);
-                    int index = 0;
-                    for (JsonNode group : manual.path("groups")) {
-                        ObjectNode object = (ObjectNode) group;
-                        object.put("status",
-                                PracticeTopik35CandidateImporter.TIMING_VERIFIED);
-                        object.put("startMs", index * 10_000L);
-                        object.put("endMs", (++index) * 10_000L);
-                        object.put("reviewerEvidenceId",
-                                "TEST_ONLY_TIMING_" + index);
-                    }
-                });
-        mutate(target, "practice-topik35-writing-import-audit.json",
-                root -> {
-                    ((ObjectNode) root.path("loadPolicy"))
-                            .put("loadReady", true);
-                    ((ObjectNode) root.path("targetContract"))
-                            .put("candidateMaterialized", true);
-                    ((ObjectNode) root).putArray("qaBlockers");
-                });
     }
 
     private void mutate(Path directory,
