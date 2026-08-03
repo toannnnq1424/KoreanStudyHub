@@ -28,7 +28,7 @@ class PracticeAiRobustnessEvidenceStaticTest {
                 .contains("PRACTICE_SPEAKING_EVALUATION")
                 .contains("PARTIAL_NON_SCORE")
                 .contains("full replacement")
-                .contains("max-retries=5")
+                .contains("purpose-binding authority identity")
                 .contains("dedicated Korean forced-aligner");
         assertThat(transport)
                 .contains("response_format", "json_schema", "strict")

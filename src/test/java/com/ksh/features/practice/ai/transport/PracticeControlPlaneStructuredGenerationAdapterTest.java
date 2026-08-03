@@ -17,10 +17,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -193,6 +195,154 @@ class PracticeControlPlaneStructuredGenerationAdapterTest {
         verify(audits).success(43L);
     }
 
+    @Test
+    void refusalGetsOneFullReplacementWithinSharedBudgetAndSeparateAudit() {
+        PracticeAiResolvedBinding binding = binding(
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, true, 1);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        PracticeAiExecutionAuditService audits = mock(PracticeAiExecutionAuditService.class);
+        AtomicInteger calls = new AtomicInteger();
+        List<String> bodies = new CopyOnWriteArrayList<>();
+        List<String> idempotencyKeys = new CopyOnWriteArrayList<>();
+        PracticeAiProviderTransport transport =
+                (resolved, path, contentType, accept, body, headers) -> {
+                    bodies.add(body.toString());
+                    idempotencyKeys.add(headers.get("Idempotency-Key"));
+                    return calls.incrementAndGet() == 1
+                            ? new PracticeAiProviderTransport.ProviderResponse(
+                                    200, refusalEnvelope(),
+                                    "application/json", "fake-refusal")
+                            : new PracticeAiProviderTransport.ProviderResponse(
+                                    200, envelope("{\"ok\":true}"),
+                                    "application/json", "fake-replacement");
+                };
+        when(resolver.resolve(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION))
+                .thenReturn(binding);
+        when(audits.start(
+                binding.snapshot(),
+                "writing-fixture",
+                "schema-v1|prompt-v1|TASK|rubric-v1|question=1|fixture_response",
+                "LEARNER_WRITING_RESPONSE")).thenReturn(44L);
+        when(audits.start(
+                binding.snapshot(),
+                "writing-fixture_FULL_REPLACEMENT",
+                "schema-v1|prompt-v1|TASK|rubric-v1|question=1|fixture_response"
+                        + "|replacement=PROVIDER_REFUSAL",
+                "LEARNER_WRITING_RESPONSE")).thenReturn(45L);
+        PracticeControlPlaneStructuredGenerationAdapter adapter = adapter(
+                resolver, audits, transport);
+
+        assertThat(adapter.generate(request(
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, List.of()))
+                .output().path("ok").asBoolean()).isTrue();
+
+        assertThat(calls).hasValue(2);
+        assertThat(idempotencyKeys).hasSize(2);
+        assertThat(idempotencyKeys.get(0)).isEqualTo("fixture-idempotency");
+        assertThat(idempotencyKeys.get(1))
+                .startsWith("ksh-practice-full-replacement-")
+                .isNotEqualTo(idempotencyKeys.get(0));
+        assertThat(bodies.get(1))
+                .contains("PROVIDER_REFUSAL", "complete replacement")
+                .doesNotContain("policy refusal fixture");
+        verify(resolver, times(2)).assertCurrent(binding.snapshot());
+        verify(audits).success(45L);
+        verify(audits).success(44L);
+    }
+
+    @Test
+    void replacementNeverExceedsBudgetAndNeverRepairsSecondMalformedOutput() {
+        PracticeAiResolvedBinding binding = binding(
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, true, 1);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        PracticeAiExecutionAuditService audits = mock(PracticeAiExecutionAuditService.class);
+        AtomicInteger calls = new AtomicInteger();
+        PracticeAiProviderTransport transport =
+                (resolved, path, contentType, accept, body, headers) -> {
+                    calls.incrementAndGet();
+                    return new PracticeAiProviderTransport.ProviderResponse(
+                            200,
+                            envelope("{malformed"),
+                            "application/json",
+                            "fake-malformed");
+                };
+        when(resolver.resolve(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION))
+                .thenReturn(binding);
+        when(audits.start(any(), any(), any(), any())).thenReturn(46L, 47L);
+        PracticeControlPlaneStructuredGenerationAdapter adapter = adapter(
+                resolver, audits, transport);
+
+        assertThatThrownBy(() -> adapter.generate(request(
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, List.of())))
+                .isInstanceOf(PracticeAiContractException.class)
+                .extracting(error -> ((PracticeAiContractException) error).category())
+                .isEqualTo("PROVIDER_MALFORMED_STRUCTURED_OUTPUT");
+
+        assertThat(calls).hasValue(2);
+        verify(audits).failure(47L, "PROVIDER_MALFORMED_STRUCTURED_OUTPUT");
+        verify(audits).failure(46L, "PROVIDER_MALFORMED_STRUCTURED_OUTPUT");
+    }
+
+    @Test
+    void zeroRetryBudgetDoesNotCreateReplacementCall() {
+        PracticeAiResolvedBinding zeroBudget = binding(
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, true, 0);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        PracticeAiExecutionAuditService audits = mock(PracticeAiExecutionAuditService.class);
+        AtomicInteger calls = new AtomicInteger();
+        PracticeAiProviderTransport transport =
+                (resolved, path, contentType, accept, body, headers) -> {
+                    calls.incrementAndGet();
+                    return new PracticeAiProviderTransport.ProviderResponse(
+                            200, refusalEnvelope(),
+                            "application/json", "fake-refusal");
+                };
+        when(resolver.resolve(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION))
+                .thenReturn(zeroBudget);
+        when(audits.start(any(), any(), any(), any())).thenReturn(48L);
+
+        assertThatThrownBy(() -> adapter(resolver, audits, transport).generate(
+                request(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, List.of())))
+                .isInstanceOf(PracticeAiContractException.class)
+                .extracting(error -> ((PracticeAiContractException) error).category())
+                .isEqualTo("PROVIDER_REFUSAL");
+        assertThat(calls).hasValue(1);
+        verify(audits, times(1)).start(any(), any(), any(), any());
+    }
+
+    @Test
+    void consumedHttpRetryBudgetDoesNotCreateReplacementCall() {
+        PracticeAiResolvedBinding binding = binding(
+                PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, true, 1);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        PracticeAiExecutionAuditService audits = mock(PracticeAiExecutionAuditService.class);
+        AtomicInteger calls = new AtomicInteger();
+        PracticeAiProviderTransport transport =
+                (resolved, path, contentType, accept, body, headers) -> {
+                    if (calls.incrementAndGet() == 1) {
+                        return new PracticeAiProviderTransport.ProviderResponse(
+                                503, new byte[0], "application/json", "fake-503");
+                    }
+                    return new PracticeAiProviderTransport.ProviderResponse(
+                            200,
+                            envelope("{malformed"),
+                            "application/json",
+                            "fake-malformed");
+                };
+        when(resolver.resolve(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION))
+                .thenReturn(binding);
+        when(audits.start(any(), any(), any(), any())).thenReturn(49L);
+
+        assertThatThrownBy(() -> adapter(resolver, audits, transport).generate(
+                request(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, List.of())))
+                .isInstanceOf(PracticeAiContractException.class)
+                .extracting(error -> ((PracticeAiContractException) error).category())
+                .isEqualTo("PROVIDER_MALFORMED_STRUCTURED_OUTPUT");
+        assertThat(calls).hasValue(2);
+        verify(audits, times(1)).start(any(), any(), any(), any());
+        verify(audits).failure(49L, "PROVIDER_MALFORMED_STRUCTURED_OUTPUT");
+    }
+
     private static PracticeControlPlaneStructuredGenerationAdapter adapter(
             PracticeAiBindingResolver resolver,
             PracticeAiExecutionAuditService audits,
@@ -282,6 +432,14 @@ class PracticeControlPlaneStructuredGenerationAdapterTest {
                 + "\"message\":{\"content\":"
                 + quote(outputJson)
                 + "}}]}").getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] refusalEnvelope() {
+        return ("{\"id\":\"fake-refusal\",\"choices\":[{"
+                + "\"finish_reason\":\"stop\",\"message\":{"
+                + "\"refusal\":\"policy refusal fixture\","
+                + "\"content\":\"{}\"}}]}")
+                .getBytes(StandardCharsets.UTF_8);
     }
 
     private static String quote(String value) {

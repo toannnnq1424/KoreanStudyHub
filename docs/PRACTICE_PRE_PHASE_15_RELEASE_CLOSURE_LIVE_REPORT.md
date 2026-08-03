@@ -1138,3 +1138,44 @@ playback plus withdrawal/deletion propagation; and separately add one bounded,
 cost-controlled full-replacement retry/status contract for Writing and R/L.
 No malformed provider payload may be recursively repaired or merged into a
 score-bearing response.
+
+### 6.18 Bounded structured-response full replacement
+
+Status: `ENVELOPE_REPLACEMENT_GREEN / SHARED_COST_CEILING_GREEN / DOMAIN_SCHEMA_RETRY_OPEN`.
+
+The shared purpose-bound structured-generation adapter now permits at most one
+complete replacement after an HTTP-200 refusal, truncation, malformed/non-object
+structured output or empty content. HTTP retries and that replacement share the
+existing binding authority ceiling of `1 + maxRetries` (`1..4` total transport
+calls); a replacement is not attempted when an HTTP retry has consumed the
+remaining capacity. The stale Writing contract marker `max-retries=5` was
+replaced with the purpose-binding retry authority identity.
+
+Replacement is a new strict-schema request over the original trusted input. It
+uses a derived idempotency key, revalidates the exact binding, and owns a
+separate execution-audit row and reason. The rejected provider payload is not
+quoted or replayed, fields are never patched/merged, and a rejected replacement
+cannot recurse into another replacement. No global provider fallback, real
+provider call, secret, storage call, DB mutation, migration or score release was
+introduced.
+
+Dated `2026-08-03` JDK `17.0.19` focused command:
+
+`mvnw -Dtest=PracticeControlPlaneStructuredGenerationAdapterTest,StrictOpenAiStructuredResponseDecoderTest,WritingEvaluationClientTest,ReadingListeningExplanationClientTest,OpenAiCompatibleSpeakingEvaluationClientTest,PracticeAiRobustnessEvidenceStaticTest test`
+
+passed `76/76`. Captured fake tests prove distinct idempotency/audit identity,
+absence of the refusal body from the replacement request, one replacement only,
+zero-retry no-replacement, and no replacement after a retryable HTTP response
+has exhausted the shared call budget.
+
+The combined B1/B2/B3/control-plane/Writing/R/L/Speaking/acoustic/persistence/
+alignment selector passed `201` tests: `195` executed green and `6` existing
+DB/auth guards skipped.
+
+This closes envelope-level replacement only. Domain validators run after the
+shared port returns, so a Writing evidence/rubric mismatch, R/L evidence/
+coverage mismatch or transcript-Speaking rubric contradiction cannot yet
+request a bounded full replacement safely. The next safe design boundary is a
+domain-owned replacement coordinator or validator callback with the same hard
+budget and explicit `COMPLETE`, `PARTIAL_NON_SCORE` and `UNAVAILABLE` result;
+Writing/R/L independent diagnostics also still need item-level validation.
