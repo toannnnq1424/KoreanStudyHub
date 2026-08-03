@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-topik35-listening-import-package-v1",
+  "title": "Canonical TOPIK 35 Listening import source package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "targetContract", "loadPolicy", "sourceBindings", "sourceAnomalies", "manualQaEvidence", "playbackPolicy", "groups", "questions", "transcriptGaps", "materializationBlockers", "validationSummary"],
+  "properties": {
+    "schemaVersion": {"const": "practice-topik35-listening-import-package-v1"},
+    "packageId": {"const": "topik35-v1-listening-v1"},
+    "bundleId": {"const": "topik35-v1"},
+    "capturedAt": {"type": "string", "format": "date"},
+    "status": {"const": "CANONICAL_SOURCE_QA_COMPLETE_IMPORT_LOAD_BLOCKED"},
+    "skill": {"const": "LISTENING"},
+    "targetContract": {"$ref": "#/$defs/targetContract"},
+    "loadPolicy": {"$ref": "#/$defs/loadPolicy"},
+    "sourceBindings": {"$ref": "#/$defs/sourceBindings"},
+    "sourceAnomalies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceAnomaly"}},
+    "manualQaEvidence": {"$ref": "#/$defs/manualQaEvidence"},
+    "playbackPolicy": {"$ref": "#/$defs/playbackPolicy"},
+    "groups": {"type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/group"}},
+    "questions": {"type": "array", "minItems": 50, "maxItems": 50, "items": {"$ref": "#/$defs/question"}},
+    "transcriptGaps": {"type": "array", "items": {"$ref": "#/$defs/transcriptGap"}},
+    "materializationBlockers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "validationSummary": {"$ref": "#/$defs/validationSummary"}
+  },
+  "$defs": {
+    "targetContract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["canonicalQuestionType", "questionContentSchema", "answerSchema", "languageTag", "candidateMaterialized"],
+      "properties": {
+        "canonicalQuestionType": {"const": "SINGLE_CHOICE"},
+        "questionContentSchema": {"const": "question-content-v3"},
+        "answerSchema": {"const": "answer-spec-v1"},
+        "languageTag": {"const": "ko"},
+        "candidateMaterialized": {"const": false}
+      }
+    },
+    "loadPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["disposableLocalOnly", "sharedDatabaseAllowed", "productionDatabaseAllowed", "flywayMigration", "objectStoreWrite", "bulkSetIngestionAllowed"],
+      "properties": {
+        "disposableLocalOnly": {"const": true}, "sharedDatabaseAllowed": {"const": false},
+        "productionDatabaseAllowed": {"const": false}, "flywayMigration": {"const": false},
+        "objectStoreWrite": {"const": false}, "bulkSetIngestionAllowed": {"const": false}
+      }
+    },
+    "assetBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "sha256", "pageRange", "displayedIdentity"],
+      "properties": {
+        "artifactId": {"type": "string", "minLength": 1},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "pageRange": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}},
+        "displayedIdentity": {"type": "string", "minLength": 1}
+      }
+    },
+    "audioBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "sha256", "durationMs"],
+      "properties": {
+        "artifactId": {"const": "topik35-listening-program-mp3"},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/derived/audio-mp3/[0-9a-f]{64}\\.mp3$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "durationMs": {"type": "integer", "minimum": 1}
+      }
+    },
+    "timingCandidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "authoritative", "use"],
+      "properties": {
+        "artifactId": {"const": "topik35-youtube-auto-caption"},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/derived/transcript/[0-9a-f]{64}\\.vtt$"},
+        "authoritative": {"const": false}, "use": {"const": "QA_CANDIDATE_ONLY"}
+      }
+    },
+    "sourceBindings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionDocument", "transcriptDocument", "answerDocument", "audioProgram", "timingCandidate"],
+      "properties": {
+        "questionDocument": {"$ref": "#/$defs/assetBinding"},
+        "transcriptDocument": {"$ref": "#/$defs/assetBinding"},
+        "answerDocument": {"$ref": "#/$defs/assetBinding"},
+        "audioProgram": {"$ref": "#/$defs/audioBinding"},
+        "timingCandidate": {"$ref": "#/$defs/timingCandidate"}
+      }
+    },
+    "sourceAnomaly": {
+      "type": "object", "additionalProperties": false,
+      "required": ["code", "affectedArtifacts", "embeddedTitleMentions", "visibleHeaderAndAnswerAuthority", "resolution"],
+      "properties": {
+        "code": {"const": "PDF_EMBEDDED_TITLE_MISMATCH"},
+        "affectedArtifacts": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string"}},
+        "embeddedTitleMentions": {"const": "32회"},
+        "visibleHeaderAndAnswerAuthority": {"const": "제35회"},
+        "resolution": {"const": "BIND_TO_VISIBLE_35TH_HEADER_ANSWER_SHEET_AND_CONTENT_DIGEST"}
+      }
+    },
+    "manualQaEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["visualQuestionPdfPages", "visualTranscriptPdfPages", "visualAnswerPdfPages", "textExtractionRole", "questionCoverage", "answerCoverage", "transcriptCoverage", "transcriptGapCount"],
+      "properties": {
+        "visualQuestionPdfPages": {"type": "array", "minItems": 13, "maxItems": 13, "uniqueItems": true, "items": {"type": "integer"}},
+        "visualTranscriptPdfPages": {"type": "array", "minItems": 26, "maxItems": 26, "uniqueItems": true, "items": {"type": "integer"}},
+        "visualAnswerPdfPages": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": 1}},
+        "textExtractionRole": {"const": "INDEX_ONLY_NOT_LAYOUT_AUTHORITY"},
+        "questionCoverage": {"const": 50}, "answerCoverage": {"const": 50},
+        "transcriptCoverage": {"const": 50}, "transcriptGapCount": {"const": 0}
+      }
+    },
+    "playbackPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["singleOrderedAudioProgram", "startOnce", "continuousPlayback", "seekAllowed", "replayAllowed", "learnerControlsQuestionNavigation", "timestampAutoNavigation", "timestampAutoHighlight", "timestampDrivenAssistance"],
+      "properties": {
+        "singleOrderedAudioProgram": {"const": true}, "startOnce": {"const": true},
+        "continuousPlayback": {"const": true}, "seekAllowed": {"const": false},
+        "replayAllowed": {"const": false}, "learnerControlsQuestionNavigation": {"const": true},
+        "timestampAutoNavigation": {"const": false}, "timestampAutoHighlight": {"const": false},
+        "timestampDrivenAssistance": {"const": false}
+      }
+    },
+    "timingQa": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "startMs", "endMs", "firstAudibleCueMatched", "finalAudibleCueMatched", "repeatPlaybackAccountedFor", "neighborBoundaryChecked", "transcriptBoundaryChecked", "reviewerEvidenceId", "examModeConsumption"],
+      "properties": {
+        "status": {"const": "PENDING_MANUAL_AUDIO_QA"}, "startMs": {"type": "null"}, "endMs": {"type": "null"},
+        "firstAudibleCueMatched": {"const": false}, "finalAudibleCueMatched": {"const": false},
+        "repeatPlaybackAccountedFor": {"const": false}, "neighborBoundaryChecked": {"const": false},
+        "transcriptBoundaryChecked": {"const": false}, "reviewerEvidenceId": {"type": "null"},
+        "examModeConsumption": {"const": "FORBIDDEN"}
+      }
+    },
+    "group": {
+      "type": "object", "additionalProperties": false,
+      "required": ["groupId", "displayOrder", "questionFrom", "questionTo", "instruction", "questionSourcePdfPages", "transcriptSourcePdfPages", "timingQa"],
+      "properties": {
+        "groupId": {"type": "string", "pattern": "^L[0-9]{2}_[0-9]{2}$"},
+        "displayOrder": {"type": "integer", "minimum": 1, "maximum": 20},
+        "questionFrom": {"type": "integer", "minimum": 1, "maximum": 50},
+        "questionTo": {"type": "integer", "minimum": 1, "maximum": 50},
+        "instruction": {"type": "string", "minLength": 1},
+        "questionSourcePdfPages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 3, "maximum": 15}},
+        "transcriptSourcePdfPages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1, "maximum": 26}},
+        "timingQa": {"$ref": "#/$defs/timingQa"}
+      }
+    },
+    "pageSource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "pdfPage", "printedPage"],
+      "properties": {
+        "artifactId": {"type": "string", "minLength": 1},
+        "pdfPage": {"type": "integer", "minimum": 1},
+        "printedPage": {"type": "integer", "minimum": 1}
+      }
+    },
+    "answerSource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "pdfPage", "rowQuestion"],
+      "properties": {
+        "artifactId": {"const": "topik35-answer-key-pdf"},
+        "pdfPage": {"const": 1}, "rowQuestion": {"type": "integer", "minimum": 1, "maximum": 50}
+      }
+    },
+    "transcriptSource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "artifactId", "pdfPage", "printedPage"],
+      "properties": {
+        "status": {"const": "AUTHORITATIVE_PDF_PRESENT"},
+        "artifactId": {"const": "topik35-listening-transcript-pdf"},
+        "pdfPage": {"type": "integer", "minimum": 1, "maximum": 26},
+        "printedPage": {"type": "integer", "minimum": 1, "maximum": 26}
+      }
+    },
+    "question": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionNumber", "seedKey", "groupId", "questionType", "optionPresentation", "points", "correctOptionId", "correctOptionNumber", "questionSource", "answerSource", "transcriptSource"],
+      "properties": {
+        "questionNumber": {"type": "integer", "minimum": 1, "maximum": 50},
+        "seedKey": {"type": "string", "pattern": "^topik35-listening-q[0-9]{2}$"},
+        "groupId": {"type": "string", "pattern": "^L[0-9]{2}_[0-9]{2}$"},
+        "questionType": {"const": "SINGLE_CHOICE"},
+        "optionPresentation": {"enum": ["IMAGE_OPTIONS", "TEXT_OPTIONS"]},
+        "points": {"const": 2},
+        "correctOptionId": {"enum": ["opt_1", "opt_2", "opt_3", "opt_4"]},
+        "correctOptionNumber": {"type": "integer", "minimum": 1, "maximum": 4},
+        "questionSource": {"$ref": "#/$defs/pageSource"},
+        "answerSource": {"$ref": "#/$defs/answerSource"},
+        "transcriptSource": {"$ref": "#/$defs/transcriptSource"}
+      }
+    },
+    "transcriptGap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionFrom", "questionTo", "reason"],
+      "properties": {
+        "questionFrom": {"type": "integer"}, "questionTo": {"type": "integer"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "validationSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["groupCount", "questionCount", "totalPoints", "answerCount", "transcriptCoveredQuestionCount", "timingReadyGroupCount", "loadReady"],
+      "properties": {
+        "groupCount": {"const": 20}, "questionCount": {"const": 50},
+        "totalPoints": {"const": 100}, "answerCount": {"const": 50},
+        "transcriptCoveredQuestionCount": {"const": 50},
+        "timingReadyGroupCount": {"const": 0}, "loadReady": {"const": false}
+      }
+    }
+  }
+}

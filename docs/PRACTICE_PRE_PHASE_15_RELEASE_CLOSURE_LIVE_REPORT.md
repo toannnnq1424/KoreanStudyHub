@@ -1773,3 +1773,74 @@ Remaining content work is manual/SME QA: canonical transcription, page/image
 mapping, question/answer review and audio group timing verification. Until that
 evidence is attached, the bundle remains provenance/storage/group structure
 only and cannot be loaded into a shared or production database.
+
+### 6.32 TOPIK 35 Listening canonical source-import QA
+
+Status: `SOURCE_QA_GREEN / 50_ANSWERS_PINNED / 50_TRANSCRIPTS_COVERED / TIMING_PENDING / LOAD_BLOCKED`.
+
+On `2026-08-03`, the canonical TOPIK 35 slice was narrowed to Listening only.
+The licensed raw PDFs/audio remain local and Git-ignored. The repository now
+contains a closed, versioned source-import package/schema that references those
+assets only by the logical digest keys captured in 6.31; it contains no local
+path, bucket, delivery URL, credential or object-store configuration.
+
+Manual PDF QA rendered and visually inspected all Listening question pages
+`3–15`, all official integrated-transcript pages `1–26`, and Listening answer
+page `1`. Text extraction was used only as an index and not as layout
+authority. This review also recorded a source anomaly: the two PDFs' embedded
+metadata title mentions `32회`, while their visible headers, question content
+and answer authority consistently identify `제35회`. The package therefore
+binds the visible 35th-test identity together with exact document digests and
+does not silently trust the stale embedded title.
+
+The package pins all `50` question numbers, stable seed keys, canonical
+`SINGLE_CHOICE` type, `2` points each, group membership, option presentation,
+answer option, question-page/printed-page locator, answer-sheet row and
+transcript-page locator. The authoritative answer vector is:
+
+`2,4,1,2,4,3,2,4,1,3,1,3,4,4,3,3,1,1,2,1,2,2,4,3,4,2,2,4,1,3,4,2,1,2,4,4,2,4,2,1,3,3,1,3,3,1,1,2,4,3`.
+
+The exact canonical groups and source-page coverage are:
+
+| Group | Questions | Question PDF pages | Transcript PDF pages |
+|---|---:|---:|---:|
+| `L01_03` | 1–3 | 3–4 | 1–3 |
+| `L04_08` | 4–8 | 4–5 | 4–5 |
+| `L09_12` | 9–12 | 5 | 6–7 |
+| `L13_16` | 13–16 | 6 | 8–9 |
+| `L17_20` | 17–20 | 7 | 10–11 |
+| `L21_22` … `L49_50` | canonical two-question groups | 8–15 | 12–26, one page per group |
+
+The official integrated transcript covers `50/50`; there are no hidden or
+inferred transcript gaps. The YouTube auto-caption remains explicitly
+non-authoritative and may only assist manual timing review. Every group has an
+independent timing checklist with null `startMs`/`endMs` and all cue, repeat,
+neighbor and transcript-boundary checks false. Timing cannot be consumed in
+exam mode.
+
+The single-program exam contract is unchanged: start once, continuous audio,
+no seek, no replay, learner-owned question navigation, and no timestamp-driven
+navigation, highlighting or assistance.
+
+This is a canonical source-import package, not a loadable authoring candidate.
+It remains deliberately red on four explicit materialization boundaries:
+
+1. prompt/option text is not yet transcribed into `question-content-v3`;
+2. image option assets for questions 1–3 are not yet derived and mapped;
+3. all 20 group audio ranges still require manual listening QA; and
+4. canonical draft/version IDs have not been allocated.
+
+Consequently `candidateMaterialized=false`, `loadReady=false`, bulk set
+ingestion is forbidden, and no DB load/migration or local/R2 object write was
+performed. The requested 5–7-set bulk ingestion has not started.
+
+JDK `17.0.19` evidence:
+
+- focused source-package and parent-bundle gate
+  `mvnw -Dtest=PracticeTopik35ListeningImportPackageTest,PracticeTopik35CanonicalSeedBundleTest test`
+  passed `11/11`;
+- combined typed-contract/import/draft/storage compatibility gate
+  `mvnw '-Dtest=PracticeTopik35ListeningImportPackageTest,PracticeTopik35CanonicalSeedBundleTest,PracticePre15CanonicalUatSeedManifestTest,PracticeImportControllerTest,PracticePdfImportApiControllerTest,PracticeImportTargetServiceTest,PracticeDraftValidatorTest,PracticeAuthoringCandidateNormalizationValidationTest,PracticePdfAuthoringOutputValidatorTest,PracticeStorageProfilesStaticContractTest,PracticeSeedAssetStorageTest,ProfiledPracticeAuthoringStorageTest' test`
+  passed `83/83`; and
+- `jq empty`, the forbidden local-path/storage-URL scan and
+  `mvnw -DskipTests package` all completed green.
