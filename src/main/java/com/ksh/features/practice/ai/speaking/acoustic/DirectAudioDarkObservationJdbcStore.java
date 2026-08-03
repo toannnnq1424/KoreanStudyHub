@@ -66,8 +66,22 @@ public class DirectAudioDarkObservationJdbcStore
                        o.observation_payload, o.retention_policy_id,
                        o.captured_at, o.delete_after
                 FROM practice_speaking_direct_audio_dark_observations o
+                JOIN practice_attempts a ON a.id = o.attempt_id
                 WHERE o.attempt_id = ?
                   AND o.deleted_at IS NULL AND o.delete_after > ?
+                  AND EXISTS (
+                    SELECT 1
+                    FROM practice_speaking_audio_consent_events c
+                    WHERE c.learner_id = a.user_id AND c.attempt_id = a.id
+                      AND c.purpose_code = 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'
+                      AND c.id = (
+                        SELECT c2.id
+                        FROM practice_speaking_audio_consent_events c2
+                        WHERE c2.learner_id = a.user_id AND c2.attempt_id = a.id
+                          AND c2.purpose_code = 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'
+                        ORDER BY c2.occurred_at DESC, c2.id DESC
+                        LIMIT 1)
+                      AND c.event_type = 'GRANTED')
                   AND EXISTS (
                     SELECT 1
                     FROM practice_speaking_audio_reviewer_grants g

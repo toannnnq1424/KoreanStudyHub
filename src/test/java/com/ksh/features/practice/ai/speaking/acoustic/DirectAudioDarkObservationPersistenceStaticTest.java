@@ -41,6 +41,7 @@ class DirectAudioDarkObservationPersistenceStaticTest {
                 .contains("g.reviewer_id = ?")
                 .contains("g.revoked_at IS NULL AND g.expires_at > ?")
                 .contains("o.deleted_at IS NULL AND o.delete_after > ?")
+                .contains("c.event_type = 'GRANTED'")
                 .doesNotContain("SELECT *", "audioBytes", "accessToken",
                         "providerRequestId");
     }

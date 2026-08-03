@@ -1281,3 +1281,22 @@ No reviewer UI, audit-event presenter, real provider/storage call, secret,
 direct-audio score release or learner playback exposure was added. Provider
 policy evidence, captured provider consumption, Korean corpus/calibration/
 fairness/repeatability evidence and explicit dark-rollout approval remain red.
+
+### 6.21 Consent withdrawal closes every reviewer read path
+
+Status: `WITHDRAWAL_READ_GATE_GREEN / NO_MIGRATION / NO_SCORE`.
+
+The post-V93 audit found that reviewer ranged playback already derived the
+latest direct-audio consent event, but the reviewer-only dark-observation
+inspection query had only enforced named grant and retention. The JDBC reader
+now joins the owned Speaking attempt and requires that the latest event for the
+same learner, attempt and exact direct-audio purpose is `GRANTED`. A later
+`WITHDRAWN` event therefore makes both the numeric diagnostic inspection and
+the private-audio range route return no descriptor. This adds no audio transfer,
+provider/storage call, controller/UI or score field, and V1–V93 remain
+unchanged.
+
+The JDK `17.0.19` direct-audio focused selector passed `55/55` for this
+boundary; the immutable query/static gate covers latest-event ordering, exact
+purpose, grant expiry/revocation, retention/deletion and the no-learner-surface
+scan.
