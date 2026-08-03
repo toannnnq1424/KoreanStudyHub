@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "practice-topik35-reading-source-audit-v1",
+  "auditId": "topik35-v1-reading-source-identity-audit-20260803",
+  "bundleId": "topik35-v1",
+  "skill": "READING",
+  "auditedAt": "2026-08-03T15:22:31Z",
+  "rightsAssertion": {
+    "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+    "scope": "Every user-supplied source URL and its linked routes may be reused experimentally for this local Practice seed work.",
+    "linkedFromArtifactId": "topik35-source-index"
+  },
+  "acceptancePolicy": {
+    "defaultCandidateStatus": "REJECTED_UNLESS_EXACT_VISIBLE_TOPIK35_IDENTITY_CONFIRMED",
+    "filenameOrRouteLabelIsIdentityProof": false,
+    "textExtractionAloneIsIdentityProof": false,
+    "requiredIdentity": [
+      "TEST_NUMBER_35",
+      "LEVEL_TOPIK_II",
+      "SKILL_READING"
+    ]
+  },
+  "discoveryIndex": {
+    "artifactId": "topik35-source-index",
+    "sourceUrl": "https://giasutamtaiduc.com/tai-de-thi-topik-35.html",
+    "logicalKey": "practice-seed/topik35-v1/source/document/3feaac13d1080d46bc990656d0275624853aa4ad22772a7077074287e64c5818.html",
+    "sha256": "3feaac13d1080d46bc990656d0275624853aa4ad22772a7077074287e64c5818",
+    "sizeBytes": 78248,
+    "routeAuthority": "USER_AUTHORIZED_THIRD_PARTY_INDEX_NOT_OFFICIAL_SOURCE_DOMAIN",
+    "observedSection": "Đề thi TOPIK 35 (cấp 3, 4, 5, 6)",
+    "availability": {
+      "checkedAt": "2026-08-03T15:22:31Z",
+      "httpStatus": 200,
+      "effectiveUrl": "https://giasutamtaiduc.com/tai-de-thi-topik-35.html",
+      "contentType": "text/html; charset=UTF-8"
+    }
+  },
+  "candidates": [
+    {
+      "candidateId": "topik35-reading-question-document",
+      "artifactId": "topik35-reading-pdf",
+      "kind": "QUESTION_DOCUMENT",
+      "sourceUrl": "https://drive.google.com/file/d/1l3ZJmgYIJgusIMqt3LDuLc0T_-0sLWMn/preview",
+      "routeLabel": "읽기 Reading Đọc",
+      "routeAuthority": "USER_AUTHORIZED_LINKED_DRIVE_ROUTE_NOT_OFFICIAL_SOURCE_DOMAIN",
+      "status": "CONFIRMED",
+      "logicalKey": "practice-seed/topik35-v1/source/document/d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd.pdf",
+      "sha256": "d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd",
+      "sizeBytes": 13902947,
+      "mediaType": "application/pdf",
+      "pageCount": 23,
+      "availability": {
+        "checkedAt": "2026-08-03T15:22:31Z",
+        "httpStatus": 200,
+        "effectiveUrl": "https://drive.google.com/file/d/1l3ZJmgYIJgusIMqt3LDuLc0T_-0sLWMn/preview",
+        "contentType": "text/html; charset=utf-8"
+      },
+      "visibleIdentityEvidence": [
+        {
+          "pdfPage": 1,
+          "observedText": "제35회 한국어능력시험 / The 35th Test of Proficiency in Korean / TOPIK II B / 2교시 읽기",
+          "observedBranding": "NATIONAL_INSTITUTE_FOR_INTERNATIONAL_EDUCATION"
+        },
+        {
+          "pdfPage": 23,
+          "observedText": "제35회 한국어능력시험 II B형 2교시 (읽기); questions 48–50",
+          "observedBranding": "TOPIK"
+        }
+      ],
+      "ambiguities": [
+        "PDF document metadata does not provide an authoritative title; visible page identity is the authority.",
+        "The linked Drive route is not itself an official TOPIK/NIIED domain."
+      ]
+    },
+    {
+      "candidateId": "topik35-reading-answer-authority",
+      "artifactId": "topik35-answer-key-pdf",
+      "kind": "ANSWER_DOCUMENT",
+      "sourceUrl": "https://drive.google.com/file/d/1x_Obz1lCrqEcqdA5jCwUQMyBWdE0xy02/preview",
+      "routeLabel": "정답표 Answers Đáp án",
+      "routeAuthority": "USER_AUTHORIZED_LINKED_DRIVE_ROUTE_NOT_OFFICIAL_SOURCE_DOMAIN",
+      "status": "CONFIRMED",
+      "logicalKey": "practice-seed/topik35-v1/source/document/60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b.pdf",
+      "sha256": "60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b",
+      "sizeBytes": 261669,
+      "mediaType": "application/pdf",
+      "pageCount": 3,
+      "availability": {
+        "checkedAt": "2026-08-03T15:22:31Z",
+        "httpStatus": 200,
+        "effectiveUrl": "https://drive.google.com/file/d/1x_Obz1lCrqEcqdA5jCwUQMyBWdE0xy02/preview",
+        "contentType": "text/html; charset=utf-8"
+      },
+      "visibleIdentityEvidence": [
+        {
+          "pdfPage": 3,
+          "observedText": "시험 회차 : 제35회 / 시험 수준 : TOPIK II / 영역 : 읽기; 50 answers at 2 points each",
+          "observedBranding": "TOPIK"
+        }
+      ],
+      "ambiguities": [
+        "The answer artifact is shared across Listening, Writing and Reading; PDF page 3 is the exact Reading authority.",
+        "The linked Drive route is not itself an official TOPIK/NIIED domain."
+      ]
+    }
+  ],
+  "rejectedOrAbsentRoutes": [
+    {
+      "routeLabel": "듣기 지문 – Listening Text – Kịch bản nghe",
+      "sourceUrl": "https://drive.google.com/file/d/1axfQN8lFoWYQ_e4JNmLsyATTBYLH1tGt/preview",
+      "status": "REJECTED_FOR_READING",
+      "reason": "LISTENING_TRANSCRIPT_NOT_READING_TRANSCRIPT"
+    },
+    {
+      "routeLabel": "TOPIK 35 level I Đề Đọc Nghe",
+      "sourceUrl": "https://drive.google.com/file/d/1zHywTu-I0mppmrH1jtL9GBdmksWiT9iL/preview",
+      "status": "REJECTED_FOR_READING",
+      "reason": "TOPIK_I_OUT_OF_SCOPE_FOR_TOPIK_II_BUNDLE"
+    },
+    {
+      "routeLabel": "TOPIK 35 level I Đáp án Đọc",
+      "sourceUrl": "https://drive.google.com/file/d/1dWJKbCs_sIFPzuu_nAHxrPUGFZrFPiBn/preview",
+      "status": "REJECTED_FOR_READING",
+      "reason": "TOPIK_I_OUT_OF_SCOPE_FOR_TOPIK_II_BUNDLE"
+    },
+    {
+      "routeLabel": "Reading-specific transcript or separate Reading asset",
+      "sourceUrl": null,
+      "status": "ABSENT_FROM_AUTHORIZED_INDEX",
+      "reason": "NO_READING_SPECIFIC_TRANSCRIPT_OR_SEPARATE_ASSET_ROUTE_OBSERVED"
+    }
+  ],
+  "verdict": {
+    "questionDocumentIdentity": "CONFIRMED_EXACT_TOPIK35_TOPIK_II_READING",
+    "answerDocumentIdentity": "CONFIRMED_EXACT_TOPIK35_TOPIK_II_READING",
+    "readingTranscriptIdentity": "NOT_PROVIDED_NOT_REQUIRED_FOR_READING_SOURCE_IDENTITY",
+    "separateReadingAssetIdentity": "NOT_PROVIDED_ASSET_DISCOVERY_DEFERRED_TO_LATER_CONTENT_QA",
+    "discoveryComplete": true,
+    "contentMaterializationAllowedByThisAudit": false,
+    "loadReady": false
+  },
+  "executionBoundary": {
+    "bulkDownloadPerformed": false,
+    "newBinaryCaptured": false,
+    "questionMaterializationPerformed": false,
+    "databaseRowsCreated": false,
+    "databaseCallPerformed": false,
+    "migrationPerformed": false,
+    "objectStoreCallPerformed": false,
+    "providerCallPerformed": false,
+    "aiCallPerformed": false,
+    "learnerSurfaceChanged": false
+  }
+}

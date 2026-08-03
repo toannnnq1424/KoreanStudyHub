@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-topik35-reading-source-audit-v1.json",
+  "title": "TOPIK 35 Reading provenance-only source identity audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "auditId",
+    "bundleId",
+    "skill",
+    "auditedAt",
+    "rightsAssertion",
+    "acceptancePolicy",
+    "discoveryIndex",
+    "candidates",
+    "rejectedOrAbsentRoutes",
+    "verdict",
+    "executionBoundary"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "practice-topik35-reading-source-audit-v1"},
+    "auditId": {"type": "string", "minLength": 1},
+    "bundleId": {"const": "topik35-v1"},
+    "skill": {"const": "READING"},
+    "auditedAt": {"type": "string", "format": "date-time"},
+    "rightsAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rightsAssertionId", "scope", "linkedFromArtifactId"],
+      "properties": {
+        "rightsAssertionId": {"const": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803"},
+        "scope": {"type": "string", "minLength": 1},
+        "linkedFromArtifactId": {"const": "topik35-source-index"}
+      }
+    },
+    "acceptancePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defaultCandidateStatus", "filenameOrRouteLabelIsIdentityProof", "textExtractionAloneIsIdentityProof", "requiredIdentity"],
+      "properties": {
+        "defaultCandidateStatus": {"const": "REJECTED_UNLESS_EXACT_VISIBLE_TOPIK35_IDENTITY_CONFIRMED"},
+        "filenameOrRouteLabelIsIdentityProof": {"const": false},
+        "textExtractionAloneIsIdentityProof": {"const": false},
+        "requiredIdentity": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "TEST_NUMBER_35"},
+            {"const": "LEVEL_TOPIK_II"},
+            {"const": "SKILL_READING"}
+          ],
+          "items": false
+        }
+      }
+    },
+    "discoveryIndex": {"$ref": "#/$defs/discoveryIndex"},
+    "candidates": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/candidate"}
+    },
+    "rejectedOrAbsentRoutes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/rejectedRoute"}
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["questionDocumentIdentity", "answerDocumentIdentity", "readingTranscriptIdentity", "separateReadingAssetIdentity", "discoveryComplete", "contentMaterializationAllowedByThisAudit", "loadReady"],
+      "properties": {
+        "questionDocumentIdentity": {"const": "CONFIRMED_EXACT_TOPIK35_TOPIK_II_READING"},
+        "answerDocumentIdentity": {"const": "CONFIRMED_EXACT_TOPIK35_TOPIK_II_READING"},
+        "readingTranscriptIdentity": {"const": "NOT_PROVIDED_NOT_REQUIRED_FOR_READING_SOURCE_IDENTITY"},
+        "separateReadingAssetIdentity": {"const": "NOT_PROVIDED_ASSET_DISCOVERY_DEFERRED_TO_LATER_CONTENT_QA"},
+        "discoveryComplete": {"const": true},
+        "contentMaterializationAllowedByThisAudit": {"const": false},
+        "loadReady": {"const": false}
+      }
+    },
+    "executionBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bulkDownloadPerformed", "newBinaryCaptured", "questionMaterializationPerformed", "databaseRowsCreated", "databaseCallPerformed", "migrationPerformed", "objectStoreCallPerformed", "providerCallPerformed", "aiCallPerformed", "learnerSurfaceChanged"],
+      "properties": {
+        "bulkDownloadPerformed": {"const": false},
+        "newBinaryCaptured": {"const": false},
+        "questionMaterializationPerformed": {"const": false},
+        "databaseRowsCreated": {"const": false},
+        "databaseCallPerformed": {"const": false},
+        "migrationPerformed": {"const": false},
+        "objectStoreCallPerformed": {"const": false},
+        "providerCallPerformed": {"const": false},
+        "aiCallPerformed": {"const": false},
+        "learnerSurfaceChanged": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkedAt", "httpStatus", "effectiveUrl", "contentType"],
+      "properties": {
+        "checkedAt": {"type": "string", "format": "date-time"},
+        "httpStatus": {"const": 200},
+        "effectiveUrl": {"type": "string", "pattern": "^https://"},
+        "contentType": {"type": "string", "minLength": 1}
+      }
+    },
+    "discoveryIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactId", "sourceUrl", "logicalKey", "sha256", "sizeBytes", "routeAuthority", "observedSection", "availability"],
+      "properties": {
+        "artifactId": {"const": "topik35-source-index"},
+        "sourceUrl": {"type": "string", "pattern": "^https://"},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/source/document/[a-f0-9]{64}\\.html$"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "sizeBytes": {"type": "integer", "minimum": 1},
+        "routeAuthority": {"const": "USER_AUTHORIZED_THIRD_PARTY_INDEX_NOT_OFFICIAL_SOURCE_DOMAIN"},
+        "observedSection": {"type": "string", "minLength": 1},
+        "availability": {"$ref": "#/$defs/availability"}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateId", "artifactId", "kind", "sourceUrl", "routeLabel", "routeAuthority", "status", "logicalKey", "sha256", "sizeBytes", "mediaType", "pageCount", "availability", "visibleIdentityEvidence", "ambiguities"],
+      "properties": {
+        "candidateId": {"type": "string", "minLength": 1},
+        "artifactId": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["QUESTION_DOCUMENT", "ANSWER_DOCUMENT"]},
+        "sourceUrl": {"type": "string", "pattern": "^https://"},
+        "routeLabel": {"type": "string", "minLength": 1},
+        "routeAuthority": {"const": "USER_AUTHORIZED_LINKED_DRIVE_ROUTE_NOT_OFFICIAL_SOURCE_DOMAIN"},
+        "status": {"const": "CONFIRMED"},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/source/document/[a-f0-9]{64}\\.pdf$"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "sizeBytes": {"type": "integer", "minimum": 1},
+        "mediaType": {"const": "application/pdf"},
+        "pageCount": {"type": "integer", "minimum": 1},
+        "availability": {"$ref": "#/$defs/availability"},
+        "visibleIdentityEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pdfPage", "observedText", "observedBranding"],
+            "properties": {
+              "pdfPage": {"type": "integer", "minimum": 1},
+              "observedText": {"type": "string", "minLength": 1},
+              "observedBranding": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "ambiguities": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "rejectedRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routeLabel", "sourceUrl", "status", "reason"],
+      "properties": {
+        "routeLabel": {"type": "string", "minLength": 1},
+        "sourceUrl": {"type": ["string", "null"], "pattern": "^https://"},
+        "status": {"enum": ["REJECTED_FOR_READING", "ABSENT_FROM_AUTHORIZED_INDEX"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

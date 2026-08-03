@@ -2108,3 +2108,60 @@ JDK `17.0.19` evidence:
 - `jq empty`, `git diff --check`, logical-key/path leakage assertions and
   adversarial prompt/answer/chart/crop/rubric/readiness tests completed green;
   `mvnw -DskipTests package` also completed green.
+
+### 6.37 TOPIK 35 Reading provenance-only source identity audit
+
+Status: `EXACT_READING_AND_ANSWER_IDENTITY_CONFIRMED / CONTENT_NOT_MATERIALIZED / LOAD_BLOCKED`.
+
+On `2026-08-03T15:22:31Z`, the user-authorized discovery index, Reading
+preview route and shared answer-key preview route each returned HTTP `200`.
+This confirms availability only; neither the third-party index nor its linked
+Drive route is represented as an official TOPIK/NIIED source domain. The
+rights linkage remains the existing
+`TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803` assertion covering the
+user-supplied source URL and its linked routes.
+
+Exact identity was established from rendered PDF pages, not route labels,
+filenames or extracted text alone:
+
+| Candidate | Digest / pages | Visible identity | Verdict |
+|---|---|---|---|
+| Reading question document | `d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd` / 23 | cover: `제35회 한국어능력시험`, `TOPIK II B`, `2교시 읽기`; final page: `제35회 ... II B형 2교시 (읽기)`, Q48–50 | `CONFIRMED` |
+| Shared answer document | `60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b` / 3 | page 3: `시험 회차 : 제35회`, `시험 수준 : TOPIK II`, `영역 : 읽기`, 50 answers at 2 points | `CONFIRMED` |
+
+The linked `듣기 지문` document is explicitly rejected as a Reading source:
+it is the Listening transcript. The two earlier Level-I question/Reading-answer
+routes are also rejected for this TOPIK-II bundle. No Reading-specific
+transcript or separate Reading asset route appears under the authorized TOPIK
+II index. That absence is recorded rather than inferred into content; a later
+content/visual QA slice must discover any page-embedded Reading assets.
+
+The versioned closed audit package and schema are
+`practice-topik35-reading-source-audit.json` and
+`practice-topik35-reading-source-audit.schema.json`. They pin the discovery
+index and accepted documents to the existing immutable logical keys, hashes,
+sizes, page counts, live-route observations, visible identity evidence,
+ambiguities and rights assertion. The acceptance policy remains fail-closed:
+a candidate is rejected unless test number `35`, level `TOPIK II` and skill
+`READING` are visibly confirmed.
+
+This was a provenance-only discovery boundary. No new binary/bulk download,
+question or answer materialization, DB row/load, migration, R2/object call,
+AI/provider call or learner-surface change occurred. `loadReady=false` and the
+audit does not authorize the next content-import step.
+
+Validation evidence:
+
+- `jq empty docs/operations/practice-topik35-reading-source-audit.json docs/operations/practice-topik35-reading-source-audit.schema.json` passed;
+- deterministic assertions verified exactly two accepted candidates, `23/3`
+  pages, pinned digests, two out-of-scope and one Listening-only rejection,
+  explicit absent Reading transcript/asset, all no-side-effect markers and
+  `loadReady=false`;
+- source/bundle cross-check matched both accepted artifact IDs, SHA-256 values,
+  sizes, logical keys and the rights assertion against
+  `practice-topik35-canonical-seed-bundle.json`;
+- JDK `17.0.19` focused provenance regression
+  `mvnw -Dtest=PracticeTopik35CanonicalSeedBundleTest test` passed `5/5` with
+  no DB, storage or provider dependency; and
+- `git diff --check` plus changed-file boundary/path-leakage scans completed
+  green with documentation/provenance files only.
