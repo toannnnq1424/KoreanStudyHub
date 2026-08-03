@@ -49,9 +49,10 @@ JDBC-written `LocalDateTime` leases by seven hours on JPA read.
 The forward-only V96 retention follow-up then passed `31/31` focused and
 `89/89` combined tests. A second fresh disposable database applied exactly
 V1–V96; its schema/cleanup integration gate passed `19/19`, and package passed.
-The purge worker is default-off and capped at 1,000 expired rows per run. Its
-default policy ID is blank and duration is `PT0S`, so both reviewer read paths
-remain fail-closed until an approved policy identity and duration are supplied.
+The purge worker is default-off and capped at 1,000 expired rows per run. The
+product/data owner subsequently approved `P90D` under immutable policy ID
+`KSH-SPEAKING-DIRECT-AUDIO-REVIEWER-ACCESS-AUDIT-RETENTION-V1`; those values
+are now the repository defaults. Invalid runtime overrides still fail closed.
 
 ## Remaining release blockers
 
@@ -64,9 +65,9 @@ remain fail-closed until an approved policy identity and duration are supplied.
   audit-event history presenter remains a separate non-score-bearing slice.
   Denied-probe auditing is intentionally not in V95:
   identifiers/network metadata and their retention require a separate approved
-  privacy/security policy. The purge mechanism is implemented in V96, but the
-  retention term/policy identity must be approved before either reviewer API
-  is enabled. V94 now enqueues exact consent-withdrawal cleanup
+  privacy/security policy. The V96 purge mechanism and `P90D` policy identity
+  are approved, but the worker and reviewer APIs remain default-off pending the
+  wider operational release gate. V94 now enqueues exact consent-withdrawal cleanup
   through the existing private-media worker, which remains default-off until
   an operational release configuration is approved. No learner acoustic score
   or playback UI is authorized by this work.

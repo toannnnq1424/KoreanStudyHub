@@ -1422,7 +1422,8 @@ aligned.
 
 Operational readiness remains red. Before enabling either reviewer API, the
 privacy/release owner must approve a bounded retention term and purge mechanism
-for authorized-access metadata. Denied-access audit collection, if desired,
+for authorized-access metadata. This decision is subsequently closed in 6.27;
+the API/worker enablement gates remain closed. Denied-access audit collection, if desired,
 must separately decide which attempted identifiers/IP/user-agent fields are
 permitted and how long they are retained. Reviewer UI/audit presentation,
 provider-side deletion confirmation, real provider policy/capture evidence,
@@ -1432,7 +1433,7 @@ shared DB, learner acoustic exposure or score release occurred.
 
 ### 6.25 Reviewer-access audit retention mechanism
 
-Status: `V96_FORWARD_ONLY / RETENTION_CONFIG_REQUIRED / PURGE_DEFAULT_OFF / FAIL_CLOSED`.
+Status: `V96_FORWARD_ONLY / POLICY_PENDING_AT_SLICE / PURGE_DEFAULT_OFF / FAIL_CLOSED`.
 
 Forward-only V96 adds `retention_policy_id`, per-event `delete_after` and a
 bounded retention index to the V95 authorized-access event table. It does not
@@ -1441,7 +1442,7 @@ unclassified with null retention fields; the code does not guess a policy for
 them. Every current audit write requires a token-shaped immutable policy ID and
 a positive duration, persists their exact derived deadline, and fails with
 `DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION_NOT_READY` before INSERT when
-either value is missing. Because both reviewer services audit before returning
+either value is missing. At this slice boundary, because both reviewer services audit before returning
 metadata/opening storage, their default blank ID plus `PT0S` duration keeps the
 data plane closed even if one API toggle is changed in isolation.
 
@@ -1518,3 +1519,34 @@ highlighting and range seeking. That cannot be truthfully populated until a
 dedicated Korean forced-aligner/ASR timestamp component and captured acoustic
 evidence exist; Gemini/LLM output alone is not treated as timestamp proof. The
 current page intentionally stops at original-audio playback and metadata.
+
+### 6.27 Product/data-owner approval: reviewer audit retention P90D
+
+Status: `P90D_APPROVED / POLICY_ARTIFACT_PINNED / APIS_AND_WORKER_STILL_DEFAULT_OFF`.
+
+On `2026-08-03`, the product/data owner explicitly selected `P90D` for
+authorized reviewer-access metadata. The immutable artifact
+`KSH-SPEAKING-DIRECT-AUDIO-REVIEWER-ACCESS-AUDIT-RETENTION-V1` now binds that
+duration to exact direct-audio purpose, metadata-only retained fields, forbidden
+audio/storage/provider/score/network fields, per-event V96 deletion deadlines,
+a maximum 1,000-row purge batch and `NOT_COLLECTED` denied-probe policy.
+
+Repository defaults now use this policy ID and `P90D`; invalid or missing
+runtime overrides still fail closed. This approval does not enable the purge
+worker, reviewer page, metadata/playback APIs, provider transport, direct-audio
+score release or learner UI. All those toggles remain false until their
+independent readiness evidence is green.
+
+Verification on JDK 17:
+
+- `mvnw -Dtest=DirectAudioReviewerAccessAuditPolicyArtifactTest,DirectAudioReviewerAccessAuditTest,DirectAudioReviewerAccessAuditRetentionTest,DirectAudioDarkObservationPersistenceStaticTest test`
+  passed `12/12`;
+- the combined direct-audio/security/media/static compatibility gate passed
+  `92/92`; and
+- `mvnw -DskipTests package` completed green.
+
+These gates use fake/static evidence only. No retained/shared DB row was
+mutated and no purge/provider/storage call occurred. Preproduction null-policy
+V95 rows are still not guessed into P90D; their count/disposition must be
+verified on the explicit disposable or deployment-target inventory before
+worker enablement.
