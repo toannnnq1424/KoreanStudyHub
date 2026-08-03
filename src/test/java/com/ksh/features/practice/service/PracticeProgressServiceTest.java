@@ -13,7 +13,7 @@ import com.ksh.entities.PracticeSectionVersion;
 import com.ksh.entities.PracticeSetVersion;
 import com.ksh.entities.PracticeTestVersion;
 import com.ksh.entities.WritingTaskType;
-import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingFeedbackContractParser;
 import com.ksh.features.practice.ai.writing.WritingContractTestFixtures;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeProgressPageData;
 import com.ksh.features.practice.dto.PracticeDtos.ProgressAvailability;
@@ -88,7 +88,7 @@ class PracticeProgressServiceTest {
                 testVersionRepository,
                 sectionVersionRepository,
                 questionVersionRepository,
-                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackContractParser(objectMapper),
                 objectMapper,
                 Clock.fixed(Instant.parse("2026-07-25T02:00:00Z"), ZoneOffset.UTC));
         lenient().when(attemptRepository.findProgressAllTime(
@@ -1049,7 +1049,7 @@ class PracticeProgressServiceTest {
     }
 
     @Test
-    void writingMismatchUnavailableAndLegacyEvidenceAreExcludedNotZeroed() {
+    void writingMismatchAndUnavailableEvidenceAreExcludedNotZeroed() {
         PracticeAttempt attempt = writingAttempt("""
                 {
                   "301":{
@@ -1066,15 +1066,7 @@ class PracticeProgressServiceTest {
                     "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATION_UNAVAILABLE",
                     "evaluation_source":"PROVIDER","evaluation_reason":"HTTP_ERROR",
-                    "score_available":false
-                  },
-                  "303":{
-                    "raw_score":15,"raw_score_max":30,
-                    "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V2",
-                    "scoring_contract":"LEGACY_BAND_V1",
-                    "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                    "evaluation_reason":"NONE","evaluation_retryable":false,
-                    "score_available":true
+                    "evaluation_retryable":true,"score_available":false
                   }
                 }
                 """);
@@ -1084,9 +1076,7 @@ class PracticeProgressServiceTest {
                         writingQuestion(
                                 301L, WritingTaskType.Q51, new BigDecimal("10")),
                         writingQuestion(
-                                302L, WritingTaskType.Q52, new BigDecimal("10")),
-                        writingQuestion(
-                                303L, WritingTaskType.Q53, new BigDecimal("30"))));
+                                302L, WritingTaskType.Q52, new BigDecimal("10"))));
 
         PracticeProgressPageData page =
                 service.getProgressPageData(USER_ID, "Learner", "");
@@ -1097,8 +1087,6 @@ class PracticeProgressServiceTest {
                 page,
                 "Q52",
                 ProgressExclusionReason.WRITING_EVALUATION_NOT_SCORE_BEARING);
-        assertWritingExclusion(
-                page, "Q53", ProgressExclusionReason.WRITING_LEGACY_SCORE_EVIDENCE);
         assertThat(page.analytics().writingAttemptCoverage().eligibleCount()).isZero();
         assertThat(page.analytics().writingAttemptCoverage().excludedCount())
                 .isEqualTo(1);

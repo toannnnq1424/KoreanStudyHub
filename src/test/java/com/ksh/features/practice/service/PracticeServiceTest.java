@@ -2506,18 +2506,6 @@ class PracticeServiceTest {
 
 
 
-    private void assertMixedEnvelope(PracticeAttempt attempt) throws Exception {
-        JsonNode root = objectMapper.readTree(attempt.getAiFeedbackJson());
-        assertEquals("speaking_mixed_v1", root.path("_contract").asText());
-        assertTrue(root.path("speaking_feedback_by_question").path("101").isObject());
-        assertTrue(root.path("essay_feedback_by_question").path("202").isObject());
-        assertFalse(root.path("speaking_feedback_by_question").has("202"));
-        assertFalse(root.path("essay_feedback_by_question").has("101"));
-        assertFalse(attempt.getAiFeedbackJson().contains("SPEAKING_PRIVATE_SENTINEL_MIXED"));
-        assertFalse(attempt.getAiFeedbackJson().contains("ESSAY_PRIVATE_SENTINEL_MIXED"));
-        assertTrue(attempt.getAnswersJson().contains("SPEAKING_PRIVATE_SENTINEL_MIXED"));
-        assertTrue(attempt.getAnswersJson().contains("ESSAY_PRIVATE_SENTINEL_MIXED"));
-    }
 
 
     @Test
@@ -2981,34 +2969,6 @@ class PracticeServiceTest {
         assertEquals(0, attempt.getScore().compareTo(oldScore));
         assertEquals(oldFeedback, attempt.getAiFeedbackJson());
         verify(attemptRepository, never()).saveAndFlush(attempt);
-    }
-
-    @Test
-    void testWritingQuestionReEvaluateBlocksLegacyFlatMultiEssayBeforeEvaluator() {
-        arrangeWritingQuestionReEvaluationAttempt(
-                "{\"101\":\"3\",\"102\":\"A1\",\"103\":\"A2\"}",
-                "{\"raw_score\":6.0,\"raw_score_max\":10.0,\"student_text\":\"A1\"}",
-                true);
-
-        assertThrows(PracticeAttemptConflictException.class,
-                () -> practiceService.reEvaluateQuestion(99L, 102L, 2L));
-
-        verifyNoInteractions(evaluationClient);
-        verify(attemptRepository, never()).saveAndFlush(any());
-    }
-
-    @Test
-    void testWritingQuestionReEvaluateBlocksLegacyFlatSingleEssayBeforeEvaluator() {
-        arrangeSingleEssayWritingQuestionReEvaluationAttempt(
-                "{\"102\":\"A1\"}",
-                "{\"raw_score\":6.0,\"raw_score_max\":10.0,\"student_text\":\"A1\"}");
-
-        assertThrows(PracticeAttemptConflictException.class,
-                () -> practiceService.reEvaluateQuestion(
-                        99L, 102L, 2L));
-
-        verifyNoInteractions(evaluationClient);
-        verify(attemptRepository, never()).saveAndFlush(any());
     }
 
     @Test

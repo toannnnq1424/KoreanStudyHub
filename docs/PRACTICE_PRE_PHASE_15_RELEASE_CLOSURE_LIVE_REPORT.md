@@ -62,9 +62,8 @@ decision before removal:
 
 | Inventory | Current disposition | Reason |
 | --- | --- | --- |
-| `speaking_mixed_v1` / `essay_feedback_by_question` | `REVIEW_REQUIRED` | Still-active compatibility envelope; fresh DB has no retained rows to prove removal safe. |
-| `SpeakingFeedbackCompatibilityReader` / `LEGACY_RESULT` | `REVIEW_REQUIRED` | Read/reuse boundary for old payloads; requires retained-payload inventory or approved UAT-only reset. |
-| `WritingFeedbackCompatibilityReader` / `LEGACY_BAND_V1` | `REVIEW_REQUIRED` | Legacy marker remains confined to compatibility reading/tests; requires retained-payload disposition. |
+| mixed Speaking/Writing feedback envelope | `REMOVED` | Development-only retained-data disposition received; current Speaking writes and reads use only `speaking_ai_v1` plus `speaking_feedback_by_question`. |
+| legacy Speaking/Writing feedback readers and reuse statuses | `REMOVED` | Replaced by typed current-contract parsers; malformed, reserved-audio and low-confidence payloads remain non-score-bearing and fail closed. |
 | ungrouped question compatibility | `REVIEW_REQUIRED` | Fresh schema permits nullable `group_id`; nine fresh technical questions are ungrouped, so canonical seed/grouping work remains. |
 | old import aliases and `practice-excel-v1` | `REVIEW_REQUIRED` | Supported import window and canonical template version are a product/release decision. |
 
@@ -81,8 +80,8 @@ zero fresh rows are not retained-data evidence.
 | --- | --- | --- |
 | `COMP-01` | `WritingResultPresenter.scoreObjective` still reads immutable non-ESSAY Writing versions through legacy content/answer adapters; `historicalWritingFillBlankUsesLockedAnswerSpecWithoutAiFeedback` pins the read. Current authoring rules write only Writing `ESSAY`; fresh V87 has no non-Writing canonical mismatch. | `READ_ONLY_HISTORICAL_COMPATIBILITY`; retained Writing-version inventory must choose `REMOVE` or bounded `MIGRATE`. Do not delete from fresh evidence. |
 | `COMP-02` | `PracticeService.NonWritingEssayGradingSnapshot` still has submit/re-evaluate callers. Current draft/candidate validators restrict Writing to `ESSAY` and Speaking to `SPEAKING`; fresh V87 has zero non-Writing `ESSAY`. | `ACTIVE_COMPATIBILITY_GRADING_PATH`; removal requires retained non-Writing ESSAY inventory plus publication-rejection proof. Recommended default: preserve until that proof exists. |
-| `COMP-03` | `PracticeService` still writes/merges `speaking_mixed_v1`; `SpeakingResultPresenter` reads `essay_feedback_by_question`; service/presenter tests pin mixed results while excluding legacy values from trusted coverage. | `ACTIVE_MIXED_WRITE_AND_READ`; first stop/migrate the writer under a retained-payload decision, then remove only when stored payload inventory is green. |
-| `COMP-04` | `SpeakingFeedbackCompatibilityReader`, `WritingFeedbackCompatibilityReader`, `LEGACY_RESULT` and progress/result callers actively parse old payloads but label them unverified/non-score-bearing. `practice_attempts.ai_feedback_json` remains nullable JSON; fresh V87 has zero attempts. | `ACTIVE_READ_ONLY_COMPATIBILITY`; per-contract `KEEP`, `MIGRATE`, `RETAIN_WITH_EXPIRY` or `REMOVE` needs real retained-payload counts. Recommended default: keep fail-closed readers. |
+| `COMP-03` | Owner disposition in section 6 authorizes removal of development-only retained payloads. `PracticeService` now writes/merges only `speaking_ai_v1`; `SpeakingResultPresenter` reads only canonical Speaking questions and `speaking_feedback_by_question`. | `CLOSED`; mixed Speaking/Writing envelopes, ESSAY Speaking presentation and their fixtures are removed. |
+| `COMP-04` | Current callers now use `SpeakingFeedbackContractParser` and `WritingFeedbackContractParser`; the parsers accept typed current contracts only. Legacy result, flat/band parsing and legacy reuse branches are removed. | `CLOSED`; invalid current contracts remain explicit `FAILED`/contract-failure, never score-bearing. |
 | `COMP-05` | `PracticeService` progress/result snapshot paths retain fallback handling for incomplete version locks. V87 permits nullable `published_version_id`, `test_version_id` and `section_version_id`; fresh attempts are zero. | `ACTIVE_HISTORICAL_READ_FALLBACK`; require retained incomplete-lock inventory and migration/reset choice before making missing locks fail closed. |
 | `COMP-06` | Runtime DTO/service paths still represent `legacyFallback` for ungrouped questions. V87 keeps live `group_id` and version `group_version_id` nullable; all `9` live and `10` version technical questions are ungrouped. New candidate/PDF validators require stable groups. | `ACTIVE_HISTORICAL_READ + NONCANONICAL_TECHNICAL_FIXTURE`; canonical seed must group all questions, but broader fallback removal needs retained graph evidence. |
 | `COMP-07` | Seven `PracticeRoutes.LEGACY_*` constants are mapped by `PracticeController` to redirects; functional route tests assert redirect targets. No template/static hit was found as a canonical producer. | `ACTIVE_REDIRECT_API`; caller/bookmark/support-window decision required. Recommended default: time-bound redirects, not silent removal. |
@@ -397,3 +396,40 @@ after COMP-08 server alias retirement. Those fixtures were canonicalized to
 authoring/publisher and static gate: `156` tests, `0` failures, `0` errors,
 `0` skips. Compile-only gate also completed successfully. No provider, storage
 or database call was made.
+
+### 6.5 COMP-03/04 mixed-envelope and feedback-reader retirement
+
+Status: `IMPLEMENTED_AND_COMBINED_TESTED`.
+
+The development-only mixed Speaking envelope and its Writing feedback map were
+removed end to end. `PracticeService` now emits only contract
+`speaking_ai_v1` with `speaking_feedback_by_question`; the result presenter
+selects canonical `SPEAKING` questions only. Dead ESSAY Speaking modes,
+constructor dependencies and fixture authorities were removed. No migration
+was changed.
+
+The old compatibility readers were replaced by current-contract parsers.
+Writing requires explicit status/source/reason/retryable/score-availability
+provenance and a valid per-question score range. Speaking requires the typed
+camel-case `SpeakingEvaluationResult` contract and current evidence/rubric
+invariants. Legacy result, flat/band parsing and reuse status branches are
+gone. Malformed current payloads, reserved direct-audio payloads,
+transcription-low-confidence results, missing provenance and unsafe acoustic
+rows remain fail closed and non-score-bearing. Speaking remains transcript
+only; branch B was not opened.
+
+Evidence (`2026-08-03`, JDK `17.0.19`):
+
+- compile-only gate: `mvn -DskipTests package` -> `BUILD SUCCESS`;
+- focused parser/reuse/presenter/service gate: `190` tests after retirement
+  (`46` presenter tests separately rechecked while converging), all green;
+- combined R/L/W/S result, service and AI contract gate: `329` tests,
+  `0` failures, `0` errors, `0` skips;
+- current-source scan across `src/main` and `src/test` returned zero hits for
+  the retired mixed-envelope, feedback-map, legacy-result/reader/band/status,
+  legacy ESSAY Speaking and mixed-field identities;
+- the updated pre-14 scenario JSON validates with `jq -e`; its optional
+  DB-backed seed test remained skipped because no disposable DB was supplied.
+
+Real provider, storage and database calls remained `0/0/0`; Phase 14 remains
+deferred.

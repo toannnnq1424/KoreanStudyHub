@@ -3686,8 +3686,6 @@ public final class PracticeDtos {
             return switch (evidenceMode) {
                 case "TRANSCRIPT_ONLY" -> "Chỉ dựa trên bản chép lời";
                 case "RECORDING_SOURCE_ONLY" -> "Chỉ xác nhận nguồn bản ghi";
-                case "LEGACY_ESSAY_TEXT_COMPATIBILITY" ->
-                        "Văn bản tương thích từ dữ liệu Nói cũ";
                 case "DIRECT_AUDIO_AND_TRANSCRIPT" ->
                         "Âm thanh trực tiếp và bản chép lời";
                 default -> "Chưa xác định được nguồn bằng chứng";
@@ -3698,8 +3696,6 @@ public final class PracticeDtos {
             return switch (evidenceMode) {
                 case "TRANSCRIPT_ONLY" -> "전사문 기반 평가";
                 case "RECORDING_SOURCE_ONLY" -> "녹음 출처만 확인";
-                case "LEGACY_ESSAY_TEXT_COMPATIBILITY" ->
-                        "이전 말하기 데이터의 텍스트 호환 모드";
                 case "DIRECT_AUDIO_AND_TRANSCRIPT" -> "직접 음성과 전사문";
                 default -> "근거 출처 미확인";
             };
@@ -3764,22 +3760,15 @@ public final class PracticeDtos {
                     : "ko";
             if (questionId == null || questionVersionId == null || questionNo == null
                     || questionType == null
-                    || !Set.of("SPEAKING", "ESSAY").contains(questionType)
+                    || !"SPEAKING".equals(questionType)
                     || compatibilityMode == null
-                    || !Set.of(
-                    "CANONICAL_SPEAKING",
-                    "LEGACY_ESSAY_COMPATIBILITY").contains(compatibilityMode)
+                    || !"CANONICAL_SPEAKING".equals(compatibilityMode)
                     || prompt == null
                     || submissionState == null || submissionState.isBlank()
                     || evaluationState == null || evaluationState.isBlank()
                     || "AUDIO_SUBMITTED".equalsIgnoreCase(learnerSubmissionText.trim())) {
                 throw new IllegalArgumentException(
                         "Speaking immutable task identity/provenance is incomplete");
-            }
-            if ("SPEAKING".equals(questionType)
-                    != "CANONICAL_SPEAKING".equals(compatibilityMode)) {
-                throw new IllegalArgumentException(
-                        "Speaking task compatibility mode does not match immutable type");
             }
         }
 
@@ -3842,8 +3831,6 @@ public final class PracticeDtos {
                         "Đã nộp bản ghi; chưa có bản chép lời đủ thẩm quyền";
                 case "TEXT_COMPATIBILITY" ->
                         "Nội dung văn bản tương thích, không phải bằng chứng âm thanh";
-                case "LEGACY_ESSAY_TEXT_COMPATIBILITY" ->
-                        "Văn bản Nói cũ lưu theo dạng bài tự luận";
                 default -> "Chưa có câu trả lời đã nộp";
             };
         }
@@ -3856,8 +3843,6 @@ public final class PracticeDtos {
                         "녹음 제출 완료 · 권한 있는 전사문 없음";
                 case "TEXT_COMPATIBILITY" ->
                         "텍스트 호환 내용 · 음성 근거 아님";
-                case "LEGACY_ESSAY_TEXT_COMPATIBILITY" ->
-                        "서술형으로 저장된 이전 말하기 텍스트";
                 default -> "제출된 답변 없음";
             };
         }

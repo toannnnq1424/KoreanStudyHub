@@ -10,13 +10,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Component
-public class WritingFeedbackCompatibilityReader {
-
-    public static final String LEGACY_SCORING_CONTRACT = "LEGACY_BAND_V1";
+public class WritingFeedbackContractParser {
 
     private final ObjectMapper objectMapper;
 
-    public WritingFeedbackCompatibilityReader(ObjectMapper objectMapper) {
+    public WritingFeedbackContractParser(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
@@ -47,20 +45,6 @@ public class WritingFeedbackCompatibilityReader {
             return FeedbackResult.malformed();
         }
 
-        if (isLegacyFlatFeedback(root)) {
-            if (essayQuestionIds == null || essayQuestionIds.size() != 1) {
-                return FeedbackResult.unsupportedLegacyMulti();
-            }
-            EntryResult entry = parseStoredEntry(root);
-            if (entry.status() != Status.VALID_LEGACY_SINGLE && entry.status() != Status.VALID_CURRENT) {
-                return FeedbackResult.malformed();
-            }
-            Long questionId = essayQuestionIds.iterator().next();
-            Map<Long, WritingEvaluationResult> entries = new LinkedHashMap<>();
-            entries.put(questionId, entry.value());
-            return new FeedbackResult(Status.VALID_LEGACY_SINGLE, entries);
-        }
-
         if (essayQuestionIds == null || essayQuestionIds.isEmpty()) {
             return FeedbackResult.malformed();
         }
@@ -79,16 +63,6 @@ public class WritingFeedbackCompatibilityReader {
         return new FeedbackResult(Status.VALID_CURRENT, entries);
     }
 
-    public boolean isLegacyFlatFeedback(JsonNode root) {
-        return root != null
-                && root.isObject()
-                && (root.has("student_text")
-                || root.has("raw_score")
-                || root.has("rubric_scores")
-                || root.has("task_type")
-                || root.has("score"));
-    }
-
     private EntryResult parseEntry(JsonNode node, boolean strictRange) {
         if (node == null || node.isNull() || node.isMissingNode()) {
             return EntryResult.missing();
@@ -101,6 +75,13 @@ public class WritingFeedbackCompatibilityReader {
         String evaluationReason = text(node.get("evaluation_reason"));
         Boolean evaluationRetryable = bool(node.get("evaluation_retryable"));
         Boolean scoreAvailable = bool(node.get("score_available"));
+        if (evaluationStatus == null
+                || evaluationSource == null
+                || evaluationReason == null
+                || evaluationRetryable == null
+                || scoreAvailable == null) {
+            return EntryResult.malformed();
+        }
         boolean explicitNonScoreBearing = isNonScoreBearing(evaluationStatus, scoreAvailable);
         if (explicitNonScoreBearing) {
             return EntryResult.valid(new WritingEvaluationResult(
@@ -136,11 +117,11 @@ public class WritingFeedbackCompatibilityReader {
                 text(node.get("engine")),
                 text(node.get("scoring_contract")),
                 text(node.get("policy_bundle_id")),
-                evaluationStatus == null ? "LEGACY_EVALUATED" : evaluationStatus,
-                evaluationSource == null ? "LEGACY" : evaluationSource,
-                evaluationReason == null ? "NONE" : evaluationReason,
-                evaluationRetryable == null ? false : evaluationRetryable,
-                scoreAvailable == null ? true : scoreAvailable
+                evaluationStatus,
+                evaluationSource,
+                evaluationReason,
+                evaluationRetryable,
+                scoreAvailable
         ));
     }
 
@@ -148,7 +129,11 @@ public class WritingFeedbackCompatibilityReader {
         if (node == null || node.isNull() || !node.isNumber()) {
             return null;
         }
-        return node.decimalValue();
+        try {
+            return new BigDecimal(node.asText());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 
     private String text(JsonNode node) {
@@ -175,8 +160,6 @@ public class WritingFeedbackCompatibilityReader {
 
     public enum Status {
         VALID_CURRENT,
-        VALID_LEGACY_SINGLE,
-        UNSUPPORTED_LEGACY_MULTI,
         MALFORMED,
         MISSING
     }
@@ -202,10 +185,6 @@ public class WritingFeedbackCompatibilityReader {
 
         static FeedbackResult malformed() {
             return new FeedbackResult(Status.MALFORMED, Map.of());
-        }
-
-        static FeedbackResult unsupportedLegacyMulti() {
-            return new FeedbackResult(Status.UNSUPPORTED_LEGACY_MULTI, Map.of());
         }
     }
 }

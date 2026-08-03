@@ -21,14 +21,14 @@ import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
 import com.ksh.features.practice.ai.writing.WritingEvaluationNormalizer;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.writing.WritingEvidenceLedgerVerifier;
-import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingFeedbackContractParser;
 import com.ksh.features.practice.ai.writing.WritingScoreAnchorPolicy;
 import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.ai.writing.WritingTaskRequirementPolicy;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
-import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.speaking.SpeakingFeedbackContractParser;
 import com.ksh.features.practice.ai.speaking.SpeakingScorePolicy;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
@@ -97,8 +97,9 @@ public class PracticeService {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeService.class);
     private static final String SPEAKING_AI_CONTRACT = "speaking_ai_v1";
-    private static final String SPEAKING_MIXED_CONTRACT_FIELD = "_contract";
-    private static final String SPEAKING_MIXED_SPEAKING_FIELD = "speaking_feedback_by_question";
+    private static final String SPEAKING_CONTRACT_FIELD = "_contract";
+    private static final String SPEAKING_FEEDBACK_BY_QUESTION_FIELD =
+            "speaking_feedback_by_question";
     private static final Pattern MARKDOWN_IMAGE_PATTERN =
             Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
     private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
@@ -123,8 +124,8 @@ public class PracticeService {
             attemptEvaluationJobRepository;
     private final PracticeTestRepository testRepository;
     private final WritingEvaluationClient evaluationClient;
-    private final WritingFeedbackCompatibilityReader writingFeedbackReader;
-    private final SpeakingFeedbackCompatibilityReader speakingFeedbackReader;
+    private final WritingFeedbackContractParser writingFeedbackParser;
+    private final SpeakingFeedbackContractParser speakingFeedbackParser;
     private SpeakingEvaluationApplicationService speakingEvaluationApplicationService;
     private PracticeSpeakingMediaService speakingMediaService;
     private PracticePublishedVersionService publishedVersionService;
@@ -151,8 +152,8 @@ public class PracticeService {
                                    attemptEvaluationJobRepository,
                            PracticeTestRepository testRepository,
                            WritingEvaluationClient evaluationClient,
-                           WritingFeedbackCompatibilityReader writingFeedbackReader,
-                           SpeakingFeedbackCompatibilityReader speakingFeedbackReader,
+                           WritingFeedbackContractParser writingFeedbackParser,
+                           SpeakingFeedbackContractParser speakingFeedbackParser,
                            PracticePublishedVersionService publishedVersionService,
                            ObjectMapper objectMapper,
                            PlatformTransactionManager transactionManager) {
@@ -166,8 +167,8 @@ public class PracticeService {
                 attemptEvaluationJobRepository;
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
-        this.writingFeedbackReader = writingFeedbackReader;
-        this.speakingFeedbackReader = speakingFeedbackReader;
+        this.writingFeedbackParser = writingFeedbackParser;
+        this.speakingFeedbackParser = speakingFeedbackParser;
         this.publishedVersionService = publishedVersionService;
         this.objectMapper = objectMapper;
         this.questionTypeResolver = new QuestionTypeResolver();
@@ -216,8 +217,8 @@ public class PracticeService {
         this.attemptEvaluationJobRepository = null;
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
-        this.writingFeedbackReader = new WritingFeedbackCompatibilityReader(objectMapper);
-        this.speakingFeedbackReader = new SpeakingFeedbackCompatibilityReader(objectMapper, new com.ksh.features.practice.ai.speaking.SpeakingEvaluationNormalizer());
+        this.writingFeedbackParser = new WritingFeedbackContractParser(objectMapper);
+        this.speakingFeedbackParser = new SpeakingFeedbackContractParser(objectMapper, new com.ksh.features.practice.ai.speaking.SpeakingEvaluationNormalizer());
         this.publishedVersionService = null;
         this.objectMapper = objectMapper;
         this.questionTypeResolver = new QuestionTypeResolver();
@@ -533,13 +534,15 @@ public class PracticeService {
     private boolean isSpeakingAiEnvelope(JsonNode rootNode) {
         return rootNode != null
                 && rootNode.isObject()
-                && SPEAKING_AI_CONTRACT.equals(rootNode.path(SPEAKING_MIXED_CONTRACT_FIELD).asText(null));
+                && SPEAKING_AI_CONTRACT.equals(
+                rootNode.path(SPEAKING_CONTRACT_FIELD).asText(null));
     }
 
     public String speakingAiFeedbackEnvelope(Map<Long, SpeakingEvaluationResult> feedbackByQuestionId) {
         com.fasterxml.jackson.databind.node.ObjectNode envelope = objectMapper.createObjectNode();
-        envelope.put(SPEAKING_MIXED_CONTRACT_FIELD, SPEAKING_AI_CONTRACT);
-        com.fasterxml.jackson.databind.node.ObjectNode byQuestion = envelope.putObject(SPEAKING_MIXED_SPEAKING_FIELD);
+        envelope.put(SPEAKING_CONTRACT_FIELD, SPEAKING_AI_CONTRACT);
+        com.fasterxml.jackson.databind.node.ObjectNode byQuestion =
+                envelope.putObject(SPEAKING_FEEDBACK_BY_QUESTION_FIELD);
         if (feedbackByQuestionId != null) {
             feedbackByQuestionId.forEach((questionId, feedback) -> {
                 if (questionId != null && feedback != null) {
@@ -1442,10 +1445,10 @@ public class PracticeService {
         BigDecimal expectedMaximum = BigDecimal.valueOf(
                 WritingScoringPolicy.rubricFor(
                         expectedTaskType).totalMaxScore());
-        WritingFeedbackCompatibilityReader.EntryResult parsed =
-                writingFeedbackReader.parseGeneratedEntry(node);
+        WritingFeedbackContractParser.EntryResult parsed =
+                writingFeedbackParser.parseGeneratedEntry(node);
         if (parsed.status()
-                != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+                != WritingFeedbackContractParser.Status.VALID_CURRENT
                 || !isCurrentWritingEnvelope(
                         parsed.value(),
                         expectedTaskType,
@@ -2783,7 +2786,7 @@ public class PracticeService {
         if (!isSpeakingAiEnvelope(root)) {
             return Map.of();
         }
-        JsonNode byQuestion = root.path(SPEAKING_MIXED_SPEAKING_FIELD);
+        JsonNode byQuestion = root.path(SPEAKING_FEEDBACK_BY_QUESTION_FIELD);
         if (!byQuestion.isObject()) {
             return Map.of();
         }
@@ -2792,7 +2795,7 @@ public class PracticeService {
             try {
                 Long questionId = Long.valueOf(entry.getKey());
                 if (entry.getValue() != null && entry.getValue().isObject()) {
-                    results.put(questionId, speakingFeedbackReader.read(entry.getValue()));
+                    results.put(questionId, speakingFeedbackParser.read(entry.getValue()));
                 }
             } catch (RuntimeException ignored) {
                 // Ignore malformed stored question keys during reuse; fresh evaluation can replace them.
@@ -2924,10 +2927,6 @@ public class PracticeService {
         JsonNode root = readExistingWritingFeedbackRoot(snapshot.expectedAiFeedbackJson());
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
 
-        if (writingFeedbackReader.isLegacyFlatFeedback(root)) {
-            throw unsupportedPerQuestionFeedback();
-        }
-
         if (!root.isObject()) {
             throw unsupportedPerQuestionFeedback();
         }
@@ -3019,8 +3018,8 @@ public class PracticeService {
     private WritingEvaluationResult readStoredWritingScore(
             JsonNode node,
             QuestionSnapshot question) {
-        WritingFeedbackCompatibilityReader.EntryResult parsed = writingFeedbackReader.parseStoredEntry(node);
-        if (parsed.status() != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+        WritingFeedbackContractParser.EntryResult parsed = writingFeedbackParser.parseStoredEntry(node);
+        if (parsed.status() != WritingFeedbackContractParser.Status.VALID_CURRENT
                 || !isCurrentWritingEnvelope(parsed.value(), question)
                 || !hasExactCurrentWritingEnvelopeShape(
                         node, parsed.value())) {
@@ -3032,8 +3031,8 @@ public class PracticeService {
     private WritingEvaluationResult readGeneratedWritingScore(
             JsonNode node,
             QuestionSnapshot question) {
-        WritingFeedbackCompatibilityReader.EntryResult parsed = writingFeedbackReader.parseGeneratedEntry(node);
-        if (parsed.status() != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+        WritingFeedbackContractParser.EntryResult parsed = writingFeedbackParser.parseGeneratedEntry(node);
+        if (parsed.status() != WritingFeedbackContractParser.Status.VALID_CURRENT
                 || !isCurrentWritingEnvelope(parsed.value(), question)
                 || !hasExactCurrentWritingEnvelopeShape(
                         node, parsed.value())) {
@@ -3597,12 +3596,12 @@ public class PracticeService {
                                 : iterable(root.elements());
                 for (JsonNode value : feedbackEntries) {
                     if (value == null || !value.isObject()) continue;
-                    WritingFeedbackCompatibilityReader.EntryResult parsed =
-                            writingFeedbackReader.parseGeneratedEntry(value);
+                    WritingFeedbackContractParser.EntryResult parsed =
+                            writingFeedbackParser.parseGeneratedEntry(value);
                     WritingEvaluationResult evaluation = parsed.value();
                     boolean currentEnvelope =
                             parsed.status()
-                                    == WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+                                    == WritingFeedbackContractParser.Status.VALID_CURRENT
                             && isSelfConsistentCurrentWritingEnvelope(
                                     value,
                                     evaluation);

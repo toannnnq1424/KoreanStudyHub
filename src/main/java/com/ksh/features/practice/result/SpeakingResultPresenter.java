@@ -9,10 +9,8 @@ import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
 import com.ksh.features.practice.ai.speaking.SpeakingEvidenceMode;
 import com.ksh.features.practice.ai.speaking.SpeakingEvidenceSource;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluatorCapability;
-import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.speaking.SpeakingFeedbackContractParser;
 import com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion;
-import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
-import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
 import com.ksh.features.practice.dto.PracticeDtos.ResultAnswerDistribution;
 import com.ksh.features.practice.dto.PracticeDtos.PracticeAttemptResultView;
 import com.ksh.features.practice.dto.PracticeDtos.ResultDetailDiagnosticFinding;
@@ -41,7 +39,6 @@ import com.ksh.features.practice.dto.PracticeDtos.SpeakingTaskDetail;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingTeacherSampleView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingUpgradeView;
-import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
 import com.ksh.features.practice.service.PracticeSpeakingMediaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,46 +60,34 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
 
     private static final String CONTRACT_FIELD = "_contract";
     private static final String AI_CONTRACT = "speaking_ai_v1";
-    private static final String MIXED_CONTRACT = "speaking_mixed_v1";
     private static final String FEEDBACK_BY_QUESTION = "speaking_feedback_by_question";
     private static final String TEACHER_SAMPLES_BY_QUESTION =
             "speaking_teacher_samples_by_question";
-    private static final String ESSAY_FEEDBACK_BY_QUESTION = "essay_feedback_by_question";
 
     private final ObjectMapper objectMapper;
-    private final SpeakingFeedbackCompatibilityReader feedbackReader;
-    private final WritingFeedbackCompatibilityReader writingFeedbackReader;
-    private final WritingFeedbackViewMapper writingFeedbackMapper;
+    private final SpeakingFeedbackContractParser feedbackParser;
     private final PracticeSpeakingMediaService speakingMediaService;
     private final boolean speakingMediaPlaybackEnabled;
 
     @Autowired
     SpeakingResultPresenter(
             ObjectMapper objectMapper,
-            SpeakingFeedbackCompatibilityReader feedbackReader,
-            WritingFeedbackCompatibilityReader writingFeedbackReader,
-            WritingFeedbackViewMapper writingFeedbackMapper,
+            SpeakingFeedbackContractParser feedbackParser,
             PracticeSpeakingMediaService speakingMediaService,
             @Value("${app.practice.speaking-media.playback-api-enabled:false}")
             boolean speakingMediaPlaybackEnabled) {
         this.objectMapper = objectMapper;
-        this.feedbackReader = feedbackReader;
-        this.writingFeedbackReader = writingFeedbackReader;
-        this.writingFeedbackMapper = writingFeedbackMapper;
+        this.feedbackParser = feedbackParser;
         this.speakingMediaService = speakingMediaService;
         this.speakingMediaPlaybackEnabled = speakingMediaPlaybackEnabled;
     }
 
     SpeakingResultPresenter(
             ObjectMapper objectMapper,
-            SpeakingFeedbackCompatibilityReader feedbackReader,
-            WritingFeedbackCompatibilityReader writingFeedbackReader,
-            WritingFeedbackViewMapper writingFeedbackMapper) {
+            SpeakingFeedbackContractParser feedbackParser) {
         this(
                 objectMapper,
-                feedbackReader,
-                writingFeedbackReader,
-                writingFeedbackMapper,
+                feedbackParser,
                 null,
                 false);
     }
@@ -115,8 +100,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     @Override
     public Presentation present(PracticeResultContext context) {
         List<PracticeQuestionVersion> questions = context.snapshot().questions().stream()
-                .filter(question -> "SPEAKING".equals(question.getQuestionType())
-                        || "ESSAY".equals(question.getQuestionType()))
+                .filter(question -> "SPEAKING".equals(question.getQuestionType()))
                 .toList();
         String storedFeedback = context.attempt().getAiFeedbackJson();
         JsonNode root = readTree(storedFeedback);
@@ -126,14 +110,10 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         boolean unsupportedContract = hasUnsupportedContract(root);
         List<SegmentFeedback> segments = new ArrayList<>();
         List<SegmentFeedback> lowConfidenceSegments = new ArrayList<>();
-        long legacyEssayQuestionCount = questions.stream()
-                .filter(question -> "ESSAY".equals(question.getQuestionType()))
-                .count();
         int notAnswered = 0;
         int pending = 0;
         int unscorable = 0;
         int unavailable = 0;
-        int legacyUnverified = 0;
 
         for (PracticeQuestionVersion question : questions) {
             String answer = context.answers().getOrDefault(String.valueOf(question.getQuestionId()), "");
@@ -142,31 +122,11 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 continue;
             }
             if (malformedStoredFeedback || unsupportedContract) {
-                legacyUnverified++;
                 unscorable++;
                 continue;
             }
-            if ("ESSAY".equals(question.getQuestionType())) {
-                JsonNode node = legacyEssayFeedbackNode(
-                        root, question.getQuestionId(), legacyEssayQuestionCount == 1);
-                WritingFeedbackView feedback = writingFeedbackMapper.map(node);
-                WritingFeedbackCompatibilityReader.EntryResult contract =
-                        writingFeedbackReader.parseStoredEntry(node);
-                switch (legacyEssayFeedbackState(node, feedback, contract)) {
-                    case "READY" -> {
-                        // Historical ESSAY rows remain readable as compatibility
-                        // state, but its prose is not verified Speaking evidence
-                        // and must not be promoted into learner-facing claims.
-                        legacyUnverified++;
-                        unscorable++;
-                    }
-                    case "PENDING" -> pending++;
-                    default -> unscorable++;
-                }
-                continue;
-            }
             JsonNode node = feedbackNode(root, question.getQuestionId(), questions.size() == 1);
-            SpeakingEvaluationResult feedback = node == null ? null : feedbackReader.read(node);
+            SpeakingEvaluationResult feedback = node == null ? null : feedbackParser.read(node);
             switch (feedbackState(
                     node,
                     feedback,
@@ -174,10 +134,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 case "READY" -> segments.add(new SegmentFeedback(question.getQuestionId(), feedback));
                 case "LOW_CONFIDENCE" -> {
                     lowConfidenceSegments.add(new SegmentFeedback(question.getQuestionId(), feedback));
-                    unscorable++;
-                }
-                case "LEGACY" -> {
-                    legacyUnverified++;
                     unscorable++;
                 }
                 case "PENDING" -> pending++;
@@ -195,7 +151,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 .anyMatch(feedback -> feedback.currentEvidenceContract()
                         && feedback.evidenceMode() == SpeakingEvidenceMode.TRANSCRIPT_ONLY);
         List<SpeakingCriterionResult> criteria = criteria(
-                segments, questions.size(), legacyUnverified, transcriptOnlyCapability);
+                segments, questions.size(), transcriptOnlyCapability);
         int coveredSpeakingSegments = (int) segments.stream()
                 .filter(segment -> segment.feedback().profileAvailable())
                 .count();
@@ -227,8 +183,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                         .findFirst().orElse(null));
         String contractTrust = representative == null
                 ? "LEGACY_UNVERIFIED"
-                : legacyUnverified > 0
-                ? "MIXED_WITH_LEGACY_UNVERIFIED"
                 : representative.contractTrust().name();
         String evaluatorCapability = representative == null
                 ? "LEGACY_UNKNOWN"
@@ -248,8 +202,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         String profileState;
         if (coveredSegments == 0 && !lowConfidenceSegments.isEmpty()) {
             profileState = "LOW_CONFIDENCE";
-        } else if (legacyUnverified > 0 && coveredSegments == 0) {
-            profileState = "LEGACY_UNVERIFIED";
         } else {
             profileState = feedback.state();
         }
@@ -294,7 +246,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 policyBundleFingerprint,
                 contractTrust,
                 holisticAvailable,
-                legacyUnverified);
+                0);
         return new Presentation(displayScore, distribution, feedback, payload);
     }
 
@@ -308,8 +260,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             throw new IllegalStateException("Speaking Result Detail requires a Speaking payload.");
         }
         List<PracticeQuestionVersion> questions = context.snapshot().questions().stream()
-                .filter(question -> "SPEAKING".equals(question.getQuestionType())
-                        || "ESSAY".equals(question.getQuestionType()))
+                .filter(question -> "SPEAKING".equals(question.getQuestionType()))
                 .sorted(Comparator
                         .comparing(PracticeQuestionVersion::getDisplayOrder,
                                 Comparator.nullsLast(Integer::compareTo))
@@ -364,32 +315,24 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 String.valueOf(selected.getQuestionId()), "");
         boolean submittedAudioMarker = audioSubmissionMarker(rawAnswer);
         SpeakingMediaView media = selectedMedia(context, selected);
-        boolean canonicalSpeaking = "SPEAKING".equals(selected.getQuestionType());
-        JsonNode selectedNode = canonicalSpeaking
-                ? feedbackNode(
-                root, selected.getQuestionId(), canonicalQuestionCount == 1)
-                : legacyEssayFeedbackNode(
-                root, selected.getQuestionId(),
-                questions.stream().filter(question ->
-                        "ESSAY".equals(question.getQuestionType())).count() == 1);
-        SpeakingEvaluationResult selectedFeedback = canonicalSpeaking && selectedNode != null
-                ? feedbackReader.read(selectedNode)
+        JsonNode selectedNode = feedbackNode(
+                root, selected.getQuestionId(), canonicalQuestionCount == 1);
+        SpeakingEvaluationResult selectedFeedback = selectedNode != null
+                ? feedbackParser.read(selectedNode)
                 : null;
         String authoritativeTranscript = authoritativeTranscript(selectedFeedback);
-        boolean currentEvidence = canonicalSpeaking
-                && selectedFeedback != null
+        boolean currentEvidence = selectedFeedback != null
                 && selectedFeedback.currentEvidenceContract()
                 && (!selectedFeedback.evaluationStatus().scoreBearing()
                 || present(authoritativeTranscript));
         String evaluationState = selectedEvaluationState(
-                canonicalSpeaking,
                 rawAnswer,
                 selectedNode,
                 selectedFeedback,
                 currentEvidence,
                 context.attempt().getAnalysisStatus());
         String evidenceMode = selectedEvidenceMode(
-                canonicalSpeaking, currentEvidence, selectedFeedback,
+                currentEvidence, selectedFeedback,
                 submittedAudioMarker, media);
         String profileState = selectedProfileState(evaluationState);
         String evaluatorCapability = currentEvidence && selectedFeedback != null
@@ -651,16 +594,13 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     ) {
         boolean selected = selectedQuestionId != null
                 && selectedQuestionId.equals(question.getQuestionId());
-        boolean canonical = "SPEAKING".equals(question.getQuestionType());
         if (!selected) {
             return new SpeakingTaskDetail(
                     question.getQuestionId(),
                     question.getId(),
                     question.getQuestionNo(),
                     question.getQuestionType(),
-                    canonical
-                            ? "CANONICAL_SPEAKING"
-                            : "LEGACY_ESSAY_COMPATIBILITY",
+                    "CANONICAL_SPEAKING",
                     "",
                     "",
                     "NAVIGATION_ONLY",
@@ -672,17 +612,13 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 String.valueOf(question.getQuestionId()), "");
         SpeakingEvaluationResult feedback = null;
         JsonNode node = null;
-        if (canonical) {
-            node = feedbackNode(root, question.getQuestionId(), singleCanonicalQuestion);
-            feedback = node == null ? null : feedbackReader.read(node);
-        }
+        node = feedbackNode(root, question.getQuestionId(), singleCanonicalQuestion);
+        feedback = node == null ? null : feedbackParser.read(node);
         String transcript = authoritativeTranscript(feedback);
-        boolean currentEvidence = canonical
-                && feedback != null
+        boolean currentEvidence = feedback != null
                 && feedback.currentEvidenceContract()
                 && (!feedback.evaluationStatus().scoreBearing() || present(transcript));
         String evaluationState = selectedEvaluationState(
-                canonical,
                 answer,
                 node,
                 feedback,
@@ -690,11 +626,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 context.attempt().getAnalysisStatus());
         String submissionText = audioSubmissionMarker(answer) ? "" : answer;
         String submissionState;
-        if (!canonical) {
-            submissionState = present(submissionText)
-                    ? "LEGACY_ESSAY_TEXT_COMPATIBILITY"
-                    : "NOT_ANSWERED";
-        } else if (audioSubmissionMarker(answer)) {
+        if (audioSubmissionMarker(answer)) {
             submissionState = present(transcript)
                     ? "AUDIO_SOURCE_WITH_AUTHORITATIVE_TRANSCRIPT"
                     : "AUDIO_SOURCE_TRANSCRIPT_UNAVAILABLE";
@@ -708,9 +640,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 question.getId(),
                 question.getQuestionNo(),
                 question.getQuestionType(),
-                canonical
-                        ? "CANONICAL_SPEAKING"
-                        : "LEGACY_ESSAY_COMPATIBILITY",
+                "CANONICAL_SPEAKING",
                 question.getPrompt(),
                 submissionText,
                 submissionState,
@@ -844,7 +774,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     }
 
     private static String selectedEvaluationState(
-            boolean canonicalSpeaking,
             String answer,
             JsonNode node,
             SpeakingEvaluationResult feedback,
@@ -853,9 +782,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     ) {
         if (!present(answer)) {
             return "UNAVAILABLE";
-        }
-        if (!canonicalSpeaking) {
-            return "LEGACY_UNVERIFIED";
         }
         String state = feedbackState(
                 node, feedback, analysisStatus);
@@ -866,7 +792,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         return switch (state) {
             case "READY", "LOW_CONFIDENCE", "PENDING",
                     "UNAVAILABLE" -> state;
-            case "LEGACY" -> "LEGACY_UNVERIFIED";
             default -> "FAILED";
         };
     }
@@ -874,22 +799,18 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     private static String selectedProfileState(String evaluationState) {
         return switch (evaluationState) {
             case "READY", "LOW_CONFIDENCE", "PENDING", "FAILED",
-                    "UNAVAILABLE", "LEGACY_UNVERIFIED" ->
+                    "UNAVAILABLE" ->
                     evaluationState;
             default -> "UNAVAILABLE";
         };
     }
 
     private static String selectedEvidenceMode(
-            boolean canonicalSpeaking,
             boolean currentEvidence,
             SpeakingEvaluationResult feedback,
             boolean submittedAudioMarker,
             SpeakingMediaView media
     ) {
-        if (!canonicalSpeaking) {
-            return "LEGACY_ESSAY_TEXT_COMPATIBILITY";
-        }
         if (currentEvidence
                 && feedback.evidenceMode() == SpeakingEvidenceMode.TRANSCRIPT_ONLY) {
             return "TRANSCRIPT_ONLY";
@@ -912,7 +833,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         }
         return switch (evaluationState) {
             case "PENDING" -> "PENDING";
-            case "LEGACY_UNVERIFIED" -> "LEGACY_UNVERIFIED";
             default -> "UNAVAILABLE";
         };
     }
@@ -1178,11 +1098,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                     : "Hệ thống chỉ có trạng thái đã nộp âm thanh; không dùng trạng thái này "
                     + "làm bản chép lời và không suy ra rằng bộ đánh giá đã nghe bản ghi.";
         }
-        if ("LEGACY_ESSAY_TEXT_COMPATIBILITY".equals(evidenceMode)) {
-            return "Đây là nhiệm vụ Nói cũ được lưu theo dạng văn bản tự luận. "
-                    + "Nội dung này chỉ được hiển thị để tương thích, không được coi là "
-                    + "bản chép lời hay bằng chứng âm thanh theo hợp đồng hiện tại.";
-        }
         if ("PENDING".equals(evaluationState)) {
             return "Bằng chứng của câu đang chọn chưa xử lý xong; không có điểm nào "
                     + "được suy đoán trong thời gian chờ.";
@@ -1319,7 +1234,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     private static List<SpeakingCriterionResult> criteria(
             List<SegmentFeedback> segments,
             int totalSegments,
-            int legacyUnverifiedSegments,
             boolean transcriptOnlyCapability) {
         Map<SpeakingRubricCriterion, List<CriterionEvidence>> evidence =
                 new EnumMap<>(SpeakingRubricCriterion.class);
@@ -1362,12 +1276,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             if (score != null) {
                 availability = "SCORED";
             } else if (transcriptOnly && criterion.requiresAcousticEvidence()) {
-                // Current transcript capability always owns the acoustic state,
-                // even when legacy-unverified rows coexist with low-confidence
-                // current segments.
+                // Current transcript capability always owns the acoustic state.
                 availability = "NOT_SCORABLE";
-            } else if (segments.isEmpty() && legacyUnverifiedSegments > 0) {
-                availability = "LEGACY_UNVERIFIED";
             } else {
                 availability = "UNAVAILABLE";
             }
@@ -1453,7 +1363,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             List<SpeakingCriterionResult> questionCriteria = criteria(
                     segment == null ? List.of() : List.of(segment),
                     1,
-                    "LEGACY_UNVERIFIED".equals(availability) ? 1 : 0,
                     transcriptOnlyCapability);
             int displayNumber = question.getQuestionNo() == null
                     ? result.size() + 1
@@ -1770,7 +1679,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             return "FAILED";
         }
         if (!trustedOverviewCapability(feedback)) {
-            return "LEGACY";
+            return "FAILED";
         }
         if (feedback.evaluationStatus()
                 == SpeakingEvaluationStatus.TRANSCRIPTION_UNAVAILABLE
@@ -1832,36 +1741,12 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         return "Chưa có năng lực đánh giá Nói đã được cấp quyền và xác minh cho bằng chứng hiện tại.";
     }
 
-    private static String legacyEssayFeedbackState(
-            JsonNode node,
-            WritingFeedbackView feedback,
-            WritingFeedbackCompatibilityReader.EntryResult contract) {
-        if (node == null || !node.isObject()) {
-            return "PENDING";
-        }
-        String rawStatus = feedback == null ? null : feedback.evaluationStatus();
-        String normalized = rawStatus == null
-                ? ""
-                : rawStatus.trim().toUpperCase(java.util.Locale.ROOT);
-        if (normalized.contains("PENDING") || normalized.contains("QUEUED")
-                || normalized.contains("PROCESSING")) {
-            return "PENDING";
-        }
-        if (feedback != null && Boolean.FALSE.equals(feedback.scoreAvailable())) {
-            return "FAILED";
-        }
-        if (contract.value() != null && contract.value().scoreAvailableFlag()) {
-            return "READY";
-        }
-        return hasLegacyScore(node) ? "READY" : "FAILED";
-    }
-
     private JsonNode feedbackNode(JsonNode root, Long questionId, boolean singleQuestion) {
         if (root == null || !root.isObject()) {
             return null;
         }
         String contract = text(root, CONTRACT_FIELD);
-        if (contract != null && !AI_CONTRACT.equals(contract) && !MIXED_CONTRACT.equals(contract)) {
+        if (contract != null && !AI_CONTRACT.equals(contract)) {
             return null;
         }
         JsonNode byQuestion = root.path(FEEDBACK_BY_QUESTION);
@@ -1875,29 +1760,6 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
             return candidate;
         }
         return singleQuestion && hasStoredFeedback(root) ? root : null;
-    }
-
-    private JsonNode legacyEssayFeedbackNode(JsonNode root, Long questionId, boolean singleEssay) {
-        if (root == null || !root.isObject()) {
-            return null;
-        }
-        String contract = text(root, CONTRACT_FIELD);
-        if (contract != null && !MIXED_CONTRACT.equals(contract)) {
-            return null;
-        }
-        if (MIXED_CONTRACT.equals(contract)) {
-            JsonNode candidate = root.path(ESSAY_FEEDBACK_BY_QUESTION)
-                    .get(String.valueOf(questionId));
-            return candidate != null && candidate.isObject() ? candidate : null;
-        }
-        JsonNode candidate = root.get(String.valueOf(questionId));
-        if (candidate != null && candidate.isTextual()) {
-            candidate = readTree(candidate.asText());
-        }
-        if (candidate != null && candidate.isObject()) {
-            return candidate;
-        }
-        return singleEssay ? root : null;
     }
 
     private JsonNode readTree(String json) {
@@ -1923,7 +1785,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
 
     private static boolean hasUnsupportedContract(JsonNode root) {
         String contract = text(root, CONTRACT_FIELD);
-        return contract != null && !AI_CONTRACT.equals(contract) && !MIXED_CONTRACT.equals(contract);
+        return contract != null && !AI_CONTRACT.equals(contract);
     }
 
     private static boolean hasLegacyScore(JsonNode node) {

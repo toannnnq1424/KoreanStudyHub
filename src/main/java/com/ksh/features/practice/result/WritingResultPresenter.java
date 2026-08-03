@@ -19,7 +19,7 @@ import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.writing.WritingDiagnosticContract;
 import com.ksh.features.practice.ai.writing.WritingEvidenceLedgerVerifier;
-import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingFeedbackContractParser;
 import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.writing.WritingRubricCriterion;
 import com.ksh.features.practice.ai.writing.WritingScoreAnchorPolicy;
@@ -77,7 +77,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
 
     private final ObjectMapper objectMapper;
     private final WritingFeedbackViewMapper feedbackMapper;
-    private final WritingFeedbackCompatibilityReader compatibilityReader;
+    private final WritingFeedbackContractParser contractParser;
     private final AssessmentContractCodec contractCodec;
     private final QuestionTypeResolver typeResolver;
     private final AssessmentScoringEngine scoringEngine;
@@ -85,13 +85,13 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     WritingResultPresenter(
             ObjectMapper objectMapper,
             WritingFeedbackViewMapper feedbackMapper,
-            WritingFeedbackCompatibilityReader compatibilityReader,
+            WritingFeedbackContractParser contractParser,
             AssessmentContractCodec contractCodec,
             QuestionTypeResolver typeResolver,
             AssessmentScoringEngine scoringEngine) {
         this.objectMapper = objectMapper;
         this.feedbackMapper = feedbackMapper;
-        this.compatibilityReader = compatibilityReader;
+        this.contractParser = contractParser;
         this.contractCodec = contractCodec;
         this.typeResolver = typeResolver;
         this.scoringEngine = scoringEngine;
@@ -261,8 +261,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             } else {
                 JsonNode currentQuestionNode = strictQuestionFeedbackNode(
                         feedbackRoot, activeTask.questionId());
-                WritingFeedbackCompatibilityReader.EntryResult contract =
-                        compatibilityReader.parseStoredEntry(currentQuestionNode);
+                WritingFeedbackContractParser.EntryResult contract =
+                        contractParser.parseStoredEntry(currentQuestionNode);
                 if (contract.value() == null) {
                     diagnosticAvailability =
                             DiagnosticAvailability.currentEvidenceUnavailable();
@@ -910,7 +910,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 ? ""
                 : normalize(closedFeedback.state());
         boolean preservesClosedState = switch (closedState) {
-            case "PENDING", "FAILED", "UNAVAILABLE", "LEGACY_UNVERIFIED" -> true;
+            case "PENDING", "FAILED", "UNAVAILABLE" -> true;
             default -> false;
         };
         if (!preservesClosedState) {
@@ -1659,8 +1659,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         boolean answered = learnerAnswer != null && !learnerAnswer.isBlank();
         JsonNode usableFeedbackNode = answered ? feedbackNode : null;
         WritingFeedbackView feedback = feedbackMapper.map(usableFeedbackNode);
-        WritingFeedbackCompatibilityReader.EntryResult contract =
-                compatibilityReader.parseStoredEntry(usableFeedbackNode);
+        WritingFeedbackContractParser.EntryResult contract =
+                contractParser.parseStoredEntry(usableFeedbackNode);
         WritingEvaluationResult evaluation = contract.value();
         boolean scoreContractReady = currentScoreContractMatches(
                 taskType, learnerAnswer, usableFeedbackNode, evaluation);
@@ -2068,7 +2068,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             boolean malformedStoredFeedback,
             WritingFeedbackView feedback,
             JsonNode feedbackNode,
-            WritingFeedbackCompatibilityReader.EntryResult contract,
+            WritingFeedbackContractParser.EntryResult contract,
             boolean scoreContractReady,
             ResultScoreSummary score,
             String analysisStatus) {
@@ -2123,8 +2123,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 && contract.value().scoreAvailableFlag()
                 && !scoreContractReady) {
             return new ResultFeedbackAvailability(
-                    "LEGACY_UNVERIFIED",
-                    "Dữ liệu đánh giá cũ chỉ được nhận diện, không được dùng làm điểm",
+                    "FAILED",
+                    "Contract đánh giá hiện tại không hợp lệ; điểm không được sử dụng",
                     0,
                     1);
         }
@@ -2198,8 +2198,8 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         if (task == null || task.taskType() == null || feedbackNode == null) {
             return false;
         }
-        WritingFeedbackCompatibilityReader.EntryResult contract =
-                compatibilityReader.parseStoredEntry(feedbackNode);
+        WritingFeedbackContractParser.EntryResult contract =
+                contractParser.parseStoredEntry(feedbackNode);
         return currentScoreContractMatches(
                 task.taskType(), task.learnerAnswer(),
                 feedbackNode, contract.value());
