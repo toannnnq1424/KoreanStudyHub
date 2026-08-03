@@ -23,6 +23,11 @@
     "status": "TRANSCRIPT_QA_COMPLETE_LOAD_BLOCKED",
     "contentProjectionSha256": "490f58b95a23ceb3f66745d1cebea79b6aa46715fed72118be08da70c2cb7daf"
   },
+  "audioQaBinding": {
+    "schemaVersion": "practice-topik35-listening-audio-qa-v1",
+    "packageId": "topik35-v1-listening-audio-qa-v1",
+    "status": "SOURCE_IDENTITY_AND_AUDIO_DERIVATION_VERIFIED_BOUNDARY_QA_BLOCKED"
+  },
   "loadPolicy": {
     "disposableLocalOnly": true,
     "sharedDatabaseAllowed": false,
@@ -68,11 +73,11 @@
       "sha256": "0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1",
       "durationMs": 3797136
     },
-    "timingCandidate": {
+    "captionReference": {
       "artifactId": "topik35-youtube-auto-caption",
       "logicalKey": "practice-seed/topik35-v1/derived/transcript/50bfb72cddb954cc2fe3c235591f128917b33c9a91832bb13ebc88209b672bb7.vtt",
       "authoritative": false,
-      "use": "QA_CANDIDATE_ONLY"
+      "timestampUse": "PROHIBITED_FOR_TIMESTAMP_INFERENCE"
     }
   },
   "sourceAnomalies": [

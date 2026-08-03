@@ -195,8 +195,8 @@
     "timingAuthority": {
       "use": "AUTHOR_QA_PROVENANCE_AND_POST_TEST_REVIEW_ONLY",
       "examModeUse": "FORBIDDEN",
-      "sourceCandidateArtifactId": "topik35-youtube-auto-caption",
-      "sourceCandidateAuthoritative": false,
+      "captionArtifactId": "topik35-youtube-auto-caption",
+      "captionTimestampUse": "PROHIBITED_FOR_TIMESTAMP_INFERENCE",
       "allRangesRequireManualQa": true
     },
     "groups": [

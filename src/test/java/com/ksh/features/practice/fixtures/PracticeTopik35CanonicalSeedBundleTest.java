@@ -85,6 +85,8 @@ class PracticeTopik35CanonicalSeedBundleTest {
         assertThat(policy.path("timestampDrivenAssistance").asBoolean()).isFalse();
         assertThat(listening.path("timingAuthority").path("examModeUse").asText())
                 .isEqualTo("FORBIDDEN");
+        assertThat(listening.path("timingAuthority").path("captionTimestampUse")
+                .asText()).isEqualTo("PROHIBITED_FOR_TIMESTAMP_INFERENCE");
 
         Set<Integer> questions = new HashSet<>();
         int expectedFrom = 1;

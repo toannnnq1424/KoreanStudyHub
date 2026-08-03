@@ -135,6 +135,10 @@ class PracticeTopik35ListeningImportPackageTest {
                 .isEqualTo(12);
         assertThat(root.at("/transcriptPayloadBinding/packageId").asText())
                 .isEqualTo("topik35-v1-listening-transcript-payload-v1");
+        assertThat(root.at("/audioQaBinding/packageId").asText())
+                .isEqualTo("topik35-v1-listening-audio-qa-v1");
+        assertThat(root.at("/sourceBindings/captionReference/timestampUse").asText())
+                .isEqualTo("PROHIBITED_FOR_TIMESTAMP_INFERENCE");
         assertThat(root.at("/validationSummary/transcriptMaterializedGroupCount")
                 .asInt()).isEqualTo(20);
         assertThat(root.at("/validationSummary/transcriptQuestionBindingCount")

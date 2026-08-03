@@ -1813,7 +1813,7 @@ The exact canonical groups and source-page coverage are:
 
 The official integrated transcript covers `50/50`; there are no hidden or
 inferred transcript gaps. The YouTube auto-caption remains explicitly
-non-authoritative and may only assist manual timing review. Every group has an
+non-authoritative and is prohibited for timestamp inference. Every group has an
 independent timing checklist with null `startMs`/`endMs` and all cue, repeat,
 neighbor and transcript-boundary checks false. Timing cannot be consumed in
 exam mode.
@@ -1960,3 +1960,77 @@ JDK `17.0.19` evidence:
   passed `97/97`; and
 - `jq empty`, canonical projection hashing, the forbidden absolute-path/
   delivery-URL scan and `mvnw -DskipTests package` completed green.
+
+### 6.35 TOPIK 35 Listening source-audio identity and boundary-QA gate
+
+Status: `SOURCE_IDENTITY_GREEN / AUDIO_DERIVATION_GREEN / 20_BOUNDARIES_PENDING_HUMAN_AUDITORY_QA / LOAD_BLOCKED`.
+
+On `2026-08-03T14:33:15Z`, a live metadata-only `yt-dlp 2026.07.04`
+verification of the user-authorized URL
+`https://www.youtube.com/watch?v=zqd7AQTKk6k` returned video ID
+`zqd7AQTKk6k`, title
+`[LISTENING TOPIK 35] TOPIK 듣기 35회 | 한국어능력시험 듣기 지문 - BÀI NGHE TOPIK II kèm phụ đề`,
+channel `huongiu`, upload date `2019-09-11`, duration `3797` seconds and
+audio-only format `140` (`m4a`, `mp4a.40.2`, `44100 Hz`). The ID and title
+therefore match the bounded TOPIK 35 Listening source. No signed media redirect
+or credential was recorded.
+
+The ignored local format-140 capture was already present from the authorized
+acquisition slice. It was reused instead of downloading a duplicate only after
+the live identity check and byte verification succeeded. `shasum`, `stat` and
+`ffprobe` independently pinned:
+
+| Artifact | SHA-256 | Bytes | ffprobe duration | Stream |
+|---|---|---:|---:|---|
+| source M4A | `beb8c362a7ebe9905467fdfd637aa9db15ebfdd8fb28e22f08ed574f3ef0fcaf` | 61,453,300 | 3,797.135964 s | AAC, 44.1 kHz, stereo |
+| derived single MP3 | `0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1` | 60,755,426 | 3,797.135964 s | MP3, 44.1 kHz, stereo, 128,002 bps |
+
+The repository now contains a closed, versioned audio-QA package/schema. It
+binds those artifacts only through the immutable logical keys
+`practice-seed/topik35-v1/source/audio/<source-sha>.m4a` and
+`practice-seed/topik35-v1/derived/audio-mp3/<derived-sha>.mp3`, records the
+source identity, retrieval verification time, codec/duration/size and
+conversion profile, and is linked fail-closed from the canonical Listening
+import package. Neither binary is committed; no local path, signed media URL,
+bucket, object-store URL, credential or learner-facing external audio URL is
+present.
+
+An amplitude/silence scan was run only to test whether deterministic signal
+features could support a later human review. It produced many repeated silence
+regions within questions and repeat-playback intervals, so it is explicitly
+classified as non-authoritative candidate discovery and was not accepted as
+boundary evidence. Caption/VTT timestamp inference is now prohibited in the
+parent bundle, import package and validator. No caption or ASR/STT was used.
+
+The current automation environment cannot perform the required human auditory
+comparison between the continuous audio and authoritative Korean transcript.
+Consequently no semantic first/final cue, repeat accounting or neighboring
+group transition could be honestly approved. All exact `20` canonical groups
+remain `PENDING_HUMAN_AUDITORY_QA`, with null `startMs`/`endMs` and null
+reviewer evidence. The explicit blocker is
+`HUMAN_AUDITORY_BOUNDARY_REVIEW_NOT_AVAILABLE_IN_AUTOMATION_ENVIRONMENT`.
+`boundaryReadyGroupCount=0` and `loadReady=false`; canonical version IDs remain
+the other import blocker.
+
+The single continuous exam contract is unchanged: start once, no seek, no
+replay, learner-owned navigation, and no timestamp-driven navigation,
+highlighting or assistance. No DB load/migration, R2/object-store write,
+provider or application AI call occurred.
+
+Evidence:
+
+- source identity:
+  `uploads/practice-seed/topik35/tooling-venv/bin/yt-dlp -f 140 --skip-download --print '%(id)s\t%(title)s\t%(duration)s\t%(upload_date)s\t%(channel)s\t%(webpage_url)s\t%(format_id)s\t%(ext)s\t%(acodec)s\t%(asr)s' 'https://www.youtube.com/watch?v=zqd7AQTKk6k'`;
+- local byte/media verification:
+  `shasum -a 256 <ignored-m4a> <ignored-mp3> <ignored-info-json>`, `stat`, and
+  `ffprobe -v error -show_entries format=duration,size,bit_rate:stream=codec_name,sample_rate,channels -of json`;
+- focused JDK `17.0.19` gate
+  `mvnw -Dtest=PracticeTopik35ListeningAudioQaTest,PracticeTopik35ListeningImportPackageTest,PracticeTopik35CanonicalSeedBundleTest test`
+  passed `16/16`;
+- combined typed-contract/import/draft/storage JDK `17.0.19` gate
+  `mvnw '-Dtest=PracticeTopik35ListeningAudioQaTest,PracticeTopik35ListeningTranscriptPayloadTest,PracticeTopik35ListeningQuestionPayloadTest,PracticeTopik35ListeningImportPackageTest,PracticeTopik35CanonicalSeedBundleTest,PracticePre15CanonicalUatSeedManifestTest,PracticeImportControllerTest,PracticePdfImportApiControllerTest,PracticeImportTargetServiceTest,PracticeDraftValidatorTest,PracticeAuthoringCandidateNormalizationValidationTest,PracticePdfAuthoringOutputValidatorTest,PracticeStorageProfilesStaticContractTest,PracticeSeedAssetStorageTest,ProfiledPracticeAuthoringStorageTest' test`
+  passed `102/102`; and
+- `jq empty` accepted all changed JSON/schema documents. Adversarial tests
+  reject source-ID/digest drift, caption-derived timing, invented group ranges,
+  false readiness and local path/delivery URL leakage; `mvnw -DskipTests package`
+  also completed green.

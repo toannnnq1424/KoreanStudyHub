@@ -4,7 +4,7 @@
   "title": "Canonical TOPIK 35 Listening import source package",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "targetContract", "questionPayloadBinding", "transcriptPayloadBinding", "loadPolicy", "sourceBindings", "sourceAnomalies", "manualQaEvidence", "playbackPolicy", "groups", "questions", "transcriptGaps", "materializationBlockers", "validationSummary"],
+  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "targetContract", "questionPayloadBinding", "transcriptPayloadBinding", "audioQaBinding", "loadPolicy", "sourceBindings", "sourceAnomalies", "manualQaEvidence", "playbackPolicy", "groups", "questions", "transcriptGaps", "materializationBlockers", "validationSummary"],
   "properties": {
     "schemaVersion": {"const": "practice-topik35-listening-import-package-v1"},
     "packageId": {"const": "topik35-v1-listening-v1"},
@@ -15,6 +15,7 @@
     "targetContract": {"$ref": "#/$defs/targetContract"},
     "questionPayloadBinding": {"$ref": "#/$defs/questionPayloadBinding"},
     "transcriptPayloadBinding": {"$ref": "#/$defs/transcriptPayloadBinding"},
+    "audioQaBinding": {"$ref": "#/$defs/audioQaBinding"},
     "loadPolicy": {"$ref": "#/$defs/loadPolicy"},
     "sourceBindings": {"$ref": "#/$defs/sourceBindings"},
     "sourceAnomalies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceAnomaly"}},
@@ -57,6 +58,15 @@
         "contentProjectionSha256": {"const": "490f58b95a23ceb3f66745d1cebea79b6aa46715fed72118be08da70c2cb7daf"}
       }
     },
+    "audioQaBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "packageId", "status"],
+      "properties": {
+        "schemaVersion": {"const": "practice-topik35-listening-audio-qa-v1"},
+        "packageId": {"const": "topik35-v1-listening-audio-qa-v1"},
+        "status": {"const": "SOURCE_IDENTITY_AND_AUDIO_DERIVATION_VERIFIED_BOUNDARY_QA_BLOCKED"}
+      }
+    },
     "loadPolicy": {
       "type": "object", "additionalProperties": false,
       "required": ["disposableLocalOnly", "sharedDatabaseAllowed", "productionDatabaseAllowed", "flywayMigration", "objectStoreWrite", "bulkSetIngestionAllowed"],
@@ -87,24 +97,24 @@
         "durationMs": {"type": "integer", "minimum": 1}
       }
     },
-    "timingCandidate": {
+    "captionReference": {
       "type": "object", "additionalProperties": false,
-      "required": ["artifactId", "logicalKey", "authoritative", "use"],
+      "required": ["artifactId", "logicalKey", "authoritative", "timestampUse"],
       "properties": {
         "artifactId": {"const": "topik35-youtube-auto-caption"},
         "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/derived/transcript/[0-9a-f]{64}\\.vtt$"},
-        "authoritative": {"const": false}, "use": {"const": "QA_CANDIDATE_ONLY"}
+        "authoritative": {"const": false}, "timestampUse": {"const": "PROHIBITED_FOR_TIMESTAMP_INFERENCE"}
       }
     },
     "sourceBindings": {
       "type": "object", "additionalProperties": false,
-      "required": ["questionDocument", "transcriptDocument", "answerDocument", "audioProgram", "timingCandidate"],
+      "required": ["questionDocument", "transcriptDocument", "answerDocument", "audioProgram", "captionReference"],
       "properties": {
         "questionDocument": {"$ref": "#/$defs/assetBinding"},
         "transcriptDocument": {"$ref": "#/$defs/assetBinding"},
         "answerDocument": {"$ref": "#/$defs/assetBinding"},
         "audioProgram": {"$ref": "#/$defs/audioBinding"},
-        "timingCandidate": {"$ref": "#/$defs/timingCandidate"}
+        "captionReference": {"$ref": "#/$defs/captionReference"}
       }
     },
     "sourceAnomaly": {

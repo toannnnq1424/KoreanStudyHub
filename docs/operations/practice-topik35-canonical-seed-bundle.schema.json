@@ -106,12 +106,12 @@
     },
     "timingAuthority": {
       "type": "object", "additionalProperties": false,
-      "required": ["use", "examModeUse", "sourceCandidateArtifactId", "sourceCandidateAuthoritative", "allRangesRequireManualQa"],
+      "required": ["use", "examModeUse", "captionArtifactId", "captionTimestampUse", "allRangesRequireManualQa"],
       "properties": {
         "use": {"const": "AUTHOR_QA_PROVENANCE_AND_POST_TEST_REVIEW_ONLY"},
         "examModeUse": {"const": "FORBIDDEN"},
-        "sourceCandidateArtifactId": {"const": "topik35-youtube-auto-caption"},
-        "sourceCandidateAuthoritative": {"const": false},
+        "captionArtifactId": {"const": "topik35-youtube-auto-caption"},
+        "captionTimestampUse": {"const": "PROHIBITED_FOR_TIMESTAMP_INFERENCE"},
         "allRangesRequireManualQa": {"const": true}
       }
     },
