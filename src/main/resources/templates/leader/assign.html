@@ -19,8 +19,8 @@
                    data-flash-error=${flashError}"
           style="display:none;"></span>
 
-    <h1 class="detail-title">Phân công giảng viên</h1>
-    <p class="detail-sub">Chỉ phân công giảng viên thuộc cùng bộ môn. Bộ môn của lớp không đổi.</p>
+    <h1 class="detail-title">Phân công đồng giảng</h1>
+    <p class="detail-sub">Thêm giảng viên cùng môn vào lớp. Giảng viên chủ lớp và người tạo lớp không thay đổi.</p>
 
     <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
       Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
@@ -35,8 +35,9 @@
           <tr>
             <th>Mã</th>
             <th>Tên lớp</th>
-            <th>GV hiện tại</th>
-            <th>Phân công mới</th>
+            <th>GV chủ lớp</th>
+            <th>Đồng giảng hiện tại</th>
+            <th>Thêm đồng giảng</th>
           </tr>
         </thead>
         <tbody>
@@ -45,15 +46,19 @@
             <td th:text="${row.className()}">Tên</td>
             <td th:text="${row.lecturerName()}">GV</td>
             <td>
+              <span th:if="${row.coLecturerNames().isEmpty()}">Chưa có</span>
+              <span th:unless="${row.coLecturerNames().isEmpty()}"
+                    th:text="${#strings.listJoin(row.coLecturerNames(), ', ')}">GV đồng giảng</span>
+            </td>
+            <td>
               <form th:action="@{'/leader/assign/' + ${row.classId()}}" method="post" class="leader-assign-form">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <select name="lecturerId" required>
                   <option th:each="l : ${lecturers}"
                           th:value="${l.id()}"
-                          th:selected="${l.id() == row.lecturerId()}"
                           th:text="${l.fullName()}">GV</option>
                 </select>
-                <button type="submit" class="btn-primary btn-sm">Lưu</button>
+                <button type="submit" class="btn-primary btn-sm">Thêm</button>
               </form>
             </td>
           </tr>

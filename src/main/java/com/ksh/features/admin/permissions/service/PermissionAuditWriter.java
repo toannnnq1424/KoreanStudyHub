@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * Single insertion point for {@code permission_activities} rows.
  *
- * <p>Mirrors {@code DepartmentAuditWriter}. Every accepted RBAC change records the acting
+ * <p>Mirrors {@code SubjectAuditWriter}. Every accepted RBAC change records the acting
  * admin, the target and the direction of the change. Rejected changes produce no row:
  * the guard throws before any writer method is reached.
  */

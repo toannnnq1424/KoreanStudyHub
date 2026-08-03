@@ -36,7 +36,7 @@ class DepartmentLeaderConcurrencyContractTest {
     private UserRepository userRepository;
 
     @Mock
-    private DepartmentAuditWriter auditWriter;
+    private SubjectAuditWriter auditWriter;
 
     @Mock
     private SystemSettingsRepository systemSettingsRepository;

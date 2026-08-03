@@ -2,7 +2,6 @@ package com.ksh.features.classes.service;
 
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
-import com.ksh.entities.ClassInviteCode;
 import com.ksh.entities.Enrollment;
 
 import java.util.Map;
@@ -25,12 +24,12 @@ final class JoinAuditWriter {
     }
 
     /** Writes a {@code MEMBER_JOINED} row capturing {@code user_id} and {@code joined_via}. */
-    void writeJoin(ClassEntity clazz, Long userId, ClassInviteCode token) {
+    void writeJoin(ClassEntity clazz, Long userId, Enrollment.JoinedVia joinedVia) {
         activityWriter.write(
                 clazz.getId(),
                 ClassActivity.TYPE_MEMBER_JOINED,
                 "Học viên tham gia lớp " + clazz.getName(),
-                Map.of("user_id", userId, "joined_via", joinedVia(token.getType()).name()),
+                Map.of("user_id", userId, "joined_via", joinedVia.name()),
                 userId
         );
     }
@@ -46,15 +45,4 @@ final class JoinAuditWriter {
         );
     }
 
-    /**
-     * Maps the invite-token type to the {@link Enrollment.JoinedVia} channel.
-     * A 6-character code maps to {@link Enrollment.JoinedVia#CODE}; anything else
-     * (currently only the 32-character link type) maps to
-     * {@link Enrollment.JoinedVia#LINK}.
-     */
-    static Enrollment.JoinedVia joinedVia(String tokenType) {
-        return ClassInviteCode.TYPE_CODE.equals(tokenType)
-                ? Enrollment.JoinedVia.CODE
-                : Enrollment.JoinedVia.LINK;
-    }
 }

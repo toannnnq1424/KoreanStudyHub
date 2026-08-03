@@ -27,7 +27,7 @@ final class ClassRowMapper {
      * intentional and matches the audit's "good enough" tolerance for the
      * cosmetic ordering of class thumbnails.
      *
-     * @param displayCode code shown under the class name (prefer active invite CODE)
+     * @param displayCode stable display code shown under the class name
      */
     static ClassRow toRow(ClassEntity e, int index, String displayCode) {
         // TODO Sprint 3/5: wire real counts from enrollments/lessons/assignments/lesson_attachments
@@ -47,7 +47,7 @@ final class ClassRowMapper {
         );
     }
 
-    /** Convenience overload when no invite code is available — falls back to {@code classes.code}. */
+    /** Convenience overload using the class's internal display code. */
     static ClassRow toRow(ClassEntity e, int index) {
         return toRow(e, index, e.getCode());
     }

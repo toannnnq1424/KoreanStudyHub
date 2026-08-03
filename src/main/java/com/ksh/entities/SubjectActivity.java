@@ -12,16 +12,12 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * Immutable audit-log entry for administrative mutations on a department.
- * FK columns stay bare {@code Long} values so history remains readable even
- * when the acting admin is later removed.
- */
+/** Immutable audit-log entry for administrative mutations on a subject. */
 @Entity
-@Table(name = "department_activities")
+@Table(name = "subject_activities")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class DepartmentActivity {
+public class SubjectActivity {
 
     public static final String TYPE_CREATED = "CREATED";
     public static final String TYPE_UPDATED = "UPDATED";
@@ -34,8 +30,8 @@ public class DepartmentActivity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "department_id", nullable = false)
-    private Long departmentId;
+    @Column(name = "subject_id", nullable = false)
+    private Long subjectId;
 
     @Column(nullable = false, length = 50)
     private String type;
@@ -52,9 +48,9 @@ public class DepartmentActivity {
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    public DepartmentActivity(Long departmentId, String type, String message,
-                              String metadata, Long performedBy) {
-        this.departmentId = departmentId;
+    public SubjectActivity(Long subjectId, String type, String message,
+                           String metadata, Long performedBy) {
+        this.subjectId = subjectId;
         this.type = type;
         this.message = message;
         this.metadata = metadata;

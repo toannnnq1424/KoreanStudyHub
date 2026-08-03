@@ -83,9 +83,6 @@ public interface IConstant {
     String ATTR_CLASSES_PAGE      = "classesPage";
     String ATTR_MEMBERS           = "members";
     String ATTR_MEMBER_TOTAL      = "memberTotal";
-    String ATTR_ACTIVE_CODE       = "activeCode";
-    String ATTR_ACTIVE_LINK       = "activeLink";
-    String ATTR_CAN_REGENERATE    = "canRegenerate";
     String ATTR_PLACEHOLDER_TAB   = "placeholderTab";
     String ATTR_PLACEHOLDER_LABEL = "placeholderLabel";
 
@@ -177,21 +174,15 @@ public interface IConstant {
 
     // Settings sub-tabs
     String SUBTAB_INFO   = "info";
-    String SUBTAB_INVITE = "invite";
 
     // ───────── Flash messages (Vietnamese UI text) ───────────────────
     // Migrate to messages.properties once MessageSource is wired up.
     String MSG_CLASS_CREATED       = "Đã tạo lớp ";
     String MSG_CLASS_UPDATED       = "Đã cập nhật lớp";
     String MSG_CLASS_DELETED       = "Đã xoá lớp";
-    String MSG_INVITE_REGENERATED  = "Đã tạo mã mời mới";
-    String MSG_INVALID_INVITE_TYPE = "Loại mã không hợp lệ";
-
-    // Cross-controller invite / join messages
-    // (used by InviteLinkController + StudentClassesController).
+    // Cross-controller membership messages.
     String MSG_JOINED_CLASS        = "Đã tham gia lớp ";
     String MSG_ALREADY_IN_CLASS    = "Bạn đã ở trong lớp ";
-    String MSG_INVALID_INVITE_LINK = "Liên kết không hợp lệ";
     String MSG_JOIN_REQUEST_SENT   = "Đã gửi yêu cầu tham gia lớp ";
     String MSG_JOIN_REQUEST_PENDING_SUFFIX = " — chờ giảng viên duyệt";
     String MSG_JOIN_ALREADY_PENDING = "Yêu cầu tham gia lớp ";

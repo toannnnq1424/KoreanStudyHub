@@ -1,7 +1,7 @@
 package com.ksh.features.admin.departments.service;
 
 import com.ksh.entities.Department;
-import com.ksh.entities.DepartmentActivity;
+import com.ksh.entities.SubjectActivity;
 import com.ksh.entities.User;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 
 /**
  * Write-side department mutations: create/update/toggle and leader assignment
- * with promote/demote rules. Audit rows go through {@link DepartmentAuditWriter}.
+ * with promote/demote rules. Audit rows go through {@link SubjectAuditWriter}.
  * Read queries live on {@link DepartmentQueryService}.
  */
 @Service
@@ -46,12 +46,12 @@ public class DepartmentService {
 
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
-    private final DepartmentAuditWriter auditWriter;
+    private final SubjectAuditWriter auditWriter;
     private final SystemSettingsRepository systemSettingsRepository;
 
     public DepartmentService(DepartmentRepository departmentRepository,
                              UserRepository userRepository,
-                             DepartmentAuditWriter auditWriter,
+                             SubjectAuditWriter auditWriter,
                              SystemSettingsRepository systemSettingsRepository) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
@@ -74,7 +74,7 @@ public class DepartmentService {
             lockLeaderAssignmentAnchor();
         }
         Department saved = departmentRepository.save(entity);
-        auditWriter.write(saved.getId(), DepartmentActivity.TYPE_CREATED,
+        auditWriter.write(saved.getId(), SubjectActivity.TYPE_CREATED,
                 "Tạo bộ môn " + saved.getName() + " (" + saved.getCode() + ")",
                 null, actorId);
 
@@ -112,7 +112,7 @@ public class DepartmentService {
         Map<String, Object> fieldChanges = new LinkedHashMap<>(changes);
         fieldChanges.remove("active");
         if (!fieldChanges.isEmpty()) {
-            auditWriter.write(entity.getId(), DepartmentActivity.TYPE_UPDATED,
+            auditWriter.write(entity.getId(), SubjectActivity.TYPE_UPDATED,
                     "Cập nhật thông tin bộ môn",
                     auditWriter.serialize(fieldChanges), actorId);
         }
@@ -120,7 +120,7 @@ public class DepartmentService {
         if (activeChanged) {
             boolean nowActive = form.active();
             auditWriter.write(entity.getId(),
-                    nowActive ? DepartmentActivity.TYPE_ACTIVATED : DepartmentActivity.TYPE_DEACTIVATED,
+                    nowActive ? SubjectActivity.TYPE_ACTIVATED : SubjectActivity.TYPE_DEACTIVATED,
                     nowActive ? "Hiện bộ môn" : "Ẩn bộ môn",
                     null, actorId);
         }
@@ -133,7 +133,7 @@ public class DepartmentService {
         boolean now = entity.toggleActive();
         departmentRepository.save(entity);
         auditWriter.write(entity.getId(),
-                now ? DepartmentActivity.TYPE_ACTIVATED : DepartmentActivity.TYPE_DEACTIVATED,
+                now ? SubjectActivity.TYPE_ACTIVATED : SubjectActivity.TYPE_DEACTIVATED,
                 now ? "Hiện bộ môn" : "Ẩn bộ môn",
                 null, actorId);
         return now;
@@ -207,10 +207,10 @@ public class DepartmentService {
 
         if (entity.getId() != null) {
             if (newLeaderUserId == null) {
-                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_LEADER_CLEARED,
+                auditWriter.write(entity.getId(), SubjectActivity.TYPE_LEADER_CLEARED,
                         "Bỏ gán trưởng bộ môn", null, actorId);
             } else {
-                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_LEADER_ASSIGNED,
+                auditWriter.write(entity.getId(), SubjectActivity.TYPE_LEADER_ASSIGNED,
                         "Gán trưởng bộ môn: " + (newLeaderEmail != null ? newLeaderEmail : newLeaderUserId),
                         null, actorId);
             }

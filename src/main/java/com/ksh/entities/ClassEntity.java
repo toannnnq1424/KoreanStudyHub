@@ -33,11 +33,8 @@ import java.time.LocalDateTime;
 public class ClassEntity {
 
     public static final String STATUS_DRAFT = "DRAFT";
-    public static final String STATUS_UPCOMING = "UPCOMING";
     public static final String STATUS_ACTIVE = "ACTIVE";
-    public static final String STATUS_COMPLETED = "COMPLETED";
-    public static final String STATUS_CANCELLED = "CANCELLED";
-    public static final String STATUS_REJECTED = "REJECTED";
+    public static final String STATUS_ARCHIVED = "ARCHIVED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,7 +50,7 @@ public class ClassEntity {
     @Column(name = "lecturer_id", nullable = false)
     private Long lecturerId;
 
-    /** Owning department; nullable until backfilled or set on create. */
+    /** Canonical subject catalog row (physical compatibility column name). */
     @Setter
     @Column(name = "department_id")
     private Long departmentId;
@@ -138,7 +135,6 @@ public class ClassEntity {
                               Integer maxStudents) {
         this.name = name;
         this.description = description;
-        this.startDate = startDate;
         this.endDate = endDate;
         if (maxStudents != null) {
             this.maxStudents = maxStudents;
@@ -154,17 +150,9 @@ public class ClassEntity {
         this.deleted = true;
     }
 
-    /**
-     * Reassigns the teaching lecturer without changing department ownership.
-     * Used by LEADER lecturer-assignment flows.
-     */
-    public void reassignLecturer(Long lecturerId) {
-        this.lecturerId = lecturerId;
-    }
-
     public void approve(Long reviewerId, LocalDateTime reviewedAt) {
         requireDraft();
-        this.status = STATUS_UPCOMING;
+        this.status = STATUS_ACTIVE;
         this.approvedBy = reviewerId;
         this.approvedAt = reviewedAt;
         this.rejectionNote = null;
@@ -172,10 +160,16 @@ public class ClassEntity {
 
     public void reject(Long reviewerId, String note, LocalDateTime reviewedAt) {
         requireDraft();
-        this.status = STATUS_REJECTED;
+        this.status = STATUS_DRAFT;
         this.approvedBy = reviewerId;
         this.approvedAt = reviewedAt;
         this.rejectionNote = note == null || note.isBlank() ? null : note.trim();
+    }
+
+    public void archive() {
+        if (STATUS_ACTIVE.equals(status)) {
+            this.status = STATUS_ARCHIVED;
+        }
     }
 
     private void requireDraft() {

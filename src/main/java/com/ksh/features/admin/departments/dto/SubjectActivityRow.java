@@ -2,11 +2,8 @@ package com.ksh.features.admin.departments.dto;
 
 import java.time.LocalDateTime;
 
-/**
- * One row of administrative audit history for a department.
- * Top-level record so Hibernate JPQL {@code SELECT new ...} can resolve it.
- */
-public record DepartmentActivityRow(
+/** One row of administrative audit history for a subject. */
+public record SubjectActivityRow(
         Long id,
         String type,
         String message,

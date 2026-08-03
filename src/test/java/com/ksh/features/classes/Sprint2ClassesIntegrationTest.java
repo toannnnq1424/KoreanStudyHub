@@ -4,9 +4,7 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
-import com.ksh.entities.ClassInviteCode;
 import com.ksh.features.classes.repository.ClassActivityRepository;
-import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -49,7 +47,6 @@ class Sprint2ClassesIntegrationTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private ClassActivityRepository activityRepository;
     @Autowired private UserRepository userRepository;
-    @Autowired private ClassInviteCodeRepository inviteRepository;
     @PersistenceContext private EntityManager em;
 
     private User lecturer;
@@ -146,6 +143,7 @@ class Sprint2ClassesIntegrationTest {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "Java cơ bản")
                         .param("description", "Khoá nhập môn")
+                        .param("departmentId", String.valueOf(lecturer.getDepartmentId()))
                         .param("startDate", "2026-07-01")
                         .param("endDate", "2026-12-31")
                         .param("maxStudents", "50"))
@@ -161,13 +159,6 @@ class Sprint2ClassesIntegrationTest {
         assertThat(saved.getCode()).matches("[A-HJ-NP-Z2-9]+");
         assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
-        // Sprint 2.3: ClassesService.create now provisions one active
-        // CODE row and one active LINK row atomically.
-        List<ClassInviteCode> tokens = inviteRepository.findAllByClassIdOrderByIdAsc(saved.getId());
-        assertThat(tokens).hasSize(2);
-        assertThat(tokens).allMatch(ClassInviteCode::isActive);
-        assertThat(tokens).extracting(ClassInviteCode::getType)
-                .containsExactlyInAnyOrder(ClassInviteCode.TYPE_CODE, ClassInviteCode.TYPE_LINK);
     }
 
     @Test
@@ -226,7 +217,8 @@ class Sprint2ClassesIntegrationTest {
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "New")
-                        .param("description", "Updated"))
+                        .param("description", "Updated")
+                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/lecturer/classes"));
 
@@ -247,7 +239,8 @@ class Sprint2ClassesIntegrationTest {
         long activityBefore = activityRepository.count();
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
-                        .param("name", "Hijacked"))
+                        .param("name", "Hijacked")
+                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
                 .andExpect(status().isForbidden());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
@@ -261,7 +254,8 @@ class Sprint2ClassesIntegrationTest {
         ClassEntity entity = saveClass("Lect class", lecturer.getId(), "LCEDT");
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
-                        .param("name", "Leader edited"))
+                        .param("name", "Leader edited")
+                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
@@ -274,7 +268,8 @@ class Sprint2ClassesIntegrationTest {
         ClassEntity entity = saveClass("Lect class admin", lecturer.getId(), "ADMED");
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
-                        .param("name", "Admin edited"))
+                        .param("name", "Admin edited")
+                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
@@ -392,7 +387,8 @@ class Sprint2ClassesIntegrationTest {
     @WithUserDetails("lecturer@ksh.edu.vn")
     void create_with_max_students_omitted_defaults_to_100() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
-                        .param("name", "Default max test"))
+                        .param("name", "Default max test")
+                        .param("departmentId", String.valueOf(lecturer.getDepartmentId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity saved = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lecturer.getId())
@@ -406,7 +402,8 @@ class Sprint2ClassesIntegrationTest {
     @WithUserDetails("leader@ksh.edu.vn")
     void create_by_leader_assigns_leader_as_lecturer() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
-                        .param("name", "Created by leader"))
+                        .param("name", "Created by leader")
+                        .param("departmentId", String.valueOf(leader.getDepartmentId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity saved = classRepository.findAllByOrderByCreatedAtDesc().stream()
@@ -423,7 +420,8 @@ class Sprint2ClassesIntegrationTest {
         String originalCode = entity.getCode();
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
-                        .param("name", "Renamed"))
+                        .param("name", "Renamed")
+                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();

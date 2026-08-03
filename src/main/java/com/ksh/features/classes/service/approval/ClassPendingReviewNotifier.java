@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/** Sends the department Leader an in-app notification after class creation commits. */
+/** Sends the subject Leader an in-app notification after class creation commits. */
 @Component
 public class ClassPendingReviewNotifier {
 
@@ -26,7 +26,7 @@ public class ClassPendingReviewNotifier {
 
     /**
      * Runs after commit so a notification failure can never roll back the new
-     * class, its activity record, or its invite tokens.
+     * class or its activity record.
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void notifyLeader(ClassPendingReviewEvent event) {

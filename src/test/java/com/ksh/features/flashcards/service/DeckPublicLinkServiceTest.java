@@ -1,6 +1,5 @@
 package com.ksh.features.flashcards.service;
 
-import com.ksh.features.classes.service.invites.InviteTokenGenerator;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
 import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
 import com.ksh.features.flashcards.support.DeckAccessResolver;
@@ -24,7 +23,7 @@ class DeckPublicLinkServiceTest {
 
     private FlashcardDeckRepository repository;
     private DeckAccessResolver accessResolver;
-    private InviteTokenGenerator tokenGenerator;
+    private FlashcardPublicTokenGenerator tokenGenerator;
     private DeckPublicLinkService service;
     private FlashcardDeck deck;
 
@@ -32,11 +31,11 @@ class DeckPublicLinkServiceTest {
     void setUp() {
         repository = mock(FlashcardDeckRepository.class);
         accessResolver = mock(DeckAccessResolver.class);
-        tokenGenerator = mock(InviteTokenGenerator.class);
+        tokenGenerator = mock(FlashcardPublicTokenGenerator.class);
         service = new DeckPublicLinkService(repository, accessResolver, tokenGenerator);
         deck = new FlashcardDeck(7L, "Korean", null);
         when(accessResolver.requireOwner(11L, 7L)).thenReturn(deck);
-        when(tokenGenerator.generateLink()).thenReturn(TOKEN);
+        when(tokenGenerator.generate()).thenReturn(TOKEN);
         when(repository.save(any(FlashcardDeck.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }
@@ -45,7 +44,7 @@ class DeckPublicLinkServiceTest {
     void enableKeepsStableTokenAcrossDisableAndReenable() {
         assertThat(service.enable(11L, 7L)).isEqualTo(TOKEN);
         service.disable(11L, 7L);
-        when(tokenGenerator.generateLink()).thenReturn("0123456789abcdefghijklmnopqrstuv");
+        when(tokenGenerator.generate()).thenReturn("0123456789abcdefghijklmnopqrstuv");
 
         assertThat(service.enable(11L, 7L)).isEqualTo(TOKEN);
         assertThat(deck.isPublicLink()).isTrue();
@@ -55,7 +54,7 @@ class DeckPublicLinkServiceTest {
     void regenerateInvalidatesOldTokenAndLeavesLinkEnabled() {
         service.enable(11L, 7L);
         String replacement = "0123456789abcdefghijklmnopqrstuv";
-        when(tokenGenerator.generateLink()).thenReturn(replacement);
+        when(tokenGenerator.generate()).thenReturn(replacement);
 
         assertThat(service.regenerate(11L, 7L)).isEqualTo(replacement);
         assertThat(deck.isPublicLink()).isTrue();

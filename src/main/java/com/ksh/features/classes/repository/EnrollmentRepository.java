@@ -116,6 +116,9 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     List<Enrollment> findAllByUserIdAndStatusOrderByJoinedAtDesc(@Param("userId") Long userId,
                                                                   @Param("status") String status);
 
+    @Query("SELECT e FROM Enrollment e WHERE e.user.id = :userId")
+    List<Enrollment> findAllByUserId(@Param("userId") Long userId);
+
     /**
      * Returns the number of currently ACTIVE enrollments for the
      * given class. Capacity check uses this against

@@ -14,7 +14,7 @@ import java.util.Map;
  * Centralizes writes to the {@code activity_classes} audit table.
  *
  * <p>Encapsulates the construction of {@link ClassActivity} rows so that every
- * caller (class CRUD, invite code regeneration, enrollment join/leave) shares a
+ * caller (class CRUD and enrollment request/approval/leave) shares a
  * single code path. Metadata maps are serialized via {@link ObjectMapper} —
  * never by manual string concatenation — to keep the audit JSON well-formed when
  * fields contain quotes, backslashes, or other JSON-special characters.

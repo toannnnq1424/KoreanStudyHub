@@ -1,9 +1,9 @@
 package com.ksh.features.admin.departments;
 
 import com.ksh.entities.Department;
-import com.ksh.entities.DepartmentActivity;
+import com.ksh.entities.SubjectActivity;
 import com.ksh.entities.User;
-import com.ksh.features.admin.departments.repository.DepartmentActivityRepository;
+import com.ksh.features.admin.departments.repository.SubjectActivityRepository;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.security.Role;
@@ -38,7 +38,7 @@ class AdminDepartmentsIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private DepartmentRepository departmentRepository;
-    @Autowired private DepartmentActivityRepository activityRepository;
+    @Autowired private SubjectActivityRepository activityRepository;
     @Autowired private UserRepository userRepository;
 
     @Test
@@ -116,8 +116,8 @@ class AdminDepartmentsIntegrationTest {
         assertThat(saved.isActive()).isTrue();
 
         assertThat(activityRepository.findAll()).anyMatch(a ->
-                saved.getId().equals(a.getDepartmentId())
-                        && DepartmentActivity.TYPE_CREATED.equals(a.getType()));
+                saved.getId().equals(a.getSubjectId())
+                        && SubjectActivity.TYPE_CREATED.equals(a.getType()));
     }
 
     @Test

@@ -110,8 +110,8 @@ public class LeaderController {
                            @AuthenticationPrincipal KshUserDetails user,
                            RedirectAttributes ra) {
         try {
-            String className = assignmentService.reassign(user.getId(), classId, lecturerId);
-            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_LEADER_REASSIGNED + className);
+            String className = assignmentService.assignCoLecturer(user.getId(), classId, lecturerId);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, "Đã thêm giảng viên đồng giảng cho lớp " + className);
         } catch (IllegalArgumentException ex) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
         }

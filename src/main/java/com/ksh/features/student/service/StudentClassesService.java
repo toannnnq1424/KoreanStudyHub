@@ -7,6 +7,9 @@ import com.ksh.entities.Enrollment;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.student.dto.StudentClassesDtos.EnrolledClassRow;
+import com.ksh.features.student.dto.StudentClassesDtos.CatalogClassRow;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
+import com.ksh.entities.Department;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,13 +38,16 @@ public class StudentClassesService {
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
+    private final DepartmentRepository subjectRepository;
 
     public StudentClassesService(EnrollmentRepository enrollmentRepository,
                                  ClassRepository classRepository,
-                                 UserRepository userRepository) {
+                                 UserRepository userRepository,
+                                 DepartmentRepository subjectRepository) {
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
+        this.subjectRepository = subjectRepository;
     }
 
     /** ACTIVE enrolled classes, most recent join first. Soft-deleted classes hidden. */
@@ -56,6 +62,46 @@ public class StudentClassesService {
     public List<EnrolledClassRow> listPendingClasses(Long userId) {
         return mapRows(enrollmentRepository
                 .findAllByUserIdAndStatusOrderByJoinedAtDesc(userId, Enrollment.STATUS_PENDING));
+    }
+
+    /** All leader-approved ACTIVE classes, optionally filtered by name/subject code. */
+    @Transactional(readOnly = true)
+    public List<CatalogClassRow> listActiveCatalog(Long userId, String query) {
+        List<ClassEntity> classes = classRepository.findAllByStatusOrderByCreatedAtDesc(
+                ClassEntity.STATUS_ACTIVE);
+        Map<Long, Department> subjects = new HashMap<>();
+        for (Department subject : subjectRepository.findAllById(classes.stream()
+                .map(ClassEntity::getDepartmentId).filter(java.util.Objects::nonNull).distinct().toList())) {
+            subjects.put(subject.getId(), subject);
+        }
+        Map<Long, String> lecturers = new HashMap<>();
+        for (User lecturer : userRepository.findAllById(classes.stream()
+                .map(ClassEntity::getLecturerId).distinct().toList())) {
+            lecturers.put(lecturer.getId(), lecturer.getFullName());
+        }
+        Map<Long, String> enrollmentStatuses = new HashMap<>();
+        for (Enrollment enrollment : enrollmentRepository.findAllByUserId(userId)) {
+            enrollmentStatuses.put(enrollment.getClassId(), enrollment.getStatus());
+        }
+        String needle = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+        List<CatalogClassRow> rows = new ArrayList<>();
+        for (ClassEntity clazz : classes) {
+            Department subject = subjects.get(clazz.getDepartmentId());
+            String code = subject == null ? "—" : subject.getCode();
+            String subjectName = subject == null ? "—" : subject.getName();
+            if (!needle.isEmpty()
+                    && !clazz.getName().toLowerCase(java.util.Locale.ROOT).contains(needle)
+                    && !code.toLowerCase(java.util.Locale.ROOT).contains(needle)) {
+                continue;
+            }
+            String status = enrollmentStatuses.get(clazz.getId());
+            rows.add(new CatalogClassRow(
+                    clazz.getId(), clazz.getName(), code, subjectName,
+                    lecturers.getOrDefault(clazz.getLecturerId(), "—"),
+                    Enrollment.STATUS_PENDING.equals(status),
+                    Enrollment.STATUS_ACTIVE.equals(status)));
+        }
+        return rows;
     }
 
     private List<EnrolledClassRow> mapRows(List<Enrollment> enrollments) {
@@ -81,7 +127,7 @@ public class StudentClassesService {
         for (Enrollment e : enrollments) {
             ClassEntity c = classById.get(e.getClassId());
             // Soft-deleted class → hide row.
-            if (c == null) continue;
+            if (c == null || !ClassEntity.STATUS_ACTIVE.equals(c.getStatus())) continue;
             String lecName = lecturerNames.getOrDefault(c.getLecturerId(), "—");
             String gradient = gradientFor(idx++);
             rows.add(new EnrolledClassRow(

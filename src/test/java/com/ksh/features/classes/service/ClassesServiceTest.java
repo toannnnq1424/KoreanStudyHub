@@ -1,16 +1,15 @@
 package com.ksh.features.classes.service;
 
 import com.ksh.security.Role;
-import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
-import com.ksh.features.classes.repository.ClassInviteCodeRepository;
+import com.ksh.entities.Department;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.service.codes.ClassCodeGenerationException;
 import com.ksh.features.classes.service.codes.ClassCodeGenerator;
-import com.ksh.features.classes.service.invites.InviteCodeService;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +45,7 @@ import static org.mockito.Mockito.when;
  *
  * <p>Wave 2 refactor (perf-services-cache-and-principal): service no longer
  * resolves the caller via {@code Principal}; tests pass {@code (userId, role)}
- * directly. {@code UserRepository} is no longer injected.
+ * directly. Subject lookup is mocked to enforce the required active subject.
  */
 class ClassesServiceTest {
 
@@ -56,11 +55,9 @@ class ClassesServiceTest {
     private static final Long ADMIN_ID = 1L;
 
     private ClassRepository classRepository;
-    private ClassInviteCodeRepository inviteCodeRepository;
     private ClassActivityWriter activityWriter;
     private ClassCodeGenerator codeGenerator;
-    private InviteCodeService inviteCodeService;
-    private UserRepository userRepository;
+    private DepartmentRepository subjectRepository;
     private ClassRoleAccessPolicy accessPolicy;
     private ApplicationEventPublisher eventPublisher;
     private ClassesService service;
@@ -68,14 +65,14 @@ class ClassesServiceTest {
     @BeforeEach
     void setUp() {
         classRepository = mock(ClassRepository.class);
-        inviteCodeRepository = mock(ClassInviteCodeRepository.class);
         activityWriter = mock(ClassActivityWriter.class);
         codeGenerator = mock(ClassCodeGenerator.class);
-        inviteCodeService = mock(InviteCodeService.class);
-        userRepository = mock(UserRepository.class);
+        subjectRepository = mock(DepartmentRepository.class);
         accessPolicy = mock(ClassRoleAccessPolicy.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
-        when(userRepository.findById(any())).thenReturn(Optional.empty());
+        Department subject = new Department("Tiếng Hàn 3.1.1", "KOR311", null, true);
+        ReflectionTestUtils.setField(subject, "id", 12L);
+        when(subjectRepository.findById(12L)).thenReturn(Optional.of(subject));
         when(accessPolicy.canAccess(any(), any(), any())).thenAnswer(invocation -> {
             ClassEntity clazz = invocation.getArgument(0);
             Long userId = invocation.getArgument(1);
@@ -84,10 +81,8 @@ class ClassesServiceTest {
                     || (role == Role.LECTURER && userId.equals(clazz.getLecturerId()))
                     || role == Role.LEADER;
         });
-        service = new ClassesService(classRepository, inviteCodeRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository, accessPolicy, eventPublisher);
-        when(inviteCodeRepository.findByClassIdAndTypeAndActiveTrue(any(), any()))
-                .thenReturn(Optional.empty());
+        service = new ClassesService(classRepository, activityWriter,
+                codeGenerator, subjectRepository, accessPolicy, eventPublisher);
     }
 
     // ───────────────── List by role ─────────────────
@@ -95,7 +90,7 @@ class ClassesServiceTest {
     @Test
     void list_for_lecturer_filters_to_own_classes() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(classRepository.findAllByLecturerId(eq(LECTURER_ID), any(Pageable.class)))
+        when(classRepository.findAllAccessibleToLecturer(eq(LECTURER_ID), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(buildClass(1L, "Java", LECTURER_ID)), pageable, 1));
 
         Page<ClassRow> rows = service.listForUser(LECTURER_ID, Role.LECTURER, pageable);
@@ -135,7 +130,7 @@ class ClassesServiceTest {
     @Test
     void list_returns_zero_stat_columns() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(classRepository.findAllByLecturerId(eq(LECTURER_ID), any(Pageable.class)))
+        when(classRepository.findAllAccessibleToLecturer(eq(LECTURER_ID), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(buildClass(1L, "X", LECTURER_ID)), pageable, 1));
 
         ClassRow row = service.listForUser(LECTURER_ID, Role.LECTURER, pageable).getContent().get(0);
@@ -159,7 +154,7 @@ class ClassesServiceTest {
                 });
 
         ClassForm form = new ClassForm("Java", "Khoá nhập môn",
-                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31), 50);
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31), 50, 12L);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
@@ -169,9 +164,19 @@ class ClassesServiceTest {
         verify(activityWriter).write(eq(100L), eq(ClassActivity.TYPE_CREATED),
                 eq("Tạo lớp Java"), eq(LECTURER_ID));
 
-        // Verify the default CODE + LINK tokens are provisioned
-        // atomically as part of the create flow.
-        verify(inviteCodeService, times(1)).provisionDefaults(100L, LECTURER_ID);
+    }
+
+    @Test
+    void create_rejects_unknown_or_inactive_subject_before_generating_code() {
+        when(subjectRepository.findById(99L)).thenReturn(Optional.empty());
+        ClassForm form = new ClassForm("Tiếng Hàn", null, null, null, 50, 99L);
+
+        assertThatThrownBy(() -> service.create(form, LECTURER_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Mã môn");
+
+        verify(codeGenerator, never()).generate();
+        verify(classRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -186,7 +191,7 @@ class ClassesServiceTest {
                     return e;
                 });
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = new ClassForm("Java", "x", null, null, 100, 12L);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
         assertThat(saved.getCode()).isEqualTo("NILXM");
@@ -204,7 +209,7 @@ class ClassesServiceTest {
                 new RuntimeException("Cannot be null: classes.name"));
         when(classRepository.saveAndFlush(any(ClassEntity.class))).thenThrow(other);
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = new ClassForm("Java", "x", null, null, 100, 12L);
 
         assertThatThrownBy(() -> service.create(form, LECTURER_ID))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -212,7 +217,6 @@ class ClassesServiceTest {
         verify(classRepository, times(1)).saveAndFlush(any(ClassEntity.class));
         verify(activityWriter, never()).write(any(), any(), any(), any());
         verify(activityWriter, never()).write(any(), any(), any(), any(), any());
-        verify(inviteCodeService, never()).provisionDefaults(any(), any());
     }
 
     @Test
@@ -220,7 +224,7 @@ class ClassesServiceTest {
         when(codeGenerator.generate()).thenReturn("A", "B", "C");
         when(classRepository.countAnyByCode(any())).thenReturn(1L);
 
-        ClassForm form = new ClassForm("Java", "x", null, null, 100);
+        ClassForm form = new ClassForm("Java", "x", null, null, 100, 12L);
 
         assertThatThrownBy(() -> service.create(form, LECTURER_ID))
                 .isInstanceOf(ClassCodeGenerationException.class);
@@ -228,7 +232,6 @@ class ClassesServiceTest {
         verify(classRepository, never()).saveAndFlush(any(ClassEntity.class));
         verify(activityWriter, never()).write(any(), any(), any(), any());
         verify(activityWriter, never()).write(any(), any(), any(), any(), any());
-        verify(inviteCodeService, never()).provisionDefaults(any(), any());
     }
 
     // ───────────────── Authz: owner check ─────────────────
@@ -239,7 +242,7 @@ class ClassesServiceTest {
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClassForm form = new ClassForm("New name", "desc", null, null, 50);
+        ClassForm form = new ClassForm("New name", "desc", null, null, 50, 12L);
         service.update(9L, form, LECTURER_ID, Role.LECTURER);
 
         assertThat(entity.getName()).isEqualTo("New name");
@@ -265,7 +268,7 @@ class ClassesServiceTest {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID); // owned by lecturer id=42
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
 
-        ClassForm form = new ClassForm("Y", "", null, null, 50);
+        ClassForm form = new ClassForm("Y", "", null, null, 50, 12L);
 
         assertThatThrownBy(() -> service.update(9L, form, OTHER_LECTURER_ID, Role.LECTURER))
                 .isInstanceOf(AccessDeniedException.class);
@@ -281,7 +284,7 @@ class ClassesServiceTest {
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClassForm form = new ClassForm("Y", "", null, null, 50);
+        ClassForm form = new ClassForm("Y", "", null, null, 50, 12L);
         service.update(9L, form, LEADER_ID, Role.LEADER);
 
         assertThat(entity.getName()).isEqualTo("Y");
@@ -295,7 +298,7 @@ class ClassesServiceTest {
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClassForm form = new ClassForm("Y", "", null, null, 50);
+        ClassForm form = new ClassForm("Y", "", null, null, 50, 12L);
         service.update(9L, form, ADMIN_ID, Role.ADMIN);
 
         assertThat(entity.getName()).isEqualTo("Y");
@@ -305,7 +308,7 @@ class ClassesServiceTest {
     void update_throws_entity_not_found_when_missing() {
         when(classRepository.findById(999L)).thenReturn(Optional.empty());
 
-        ClassForm form = new ClassForm("X", "", null, null, 50);
+        ClassForm form = new ClassForm("X", "", null, null, 50, 12L);
         assertThatThrownBy(() -> service.update(999L, form, LECTURER_ID, Role.LECTURER))
                 .isInstanceOf(EntityNotFoundException.class);
     }

@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 
 /**
  * Spring Data JPA repository for {@link ClassEntity}.
@@ -62,6 +63,25 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      */
     Page<ClassEntity> findAllByLecturerId(Long lecturerId, Pageable pageable);
 
+    /** Classes where the lecturer is either the immutable owner or a co-lecturer. */
+    @Query(value = """
+            SELECT DISTINCT c.*
+            FROM classes c
+            LEFT JOIN class_co_lecturers cc ON cc.class_id = c.id
+            WHERE c.is_deleted = 0
+              AND (c.lecturer_id = :lecturerId OR cc.lecturer_id = :lecturerId)
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT c.id)
+            FROM classes c
+            LEFT JOIN class_co_lecturers cc ON cc.class_id = c.id
+            WHERE c.is_deleted = 0
+              AND (c.lecturer_id = :lecturerId OR cc.lecturer_id = :lecturerId)
+            """,
+            nativeQuery = true)
+    Page<ClassEntity> findAllAccessibleToLecturer(@Param("lecturerId") Long lecturerId,
+                                                   Pageable pageable);
+
     /**
      * Paginated variant of the all-non-deleted query used by LEADER / ADMIN
      * viewing the lecturer class list. The {@code @SQLRestriction} on
@@ -96,7 +116,13 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      * @param lecturerId the lecturer's user id
      * @return distinct class ids taught by that lecturer
      */
-    @Query("SELECT c.id FROM ClassEntity c WHERE c.lecturerId = :lecturerId")
+    @Query(value = """
+            SELECT DISTINCT c.id
+            FROM classes c
+            LEFT JOIN class_co_lecturers cc ON cc.class_id = c.id
+            WHERE c.is_deleted = 0
+              AND (c.lecturer_id = :lecturerId OR cc.lecturer_id = :lecturerId)
+            """, nativeQuery = true)
     List<Long> findClassIdsForLecturer(@Param("lecturerId") Long lecturerId);
 
     /** Non-deleted classes owned by a department, newest first. */
@@ -109,4 +135,8 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     Page<ClassEntity> findAllByDepartmentId(Long departmentId, Pageable pageable);
 
     long countByDepartmentId(Long departmentId);
+
+    List<ClassEntity> findAllByStatusAndEndDateLessThanEqual(String status, LocalDate endDate);
+
+    List<ClassEntity> findAllByStatusOrderByCreatedAtDesc(String status);
 }

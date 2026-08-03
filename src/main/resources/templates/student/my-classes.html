@@ -46,10 +46,6 @@
           <button class="menu-item" data-sort="Tên Z-A" data-sort-key="name-desc" type="button">Tên Z-A</button>
         </div>
       </div>
-      <a class="create-btn" th:href="@{/my/classes/join}">
-        <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-        Tham gia lớp mới
-      </a>
     </div>
 
     <!-- List header -->
@@ -147,6 +143,48 @@
         </div>
       </div>
     </div>
+
+    <section class="catalog-classes" style="margin-top:28px; padding-top:20px; border-top:1px solid #dbeafe;">
+      <div class="panel-top">
+        <div>
+          <h2 style="margin:0; font-size:20px;">Danh sách lớp đang mở</h2>
+          <p style="margin:6px 0 0; color:#64748b;">Chỉ hiển thị lớp ACTIVE đã được trưởng môn duyệt.</p>
+        </div>
+      </div>
+      <form method="get" th:action="@{/my/classes}" class="toolbar" role="search">
+        <div class="search">
+          <label for="catalogQuery" class="sr-only">Tìm theo tên lớp hoặc mã môn</label>
+          <input id="catalogQuery" name="q" type="search" th:value="${catalogQuery}"
+                 placeholder="Tên lớp hoặc mã môn, ví dụ KOR311">
+        </div>
+        <button class="btn-primary" type="submit">Tìm lớp</button>
+      </form>
+      <div class="empty" th:if="${catalogRows == null or catalogRows.isEmpty()}">
+        Không có lớp ACTIVE phù hợp.
+      </div>
+      <div class="class-list" th:if="${catalogRows != null and !catalogRows.isEmpty()}">
+        <div class="class-row student-class-row" th:each="catalog : ${catalogRows}">
+          <div class="class-main">
+            <div class="class-info">
+              <h4 th:text="${catalog.className()}">Tên lớp</h4>
+              <div class="class-code">
+                <b th:text="${catalog.subjectCode()}">KOR311</b>
+                <span th:text="${' — ' + catalog.subjectName()}"> — Tên môn</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat student-stat-text" th:text="${catalog.lecturerName()}">Giảng viên</div>
+          <div class="stat">
+            <span th:if="${catalog.alreadyEnrolled()}">Đã tham gia</span>
+            <span th:if="${catalog.alreadyRequested()}">Đang chờ duyệt</span>
+            <form th:if="${!catalog.alreadyEnrolled() and !catalog.alreadyRequested()}"
+                  th:action="@{|/my/classes/${catalog.classId()}/request|}" method="post">
+              <button class="btn-primary btn-sm" type="submit">Yêu cầu tham gia</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
   </section>
 </main>
 

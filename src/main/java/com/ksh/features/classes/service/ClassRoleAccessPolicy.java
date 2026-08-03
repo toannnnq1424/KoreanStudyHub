@@ -1,6 +1,7 @@
 package com.ksh.features.classes.service;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.features.leader.service.LeaderDepartmentResolver;
 import com.ksh.security.Role;
 import org.springframework.stereotype.Component;
@@ -16,9 +17,12 @@ import java.util.Optional;
 public class ClassRoleAccessPolicy {
 
     private final LeaderDepartmentResolver leaderDepartmentResolver;
+    private final ClassCoLecturerRepository coLecturerRepository;
 
-    public ClassRoleAccessPolicy(LeaderDepartmentResolver leaderDepartmentResolver) {
+    public ClassRoleAccessPolicy(LeaderDepartmentResolver leaderDepartmentResolver,
+                                 ClassCoLecturerRepository coLecturerRepository) {
         this.leaderDepartmentResolver = leaderDepartmentResolver;
+        this.coLecturerRepository = coLecturerRepository;
     }
 
     public boolean canAccess(ClassEntity clazz, Long userId, Role role) {
@@ -29,7 +33,8 @@ public class ClassRoleAccessPolicy {
             return true;
         }
         if (role == Role.LECTURER) {
-            return userId.equals(clazz.getLecturerId());
+            return userId.equals(clazz.getLecturerId())
+                    || coLecturerRepository.existsByClassIdAndLecturerId(clazz.getId(), userId);
         }
         if (role == Role.LEADER) {
             return leaderDepartmentId(userId)

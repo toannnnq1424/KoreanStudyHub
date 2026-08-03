@@ -92,6 +92,9 @@ public class StudentLessonsService {
         ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Class not found or not accessible"));
+        if (role == Role.STUDENT && !ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus())) {
+            throw new EntityNotFoundException("Class not found or not accessible");
+        }
 
         // Gate 2: admit the caller. ADMIN and in-department LEADER bypass enrollment so they can
         // open the discussion thread to moderate; the owning lecturer passes

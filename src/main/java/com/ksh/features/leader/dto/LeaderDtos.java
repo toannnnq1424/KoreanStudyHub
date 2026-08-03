@@ -58,7 +58,8 @@ public final class LeaderDtos {
             String className,
             String classCode,
             Long lecturerId,
-            String lecturerName
+            String lecturerName,
+            List<String> coLecturerNames
     ) {
     }
 

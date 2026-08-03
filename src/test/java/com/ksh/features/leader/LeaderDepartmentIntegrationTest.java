@@ -6,6 +6,7 @@ import com.ksh.entities.User;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,7 @@ class LeaderDepartmentIntegrationTest {
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private ClassRepository classRepository;
+    @Autowired private ClassCoLecturerRepository coLecturerRepository;
 
     private Department cntt;
     private User leader;
@@ -122,7 +124,7 @@ class LeaderDepartmentIntegrationTest {
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void reassign_lecturer_same_department() throws Exception {
+    void add_co_lecturer_same_subject_preserves_owner() throws Exception {
         ClassEntity inDept = new ClassEntity(
                 "Lớp Reassign", leader.getId(), leader.getId(),
                 "desc", null, null, 50);
@@ -136,13 +138,16 @@ class LeaderDepartmentIntegrationTest {
                 .andExpect(flash().attributeExists("flashSuccess"));
 
         ClassEntity updated = classRepository.findById(saved.getId()).orElseThrow();
-        assertThat(updated.getLecturerId()).isEqualTo(lecturer.getId());
+        assertThat(updated.getLecturerId()).isEqualTo(leader.getId());
+        assertThat(updated.getCreatedBy()).isEqualTo(leader.getId());
         assertThat(updated.getDepartmentId()).isEqualTo(cntt.getId());
+        assertThat(coLecturerRepository.existsByClassIdAndLecturerId(
+                saved.getId(), lecturer.getId())).isTrue();
     }
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void reassign_cross_department_class_denied() throws Exception {
+    void add_co_lecturer_cross_subject_class_denied() throws Exception {
         Department other = departmentRepository.findAll().stream()
                 .filter(d -> "KT".equals(d.getCode()))
                 .findFirst().orElseThrow();
@@ -208,7 +213,7 @@ class LeaderDepartmentIntegrationTest {
                 .andExpect(flash().attributeExists("flashSuccess"));
 
         ClassEntity approved = classRepository.findById(saved.getId()).orElseThrow();
-        assertThat(approved.getStatus()).isEqualTo(ClassEntity.STATUS_UPCOMING);
+        assertThat(approved.getStatus()).isEqualTo(ClassEntity.STATUS_ACTIVE);
         assertThat(approved.getApprovedBy()).isEqualTo(leader.getId());
         assertThat(approved.getApprovedAt()).isNotNull();
     }

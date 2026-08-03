@@ -225,14 +225,13 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
                         // WebSocket STOMP handshake rides the HTTP session; require auth.
                         .requestMatchers("/ws/**").authenticated()
-                        .requestMatchers("/my/**", "/j/**").authenticated()
+                        .requestMatchers("/my/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/login")
-                        // Resume deep links (notably /j/{invite-token}) only
-                        // when they fit the newly authenticated role. A stale
+                        // Resume saved requests only when they fit the newly authenticated role. A stale
                         // lecturer/admin URL from the previous account is
                         // discarded by the role-aware success handler.
                         .successHandler(formSuccessHandler)

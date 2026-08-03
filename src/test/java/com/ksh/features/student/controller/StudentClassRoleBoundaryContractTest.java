@@ -19,7 +19,6 @@ class StudentClassRoleBoundaryContractTest {
         assertStudentGate(StudentClassTestsController.class);
         assertStudentGate(StudentClassMessagesController.class);
         assertStudentGate(LearningProgressController.class);
-        assertStudentGate(InviteLinkController.class);
     }
 
     private static void assertStudentGate(Class<?> controller) {

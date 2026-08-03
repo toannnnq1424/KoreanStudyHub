@@ -1,10 +1,12 @@
 package com.ksh.features.leader.service;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.ClassCoLecturer;
 import com.ksh.entities.Department;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.features.leader.dto.LeaderDtos.AssignClassRow;
 import com.ksh.features.leader.dto.LeaderDtos.AssignView;
 import com.ksh.features.leader.dto.LeaderDtos.DepartmentSummary;
@@ -33,13 +35,16 @@ public class LeaderLecturerAssignmentService {
     private final LeaderDepartmentResolver resolver;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
+    private final ClassCoLecturerRepository coLecturerRepository;
 
     public LeaderLecturerAssignmentService(LeaderDepartmentResolver resolver,
                                          ClassRepository classRepository,
-                                         UserRepository userRepository) {
+                                         UserRepository userRepository,
+                                         ClassCoLecturerRepository coLecturerRepository) {
         this.resolver = resolver;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
+        this.coLecturerRepository = coLecturerRepository;
     }
 
     @Transactional(readOnly = true)
@@ -52,12 +57,14 @@ public class LeaderLecturerAssignmentService {
         List<ClassEntity> classes =
                 classRepository.findAllByDepartmentIdOrderByCreatedAtDesc(dept.getId());
         Map<Long, String> names = loadNames(classes);
+        Map<Long, List<String>> coLecturerNames = loadCoLecturerNames(classes);
         List<AssignClassRow> rows = new ArrayList<>(classes.size());
         for (ClassEntity c : classes) {
             rows.add(new AssignClassRow(
                     c.getId(), c.getName(), c.getCode(),
                     c.getLecturerId(),
-                    names.getOrDefault(c.getLecturerId(), "—")));
+                    names.getOrDefault(c.getLecturerId(), "—"),
+                    coLecturerNames.getOrDefault(c.getId(), List.of())));
         }
         List<LecturerOption> lecturers = departmentLecturers(dept.getId());
         return new AssignView(
@@ -66,14 +73,12 @@ public class LeaderLecturerAssignmentService {
     }
 
     /**
-     * Reassigns a class lecturer. Class must belong to the LEADER's department;
-     * new lecturer must be active LECTURER/LEADER in the same department.
-     * Does not change {@code department_id}.
+     * Adds a co-lecturer without changing the owning lecturer or creator.
      *
      * @return class display name for success toast
      */
     @Transactional
-    public String reassign(Long leaderUserId, Long classId, Long newLecturerId) {
+    public String assignCoLecturer(Long leaderUserId, Long classId, Long newLecturerId) {
         Department dept = resolver.resolve(leaderUserId)
                 .orElseThrow(() -> new AccessDeniedException("Không có bộ môn"));
         ClassEntity clazz = classRepository.findById(classId)
@@ -92,9 +97,32 @@ public class LeaderLecturerAssignmentService {
             throw new IllegalArgumentException(
                     "Giảng viên phải thuộc cùng bộ môn và đang hoạt động");
         }
-        clazz.reassignLecturer(newLecturerId);
-        classRepository.save(clazz);
+        if (newLecturerId.equals(clazz.getLecturerId())) {
+            throw new IllegalArgumentException("Giảng viên này đang là chủ lớp");
+        }
+        if (!coLecturerRepository.existsByClassIdAndLecturerId(classId, newLecturerId)) {
+            coLecturerRepository.save(new ClassCoLecturer(classId, newLecturerId, leaderUserId));
+        }
         return clazz.getName();
+    }
+
+    private Map<Long, List<String>> loadCoLecturerNames(List<ClassEntity> classes) {
+        if (classes.isEmpty()) {
+            return Map.of();
+        }
+        List<ClassCoLecturer> assignments = coLecturerRepository.findAllByClassIdIn(
+                classes.stream().map(ClassEntity::getId).toList());
+        Map<Long, String> userNames = new HashMap<>();
+        for (User user : userRepository.findAllById(
+                assignments.stream().map(ClassCoLecturer::getLecturerId).distinct().toList())) {
+            userNames.put(user.getId(), user.getFullName());
+        }
+        Map<Long, List<String>> result = new HashMap<>();
+        for (ClassCoLecturer assignment : assignments) {
+            result.computeIfAbsent(assignment.getClassId(), ignored -> new ArrayList<>())
+                    .add(userNames.getOrDefault(assignment.getLecturerId(), "—"));
+        }
+        return result;
     }
 
     private List<LecturerOption> departmentLecturers(Long departmentId) {

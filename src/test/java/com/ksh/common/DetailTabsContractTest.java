@@ -197,10 +197,6 @@ class DetailTabsContractTest {
                 .contains("window.KshDirtyFormGuard.beginMutation(true)")
                 .contains("window.KshDirtyFormGuard.completeMutation()");
 
-        assertThat(read("static/js/invite-code.js"))
-                .contains("document.addEventListener('click'")
-                .contains("document.addEventListener('submit'")
-                .contains("invite-regen-form");
     }
 
     private static String read(String relative) throws IOException {

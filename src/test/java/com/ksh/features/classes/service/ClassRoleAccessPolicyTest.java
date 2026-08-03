@@ -3,6 +3,7 @@ package com.ksh.features.classes.service;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Department;
 import com.ksh.features.leader.service.LeaderDepartmentResolver;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +16,10 @@ import static org.mockito.Mockito.when;
 class ClassRoleAccessPolicyTest {
 
     private final LeaderDepartmentResolver resolver = mock(LeaderDepartmentResolver.class);
-    private final ClassRoleAccessPolicy policy = new ClassRoleAccessPolicy(resolver);
+    private final ClassCoLecturerRepository coLecturerRepository =
+            mock(ClassCoLecturerRepository.class);
+    private final ClassRoleAccessPolicy policy =
+            new ClassRoleAccessPolicy(resolver, coLecturerRepository);
 
     @Test
     void leaderIsLimitedToResolvedDepartment() {
@@ -36,6 +40,16 @@ class ClassRoleAccessPolicyTest {
         assertThat(policy.canAccess(clazz, 1L, Role.ADMIN)).isTrue();
         assertThat(policy.canAccess(clazz, 42L, Role.LECTURER)).isTrue();
         assertThat(policy.canAccess(clazz, 99L, Role.LECTURER)).isFalse();
+    }
+
+    @Test
+    void lecturerCanAccessAsCoLecturerWithoutBecomingOwner() {
+        ClassEntity clazz = classEntity(42L, 10L);
+        when(clazz.getId()).thenReturn(5L);
+        when(coLecturerRepository.existsByClassIdAndLecturerId(5L, 99L)).thenReturn(true);
+
+        assertThat(policy.canAccess(clazz, 99L, Role.LECTURER)).isTrue();
+        assertThat(clazz.getLecturerId()).isEqualTo(42L);
     }
 
     private static ClassEntity classEntity(Long lecturerId, Long departmentId) {
