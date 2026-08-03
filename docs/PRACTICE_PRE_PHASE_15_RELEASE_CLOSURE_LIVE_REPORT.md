@@ -537,3 +537,39 @@ with `0` failures, errors or skips. Provider/storage/database calls were
 `0/0/0`; no migration was changed. Readiness remains red because repository
 tests use only clearly named `TEST-*` evidence and no real provider policy,
 legal, corpus or calibration record was fabricated.
+
+### 6.8 Branch-B lifecycle/ACL schema audit and decision boundary
+
+Status: `AUDITED / FORWARD_MIGRATION_NOT_YET_AUTHORIZED_BY_COMPLETE_VALUES`.
+
+The post-B1 read-only audit found reusable controls but no persisted branch-B
+authority. `practice_speaking_media` already carries immutable attempt/question
+identity, content hash, optimistic lock, READY/deletion-pending/deleted states
+and exact storage identity. Owner deletion enqueues the existing retryable
+cleanup lifecycle. Owner playback is `STUDENT`-only and its repository query
+binds user, attempt, question, media, READY status and allowed attempt status.
+The transcription resolver has the stronger canonical set/section/group/skill
+join recorded under COMP-21.
+
+The missing boundaries are material: V87 has no purpose-specific learner
+consent/withdrawal journal, no explicit named reviewer-audio grant, and no
+direct-audio provider purpose/profile whose verified region, non-training,
+retention and deletion-SLA evidence can be resolved. Existing
+`PRACTICE_SPEAKING_EVALUATION` is the transcript purpose and must not be
+repurposed. Therefore no V1..V87 migration was edited and no speculative V88
+was created.
+
+Exact values/ownership required before the forward-only B2 migration:
+
+| Boundary | Required choice | Impact/risk | Recommended default |
+| --- | --- | --- | --- |
+| consent authority | Supply disclosure artifact ID/version and choose whether authority is attempt-scoped or media-scoped. | Account-wide or implicit consent is too broad; media-only consent can become incoherent after replacement. | Append-only consent event journal scoped to learner + attempt + exact direct-audio purpose; bind the selected media ID/digest at transfer time. |
+| withdrawal after transfer | Decide whether withdrawal immediately requests provider deletion and how an outstanding request affects evaluator/reviewer access. | Allowing new transfer/read during deletion violates withdrawal; claiming deletion before confirmation is false. | Immediately block all new transfer/reviewer access, enqueue deletion, and remain `DELETION_PENDING` until provider confirmation or explicit terminal escalation. |
+| reviewer grants | Name the role allowed to grant/revoke, maximum grant lifetime and whether self-review is forbidden. | A generic lecturer/admin role check is not explicit least privilege and can expose unrelated learner audio. | Named reviewer + attempt + purpose grant, bounded expiry, revocation timestamp, no role-only fallback, self-review denied by default. |
+| provider profile | Supply direct-audio profile code, region/non-training/retention/deletion evidence IDs and numeric deletion SLA. | Invented values would make readiness appear green and hard-code an unsupported legal claim. | New direct-audio purpose binding; disabled by default; exact evidence bundle and SLA come from approved runtime configuration. |
+| audit retention | Supply the retention term for consent/grant/transfer/deletion metadata. | Keeping raw handles/provider IDs leaks linkage; deleting all metadata prevents SLA and consent proof. | Append-only metadata audit with opaque digests and bounded error codes; never store bytes, raw storage keys, secrets or raw provider request IDs. |
+
+These are the minimum external values needed to make a correct forward-only
+schema. Until supplied, B1 remains the executable fail-closed boundary:
+no production bean wires its port, no audio is transferred, and score release
+is structurally unavailable.
