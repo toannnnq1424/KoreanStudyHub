@@ -58,7 +58,9 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("directAudioInput", "regionEvidenceId",
                         "nonTrainingEvidenceId", "retentionEvidenceId",
                         "deletionSlaEvidenceId")
-                .contains("Direct-audio chỉ chấp nhận hai cặp endpoint/model")
+                .contains("Gợi ý đã xác minh")
+                .contains("model tùy chỉnh hoặc model mới")
+                .contains("Có thể lưu nháp nhưng không thể bật hoặc gửi audio")
                 .contains("không fallback global")
                 .contains("th:href=\"@{/admin/settings/practice-ai/profiles/new}\"")
                 .contains("Thêm nhà cung cấp")
@@ -226,6 +228,11 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("parsed.hostname === 'api.deepseek.com'")
                 .contains("parsed.hostname === 'dashscope-intl.aliyuncs.com'")
                 .contains("path === '/compatible-mode/v1'");
+        assertThat(practiceAiJs)
+                .contains("syncDirectAudioVerification")
+                .contains("data-verification=\"verified\"")
+                .contains("Model tùy chỉnh · Cần kiểm tra");
+        assertThat(css).contains(".settings-model-verification.is-unverified");
         assertThat(profile)
                 .contains("GOOGLE_CLOUD_ADC", "không lưu secret")
                 .contains("id=\"credentialMode\"");

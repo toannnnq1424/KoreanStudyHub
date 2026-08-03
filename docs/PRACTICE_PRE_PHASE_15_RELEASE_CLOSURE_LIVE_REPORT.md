@@ -836,3 +836,50 @@ explicitly named disposable catalog. No dependency or score-release path was
 added. The remaining Enterprise boundary is now narrower: supply a production
 ADC token-source adapter with refresh/expiry/audience/scope checks and redacted
 fake-port tests. Any library addition requires a dated SBOM/advisory delta.
+
+### 6.13 B3 custom-model draft and capability-verification boundary
+
+Status: `CUSTOM_MODEL_DRAFT_ALLOWED / UNVERIFIED_ENABLE_FAIL_CLOSED / NO_PROVIDER_DISCOVERY`.
+
+User clarification makes the Admin model catalog advisory rather than an
+exhaustive persistence allowlist. The exact Gemini Developer and Enterprise
+pairs remain `VERIFIED_PRESET`, backed by the repository artifact
+`KSH_PRACTICE_DIRECT_AUDIO_CAPABILITY_VERIFICATION_V1`. That artifact maps
+separate immutable IDs for audio input, strict structured output and compatible
+auth/endpoint to the dated official documentation. It explicitly does not
+claim region, non-training, retention or deletion-SLA approval; those four
+binding evidence IDs remain independently mandatory.
+
+Any custom or newly released provider/model is assessed as `UNVERIFIED` without
+name-based inference. Admin may save it only as a disabled draft. Both the
+enable service boundary and runtime resolver return
+`DIRECT_AUDIO_CAPABILITY_VERIFICATION_REQUIRED`; therefore even a draft with
+all four policy IDs cannot resolve credentials or reach transport. Adding a
+future verified model requires an intentional registry/artifact review, not a
+provider name match or an Admin checkbox.
+
+The responsive Admin picker now labels presets `Gợi ý đã xác minh`, accepts
+free model text, and announces `Model tùy chỉnh · Cần kiểm tra` through an
+accessible live status. The list page also distinguishes verified presets from
+custom drafts. The page still performs no `/models` fetch, renders no secret,
+has no global-AI fallback, and leaves direct-audio dark rollout default-off.
+
+Dated `2026-08-03` JDK `17.0.19` evidence:
+
+- focused registry/admin/resolver/status/template/static command
+  `mvnw -Dtest=PracticeDirectAudioCapabilityRegistryTest,PracticeAiControlPlaneAdminServiceTest,PracticeAiControlPlaneContractTest,PracticeAiBindingStatusPresentationTest,AdminSettingsInformationArchitectureStaticContractTest,PracticeAiControlPlaneStaticContractTest test`
+  passed `41/41`, including JSON parsing and registry-to-artifact ID mapping;
+- the wider command
+  `mvnw -Dtest=PracticeAi*Test,DirectAudio*Test,SpeakingProviderRolloutReadinessTest,ProviderOperationalReadinessPolicyTest,AdminSettingsInformationArchitectureStaticContractTest test`
+  passed `98` tests: `92` executed green and `6` existing DB/auth guards skipped;
+- source scans found no current `PracticeDirectAudioProviderCatalog`, old
+  `DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED`, or UI claim that only two pairs may
+  be entered;
+- `mvnw -DskipTests package` completed green on JDK 17; and
+- real provider/storage calls and database mutations remained `0/0`; this slice
+  adds no migration or dependency and releases no scores.
+
+Verdict: `GREEN` for custom-model draft persistence plus fail-closed
+verification. Enterprise remains `ADC_ADAPTER_REQUIRED`; a custom model remains
+red until its technical artifact entry and all provider-policy evidence are
+reviewed and added.

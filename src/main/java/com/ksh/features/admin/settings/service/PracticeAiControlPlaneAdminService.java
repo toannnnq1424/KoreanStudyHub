@@ -9,7 +9,7 @@ import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
 import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilityTestRunRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneCodec;
 import com.ksh.features.practice.ai.controlplane.PracticeAiCredentialMode;
-import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioProviderCatalog;
+import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioCapabilityRegistry;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfile;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfileRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
@@ -315,8 +315,13 @@ public class PracticeAiControlPlaneAdminService {
                     purpose.displayName(),
                     requiredCapabilities(purpose),
                     null, null, null, false, -1L, null, null,
-                    false, runs);
+                    false, false, runs);
         }
+        boolean providerModelVerified = purpose
+                != PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                || PracticeDirectAudioCapabilityRegistry.assess(
+                        binding.getProviderProfile().getBaseUrl(), binding.getModel())
+                        .verified();
         return new BindingRow(
                 purpose,
                 purpose.displayName(),
@@ -328,6 +333,7 @@ public class PracticeAiControlPlaneAdminService {
                 binding.getRevision(),
                 binding.getRetentionCode(),
                 binding.getUpdatedAt(),
+                providerModelVerified,
                 policyEvidenceComplete(binding),
                 runs);
     }
@@ -360,14 +366,19 @@ public class PracticeAiControlPlaneAdminService {
             PracticeAiProviderProfile profile,
             String model,
             boolean enabling) {
-        var candidate = PracticeDirectAudioProviderCatalog
-                .match(profile.getBaseUrl(), model)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED"));
-        if (!candidate.credentialMode().name().equals(profile.getCredentialMode())) {
+        var verification = PracticeDirectAudioCapabilityRegistry
+                .assess(profile.getBaseUrl(), model);
+        if (!verification.verified()) {
+            if (enabling) {
+                throw new IllegalStateException(
+                        "DIRECT_AUDIO_CAPABILITY_VERIFICATION_REQUIRED");
+            }
+            return;
+        }
+        if (!verification.credentialMode().name().equals(profile.getCredentialMode())) {
             throw new IllegalArgumentException("DIRECT_AUDIO_CREDENTIAL_MODE_MISMATCH");
         }
-        if (enabling && !candidate.runtimeAuthReady()) {
+        if (enabling && !verification.runtimeAuthReady()) {
             throw new IllegalStateException(
                     "DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED");
         }

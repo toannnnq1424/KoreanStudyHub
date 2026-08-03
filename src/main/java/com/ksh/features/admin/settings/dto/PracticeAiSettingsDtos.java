@@ -145,6 +145,7 @@ public final class PracticeAiSettingsDtos {
             long revision,
             String retentionCode,
             LocalDateTime updatedAt,
+            boolean providerModelVerified,
             boolean policyEvidenceComplete,
             List<CapabilityRunRow> recentRuns
     ) {
@@ -157,7 +158,7 @@ public final class PracticeAiSettingsDtos {
                 return "missing";
             }
             if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
-                    && !policyEvidenceComplete) {
+                    && (!providerModelVerified || !policyEvidenceComplete)) {
                 return "check";
             }
             if (!enabled) {

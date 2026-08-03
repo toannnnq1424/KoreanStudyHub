@@ -55,6 +55,7 @@ class PracticeAiBindingStatusPresentationTest {
                 "SPEAKING_DIRECT_AUDIO_EVAL_V1",
                 null,
                 false,
+                false,
                 List.of());
 
         assertThat(row.statusLabel()).isEqualTo("Cần kiểm tra");
@@ -65,7 +66,7 @@ class PracticeAiBindingStatusPresentationTest {
         return new BindingRow(PracticeAiPurpose.PRACTICE_PDF_AUTHORING,
                 "Biên soạn từ PDF", "STRICT_JSON_SCHEMA", profileId,
                 profileId == null ? null : "PRACTICE_PRIMARY", "model", enabled,
-                revision, "PRACTICE_AUTHORING_V1", null, true, runs);
+                revision, "PRACTICE_AUTHORING_V1", null, true, true, runs);
     }
 
     private static CapabilityRunRow run(Long revision, String status) {

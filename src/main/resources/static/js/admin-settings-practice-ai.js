@@ -25,6 +25,7 @@
     var providerOptions = document.getElementById('provider-profile-options');
     var modelInput = document.getElementById('model');
     var suggestions = document.getElementById('model-suggestions');
+    var directAudioVerification = document.getElementById('direct-audio-model-verification');
     var modelSearchQuery = '';
     var credentialMode = document.getElementById('credentialMode');
     var credentialSecret = document.getElementById('credentialSecret');
@@ -181,6 +182,19 @@
       if (empty) empty.hidden = matching.length > 0 || !group.querySelector('[data-model]');
     }
 
+    function syncDirectAudioVerification() {
+      if (!directAudioVerification || !modelInput) return;
+      var group = currentModelGroup();
+      var verified = group && Array.from(group.querySelectorAll(
+        '[data-model][data-verification="verified"]')).some(function (button) {
+          return button.getAttribute('data-model') === modelInput.value.trim();
+        });
+      directAudioVerification.classList.toggle('is-unverified', !verified);
+      directAudioVerification.textContent = verified
+        ? 'Gợi ý provider/model đã xác minh kỹ thuật. Vẫn cần đủ policy evidence và readiness trước khi bật.'
+        : 'Model tùy chỉnh · Cần kiểm tra. Có thể lưu nháp nhưng không thể bật hoặc gửi audio.';
+    }
+
     function openModelSuggestions() {
       if (!modelInput || !suggestions || !providerSelect?.value || modelInput.disabled) return;
       suggestions.hidden = false;
@@ -215,6 +229,7 @@
       modelSearchQuery = '';
       closeModelSuggestions();
       filterModelSuggestions();
+      syncDirectAudioVerification();
     }
 
     if (providerSelect && modelInput && suggestions) {
@@ -225,6 +240,7 @@
         modelInput.value = button.getAttribute('data-model');
         modelSearchQuery = '';
         modelInput.dispatchEvent(new Event('change', { bubbles: true }));
+        syncDirectAudioVerification();
         modelInput.focus();
         closeModelSuggestions();
         announce('Đã điền model ' + modelInput.value);
@@ -242,6 +258,7 @@
         modelSearchQuery = modelInput.value;
         openModelSuggestions();
         filterModelSuggestions();
+        syncDirectAudioVerification();
       });
       modelInput.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {

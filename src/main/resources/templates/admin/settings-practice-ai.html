@@ -131,6 +131,7 @@
                             <div><dt>Revision</dt><dd th:text="${binding.configured ? binding.revision : '—'}">—</dd></div>
                             <div><dt>Retention</dt><dd th:text="${binding.retentionCode ?: '—'}">—</dd></div>
                             <div th:if="${binding.purpose.name() == 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'}"><dt>Policy evidence</dt><dd th:text="${binding.policyEvidenceComplete ? 'Đủ ID' : 'Thiếu ID'}">Thiếu ID</dd></div>
+                            <div th:if="${binding.purpose.name() == 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'}"><dt>Provider/model</dt><dd th:text="${binding.providerModelVerified ? 'Preset đã xác minh' : 'Tùy chỉnh · Cần kiểm tra'}">Cần kiểm tra</dd></div>
                             <div><dt>Kiểm tra gần nhất</dt><dd th:text="${#lists.isEmpty(binding.recentRuns) ? 'Chưa kiểm tra' : (binding.recentRuns[0].status ?: 'Đang chạy')}">Chưa kiểm tra</dd></div>
                         </dl>
                     </details>

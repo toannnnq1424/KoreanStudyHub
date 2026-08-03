@@ -51,7 +51,7 @@ class PracticeAiControlPlanePersistenceIntegrationTest {
                         "AIM5_DISPOSABLE_PRIMARY",
                         "AIM-5 disposable profile",
                         PracticeAiBindingResolver.PROVIDER_FAMILY,
-                        PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_BASE_URL,
+                        PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_BASE_URL,
                         "AIM5_TEST_SECRET_NEVER_SENT",
                         true,
                         actorId));
@@ -80,7 +80,7 @@ class PracticeAiControlPlanePersistenceIntegrationTest {
                     purpose,
                     profile,
                     purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
-                            ? PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_MODEL
+                            ? PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_MODEL
                             : "aim5-" + purpose.name().toLowerCase(),
                     PracticeAiBindingResolver.TRANSPORT_DIALECT,
                     codec.capabilityJson(purpose, false,

@@ -6,7 +6,7 @@ import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.ProfileForm;
 import com.ksh.features.admin.settings.service.PracticeAiControlPlaneAdminService;
 import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilityTestService;
 import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneException;
-import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioProviderCatalog;
+import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioCapabilityRegistry;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
@@ -304,7 +304,7 @@ public class PracticeAiControlPlaneController {
 
     private static boolean isDirectAudioProfile(ProfileForm form) {
         String code = form.profileCode() == null ? "" : form.profileCode().trim();
-        return PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_CODE.equals(code)
-                || PracticeDirectAudioProviderCatalog.GEMINI_ENTERPRISE_CODE.equals(code);
+        return PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_CODE.equals(code)
+                || PracticeDirectAudioCapabilityRegistry.GEMINI_ENTERPRISE_CODE.equals(code);
     }
 }

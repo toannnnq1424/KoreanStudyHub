@@ -111,16 +111,22 @@ class PracticeAiControlPlaneAdminServiceTest {
     }
 
     @Test
-    void directAudioBindingRejectsUnverifiedProviderModelPair() {
+    void customDirectAudioModelSavesDisabledDraftButCannotBeEnabled() {
         when(profiles.findById(7L)).thenReturn(Optional.of(new PracticeAiProviderProfile(
                 "UNKNOWN_AUDIO", "Unknown", PracticeAiBindingResolver.PROVIDER_FAMILY,
                 "https://provider.invalid/v1", "SECRET", true, 9L)));
 
+        service.saveBinding(
+                directAudioFormWithModel("future-audio-model", true, false,
+                        "", "", "", ""), 9L);
+        verify(bindings).save(any());
+
         assertThatThrownBy(() -> service.saveBinding(
-                directAudioForm(true, false, "", "", "", ""), 9L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED");
-        verify(bindings, never()).save(any());
+                directAudioFormWithModel("future-audio-model", true, true,
+                        "region/1", "non-training/1", "retention/1", "deletion/1"),
+                9L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("DIRECT_AUDIO_CAPABILITY_VERIFICATION_REQUIRED");
     }
 
     @Test
@@ -138,12 +144,12 @@ class PracticeAiControlPlaneAdminServiceTest {
         when(profiles.findById(7L)).thenReturn(Optional.of(enterprise));
 
         service.saveBinding(directAudioFormWithModel(
-                PracticeDirectAudioProviderCatalog.GEMINI_ENTERPRISE_MODEL,
+                PracticeDirectAudioCapabilityRegistry.GEMINI_ENTERPRISE_MODEL,
                 true, false, "", "", "", ""), 9L);
         verify(bindings).save(any());
 
         assertThatThrownBy(() -> service.saveBinding(directAudioFormWithModel(
-                PracticeDirectAudioProviderCatalog.GEMINI_ENTERPRISE_MODEL,
+                PracticeDirectAudioCapabilityRegistry.GEMINI_ENTERPRISE_MODEL,
                 true, true, "region/1", "non-training/1",
                 "retention/1", "deletion/1"), 9L))
                 .isInstanceOf(IllegalStateException.class)
@@ -219,7 +225,7 @@ class PracticeAiControlPlaneAdminServiceTest {
             String retention,
             String deletionSla) {
         return directAudioFormWithModel(
-                PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_MODEL,
+                PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_MODEL,
                 directAudioInput, enabled, region, nonTraining, retention, deletionSla);
     }
 
@@ -256,7 +262,7 @@ class PracticeAiControlPlaneAdminServiceTest {
                 "PRACTICE_PRIMARY",
                 "Primary",
                 PracticeAiBindingResolver.PROVIDER_FAMILY,
-                PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_BASE_URL,
+                PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_BASE_URL,
                 "AIM5_REALISTIC_TEST_SECRET",
                 true,
                 9L);

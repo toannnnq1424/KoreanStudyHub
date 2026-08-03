@@ -85,7 +85,8 @@ class PracticeAiControlPlaneStaticContractTest {
     }
 
     @Test
-    void directAudioUiListsBothCandidatesWithoutProviderDiscovery() throws Exception {
+    void directAudioUiOffersVerifiedPresetsAndCustomDraftWithoutDiscovery()
+            throws Exception {
         String template = Files.readString(Path.of(
                 "src/main/resources/templates/admin/"
                         + "settings-practice-ai-binding-form.html"));
@@ -94,9 +95,11 @@ class PracticeAiControlPlaneStaticContractTest {
 
         assertThat(template)
                 .contains("gemini-3.6-flash")
-                .contains("Phương án 1")
                 .contains("gemini-3.5-flash")
-                .contains("Phương án 2")
+                .contains("Gợi ý đã xác minh")
+                .contains("data-verification=\"verified\"")
+                .contains("model tùy chỉnh hoặc model mới")
+                .contains("không thể bật hoặc gửi audio")
                 .contains("DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED")
                 .doesNotContain("fetch('/models", "fetch(\"/models");
         assertThat(script)
