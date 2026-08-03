@@ -137,4 +137,32 @@ class DirectAudioDarkObservationPersistenceStaticTest {
         assertThat(inspection).contains("Action.INSPECTION_METADATA",
                 "audit.recordAuthorized");
     }
+
+    @Test
+    void v96RequiresExplicitRetentionIdentityAndKeepsPurgeDefaultOff()
+            throws Exception {
+        String sql = Files.readString(Path.of(
+                "src/main/resources/db/migration/"
+                        + "V96__practice_speaking_reviewer_access_audit_retention.sql"));
+        String audit = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/service/"
+                        + "DirectAudioReviewerAccessAudit.java"));
+        String purge = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/service/"
+                        + "DirectAudioReviewerAccessAuditRetention.java"));
+        String properties = Files.readString(Path.of(
+                "src/main/resources/application.properties"));
+
+        assertThat(sql).contains("retention_policy_id", "delete_after")
+                .doesNotContain("audio_bytes", "storage_key", "provider_payload",
+                        "access_token", "score_value");
+        assertThat(audit).contains("retentionDeadline", "retentionPolicyId",
+                "DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION_NOT_READY");
+        assertThat(purge).contains("delete_after <= ?", "LIMIT ?", "MAX_BATCH_SIZE")
+                .doesNotContain("TRUNCATE", "DROP TABLE");
+        assertThat(properties).contains(
+                "PRACTICE_SPEAKING_DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION_POLICY_ID:",
+                "PRACTICE_SPEAKING_DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION:PT0S",
+                "PRACTICE_SPEAKING_DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION_WORKER_ENABLED:false");
+    }
 }

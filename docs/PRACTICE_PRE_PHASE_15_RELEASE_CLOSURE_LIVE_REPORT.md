@@ -1429,3 +1429,53 @@ provider-side deletion confirmation, real provider policy/capture evidence,
 Korean acoustic corpus/calibration/fairness/repeatability evidence and learner
 score release remain outside this slice. No real provider/storage call, secret,
 shared DB, learner acoustic exposure or score release occurred.
+
+### 6.25 Reviewer-access audit retention mechanism
+
+Status: `V96_FORWARD_ONLY / RETENTION_CONFIG_REQUIRED / PURGE_DEFAULT_OFF / FAIL_CLOSED`.
+
+Forward-only V96 adds `retention_policy_id`, per-event `delete_after` and a
+bounded retention index to the V95 authorized-access event table. It does not
+rewrite V1–V95. Existing preproduction V95 rows, if any, remain visibly
+unclassified with null retention fields; the code does not guess a policy for
+them. Every current audit write requires a token-shaped immutable policy ID and
+a positive duration, persists their exact derived deadline, and fails with
+`DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION_NOT_READY` before INSERT when
+either value is missing. Because both reviewer services audit before returning
+metadata/opening storage, their default blank ID plus `PT0S` duration keeps the
+data plane closed even if one API toggle is changed in isolation.
+
+The new purge service deletes only rows whose persisted `delete_after` has
+elapsed, in deadline/ID order, with a hard maximum of 1,000 rows per run. Its
+scheduled worker is separately default-off. No purge was run against a shared
+or retained database; tests use mocks and a fresh named disposable catalog.
+
+JDK `17.0.19` evidence:
+
+- retention/audit/reviewer/migration focused gate: `31/31` green;
+- combined direct-audio, Korean alignment, Enterprise fake transport,
+  completeness, cleanup unit/static and migration-authority gate: `89/89`
+  green;
+- fresh MySQL 8.4 database `ksh_test_pre15_v96_20260803`: Flyway validated and
+  applied exactly `96` migrations; V96 schema plus existing cleanup integration
+  gates passed `19/19`;
+- `mvnw -DskipTests package`: green. The 768 MiB container was stopped with
+  `--rm`, removing its disposable database and synthetic credential.
+
+Exact remaining privacy/release decision package (no code dependency remains):
+
+| Choice | Impact / risk |
+| --- | --- |
+| `P30D` | Strongest minimization; shorter security/support investigation window. |
+| `P90D` **recommended default** | Balanced preproduction incident/consent-access review window without year-long identity retention. |
+| `P365D` | Longest audit review window; greatest retained reviewer/learner linkage and breach impact. |
+
+Approval must assign an immutable ID such as
+`KSH-SPEAKING-DIRECT-AUDIO-REVIEWER-ACCESS-AUDIT-RETENTION-V1` to the chosen
+duration and decide how null preproduction V95 rows are disposed before worker
+enablement. Recommended null-row disposition is deletion after evidence export,
+because no production reviewer API was enabled when those rows could have been
+created. Denied-probe/IP/user-agent auditing remains a separate optional policy;
+recommended default is not to collect it. Provider evidence, Korean acoustic
+calibration/fairness/repeatability, reviewer visual UI and learner score release
+remain red and were not fabricated by this slice.

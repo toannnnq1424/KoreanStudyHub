@@ -100,7 +100,7 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     }
 
     @Test
-    void c4CompactionRemainsAndAuthorizedForwardMigrationsStopAtV95() throws Exception {
+    void c4CompactionRemainsAndAuthorizedForwardMigrationsStopAtV96() throws Exception {
         Path migrations = ROOT.resolve("src/main/resources/db/migration");
         try (var paths = Files.list(migrations)) {
             List<String> names = paths.map(path -> path.getFileName().toString())
@@ -116,9 +116,11 @@ class PracticeAim7PdfAuthoringStaticContractTest {
                     "V94__practice_speaking_consent_withdrawal_cleanup"));
             assertThat(names).anyMatch(name -> name.startsWith(
                     "V95__practice_speaking_reviewer_access_audit"));
+            assertThat(names).anyMatch(name -> name.startsWith(
+                    "V96__practice_speaking_reviewer_access_audit_retention"));
             assertThat(names).noneMatch(name -> {
                 int separator = name.indexOf("__");
-                return Integer.parseInt(name.substring(1, separator)) > 95;
+                return Integer.parseInt(name.substring(1, separator)) > 96;
             });
         }
     }

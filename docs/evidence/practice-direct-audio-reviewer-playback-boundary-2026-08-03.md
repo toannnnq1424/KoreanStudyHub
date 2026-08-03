@@ -12,7 +12,7 @@ Status: `IMPLEMENTED_DEFAULT_OFF / REVIEWER_ONLY / AUTHORIZED_ACCESS_AUDITED / N
 | Dark-result binding | V93 binds each new dark observation to exactly `attempt_id`, `question_id` and `media_id`; rows created before V93 have null binding and are not playable. | `V93__practice_speaking_direct_audio_observation_media_binding.sql` |
 | Retention / deletion | The linked dark observation must be undeleted and before `delete_after`; media must be `READY`. Cleanup/deletion or expiry blocks the next request. | same query |
 | Transport | Only the original private `PRACTICE_SPEAKING` object is opened after all SQL guards. HTTP ranges are served with `Cache-Control: no-store, private`, no URL/presign, storage key, token or audio bytes in logs/audit. | `DirectAudioReviewerPlaybackService`, controller tests |
-| Authorized access audit | V95 records only reviewer/attempt/question/media/observation identity, exact purpose, `INSPECTION_METADATA` or `PLAYBACK_OPEN`, and time. A failed insert blocks metadata response and storage open. | `V95__practice_speaking_reviewer_access_audit.sql`, `DirectAudioReviewerAccessAudit` |
+| Authorized access audit | V95 records only reviewer/attempt/question/media/observation identity, exact purpose, `INSPECTION_METADATA` or `PLAYBACK_OPEN`, and time. V96 requires an explicit immutable retention-policy ID and per-row deletion deadline. Missing policy/duration or a failed insert blocks metadata response and storage open. | V95/V96 migrations, `DirectAudioReviewerAccessAudit` |
 | Learner score release | None. Reviewer routes are not imported by result, progress, presenter or learner DTO paths. Inspection exposes only contract/provenance/completeness/retention metadata and explicit `scoreReleaseEligible=false`; provider observations, aggregates, payload and score values remain server-side. | `DirectAudioDarkObservationService`, inspection controller/static scan |
 
 ## Negative cases
@@ -45,6 +45,13 @@ timezone convention; an intentionally investigated conflicting
 `serverTimezone=UTC` override was removed after trace evidence showed it shifted
 JDBC-written `LocalDateTime` leases by seven hours on JPA read.
 
+The forward-only V96 retention follow-up then passed `31/31` focused and
+`89/89` combined tests. A second fresh disposable database applied exactly
+V1–V96; its schema/cleanup integration gate passed `19/19`, and package passed.
+The purge worker is default-off and capped at 1,000 expired rows per run. Its
+default policy ID is blank and duration is `PT0S`, so both reviewer read paths
+remain fail-closed until an approved policy identity and duration are supplied.
+
 ## Remaining release blockers
 
 - The disposable-DB migration rehearsal is green, but enablement still needs a
@@ -55,8 +62,8 @@ JDBC-written `LocalDateTime` leases by seven hours on JPA read.
 - Reviewer visual UI and audit event presentation remain separate
   non-score-bearing slices. Denied-probe auditing is intentionally not in V95:
   identifiers/network metadata and their retention require a separate approved
-  privacy/security policy. The retention term and purge mechanism for the new
-  authorized-access metadata must also be approved before either reviewer API
+  privacy/security policy. The purge mechanism is implemented in V96, but the
+  retention term/policy identity must be approved before either reviewer API
   is enabled. V94 now enqueues exact consent-withdrawal cleanup
   through the existing private-media worker, which remains default-off until
   an operational release configuration is approved. No learner acoustic score

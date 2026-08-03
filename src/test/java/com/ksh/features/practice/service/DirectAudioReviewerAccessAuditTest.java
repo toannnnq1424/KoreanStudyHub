@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
@@ -24,7 +25,8 @@ class DirectAudioReviewerAccessAuditTest {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
         DirectAudioReviewerAccessAudit audit = new DirectAudioReviewerAccessAudit(
-                jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+                jdbc, Clock.fixed(NOW, ZoneOffset.UTC),
+                "KSH-REVIEWER-ACCESS-AUDIT-RETENTION-TEST-V1", Duration.ofDays(90));
 
         audit.recordAuthorized(DirectAudioReviewerAccessAudit.Action.PLAYBACK_OPEN,
                 77L, 44L, 55L, 66L, "observation-0001");
@@ -32,14 +34,17 @@ class DirectAudioReviewerAccessAuditTest {
         verify(jdbc).update(anyString(), anyString(), eq(77L), eq(44L), eq(55L),
                 eq(66L), eq("observation-0001"),
                 eq("PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION"),
-                eq("PLAYBACK_OPEN"), eq(Timestamp.from(NOW)));
+                eq("PLAYBACK_OPEN"),
+                eq("KSH-REVIEWER-ACCESS-AUDIT-RETENTION-TEST-V1"),
+                eq(Timestamp.from(NOW)), eq(Timestamp.from(NOW.plus(Duration.ofDays(90)))));
     }
 
     @Test
     void invalidIdentityOrFailedInsertIsRejected() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         DirectAudioReviewerAccessAudit audit = new DirectAudioReviewerAccessAudit(
-                jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
+                jdbc, Clock.fixed(NOW, ZoneOffset.UTC),
+                "KSH-REVIEWER-ACCESS-AUDIT-RETENTION-TEST-V1", Duration.ofDays(90));
 
         assertThatThrownBy(() -> audit.recordAuthorized(
                 DirectAudioReviewerAccessAudit.Action.INSPECTION_METADATA,
@@ -52,5 +57,27 @@ class DirectAudioReviewerAccessAuditTest {
                 77L, 44L, 55L, 66L, "observation-0001"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_FAILED");
+    }
+
+    @Test
+    void missingPolicyOrDurationKeepsAuthorizedReadFailClosedBeforeInsert() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        DirectAudioReviewerAccessAudit missingPolicy = new DirectAudioReviewerAccessAudit(
+                jdbc, Clock.fixed(NOW, ZoneOffset.UTC), "", Duration.ofDays(90));
+        DirectAudioReviewerAccessAudit missingDuration = new DirectAudioReviewerAccessAudit(
+                jdbc, Clock.fixed(NOW, ZoneOffset.UTC),
+                "KSH-REVIEWER-ACCESS-AUDIT-RETENTION-TEST-V1", Duration.ZERO);
+
+        assertThatThrownBy(() -> missingPolicy.recordAuthorized(
+                DirectAudioReviewerAccessAudit.Action.PLAYBACK_OPEN,
+                77L, 44L, 55L, 66L, "observation-0001"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION_NOT_READY");
+        assertThatThrownBy(() -> missingDuration.recordAuthorized(
+                DirectAudioReviewerAccessAudit.Action.INSPECTION_METADATA,
+                77L, 44L, 55L, 66L, "observation-0001"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_RETENTION_NOT_READY");
+        org.mockito.Mockito.verifyNoInteractions(jdbc);
     }
 }

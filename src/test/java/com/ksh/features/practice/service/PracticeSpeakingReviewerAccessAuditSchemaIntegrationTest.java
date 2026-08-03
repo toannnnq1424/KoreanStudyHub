@@ -39,11 +39,12 @@ class PracticeSpeakingReviewerAccessAuditSchemaIntegrationTest {
                 ORDER BY constraint_name
                 """, String.class);
 
-        assertThat(migrationCount).isEqualTo(95);
-        assertThat(version).isEqualTo("95");
+        assertThat(migrationCount).isEqualTo(96);
+        assertThat(version).isEqualTo("96");
         assertThat(columns).contains("event_key", "reviewer_id", "attempt_id",
                         "question_id", "media_id", "observation_key", "purpose_code",
-                        "action_code", "outcome_code", "occurred_at", "recorded_at")
+                        "action_code", "outcome_code", "retention_policy_id",
+                        "occurred_at", "delete_after", "recorded_at")
                 .doesNotContain("audio_bytes", "storage_key", "playback_url",
                         "access_token", "provider_payload", "score_value",
                         "ip_address", "user_agent");
