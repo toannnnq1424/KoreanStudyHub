@@ -2688,3 +2688,83 @@ container peaked at about `614 MiB` of its `640 MiB` limit and was then stopped
 and removed together with the exact isolated local test-object directories.
 No migration, schema change, shared/developer DB, R2/object operation, learner
 surface change, push, PR or merge occurred.
+
+### 6.44 RELEASE_CANDIDATE migration-line collision audit
+
+Status: `IMPLEMENTATION_STOPPED / MIGRATION_COLLISION_DECISION_REQUIRED /
+NO_VISIBILITY_WORKAROUND`.
+
+On `2026-08-04`, the approved first two-stream slice was audited before any
+publisher, schema or UI mutation. The worktree was clean at local commit
+`35450c66`; `origin/main` had advanced to merge commit `7daa03d0` and the user
+explicitly prohibited rebasing during this slice. The two histories now assign
+different immutable Flyway meanings to every version from V88 through V96:
+
+| Version | current Practice branch | `origin/main` |
+|---|---|---|
+| V88 | direct-audio authorization | subject/class lifecycle |
+| V89 | audio grant-manager authorities | class co-lecturers |
+| V90 | direct-audio control plane | remove class invites |
+| V91 | Practice AI credential modes | subject activity audit |
+| V92 | direct-audio dark observations | remove courses/categories |
+| V93 | observation media binding | question-bank subject scope |
+| V94 | consent-withdrawal cleanup | remove lesson comments |
+| V95 | reviewer access audit | subject library hierarchy |
+| V96 | reviewer audit retention | remove unused activity tables |
+
+`origin/main` additionally owns V97-V102. Adding a nominal V103 migration on
+this unreconciled branch would not resolve the collision: a fresh branch-local
+database would skip the absent main V97-V102, while the later integrated
+history would still contain two migrations for each V88-V96 and Flyway would
+fail validation before V103. No migration was created, renamed, deleted or
+rewritten.
+
+A correct private snapshot cannot be implemented honestly without schema
+authority. V25 constrains `practice_sets.status` to
+`DRAFT/PUBLISHED/ARCHIVED` and scope to `GLOBAL/CLASS`; V33 constrains immutable
+version status to `PUBLISHED/ARCHIVED`. The existing publisher always writes a
+`PUBLISHED` set, copies the draft scope, marks the draft `PUBLISHED`, and creates
+a `PUBLISHED` immutable version. Learner catalogue, detail, material and
+attempt-start paths recognize `PUBLISHED`; the TOPIK 35 draft is currently
+`GLOBAL`. Therefore the existing publisher cannot guarantee a private snapshot.
+
+The rejected workaround was to encode `RELEASE_CANDIDATE` only inside JSON
+metadata while persisting a set as `DRAFT/CLASS` and a version as `ARCHIVED`.
+That would misrepresent both domain identities, make history/restore semantics
+ambiguous, and provide no schema-level `learner_visible=false` invariant. It
+was not implemented. The approved explanation change was likewise not applied
+alone: removing the 100 detailed-explanation blockers before a private release
+state exists could make a normal `GLOBAL/PUBLISHED` set learner-visible, which
+would violate this slice's fail-closed boundary.
+
+The recommended migration-resolution decision is:
+
+1. preserve `origin/main` V1-V102 byte-for-byte as the canonical integration
+   line;
+2. preserve this worktree/branch as audit evidence, but create the next
+   integration worktree from `origin/main` and selectively port the Practice
+   code without importing the colliding V88-V96 filenames;
+3. re-express the nine unmerged Practice schema changes as new forward-only
+   migrations beginning after V102, then allocate the following new version to
+   the release-candidate schema. Only disposable/development catalogs that ran
+   the abandoned branch line may be reset; no production/shared schema-history
+   row may be edited; and
+4. implement explicit `PRIVATE` scope, `RELEASE_CANDIDATE` set/version state and
+   non-null `learner_visible=false`, plus a separate admin/reviewer permission.
+   Every learner repository/service/material/attempt path must require both
+   `PUBLISHED` and `learner_visible=true`. The release transaction may flip
+   visibility only after a second authorization/readiness check.
+
+After that migration decision, the bounded publisher change can safely keep
+answer key, typed answer contract and source-provenance validation blocking,
+while returning missing/stale detailed explanations as
+`EDITORIAL_PENDING` with an exact pending count. No explanation may be
+fabricated, partial explanations must never affect answers/scores, and the
+admin/reviewer UI must distinguish “private release candidate” from “learner
+released”. Unit, persistence, auth, CSRF, catalogue/material/attempt denial and
+fresh disposable DB tests remain required before a local implementation commit.
+
+Evidence commands used only read-only Git/source inspection. No Java/provider
+test was claimed because implementation was correctly stopped before mutation.
+No AI/provider/R2 call, secret, migration, database/container, learner surface,
+push, PR, merge or rebase occurred.
