@@ -828,7 +828,7 @@ class PracticeServiceTest {
 
 
     @Test
-    void publishedVersionIncludesUngroupedQuestion() {
+    void publishedVersionRejectsUngroupedQuestionEvenInSingleSectionSet() {
         com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository =
                 mock(com.ksh.features.practice.repository.PracticePublishedVersionRepository.class);
         com.ksh.features.practice.repository.PracticeSetVersionRepository setVersionRepository =
@@ -912,23 +912,12 @@ class PracticeServiceTest {
                 localQuestionRepository,
                 objectMapper);
 
-        service.createPublishedVersion(1L, 2L);
-
-        org.mockito.ArgumentCaptor<PracticeQuestionVersion> captor =
-                org.mockito.ArgumentCaptor.forClass(PracticeQuestionVersion.class);
-        verify(questionVersionRepository).save(captor.capture());
-        PracticeQuestionVersion saved = captor.getValue();
-        assertEquals(100L, saved.getPublishedVersionId());
-        assertEquals(103L, saved.getSectionVersionId());
-        assertNull(saved.getGroupVersionId());
-        assertEquals(11L, saved.getQuestionId());
-        assertEquals("[\"A\",\"B\"]", saved.getOptionsJson());
-        assertEquals("A", saved.getAnswerKey());
-        assertEquals("Snapshot explanation", saved.getExplanation());
-        assertEquals("SINGLE_CHOICE", saved.getQuestionType());
-        assertEquals("{\"schemaVersion\":\"question-content-v1\"}", saved.getQuestionContentJson());
-        assertEquals("{\"schemaVersion\":\"answer-spec-v1\"}", saved.getAnswerSpecJson());
-        verify(setVersionRepository).save(any(PracticeSetVersion.class));
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> service.createPublishedVersion(1L, 2L));
+        assertTrue(ex.getMessage().contains("canonical group ownership"));
+        verify(publishedVersionRepository, never()).save(any());
+        verify(questionVersionRepository, never()).save(any());
+        verify(setVersionRepository, never()).save(any(PracticeSetVersion.class));
         verify(groupVersionRepository, never()).save(any());
     }
 
@@ -994,7 +983,7 @@ class PracticeServiceTest {
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> service.createPublishedVersion(1L, 2L));
-        assertTrue(ex.getMessage().contains("ungrouped questions are ambiguous"));
+        assertTrue(ex.getMessage().contains("canonical group ownership"));
         verify(publishedVersionRepository, never()).save(any());
         verify(questionVersionRepository, never()).save(any());
     }
@@ -1063,7 +1052,7 @@ class PracticeServiceTest {
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> service.createPublishedVersion(1L, 2L));
-        assertTrue(ex.getMessage().contains("ambiguous across multiple tests"));
+        assertTrue(ex.getMessage().contains("canonical group ownership"));
         verify(publishedVersionRepository, never()).save(any());
         verify(questionVersionRepository, never()).save(any());
     }

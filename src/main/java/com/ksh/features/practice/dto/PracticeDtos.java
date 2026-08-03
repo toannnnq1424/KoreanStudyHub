@@ -1422,7 +1422,6 @@ public final class PracticeDtos {
             Set<String> sourceIds = new LinkedHashSet<>();
             Set<Long> groupVersionIds = new LinkedHashSet<>();
             Set<Long> questionVersionIds = new LinkedHashSet<>();
-            int legacyGroupCount = 0;
             for (ObjectiveResultGroup group : groups) {
                 ObjectiveSourceGroup source = group.source();
                 if (!sourceIds.add(source.sourceId())
@@ -1430,10 +1429,6 @@ public final class PracticeDtos {
                         && !groupVersionIds.add(group.groupVersionId()))) {
                     throw new IllegalArgumentException(
                             "Objective Result Detail immutable group navigation must be unique");
-                }
-                if (group.legacyFallback() && ++legacyGroupCount > 1) {
-                    throw new IllegalArgumentException(
-                            "Objective Result Detail legacy fallback must be bounded");
                 }
                 Set<Long> groupQuestionVersionIds = new LinkedHashSet<>();
                 for (ObjectiveQuestionDetail question : group.questions()) {
@@ -1575,7 +1570,6 @@ public final class PracticeDtos {
             Long groupId,
             Integer groupOrder,
             String displayLabel,
-            boolean legacyFallback,
             ObjectiveSourceGroup source,
             List<ObjectiveQuestionDetail> questions
     ) {
@@ -1593,14 +1587,13 @@ public final class PracticeDtos {
                     groupVersionId, source.groupVersionId())
                     || !java.util.Objects.equals(groupId, source.groupId())
                     || !groupOrder.equals(source.groupOrder())
-                    || legacyFallback != source.legacyFallback()
                     || !displayLabel.equals(source.label())) {
                 throw new IllegalArgumentException(
                         "Objective result group does not match immutable source ownership");
             }
-            if (legacyFallback != (groupVersionId == null && groupId == null)) {
+            if (groupVersionId == null || groupId == null) {
                 throw new IllegalArgumentException(
-                        "Objective result legacy fallback identity is invalid");
+                        "Objective result canonical group identity is required");
             }
         }
     }
@@ -1611,7 +1604,6 @@ public final class PracticeDtos {
             Long groupId,
             Integer groupOrder,
             String label,
-            boolean legacyFallback,
             String sourceKind,
             String instruction,
             String passageText,
@@ -1652,9 +1644,9 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException(
                         "Objective source group question navigation is invalid");
             }
-            if (legacyFallback != (groupVersionId == null && groupId == null)) {
+            if (groupVersionId == null || groupId == null) {
                 throw new IllegalArgumentException(
-                        "Objective source group legacy identity is invalid");
+                        "Objective source canonical group identity is required");
             }
         }
 

@@ -949,7 +949,8 @@ public class PracticeService {
                 reference);
     }
 
-    private String listeningCheckAudioReference(String deliveryJson, String legacyFallback) {
+    private String listeningCheckAudioReference(
+            String deliveryJson, String fallbackReference) {
         String canonicalReference = null;
         if (deliveryJson != null && !deliveryJson.isBlank()) {
             try {
@@ -965,8 +966,10 @@ public class PracticeService {
             }
         }
         String canonicalSafeReference = safeListeningCheckAudioReference(canonicalReference);
-        String legacySafeReference = safeListeningCheckAudioReference(legacyFallback);
-        String reference = firstNonBlank(canonicalSafeReference, legacySafeReference);
+        String safeFallbackReference =
+                safeListeningCheckAudioReference(fallbackReference);
+        String reference = firstNonBlank(
+                canonicalSafeReference, safeFallbackReference);
         if (isBlank(reference)) {
             throw new IllegalStateException(
                     "Phần Listening chưa có audio thử loa bất biến hợp lệ.");

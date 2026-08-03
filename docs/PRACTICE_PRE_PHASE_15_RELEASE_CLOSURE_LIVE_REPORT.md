@@ -82,14 +82,14 @@ zero fresh rows are not retained-data evidence.
 | `COMP-02` | `PracticeService.NonWritingEssayGradingSnapshot` still has submit/re-evaluate callers. Current draft/candidate validators restrict Writing to `ESSAY` and Speaking to `SPEAKING`; fresh V87 has zero non-Writing `ESSAY`. | `ACTIVE_COMPATIBILITY_GRADING_PATH`; removal requires retained non-Writing ESSAY inventory plus publication-rejection proof. Recommended default: preserve until that proof exists. |
 | `COMP-03` | Owner disposition in section 6 authorizes removal of development-only retained payloads. `PracticeService` now writes/merges only `speaking_ai_v1`; `SpeakingResultPresenter` reads only canonical Speaking questions and `speaking_feedback_by_question`. | `CLOSED`; mixed Speaking/Writing envelopes, ESSAY Speaking presentation and their fixtures are removed. |
 | `COMP-04` | Current callers now use `SpeakingFeedbackContractParser` and `WritingFeedbackContractParser`; the parsers accept typed current contracts only. Legacy result, flat/band parsing and legacy reuse branches are removed. | `CLOSED`; invalid current contracts remain explicit `FAILED`/contract-failure, never score-bearing. |
-| `COMP-05` | `PracticeService` progress/result snapshot paths retain fallback handling for incomplete version locks. V87 permits nullable `published_version_id`, `test_version_id` and `section_version_id`; fresh attempts are zero. | `ACTIVE_HISTORICAL_READ_FALLBACK`; require retained incomplete-lock inventory and migration/reset choice before making missing locks fail closed. |
-| `COMP-06` | Runtime DTO/service paths still represent `legacyFallback` for ungrouped questions. V87 keeps live `group_id` and version `group_version_id` nullable; all `9` live and `10` version technical questions are ungrouped. New candidate/PDF validators require stable groups. | `ACTIVE_HISTORICAL_READ + NONCANONICAL_TECHNICAL_FIXTURE`; canonical seed must group all questions, but broader fallback removal needs retained graph evidence. |
+| `COMP-05` | Production snapshot, player, re-evaluation and state-policy paths already reject any missing/incoherent version lock as `INCOMPLETE_VERSION_LOCK`; focused tests pin the fail-closed boundary. | `CLOSED_BY_PROOF`; nullable V87 columns do not create a runtime compatibility reader. Development rows may be reset under section 6 disposition. |
+| `COMP-06` | Publication now rejects every ungrouped question before writing a published-version row. Objective overview/detail and DTO contracts require canonical group and group-version identity; `legacyFallback` is removed. | `CLOSED`; V87 nullable columns remain historical schema capability only. Canonical/UAT content must be grouped before publication. |
 | `COMP-07` | Seven `PracticeRoutes.LEGACY_*` constants are mapped by `PracticeController` to redirects; functional route tests assert redirect targets. No template/static hit was found as a canonical producer. | `ACTIVE_REDIRECT_API`; caller/bookmark/support-window decision required. Recommended default: time-bound redirects, not silent removal. |
 | `COMP-08` | `QuestionTypeResolver` accepts `MCQ`, `MCQ_SINGLE`, `TFNG`, `GAP_FILL` and other aliases; result/codec tests pin normalization. New authoring validators emit canonical types. Fresh live/version rows contain no alias. | `ACTIVE_READ/IMPORT_ADAPTER; CANONICAL_NEW_WRITE`; stored candidate/import and retained-row inventory must define the alias expiry. |
 | `COMP-09` | Current `PracticeAssessmentExcelService` deterministically rejects legacy v1 and advanced v2 workbook entry with `*_RETIRED`; Quick Excel is the only interactive writer. `LEGACY_EXCEL_V1/practice-excel-v1` remains an enum/JSON-schema identity for historical candidate envelopes. | `WRITER_RETIRED; STORED-ENVELOPE_IDENTITY_RETAINED`; inventory stored candidates before removing enum/schema identity. Current contract wording was corrected and statically locked in this slice. |
 | `COMP-12` | Tests intentionally pin non-ESSAY Writing, mixed/legacy feedback, ungrouped graphs, missing locks, redirects and aliases. Each corresponds to an active compatibility branch above rather than obsolete test-only code. | `MIGRATION/COMPATIBILITY_FIXTURES`; delete only together with the matching production branch after its decision/evidence closes. |
 | `COMP-14` | Current architecture contract incorrectly described legacy Excel v1 as a current bounded reader although runtime rejects it. Other hits for old result/cache names are predominantly dated phase/audit history and must not be bulk-edited. | `CURRENT_DOC_CORRECTED`; preserve archival records with dates. Continue per-document current-vs-history review, never global search/replace. |
-| `COMP-21` | `PracticeSpeakingMediaRepository.findAuthorizedTranscriptionCandidates` requires `g.id=q.groupId` while also binding owner, attempt, section, set, question, skill and media status. Ungrouped fresh technical questions therefore cannot transcribe. | `AUTHORIZATION-SENSITIVE_COMPATIBILITY_DECISION`; do not weaken the join. Group/reset/migrate retained rows or prove none require transcription. Recommended default: canonical grouping. |
+| `COMP-21` | `PracticeSpeakingMediaRepository.findAuthorizedTranscriptionCandidates` still requires `g.id=q.groupId` and binds owner, attempt, section, set, question, skill and media status. Publication now guarantees group ownership. | `CLOSED_WITH_AUTHORIZATION_JOIN_PRESERVED`; no join was weakened and ungrouped content cannot publish. |
 
 No row above authorizes deletion. The only automatic cleanup selected from this
 audit is the COMP-14 current-document correction for the already-retired
@@ -433,3 +433,36 @@ Evidence (`2026-08-03`, JDK `17.0.19`):
 
 Real provider, storage and database calls remained `0/0/0`; Phase 14 remains
 deferred.
+
+### 6.6 COMP-05/06/21 version-lock and grouping closure
+
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED`.
+
+Read-only caller audit first established that COMP-05 no longer had an active
+production fallback: incomplete or incoherent attempt version locks are
+rejected by snapshot loading, player delivery, re-evaluation and the canonical
+attempt-state policy. The nullable V87 columns therefore remain schema history,
+not permission to reconstruct mutable content. Existing focused tests preserve
+the `INCOMPLETE_VERSION_LOCK` result, so no COMP-05 code deletion was needed.
+
+For COMP-06, publication now rejects any question without canonical group
+ownership before saving the published version. Objective overview/detail and
+their DTO contract require non-null group and group-version IDs; the ungrouped
+result fallback and its `legacyFallback` field were removed. This is an
+application boundary only: no applied migration was rewritten and the blocked
+UAT manifest still cannot load until its approved content/asset references are
+materialized.
+
+For COMP-21, the transcription authorization query was intentionally left
+unchanged. It still binds media to owner, attempt, question, set, section,
+Speaking skill, READY status and `g.id = q.groupId` plus
+`g.sectionId = a.sectionId`. Canonical grouping now closes the availability
+side without weakening authorization.
+
+JDK 17 compile-only gate passed. Focused publication, objective result,
+functional UI, transcription resolver, Speaking application and core service
+gate passed `132/132`. One attempted DB-backed media-service invocation failed
+before application context startup because `TEST_DB_URL` was absent; it made no
+database/storage mutation and is not counted as evidence. Real provider,
+storage and database calls remained `0/0/0`. The combined DB-free R/L/W/S
+result, service and AI contract gate also passed `329/329`.

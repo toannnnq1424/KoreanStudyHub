@@ -328,7 +328,14 @@ class ObjectiveResultDetailTypeNativeContractTest {
                                 ""),
                         203L)));
 
+        PracticeQuestionGroupVersion canonicalGroup = group(
+                900L, 800L, 0, "Nhóm câu hỏi đã khóa",
+                null, null, null);
+        List.of(single, fill, tfng, multiple, matching).forEach(question ->
+                when(question.getGroupVersionId()).thenReturn(900L));
         PracticeResultContext context = context(
+                "READING",
+                List.of(canonicalGroup),
                 List.of(single, fill, tfng, multiple, matching),
                 Map.of(
                         "1001", "{learner-single}",
@@ -406,9 +413,8 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 assertThat(source.questionVersionIds())
                         .containsExactly(101L, 102L, 103L, 104L, 105L));
         assertThat(detail.groups()).singleElement().satisfies(group -> {
-            assertThat(group.legacyFallback()).isTrue();
-            assertThat(group.displayLabel()).isEqualTo(
-                    "Nhóm dữ liệu cũ chưa phân nhóm");
+            assertThat(group.groupVersionId()).isEqualTo(900L);
+            assertThat(group.displayLabel()).isEqualTo("Nhóm câu hỏi đã khóa");
             assertThat(group.questions()).hasSize(5);
         });
         assertThat(detail.constructRegistryState()).isEqualTo(
@@ -428,10 +434,13 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 });
 
         ObjectiveSourceGroup source = detail.sourceGroups().get(0);
-        assertThat(source.provenanceLabelVi()).isEqualTo("Nguồn đề đã khóa");
-        assertThat(source.provenanceLabelKo()).isEqualTo("잠긴 출제 자료");
+                    assertThat(source.provenanceLabelVi())
+                            .isEqualTo("Nguồn đề đã xuất bản và khóa");
+        assertThat(source.provenanceLabelKo()).isEqualTo("게시 후 잠긴 출제 자료");
 
         PracticeResultContext unansweredExtendedTypes = context(
+                "READING",
+                List.of(canonicalGroup),
                 List.of(multiple, matching),
                 Map.of());
         ObjectiveDetailPayload unansweredDetail = (ObjectiveDetailPayload)
@@ -614,7 +623,6 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 null);
         assertThat(grouped.groups()).singleElement().satisfies(group -> {
             assertThat(group.groupVersionId()).isEqualTo(911L);
-            assertThat(group.legacyFallback()).isFalse();
             assertThat(group.source().passageText())
                     .isEqualTo("하나의 지문이 여러 문항을 소유합니다.");
             assertThat(group.questions())
@@ -637,7 +645,6 @@ class ObjectiveResultDetailTypeNativeContractTest {
         assertThat(singleton.groups()).singleElement().satisfies(group -> {
             assertThat(group.groupVersionId()).isEqualTo(912L);
             assertThat(group.groupId()).isEqualTo(812L);
-            assertThat(group.legacyFallback()).isFalse();
             assertThat(group.questions()).singleElement();
             assertThat(group.source().hasPassage()).isFalse();
         });
@@ -646,16 +653,12 @@ class ObjectiveResultDetailTypeNativeContractTest {
                 304L, 3004L, 4, "SINGLE_CHOICE", "이전 데이터 문항");
         when(legacyQuestion.getDisplayOrder()).thenReturn(0);
         stubSingleChoice(codec, explanations, legacyQuestion, null);
-        ObjectiveDetailPayload legacy = (ObjectiveDetailPayload) presenter.presentDetail(
+        assertThatThrownBy(() -> presenter.presentDetail(
                 context("READING", List.of(), List.of(legacyQuestion), Map.of()),
                 overview,
-                null);
-        assertThat(legacy.groups()).singleElement().satisfies(group -> {
-            assertThat(group.legacyFallback()).isTrue();
-            assertThat(group.groupVersionId()).isNull();
-            assertThat(group.groupId()).isNull();
-            assertThat(group.questions()).singleElement();
-        });
+                null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("immutable group ownership is missing");
     }
 
     @Test

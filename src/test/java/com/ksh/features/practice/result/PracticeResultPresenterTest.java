@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticePublishedVersion;
+import com.ksh.entities.PracticeQuestionGroupVersion;
 import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.entities.PracticeSectionVersion;
 import com.ksh.entities.PracticeSetVersion;
@@ -185,7 +186,7 @@ class PracticeResultPresenterTest {
         assertThat(payload.groups()).singleElement().satisfies(group -> {
             assertThat(group.displayLabel()).isEqualTo("Phần nghe 1");
             assertThat(group.sourceLabel())
-                    .isEqualTo("Câu độc lập không có nguồn chung");
+                    .isEqualTo("Nhóm câu hỏi đã khóa");
             assertThat(group.firstQuestionId()).isEqualTo(111L);
             assertThat(group.questionTypeLabels())
                     .containsExactly("Trắc nghiệm một đáp án");
@@ -2929,12 +2930,25 @@ class PracticeResultPresenterTest {
         when(section.getId()).thenReturn(13L);
         when(section.getSectionId()).thenReturn(20L);
         when(section.getSkill()).thenReturn(skill);
+        List<PracticeQuestionGroupVersion> groups = List.of();
+        if (("READING".equals(skill) || "LISTENING".equals(skill))
+                && !questions.isEmpty()) {
+            PracticeQuestionGroupVersion group =
+                    mock(PracticeQuestionGroupVersion.class);
+            when(group.getId()).thenReturn(901L);
+            when(group.getGroupId()).thenReturn(801L);
+            when(group.getDisplayOrder()).thenReturn(0);
+            when(group.getGroupLabel()).thenReturn("Nhóm câu hỏi đã khóa");
+            questions.forEach(question ->
+                    when(question.getGroupVersionId()).thenReturn(901L));
+            groups = List.of(group);
+        }
         return new PracticeVersionSnapshot(
                 published,
                 set,
                 test,
                 section,
-                List.of(),
+                groups,
                 questions);
     }
 
