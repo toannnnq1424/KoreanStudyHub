@@ -236,7 +236,7 @@ class PracticeServiceTest {
         PracticeQuestion q1 = mock(PracticeQuestion.class);
         when(q1.getId()).thenReturn(10L);
         when(q1.getQuestionNo()).thenReturn(1);
-        when(q1.getQuestionType()).thenReturn("MCQ");
+        when(q1.getQuestionType()).thenReturn("SINGLE_CHOICE");
         when(q1.getPrompt()).thenReturn("Q1");
         when(q1.getGroupId()).thenReturn(100L);
         when(q1.getPoints()).thenReturn(BigDecimal.valueOf(5));
@@ -301,7 +301,7 @@ class PracticeServiceTest {
         PracticeQuestion q1 = mock(PracticeQuestion.class);
         when(q1.getId()).thenReturn(10L);
         when(q1.getQuestionNo()).thenReturn(1);
-        when(q1.getQuestionType()).thenReturn("MCQ");
+        when(q1.getQuestionType()).thenReturn("SINGLE_CHOICE");
         when(q1.getPrompt()).thenReturn("Q1");
         when(q1.getPoints()).thenReturn(BigDecimal.valueOf(5));
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q1));
@@ -856,7 +856,7 @@ class PracticeServiceTest {
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
+        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "SINGLE_CHOICE", "", 10, BigDecimal.ONE, 0);
         section.setTestId(10L);
         setEntityId(section, 20L);
         PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_SINGLE_CHOICE, "Snapshot prompt",
@@ -961,10 +961,10 @@ class PracticeServiceTest {
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
         setEntityId(test, 10L);
-        PracticeSection firstSection = new PracticeSection(1L, "Reading 1", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
+        PracticeSection firstSection = new PracticeSection(1L, "Reading 1", "READING", "SINGLE_CHOICE", "", 10, BigDecimal.ONE, 0);
         firstSection.setTestId(10L);
         setEntityId(firstSection, 20L);
-        PracticeSection secondSection = new PracticeSection(1L, "Reading 2", "READING", "MCQ", "", 10, BigDecimal.ONE, 1);
+        PracticeSection secondSection = new PracticeSection(1L, "Reading 2", "READING", "SINGLE_CHOICE", "", 10, BigDecimal.ONE, 1);
         secondSection.setTestId(10L);
         setEntityId(secondSection, 21L);
         PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_SINGLE_CHOICE, "Snapshot prompt",
@@ -1030,10 +1030,10 @@ class PracticeServiceTest {
         setEntityId(firstTest, 10L);
         com.ksh.entities.PracticeTest secondTest = new com.ksh.entities.PracticeTest(1L, "Test 2", "", 1, 10);
         setEntityId(secondTest, 11L);
-        PracticeSection firstSection = new PracticeSection(1L, "Reading 1", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
+        PracticeSection firstSection = new PracticeSection(1L, "Reading 1", "READING", "SINGLE_CHOICE", "", 10, BigDecimal.ONE, 0);
         firstSection.setTestId(10L);
         setEntityId(firstSection, 20L);
-        PracticeSection secondSection = new PracticeSection(1L, "Reading 2", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
+        PracticeSection secondSection = new PracticeSection(1L, "Reading 2", "READING", "SINGLE_CHOICE", "", 10, BigDecimal.ONE, 0);
         secondSection.setTestId(11L);
         setEntityId(secondSection, 21L);
         PracticeQuestion ungrouped = new PracticeQuestion(1L, 1, PracticeQuestion.TYPE_SINGLE_CHOICE, "Snapshot prompt",
@@ -1097,7 +1097,7 @@ class PracticeServiceTest {
         setEntityId(set, 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test", "", 0, 10);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "MCQ", "", 10, BigDecimal.ONE, 0);
+        PracticeSection section = new PracticeSection(1L, "Reading", "READING", "SINGLE_CHOICE", "", 10, BigDecimal.ONE, 0);
         section.setTestId(10L);
         setEntityId(section, 20L);
         ObjectMapper failingMapper = spy(new ObjectMapper());
@@ -1526,7 +1526,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet(skill + " Set", "Desc", skill, "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, skill + " Section", skill, "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, skill + " Section", skill, "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -1541,7 +1541,7 @@ class PracticeServiceTest {
         setEntityId(attempt, 99L);
 
         PracticeQuestion q1 = new PracticeQuestion(
-                1L, 1, "MCQ", "Q",
+                1L, 1, "SINGLE_CHOICE", "Q",
                 "[]", "3", "Giai thich dap an dung",
                 BigDecimal.valueOf(5), 1
         );
@@ -1566,7 +1566,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -1596,7 +1596,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -1626,7 +1626,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -1654,7 +1654,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection preLockSection = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection preLockSection = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         preLockSection.setTestId(10L);
         setEntityId(preLockSection, 20L);
 
@@ -1675,7 +1675,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -1694,7 +1694,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Test", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(9999L); // mismatch testId
         setEntityId(section, 20L);
 
@@ -1718,7 +1718,7 @@ class PracticeServiceTest {
                         1L, "Test", "Desc", 1, 40);
         setEntityId(test, 10L);
         PracticeSection section = new PracticeSection(
-                1L, "Reading", "READING", "MCQ",
+                1L, "Reading", "READING", "SINGLE_CHOICE",
                 "Instruction", 40, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
@@ -1777,7 +1777,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -1795,7 +1795,7 @@ class PracticeServiceTest {
                 .thenReturn(Optional.of(attempt));
 
         PracticeQuestion q1 = new PracticeQuestion(
-                1L, 1, "MCQ", "Q",
+                1L, 1, "SINGLE_CHOICE", "Q",
                 "[]", "3", "Giải thích đáp án đúng",
                 BigDecimal.valueOf(5), 1
         );
@@ -1909,7 +1909,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, metaJson, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -1927,7 +1927,7 @@ class PracticeServiceTest {
                 .thenReturn(Optional.of(attempt));
 
         PracticeQuestion q1 = new PracticeQuestion(
-                1L, 1, "MCQ", "Q",
+                1L, 1, "SINGLE_CHOICE", "Q",
                 "[]", "3", "Giải thích đáp án đúng",
                 BigDecimal.valueOf(5), 1
         );
@@ -1992,7 +1992,7 @@ class PracticeServiceTest {
         PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
-        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "MCQ", "Instruction", 60, BigDecimal.TEN, 1);
+        PracticeSection section = new PracticeSection(1L, "Reading Section", "READING", "SINGLE_CHOICE", "Instruction", 60, BigDecimal.TEN, 1);
         section.setTestId(10L);
         setEntityId(section, 20L);
 
@@ -2011,7 +2011,7 @@ class PracticeServiceTest {
 
         // Question 1 belongs to section 20
         PracticeQuestion q1 = new PracticeQuestion(
-                1L, 1, "MCQ", "Q",
+                1L, 1, "SINGLE_CHOICE", "Q",
                 "[]", "3", "Giải thích đáp án đúng",
                 BigDecimal.valueOf(5), 1
         );
@@ -2036,6 +2036,8 @@ class PracticeServiceTest {
         setEntityId(attempt, 99L);
 
         when(attemptRepository.findByIdAndUserId(99L, 2L)).thenReturn(Optional.of(attempt));
+        when(attemptRepository.findByIdAndUserIdForUpdate(99L, 2L))
+                .thenReturn(Optional.of(attempt));
 
         assertThrows(IllegalStateException.class, () -> {
             practiceService.submitAttempt(99L, 2L, Map.of());
@@ -2539,7 +2541,7 @@ class PracticeServiceTest {
 
         // MCQ Question (Points 5.0)
         PracticeQuestion qMcq = new PracticeQuestion(
-                1L, 10, "MCQ", "Q1",
+                1L, 10, "SINGLE_CHOICE", "Q1",
                 "[\"1\",\"2\",\"3\"]", "3", "Explain",
                 BigDecimal.valueOf(5.0), 0
         );
@@ -3169,7 +3171,7 @@ class PracticeServiceTest {
         group.setSectionId(20L);
         setEntityId(group, 30L);
 
-        PracticeQuestion qMcq = new PracticeQuestion(1L, 10, "MCQ", "M1", "[\"1\",\"2\",\"3\"]", "3", "Explain", BigDecimal.valueOf(5.0), 0);
+        PracticeQuestion qMcq = new PracticeQuestion(1L, 10, "SINGLE_CHOICE", "M1", "[\"1\",\"2\",\"3\"]", "3", "Explain", BigDecimal.valueOf(5.0), 0);
         qMcq.setGroupId(30L);
         setEntityId(qMcq, 101L);
         PracticeQuestion qEssay1 = new PracticeQuestion(1L, 51, "ESSAY", "Q1", "[]", "", "Explain", BigDecimal.TEN, 1);

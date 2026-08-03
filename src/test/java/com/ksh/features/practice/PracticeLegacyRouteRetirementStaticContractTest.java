@@ -25,4 +25,19 @@ class PracticeLegacyRouteRetirementStaticContractTest {
                         "legacyMode(", "legacyPlayer(", "legacySubmit(",
                         "legacyResult(", "legacyReEvaluate(");
     }
+
+    @Test
+    void nonWritingEssayGradingCompatibilityStaysRetired() throws Exception {
+        String service = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/service/PracticeService.java"));
+
+        assertThat(service)
+                .doesNotContain("NonWritingEssayGradingSnapshot",
+                        "NonWritingEssayGradingResult",
+                        "gradeNonWritingEssaySnapshot",
+                        "loadNonWritingEssaySubmitSnapshot",
+                        "loadNonWritingEssayReEvaluationSnapshot")
+                .contains("Essay attempt must use snapshot grading path.",
+                        "Writing attempt must use snapshot grading path.");
+    }
 }

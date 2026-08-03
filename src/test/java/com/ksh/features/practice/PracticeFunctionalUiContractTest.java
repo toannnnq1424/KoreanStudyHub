@@ -401,7 +401,9 @@ class PracticeFunctionalUiContractTest {
 
         assertThat(fullCommand).contains(
                 "requireReEvaluationAttempt",
-                "loadWritingReEvaluationSnapshot",
+                "loadWritingReEvaluationSnapshot");
+        assertThat(fullCommand).doesNotContain(
+                "NonWritingEssayGradingSnapshot",
                 "loadNonWritingEssayReEvaluationSnapshot");
         assertThat(fullCommand.indexOf("requireReEvaluationAttempt"))
                 .isLessThan(

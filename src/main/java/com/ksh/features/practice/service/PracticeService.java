@@ -278,14 +278,6 @@ public class PracticeService {
             WritingGradingResult result = executeNonTransactional(() -> gradeWritingSnapshot(snapshot, true));
             return executeWrite(() -> persistWritingReEvaluationResult(snapshot, result));
         }
-        NonWritingEssayGradingSnapshot essaySnapshot =
-                executeRead(() ->
-                        loadNonWritingEssayReEvaluationSnapshot(gatedAttempt));
-        if (essaySnapshot != null) {
-            NonWritingEssayGradingResult result =
-                    executeNonTransactional(() -> gradeNonWritingEssaySnapshot(essaySnapshot, true));
-            return executeWrite(() -> persistNonWritingEssayReEvaluationResult(essaySnapshot, result));
-        }
         return executeWrite(() -> reEvaluateInTransaction(attemptId, userId));
     }
 
@@ -1966,21 +1958,6 @@ public class PracticeService {
                     expectedLockVersion,
                     deadlineExpired));
         }
-        if (!"SPEAKING".equals(guard.getSkill())) {
-            NonWritingEssayGradingSnapshot essaySnapshot =
-                    executeRead(() ->
-                            loadNonWritingEssaySubmitSnapshot(
-                                    attemptId, userId, effectiveForm));
-            if (essaySnapshot != null) {
-                NonWritingEssayGradingResult result =
-                        executeNonTransactional(() ->
-                                gradeNonWritingEssaySnapshot(
-                                        essaySnapshot, false));
-                return executeWrite(() ->
-                        persistNonWritingEssaySubmitResult(
-                                essaySnapshot, result));
-            }
-        }
         SpeakingGradingSnapshot speakingSnapshot =
                 executeRead(() ->
                         loadSpeakingSubmitSnapshot(
@@ -2005,17 +1982,6 @@ public class PracticeService {
         if (snapshot != null) {
             WritingGradingResult result = executeNonTransactional(() -> gradeWritingSnapshot(snapshot, false));
             return executeWrite(() -> persistWritingSubmitResult(snapshot, result));
-        }
-        NonWritingEssayGradingSnapshot essaySnapshot =
-                executeRead(() -> loadNonWritingEssaySubmitSnapshot(attemptId, userId, form));
-        if (essaySnapshot != null) {
-            if ("SPEAKING".equals(essaySnapshot.skill())) {
-                throw new IllegalStateException(
-                        "Speaking submission requires canonical audio-backed questions.");
-            }
-            NonWritingEssayGradingResult result =
-                    executeNonTransactional(() -> gradeNonWritingEssaySnapshot(essaySnapshot, false));
-            return executeWrite(() -> persistNonWritingEssaySubmitResult(essaySnapshot, result));
         }
         SpeakingGradingSnapshot speakingSnapshot =
                 executeRead(() -> loadSpeakingSubmitSnapshot(attemptId, userId, form));
@@ -2512,102 +2478,6 @@ public class PracticeService {
         );
     }
 
-    private NonWritingEssayGradingSnapshot loadNonWritingEssaySubmitSnapshot(
-            Long attemptId,
-            Long userId,
-            Map<String, String> form
-    ) {
-        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
-        if ("WRITING".equals(attempt.getSkill())) {
-            throw new IllegalStateException("Writing attempt must use snapshot grading path.");
-        }
-        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw new IllegalStateException("Lượt làm bài đã được nộp hoặc chấm điểm.");
-        }
-
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-        validateAttemptSection(attempt, section);
-        validateKnownSkill(attempt.getSkill());
-        loadPublished(attempt.getSetId());
-
-        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, section.getId());
-        if (!containsEssay(questions)) {
-            return null;
-        }
-
-        Map<String, String> answers = new LinkedHashMap<>();
-        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
-            try {
-                Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
-                answers.putAll(prev);
-            } catch (Exception e) {
-                log.warn("[submitAttempt] Failed to parse previous in-progress answers exception={}",
-                        exceptionCategory(e));
-            }
-        }
-        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
-                answers,
-                form,
-                questions.stream().map(QuestionSnapshot::questionId).toList());
-
-        return new NonWritingEssayGradingSnapshot(
-                attempt.getId(),
-                attempt.getUserId(),
-                attempt.getSetId(),
-                attempt.getTestId(),
-                attempt.getSectionId(),
-                attempt.getSkill(),
-                PracticeAttempt.STATUS_IN_PROGRESS,
-                attempt.getLockVersion(),
-                attempt.getAnswersJson(),
-                attempt.getAiFeedbackJson(),
-                attempt.getScore(),
-                attempt.getTotalPoints(),
-                writeJson(answers),
-                answers,
-                questions
-        );
-    }
-
-    private NonWritingEssayGradingSnapshot
-    loadNonWritingEssayReEvaluationSnapshot(PracticeAttempt attempt) {
-        if ("WRITING".equals(attempt.getSkill())) {
-            throw new IllegalStateException("Writing attempt must use snapshot grading path.");
-        }
-
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-        validateAttemptSection(attempt, section);
-        validateKnownSkill(attempt.getSkill());
-        loadPublished(attempt.getSetId());
-
-        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, section.getId());
-        if (!containsEssay(questions)) {
-            return null;
-        }
-        Map<String, String> answers = readAnswers(attempt.getAnswersJson());
-
-        return new NonWritingEssayGradingSnapshot(
-                attempt.getId(),
-                attempt.getUserId(),
-                attempt.getSetId(),
-                attempt.getTestId(),
-                attempt.getSectionId(),
-                attempt.getSkill(),
-                attempt.getStatus(),
-                attempt.getLockVersion(),
-                attempt.getAnswersJson(),
-                attempt.getAiFeedbackJson(),
-                attempt.getScore(),
-                attempt.getTotalPoints(),
-                writeJson(answers),
-                answers,
-                questions
-        );
-    }
-
     private SpeakingGradingSnapshot loadSpeakingSubmitSnapshot(
             Long attemptId,
             Long userId,
@@ -2804,10 +2674,6 @@ public class PracticeService {
         );
     }
 
-    private boolean containsEssay(List<QuestionSnapshot> questions) {
-        return questions.stream().anyMatch(q -> PracticeQuestion.TYPE_ESSAY.equals(q.questionType()));
-    }
-
     private void validateAttemptSection(PracticeAttempt attempt, PracticeSection section) {
         if (!attempt.getSetId().equals(section.getSetId()) ||
             !attempt.getTestId().equals(section.getTestId()) ||
@@ -2829,53 +2695,6 @@ public class PracticeService {
                 throw new IllegalStateException("Invalid configured points for question ID: " + q.questionId());
             }
         }
-    }
-
-    private NonWritingEssayGradingResult gradeNonWritingEssaySnapshot(
-            NonWritingEssayGradingSnapshot snapshot,
-            boolean isReEvaluate
-    ) {
-        BigDecimal legacyFlatScore = BigDecimal.ZERO;
-        boolean scoreAvailable = true;
-        BigDecimal total = BigDecimal.ZERO;
-        String aiFeedback = null;
-
-        for (QuestionSnapshot q : snapshot.questions()) {
-            total = total.add(q.points());
-            String answer = snapshot.answers().getOrDefault(String.valueOf(q.questionId()), "").trim();
-
-            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
-            if (objectiveScore.isPresent()) {
-                if (scoreAvailable) {
-                    legacyFlatScore = legacyFlatScore.add(
-                            objectiveScore.get().earnedPoints());
-                }
-            } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
-                String perQuestionFeedback = evaluateWriting(
-                        snapshot.userId(), q.prompt(), answer, isReEvaluate,
-                        q.writingTaskType(), questionImageReference(q));
-                aiFeedback = perQuestionFeedback;
-                BigDecimal generatedScore = extractAiScore(
-                        perQuestionFeedback,
-                        q.writingTaskType());
-                if (generatedScore == null) {
-                    scoreAvailable = false;
-                } else if (scoreAvailable) {
-                    legacyFlatScore = generatedScore;
-                }
-            } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.questionType())) {
-                throw new IllegalStateException(
-                        "Legacy mixed Speaking text scoring is disabled.");
-            } else {
-                throw new IllegalStateException("Unsupported question type for question ID "
-                        + q.questionId() + ": " + q.questionType());
-            }
-        }
-        return new NonWritingEssayGradingResult(
-                scoreAvailable ? legacyFlatScore : null,
-                total,
-                snapshot.answersToPersistJson(),
-                aiFeedback);
     }
 
     private SpeakingGradingResult gradeSpeakingSnapshot(SpeakingGradingSnapshot snapshot) {
@@ -3352,87 +3171,6 @@ public class PracticeService {
         }
     }
 
-    private Long persistNonWritingEssaySubmitResult(
-            NonWritingEssayGradingSnapshot snapshot,
-            NonWritingEssayGradingResult result
-    ) {
-        PracticeAttempt attempt = attemptRepository
-                .findByIdAndUserIdForUpdate(
-                        snapshot.attemptId(), snapshot.userId())
-                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
-        verifyNonWritingSnapshotIdentity(attempt, snapshot);
-        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw conflict();
-        }
-        if (attempt.isExpired(LocalDateTime.now())
-                && !Objects.equals(
-                        normalizeJsonForCompare(
-                                snapshot.answersToPersistJson()),
-                        normalizeJsonForCompare(
-                                attempt.getAnswersJson()))) {
-            throw new PracticeAttemptDeadlineExpiredException(
-                    attempt.getDeadlineAt());
-        }
-        if (!Objects.equals(normalizeJsonForCompare(snapshot.expectedExistingAnswersJson()), normalizeJsonForCompare(attempt.getAnswersJson()))) {
-            throw conflict();
-        }
-        verifyNonWritingSnapshotVersion(attempt, snapshot);
-        if (result.aiFeedbackJson() == null) {
-            attempt.markSubmitted(result.score(), result.totalPoints(), result.answersJson());
-        } else if (result.score() == null) {
-            attempt.markSubmitted(null, result.totalPoints(), result.answersJson());
-            attempt.setAiFeedbackJson(result.aiFeedbackJson());
-        } else {
-            attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.aiFeedbackJson());
-        }
-        flushAttempt(attempt);
-        log.info("[PracticeService] Submitted PracticeAttempt id={} score={} / {}", attempt.getId(), result.score(), result.totalPoints());
-        return attempt.getId();
-    }
-
-    private Long persistNonWritingEssayReEvaluationResult(
-            NonWritingEssayGradingSnapshot snapshot,
-            NonWritingEssayGradingResult result
-    ) {
-        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(snapshot.attemptId(), snapshot.userId())
-                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
-        verifyNonWritingSnapshotIdentity(attempt, snapshot);
-        if (!Objects.equals(snapshot.expectedStatus(), attempt.getStatus())) {
-            throw conflict();
-        }
-        if (!Objects.equals(normalizeJsonForCompare(snapshot.expectedExistingAnswersJson()), normalizeJsonForCompare(attempt.getAnswersJson()))) {
-            throw conflict();
-        }
-        if (!Objects.equals(snapshot.expectedAiFeedbackJson(), attempt.getAiFeedbackJson())) {
-            throw conflict();
-        }
-        if (!Objects.equals(snapshot.expectedScore(), attempt.getScore())
-                || !Objects.equals(snapshot.expectedTotalPoints(), attempt.getTotalPoints())) {
-            throw conflict();
-        }
-        verifyNonWritingSnapshotVersion(attempt, snapshot);
-        if (result.score() == null
-                && snapshot.expectedScore() != null
-                && snapshot.expectedAiFeedbackJson() != null
-                && !snapshot.expectedAiFeedbackJson().isBlank()) {
-            log.info(
-                    "[PracticeService] Retained prior non-Writing essay result for PracticeAttempt id={} because re-evaluation was unavailable",
-                    attempt.getId());
-            return attempt.getId();
-        }
-        if (result.aiFeedbackJson() == null) {
-            attempt.markSubmitted(result.score(), result.totalPoints(), result.answersJson());
-        } else if (result.score() == null) {
-            attempt.markSubmitted(null, result.totalPoints(), result.answersJson());
-            attempt.setAiFeedbackJson(result.aiFeedbackJson());
-        } else {
-            attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.aiFeedbackJson());
-        }
-        flushAttempt(attempt);
-        log.info("[PracticeService] Re-evaluated PracticeAttempt id={} score={} / {}", attempt.getId(), result.score(), result.totalPoints());
-        return attempt.getId();
-    }
-
     private Long persistSpeakingGradingResult(
             SpeakingGradingSnapshot snapshot,
             SpeakingGradingResult result,
@@ -3548,21 +3286,6 @@ public class PracticeService {
 
     private void verifySnapshotVersion(PracticeAttempt attempt, WritingGradingSnapshot snapshot) {
         if (!Objects.equals(attempt.getLockVersion(), snapshot.lockVersion())) {
-            throw conflict();
-        }
-    }
-
-    private void verifyNonWritingSnapshotVersion(PracticeAttempt attempt, NonWritingEssayGradingSnapshot snapshot) {
-        if (!Objects.equals(attempt.getLockVersion(), snapshot.lockVersion())) {
-            throw conflict();
-        }
-    }
-
-    private void verifyNonWritingSnapshotIdentity(PracticeAttempt attempt, NonWritingEssayGradingSnapshot snapshot) {
-        if (!Objects.equals(attempt.getSetId(), snapshot.setId())
-                || !Objects.equals(attempt.getTestId(), snapshot.testId())
-                || !Objects.equals(attempt.getSectionId(), snapshot.sectionId())
-                || !Objects.equals(attempt.getSkill(), snapshot.skill())) {
             throw conflict();
         }
     }
@@ -4142,25 +3865,6 @@ public class PracticeService {
     ) {
     }
 
-    private record NonWritingEssayGradingSnapshot(
-            Long attemptId,
-            Long userId,
-            Long setId,
-            Long testId,
-            Long sectionId,
-            String skill,
-            String expectedStatus,
-            Long lockVersion,
-            String expectedExistingAnswersJson,
-            String expectedAiFeedbackJson,
-            BigDecimal expectedScore,
-            BigDecimal expectedTotalPoints,
-            String answersToPersistJson,
-            Map<String, String> answers,
-            List<QuestionSnapshot> questions
-    ) {
-    }
-
     private record SpeakingGradingSnapshot(
             Long attemptId,
             Long userId,
@@ -4209,14 +3913,6 @@ public class PracticeService {
             String answersJson,
             String feedbackJson,
             String failureMetadataJson
-    ) {
-    }
-
-    private record NonWritingEssayGradingResult(
-            BigDecimal score,
-            BigDecimal totalPoints,
-            String answersJson,
-            String aiFeedbackJson
     ) {
     }
 

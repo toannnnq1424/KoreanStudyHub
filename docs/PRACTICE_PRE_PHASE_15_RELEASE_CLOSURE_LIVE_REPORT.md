@@ -378,3 +378,22 @@ candidate-static, resolver and route gate passed `19/19`.
 Current verdict remains `NO_GO`: owner decisions are now recorded, but the
 approved SME artifacts still need concrete manifest references and the
 remaining development-only compatibility branches require tested retirement.
+
+### 6.4 COMP-02 non-Writing ESSAY grading retirement
+
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED`.
+
+The development-only `NonWritingEssayGradingSnapshot` load, grade, verify and
+persist paths were removed from submit and re-evaluation together with their
+positive compatibility fixtures. Canonical Writing still uses its immutable
+per-question typed evaluation envelope. Reading/Listening objective scoring is
+unchanged; any non-Writing `ESSAY` now reaches the existing fail-closed guard
+`Essay attempt must use snapshot grading path` and cannot call the Writing
+provider. Speaking remains on its canonical media/transcript path.
+
+The caller audit also found stale `MCQ` question codes in service fixtures left
+after COMP-08 server alias retirement. Those fixtures were canonicalized to
+`SINGLE_CHOICE`; no production alias was restored. JDK 17 service,
+authoring/publisher and static gate: `156` tests, `0` failures, `0` errors,
+`0` skips. Compile-only gate also completed successfully. No provider, storage
+or database call was made.
