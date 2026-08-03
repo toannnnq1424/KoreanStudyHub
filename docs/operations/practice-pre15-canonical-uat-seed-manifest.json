@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "practice-pre15-canonical-uat-seed-manifest-v1",
+  "manifestId": "KSH-PRE15-UAT-SKELETON-V1",
+  "status": "BLOCKED_SME_REQUIRED",
+  "sourceAuthority": "REPO_MANIFEST_ONLY_DO_NOT_LOAD",
+  "policyContracts": {
+    "readingListening": {"inputSchema": "rl-explanation-input-v3", "explanationSchema": "v4"},
+    "writing": {"policyBundleId": "KSH_WRITING_POLICY_BUNDLE_V3"},
+    "speaking": {
+      "policyBundleId": "KSH_SPEAKING_POLICY_BUNDLE_V2",
+      "capability": "TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION",
+      "evidenceMode": "TRANSCRIPT_ONLY",
+      "holisticScore": false
+    }
+  },
+  "skills": [
+    {
+      "skill": "READING", "testSeedKey": "TEST-R", "sectionSeedKey": "SECTION-R", "groupSeedKey": "GROUP-R-01",
+      "classification": "SME_REQUIRED",
+      "versionLocks": ["SET_VERSION", "TEST_VERSION", "SECTION_VERSION", "GROUP_VERSION", "QUESTION_VERSION"],
+      "questions": [
+        {"seedKey": "Q-R-SINGLE-01", "questionNo": 1, "questionType": "SINGLE_CHOICE", "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": []},
+        {"seedKey": "Q-R-FILL-01", "questionNo": 2, "questionType": "FILL_BLANK", "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": []},
+        {"seedKey": "Q-R-TFNG-01", "questionNo": 3, "questionType": "TRUE_FALSE_NOT_GIVEN", "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": [{"role": "QUESTION_IMAGE", "classification": "SME_REQUIRED", "required": false, "status": "BLOCKED_SME_REQUIRED"}]}
+      ]
+    },
+    {
+      "skill": "LISTENING", "testSeedKey": "TEST-L", "sectionSeedKey": "SECTION-L", "groupSeedKey": "GROUP-L-01",
+      "classification": "SME_REQUIRED",
+      "versionLocks": ["SET_VERSION", "TEST_VERSION", "SECTION_VERSION", "GROUP_VERSION", "QUESTION_VERSION"],
+      "questions": [
+        {"seedKey": "Q-L-SINGLE-01", "questionNo": 1, "questionType": "SINGLE_CHOICE", "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": [{"role": "LISTENING_AUDIO", "classification": "SME_REQUIRED", "required": true, "status": "BLOCKED_SME_REQUIRED"}]},
+        {"seedKey": "Q-L-FILL-01", "questionNo": 2, "questionType": "FILL_BLANK", "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": [{"role": "LISTENING_AUDIO", "classification": "SME_REQUIRED", "required": true, "status": "BLOCKED_SME_REQUIRED"}]},
+        {"seedKey": "Q-L-TFNG-01", "questionNo": 3, "questionType": "TRUE_FALSE_NOT_GIVEN", "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": [{"role": "LISTENING_AUDIO", "classification": "SME_REQUIRED", "required": true, "status": "BLOCKED_SME_REQUIRED"}]}
+      ]
+    },
+    {
+      "skill": "WRITING", "testSeedKey": "TEST-W", "sectionSeedKey": "SECTION-W", "groupSeedKey": "GROUP-W-01",
+      "classification": "SME_REQUIRED",
+      "versionLocks": ["SET_VERSION", "TEST_VERSION", "SECTION_VERSION", "GROUP_VERSION", "QUESTION_VERSION"],
+      "questions": [
+        {"seedKey": "Q-W-Q51", "questionNo": 51, "questionType": "ESSAY", "writingTask": "Q51", "points": 10, "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": []},
+        {"seedKey": "Q-W-Q52", "questionNo": 52, "questionType": "ESSAY", "writingTask": "Q52", "points": 10, "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": []},
+        {"seedKey": "Q-W-Q53", "questionNo": 53, "questionType": "ESSAY", "writingTask": "Q53", "points": 30, "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": []},
+        {"seedKey": "Q-W-Q54", "questionNo": 54, "questionType": "ESSAY", "writingTask": "Q54", "points": 50, "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": [{"role": "QUESTION_IMAGE", "classification": "SME_REQUIRED", "required": false, "status": "BLOCKED_SME_REQUIRED"}]}
+      ]
+    },
+    {
+      "skill": "SPEAKING", "testSeedKey": "TEST-S", "sectionSeedKey": "SECTION-S", "groupSeedKey": "GROUP-S-01",
+      "classification": "SME_REQUIRED",
+      "versionLocks": ["SET_VERSION", "TEST_VERSION", "SECTION_VERSION", "GROUP_VERSION", "QUESTION_VERSION"],
+      "questions": [
+        {"seedKey": "Q-S-PROMPT-01", "questionNo": 1, "questionType": "SPEAKING", "classification": "SME_REQUIRED", "contentStatus": "BLOCKED_SME_REQUIRED", "grouped": true, "immutableVersionLockRequired": true, "assets": [{"role": "SPEAKING_PROMPT_AUDIO", "classification": "SME_REQUIRED", "required": true, "status": "BLOCKED_SME_REQUIRED"}, {"role": "LEARNER_RECORDING_TARGET", "classification": "TECHNICAL", "required": true, "status": "SPECIFIED"}]}
+      ]
+    }
+  ],
+  "blockers": [
+    {"id": "UAT-SME-CONTENT", "classification": "SME_REQUIRED", "owner": "Korean Academic SME", "requiredEvidence": "Approved original/licensed Korean prompts, passages, transcripts, answers, explanations and task coverage."},
+    {"id": "UAT-SME-ASSETS", "classification": "SME_REQUIRED", "owner": "Academic SME + Content Operations", "requiredEvidence": "Approved audio/images with provenance, license, digest and accessibility metadata."},
+    {"id": "UAT-CALIBRATION", "classification": "SME_REQUIRED", "owner": "Academic SME + Backend Readiness", "requiredEvidence": "Versioned corpus, multi-rater adjudication, fairness and repeatability evidence bound to released policy bundles."}
+  ]
+}

@@ -196,6 +196,84 @@ storage or database call was made.
 
 No dependency was upgraded or overridden in this slice.
 
+### 4.1 External-feed coverage closure attempt (`2026-08-03`)
+
+The two missing official-source checks were retried independently of the
+scanner. Neither response is evidence that the coordinate is clean:
+
+| Source | Reproducible request and output marker | Verdict / owner action |
+| --- | --- | --- |
+| CISA KEV | `curl -L --fail-with-body -A 'KSH-Pre15-Release-Audit/1.0' -o /tmp/ksh-cisa-kev.json -w 'cisa_http=%{http_code}\n' https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json` -> `cisa_http=403`, 456-byte CISA `Access Denied` body | `BLOCKED_EXTERNAL / KEV_UNKNOWN`. Security/Release Ops must provide approved egress or a dated official KEV artifact with digest, then rerun the SBOM coordinate match. A 403 must never be converted to zero KEV findings. |
+| Sonatype OSS Index v3 | `curl --fail-with-body -X POST -H 'Content-Type: application/json' --data '{"coordinates":["pkg:maven/io.netty/netty-transport@4.1.136.Final"]}' -o /tmp/ksh-oss-index.json -w 'sonatype_http=%{http_code}\n' https://ossindex.sonatype.org/api/v3/component-report` -> `sonatype_http=401`, empty response body | `BLOCKED_CREDENTIAL / OSS_INDEX_UNKNOWN`. Security/Release Ops must inject a real OSS Index token through the approved runtime secret channel and rerun; do not commit or print credentials and do not use a fake secret. |
+
+The authoritative vendor advisory remains coordinate-specific:
+`GHSA-hpcc-26xq-25fv` affects `io.netty:netty-codec-http3`, whereas the SBOM
+finding was name/CPE-matched to `io.netty:netty-transport:4.1.136.Final` and
+the project resolves no `netty-codec-http3`. Reachability is therefore
+`NOT_APPLICABLE_COMPONENT_MISMATCH` for that advisory, while KEV and OSS Index
+coverage remain independently `UNKNOWN`. Scanner name matching alone is not a
+vulnerability determination.
+
+### 4.2 Spring support-line evidence (`2026-08-03`)
+
+JDK 17 `mvn dependency:tree` resolves the current production bridge as Boot
+`3.5.16`, Spring Framework `6.2.19`, Spring Security `6.5.11`, Spring Data JPA
+`3.5.13`, Tomcat `10.1.57`, Hibernate `6.6.53.Final`, Jackson `2.21.5` and
+Flyway `11.7.2`. A read-only Maven versions metadata run reports Boot `4.1.0`
+as the available parent/plugin update and Security `7.1.0` as an available
+major update. This is upgrade discovery, not source/runtime compatibility
+proof.
+
+The supported-line choices are:
+
+1. Move to the current Boot 4.1 line in a separate upgrade branch. Treat it as
+   a major framework/security/runtime migration and require compile, Flyway,
+   security, serialization, template, browser and full regression evidence.
+2. Keep Boot 3.5.16 only with named commercial-support provider, contract term,
+   patch SLA and release owner evidence.
+3. Declare release `NO_GO` until either choice 1 or 2 closes.
+
+Recommended default is choice 1 as a separately approved/tested slice; this
+closure branch does not change the BOM. OSS support status, commercial support
+entitlement and runtime vulnerability reachability are three independent
+questions. The dated NVD analysis found no accepted reachable High, but that
+does not establish future patch support and the two external feeds above are
+still unknown.
+
+## 4.3 Deterministic canonical UAT seed contract (`2026-08-03`)
+
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED / BLOCKED_SME_REQUIRED`.
+
+- The repository now contains a closed Draft 2020-12 static schema and a
+  deterministic `KSH-PRE15-UAT-SKELETON-V1` manifest. Its authority is exactly
+  `REPO_MANIFEST_ONLY_DO_NOT_LOAD`; this slice performs no database load.
+- The manifest covers Reading, Listening, Writing and Speaking with `11`
+  stable question keys, canonical types only, stable group keys, and complete
+  `SET/TEST/SECTION/GROUP/QUESTION` immutable version-lock requirements.
+- Reading/Listening explanation schema IDs and the Writing/Speaking policy
+  bundle IDs are pinned to current source constants. Writing explicitly covers
+  Q51/Q52/Q53/Q54 at `10/10/30/50` points.
+- Content, Korean prompts/transcripts/answers/explanations, listening/prompt
+  audio, optional question images, provenance/licensing and calibration remain
+  `SME_REQUIRED`. Only the learner-recording target contract is classified
+  `TECHNICAL`. No Korean content, approval, fairness or calibration evidence
+  was fabricated.
+- Speaking is pinned to `TRANSCRIPT_ONLY`, no holistic score. The manifest
+  cannot enable `AUDIO_DIRECT_FULL_RESERVED` or branch B.
+- The fail-closed validator rejects ungrouped questions, incomplete version
+  locks and a falsely `READY_FOR_LOAD` skeleton retaining SME blockers; it
+  also binds policy IDs to implementation constants. Focused JDK 17 gate:
+  `4` tests, `0` failures, `0` errors, `0` skips. Combined manifest,
+  transcript-only scorer-boundary and AIM-8 compatibility regression gate:
+  `25` tests, `0` failures, `0` errors, `0` skips.
+
+Exact unblock package: Korean Academic SME owns approved/licensed content and
+answer/explanation evidence; Academic SME plus Content Operations own asset
+provenance, digests and accessibility metadata; Academic SME plus Backend
+Readiness own the versioned corpus, multi-rater adjudication, fairness and
+repeatability evidence. Recommended default is to keep the skeleton blocked
+and load nothing until all three evidence records are supplied.
+
 ## 5. Remaining release blockers
 
 - Select and approve Speaking branch A or B.
@@ -206,8 +284,9 @@ No dependency was upgraded or overridden in this slice.
   assessment bundle. Acoustic coverage applies only if branch B is selected.
 - Refresh the time-sensitive dependency/SBOM/advisory scan immediately before
   Manual UAT.
-- Prepare the deterministic canonical UAT seed and approved isolated UAT
-  environment; do not reuse ad-hoc/local evidence schemas.
+- Replace the deterministic blocked canonical UAT skeleton with SME-approved
+  content/assets/calibration evidence, validate it, and load only an approved
+  isolated UAT environment; do not reuse ad-hoc/local evidence schemas.
 - Run Phase 15 browser/device/provider/load/security/manual-UAT matrix only
   after this gate reaches `GO`.
 
