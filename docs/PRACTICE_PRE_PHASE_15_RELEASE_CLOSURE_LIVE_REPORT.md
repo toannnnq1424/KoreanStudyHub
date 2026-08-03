@@ -624,3 +624,34 @@ startup passed `4/4` and explicitly proved the coordinator bean is absent under
 default configuration. The isolated catalog/container was then stopped and
 auto-removed. Real provider/storage calls remained `0/0` and score release is
 still structurally unavailable.
+
+### 6.9 Direct-audio disclosure V1 and grant-manager authority model
+
+Status: `PREPRODUCTION_BASELINE_MATERIALIZED / PROVIDER_FIELDS_UNRESOLVED`.
+
+The product owner confirmed this is a self-created pre-production system with
+no customer, institution or real trial population. The repository now carries
+human-readable and machine-readable immutable disclosure artifact
+`KSH-SPEAKING-DIRECT-AUDIO-DISCLOSURE-V1`. It binds the exact branch-B purpose
+and policy bundle, optional/default-unchecked consent, withdrawal, no-training,
+named reviewer access, 30-day audio-retention ceiling, 7-day provider-deletion
+SLA ceiling, 7-day reviewer-grant ceiling and fail-closed score release.
+
+Provider display name, processing region, effective retention/SLA and evidence
+IDs remain mandatory runtime disclosure fields. The artifact intentionally
+does not invent a provider or legal claim. Minor/guardian use also remains
+disabled until a separate lawful-consent flow exists.
+
+Grant management is defined by stable business authorities rather than fake
+development users: `ACADEMIC_LEADER` and `PRIVACY_RELEASE_OWNER`. Existing KSH
+role `LEADER` maps to the academic authority. Privacy/release ownership must be
+assigned to a separately named account when one exists; it must not silently
+mean every `ADMIN`. Until those principals exist, the numeric runtime allowlist
+stays empty and authorization remains disabled. No fake user row or production
+identity was created.
+
+The disclosure/artifact plus B1/B2 regression gate passed `25/25` on JDK 17;
+machine validation binds the implementation purpose/policy constants, limits,
+default-unchecked consent, withdrawal and score-release blocker. The first
+wording assertion exposed only a Markdown line-wrap mismatch and is not counted
+as green evidence; whitespace-normalized learner-copy validation then passed.

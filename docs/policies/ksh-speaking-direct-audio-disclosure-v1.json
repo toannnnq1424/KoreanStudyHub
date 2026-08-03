@@ -1,0 +1,32 @@
+{
+  "artifact_id": "KSH-SPEAKING-DIRECT-AUDIO-DISCLOSURE-V1",
+  "status": "PREPRODUCTION_PRODUCT_PRIVACY_BASELINE",
+  "purpose": "PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION",
+  "policy_bundle_id": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1",
+  "consent": {
+    "scope": "LEARNER_ATTEMPT_WITH_MEDIA_BOUND_AT_TRANSFER",
+    "optional": true,
+    "default_checked": false,
+    "withdrawal_supported": true
+  },
+  "limits": {
+    "audio_retention_ceiling": "P30D",
+    "provider_deletion_sla_ceiling": "P7D",
+    "reviewer_grant_ceiling": "P7D"
+  },
+  "provider_requirements": {
+    "non_training": true,
+    "runtime_disclosure_fields": [
+      "provider_display_name",
+      "processing_region",
+      "effective_retention",
+      "effective_deletion_sla",
+      "policy_evidence_ids"
+    ]
+  },
+  "grant_manager_authorities": [
+    "ACADEMIC_LEADER",
+    "PRIVACY_RELEASE_OWNER"
+  ],
+  "score_release": "BLOCKED_UNTIL_AUTHORIZED_CONSUMPTION_AND_READINESS_GREEN"
+}
