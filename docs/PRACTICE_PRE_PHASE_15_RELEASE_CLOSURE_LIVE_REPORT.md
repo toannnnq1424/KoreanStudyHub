@@ -1633,3 +1633,67 @@ JDK 17 focused command
 `mvnw -Dtest=DirectAudioReleaseEvidenceManifestTest test` passed `5/5`.
 The combined direct-audio/alignment/control-plane selector passed `92/92`, and
 `mvnw -DskipTests package` completed green.
+
+### 6.30 Accumulated Pre-15 integration audit against current baseline
+
+Status: `READ_ONLY_AUDIT_GREEN / CONTROL_PLANES_SEPARATE / EXTERNAL_CALLS_ZERO / RELEASE_STILL_CLOSED`.
+
+The `2026-08-03` audit compared local HEAD `573f476e` with the locally available
+`origin/main` and merge-base `3d38a2f0`. The worktree was clean before the audit.
+No baseline fetch, migration execution/change, provider/storage/DB call or
+Practice data mutation was performed.
+
+The Admin Practice AI surface still presents three independent provider
+families: Gemini direct audio (with separately named Developer-key and
+Enterprise-ADC credential profiles), xAI/Grok and Groq. xAI/Grok and Groq remain
+separate secretless, disabled `Cần kiểm tra` preset profiles and cannot create a
+purpose binding, run a probe or reach transport. Gemini direct audio resolves
+only through its explicit Practice purpose binding and verified capability
+coordinates. None of these paths falls back to the global AI provider chain.
+Model suggestions remain suggestions: there is no `/models` fetch and no
+provider/model capability is inferred from its name.
+
+The only xAI/Groq and Groq key-console links rendered by this surface remain the
+fixed official HTTPS coordinates
+`https://console.x.ai/team/default/api-keys` and
+`https://console.groq.com/keys`. Both anchors retain `target="_blank"` and
+`rel="noopener noreferrer"`; no key value or secret-reveal path is rendered.
+
+Offline manifest inspection found exactly `12/12` required forced-aligner,
+provider-policy/capture and Korean calibration artifacts in `state=MISSING`.
+Its aggregate state remains `BLOCKED_EXTERNAL_EVIDENCE`; the only represented
+release posture is dark observation, with `learnerVisible=false` and
+`scoreReleaseEligible=false`. The manifest validator remains intake-only and
+cannot authorize learner score release.
+
+Reviewer page, inspection API and range-playback API are independently
+default-off, authenticated and named-grant/active-consent guarded. Their models
+exclude provider observation totals/confidence, holistic score, attempt points,
+storage keys and raw URLs. Direct-audio acoustic and alignment result records
+force score release false, learner visibility false where applicable, and null
+holistic/attempt score fields; result/presenter/progress gates confirmed that
+these dark observations cannot become learner score, latest/best result or
+progress credit.
+
+JDK `17.0.19` evidence:
+
+- Admin/control-plane/static gate
+  `mvnw '-Dtest=PracticeAi*Test,AdminSettingsInformationArchitectureStaticContractTest,PracticeAim8CompatibilityStaticContractTest' test`
+  passed all `80` executed tests (`86` discovered, `6` explicit
+  environment-gated integration/authorization skips);
+- direct-audio/reviewer/result/progress/UI gate
+  `mvnw '-Dtest=DirectAudio*Test,KoreanDirectAudio*Test,GeminiEnterpriseDirectAudioEvaluationAdapterTest,PracticeDirectAudioCapabilityRegistryTest,PracticeAiResultCompleteness*Test,SpeakingResultRenderingContractTest,PracticeResultPresenterTest,PracticeResultDetailContractTest,PracticeResultWordingTest,PracticeProgressServiceTest,PracticeServiceTest,PracticeFunctionalUiContractTest' test`
+  passed `296/296`; and
+- `mvnw -DskipTests package` completed green on Spring Boot `3.5.16`.
+
+External direct-audio/provider calls during this audit were exactly zero. The
+tests use static assertions, mocks and captured in-memory fake transports only.
+The governed happy-path adapter test intentionally increments its fake transport
+counter once; all invalid-token, withdrawn-consent and wrong-profile/no-fallback
+cases assert their transfer counters remain zero. This is test evidence of the
+gate boundary, not a network call or provider readiness claim.
+
+No integration defect requiring a code change was found. Release readiness
+remains red until the 12 real evidence artifacts are supplied and accepted;
+reviewer endpoints and learner pronunciation/fluency/holistic score exposure
+remain disabled.
