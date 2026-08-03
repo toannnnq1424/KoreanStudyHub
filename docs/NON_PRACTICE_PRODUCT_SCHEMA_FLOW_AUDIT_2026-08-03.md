@@ -53,7 +53,7 @@ Recommended default: Model A. Seed stable unique codes `KOR311`, `KOR321`, `KOR4
 | `activity_departments` | REMOVE | V3 duplicate has no entity, repository, writer, reader, route or template caller. |
 | `department_activities` | RENAME → `subject_activities` | This is not dead: `DepartmentService` writes create/update/toggle/leader events through `SubjectAuditWriter`; `DepartmentQueryService.listActivities` reads it for the paged “Lịch sử cập nhật” tab in `admin/departments-form.html`. Rename table/column/entity/repository/writer/DTO vocabulary to subject; do not keep a table named `department_activities`. |
 | `activity_sections`, `activity_lessons`, `activity_classes`, `activity_tests` | MERGE | These have active writer/entity code. Uniform shape supports one append-only audit table; index by `(entity_type, entity_id, created_at)` and `(type, created_at)`. |
-| other V3 `activity_*` (`enrollments`, assignments, submissions, users, comments, content_versions, flashcard_decks) | REMOVE unless a live writer/query is proven | No matching application writer/entity was found in source scan. `user_activities` and `permission_activities` are separate live audit implementations and should be evaluated, not conflated blindly. |
+| other V3 `activity_*` (`enrollments`, assignments, submissions, users, comments, content_versions, flashcard_decks) | REMOVE | No matching application writer/entity/reader exists. Comments were removed in V94; V96 removes the other six. `user_activities` and `permission_activities` are separate live audit implementations and remain protected. |
 | proposed `entity_activities` | ADD only if audit retention is required | Columns: id, entity_type, entity_id, event_type, description, metadata, actor_id, created_at. No polymorphic FK. Ownership by a single audit service; monthly/age retention; indexes above. This is one replacement for up to 15 fragmented logs. |
 | `classes` | KEEP/RESHAPE | Replace `department_id` with `subject_id`; drop random class `code` if it is only an invite identifier; statuses exactly three; immutable DB `created_at`; optional `end_date`; approval DRAFT→ACTIVE; end-date worker ACTIVE→ARCHIVED. Keep `created_by` and owner lecturer. |
 | `class_invite_codes` | REMOVE | CODE/LINK flow is explicitly removed. Drop enrollment FK first and remove provisioning/backfill/UI/tests. |
@@ -234,6 +234,7 @@ The requested direction is feasible without touching Practice. The approved mini
 - `a8923e24`: removes non-Practice course/general-category schema and code.
 - `273c297f`: scopes the non-Practice Question Bank to subject and removes its category ownership.
 - `54e5a2d8`: removes class lesson comments and their audit table.
-- Library slice under validation: V95 reuses `lesson_templates` for subject → chapter → lesson → materials, snapshots published lessons into existing same-subject class rows, removes class-scoped authoring/loose-attach routes, and adds no table.
+- `d58dafa7`: V95 reuses `lesson_templates` for subject → chapter → lesson → materials, snapshots published lessons into existing same-subject class rows, removes class-scoped authoring/loose-attach routes, and adds no table.
+- Activity cleanup under validation: V96 removes the six remaining V3 tables with no application writer or reader, while retaining all seven live audit streams.
 
-The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V95 create no tables. Practice paths and migrations remain outside every implementation diff.
+The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V96 create no tables. Practice paths and migrations remain outside every implementation diff.

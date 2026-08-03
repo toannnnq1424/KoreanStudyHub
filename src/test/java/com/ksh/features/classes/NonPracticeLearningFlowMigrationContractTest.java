@@ -33,7 +33,8 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "V92__remove_courses_and_general_categories.sql",
                 "V93__scope_question_bank_by_subject.sql",
                 "V94__remove_lesson_comments.sql",
-                "V95__subject_library_hierarchy.sql");
+                "V95__subject_library_hierarchy.sql",
+                "V96__remove_unused_activity_tables.sql");
         String combined = files.stream().map(this::readUnchecked).reduce("", String::concat);
 
         assertThat(count(combined, "CREATE TABLE")).isEqualTo(1);
@@ -52,6 +53,28 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "ADD COLUMN chapter_title",
                 "REFERENCES departments(id)");
         assertThat(sql).doesNotContain("CREATE TABLE", "practice_");
+    }
+
+    @Test
+    void unused_activity_tables_are_removed_but_live_audit_streams_are_retained()
+            throws IOException {
+        String migration = read("V96__remove_unused_activity_tables.sql");
+
+        assertThat(migration).contains(
+                "DROP TABLE activity_enrollments",
+                "DROP TABLE activity_assignments",
+                "DROP TABLE activity_submissions",
+                "DROP TABLE activity_users",
+                "DROP TABLE activity_content_versions",
+                "DROP TABLE activity_flashcard_decks");
+        assertThat(migration).doesNotContain(
+                "DROP TABLE activity_classes",
+                "DROP TABLE activity_sections",
+                "DROP TABLE activity_lessons",
+                "DROP TABLE activity_tests",
+                "DROP TABLE user_activities",
+                "DROP TABLE permission_activities",
+                "DROP TABLE subject_activities");
     }
 
     @Test
