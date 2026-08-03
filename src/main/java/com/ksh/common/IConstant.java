@@ -516,11 +516,11 @@ public interface IConstant {
     // Shared key "activitiesPage" — same string as users edit history tab.
     String ATTR_ACTIVITIES_PAGE = "activitiesPage";
 
-    String MSG_DEPARTMENT_CREATED     = "Đã tạo bộ môn ";
-    String MSG_DEPARTMENT_UPDATED     = "Đã cập nhật bộ môn";
-    String MSG_DEPARTMENT_ACTIVATED   = "Đã hiện bộ môn";
-    String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn bộ môn";
-    String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy bộ môn";
+    String MSG_DEPARTMENT_CREATED     = "Đã thêm môn học ";
+    String MSG_DEPARTMENT_UPDATED     = "Đã cập nhật môn học";
+    String MSG_DEPARTMENT_ACTIVATED   = "Đã hiện môn học";
+    String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn môn học";
+    String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy môn học";
 
     // LEADER product area.
     String BASE_LEADER              = "/leader";

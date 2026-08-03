@@ -29,8 +29,8 @@ import java.util.stream.Stream;
 @Service
 public class DepartmentService {
 
-    static final String MSG_NOT_FOUND = "Không tìm thấy bộ môn";
-    static final String MSG_CODE_EXISTS = "Mã bộ môn đã tồn tại";
+    static final String MSG_NOT_FOUND = "Không tìm thấy môn học";
+    static final String MSG_CODE_EXISTS = "Mã môn đã tồn tại";
     static final String MSG_LEADER_NOT_FOUND = "Không tìm thấy người dùng để gán trưởng bộ môn";
     static final String MSG_LEADER_INELIGIBLE =
             "Trưởng bộ môn phải là giảng viên hoặc trưởng bộ môn đang hoạt động";
@@ -75,7 +75,7 @@ public class DepartmentService {
         }
         Department saved = departmentRepository.save(entity);
         auditWriter.write(saved.getId(), SubjectActivity.TYPE_CREATED,
-                "Tạo bộ môn " + saved.getName() + " (" + saved.getCode() + ")",
+                "Tạo môn học " + saved.getName() + " (" + saved.getCode() + ")",
                 null, actorId);
 
         if (form.leaderUserId() != null) {
@@ -113,7 +113,7 @@ public class DepartmentService {
         fieldChanges.remove("active");
         if (!fieldChanges.isEmpty()) {
             auditWriter.write(entity.getId(), SubjectActivity.TYPE_UPDATED,
-                    "Cập nhật thông tin bộ môn",
+                    "Cập nhật thông tin môn học",
                     auditWriter.serialize(fieldChanges), actorId);
         }
         // Visibility flip on the edit form (list toggle endpoint also writes this type).
@@ -121,7 +121,7 @@ public class DepartmentService {
             boolean nowActive = form.active();
             auditWriter.write(entity.getId(),
                     nowActive ? SubjectActivity.TYPE_ACTIVATED : SubjectActivity.TYPE_DEACTIVATED,
-                    nowActive ? "Hiện bộ môn" : "Ẩn bộ môn",
+                    nowActive ? "Hiện môn học" : "Ẩn môn học",
                     null, actorId);
         }
     }
@@ -134,7 +134,7 @@ public class DepartmentService {
         departmentRepository.save(entity);
         auditWriter.write(entity.getId(),
                 now ? SubjectActivity.TYPE_ACTIVATED : SubjectActivity.TYPE_DEACTIVATED,
-                now ? "Hiện bộ môn" : "Ẩn bộ môn",
+                now ? "Hiện môn học" : "Ẩn môn học",
                 null, actorId);
         return now;
     }

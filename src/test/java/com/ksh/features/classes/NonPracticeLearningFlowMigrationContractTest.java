@@ -109,6 +109,24 @@ class NonPracticeLearningFlowMigrationContractTest {
     }
 
     @Test
+    void department_compatibility_routes_render_as_subject_catalog() throws IOException {
+        String list = Files.readString(Path.of(
+                "src/main/resources/templates/admin/departments.html"));
+        String form = Files.readString(Path.of(
+                "src/main/resources/templates/admin/departments-form.html"));
+        String users = Files.readString(Path.of(
+                "src/main/resources/templates/admin/users-form.html"));
+
+        assertThat(list).contains(
+                "Danh mục môn học", "Thêm mã môn", "Trưởng bộ môn phụ trách");
+        assertThat(form).contains(
+                "Tên môn học", "Mã môn", "Lịch sử cập nhật môn học",
+                "<select id=\"leaderSelect\"");
+        assertThat(users).contains("Mã môn phụ trách");
+        assertThat(list + form + users).doesNotContain(">Khoa<");
+    }
+
+    @Test
     void course_and_question_bank_categories_are_removed_without_touching_practice()
             throws IOException {
         String courseCatalog = read("V92__remove_courses_and_general_categories.sql");
