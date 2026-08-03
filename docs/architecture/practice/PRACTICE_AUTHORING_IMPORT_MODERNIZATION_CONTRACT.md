@@ -162,7 +162,7 @@ Source identity is an exact pair and is checked before normalization:
 |---|---|---|
 | `QUICK_EXCEL` | `practice-quick-excel-v1` | The exact one-sheet/24-column restrictions in Section 2. |
 | `ADVANCED_EXCEL_V2` | `practice-excel-v2` | Current V2 type, media, material and workbook semantics. |
-| `LEGACY_EXCEL_V1` | `practice-excel-v1` | Current bounded legacy reader semantics; no new legacy writer. |
+| `LEGACY_EXCEL_V1` | `practice-excel-v1` | Historical candidate-envelope identity only. The current interactive workbook entry point deterministically rejects legacy v1 with `LEGACY_EXCEL_V1_RETIRED`; there is no current parser or writer. Retain the enum/schema identity until stored candidate inventory authorizes removal. |
 | `PDF_AI` | `practice-pdf-authoring-output-v1` | Exact `EXTRACT`/`GENERATE`, request evidence and binding snapshot. |
 
 A mismatched pair fails closed. `operation` and `aiExecution` are required only

@@ -111,6 +111,30 @@ class PracticeAim8CompatibilityStaticContractTest {
     }
 
     @Test
+    void currentContractDoesNotAdvertiseRetiredLegacyExcelReader()
+            throws Exception {
+        String excelService = read(
+                "src/main/java/com/ksh/features/practice/manage/service/"
+                        + "PracticeAssessmentExcelService.java");
+        String contract = read(
+                "docs/architecture/practice/"
+                        + "PRACTICE_AUTHORING_IMPORT_MODERNIZATION_CONTRACT.md");
+
+        assertThat(excelService)
+                .contains("LEGACY_EXCEL_V1_RETIRED")
+                .doesNotContain("LegacyPracticeAssessmentExcelCodec");
+        assertThat(contract)
+                .contains(
+                        "current interactive workbook entry point "
+                                + "deterministically rejects legacy v1",
+                        "Retain the enum/schema identity until stored "
+                                + "candidate inventory authorizes removal")
+                .doesNotContain(
+                        "Current bounded legacy reader semantics; "
+                                + "no new legacy writer");
+    }
+
+    @Test
     void explicitApplyIsTheOnlyCandidatePackageDraftWriter()
             throws Exception {
         Path packageRoot = javaPath("manage/authoringcandidate");
