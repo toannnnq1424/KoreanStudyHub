@@ -24,24 +24,28 @@ public class DirectAudioReviewerPlaybackService {
     private final DirectAudioReviewerPlaybackStore store;
     private final SpeakingAudioStorage storage;
     private final SpeakingAudioProperties properties;
+    private final DirectAudioReviewerAccessAudit audit;
     private final Clock clock;
 
     @Autowired
     public DirectAudioReviewerPlaybackService(
             DirectAudioReviewerPlaybackStore store,
             SpeakingAudioStorage storage,
-            SpeakingAudioProperties properties) {
-        this(store, storage, properties, Clock.systemUTC());
+            SpeakingAudioProperties properties,
+            DirectAudioReviewerAccessAudit audit) {
+        this(store, storage, properties, audit, Clock.systemUTC());
     }
 
     DirectAudioReviewerPlaybackService(
             DirectAudioReviewerPlaybackStore store,
             SpeakingAudioStorage storage,
             SpeakingAudioProperties properties,
+            DirectAudioReviewerAccessAudit audit,
             Clock clock) {
         this.store = Objects.requireNonNull(store);
         this.storage = Objects.requireNonNull(storage);
         this.properties = Objects.requireNonNull(properties);
+        this.audit = Objects.requireNonNull(audit);
         this.clock = Objects.requireNonNull(clock);
     }
 
@@ -56,6 +60,9 @@ public class DirectAudioReviewerPlaybackService {
                 .map(Descriptor::from)
                 .orElseThrow(PracticeSpeakingMediaPlaybackNotFoundException::new);
         descriptor.validate(properties.getMaxAudioBytes());
+        audit.recordAuthorized(
+                DirectAudioReviewerAccessAudit.Action.PLAYBACK_OPEN,
+                reviewerId, attemptId, questionId, mediaId, descriptor.observationKey());
         try {
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
                 throw new IllegalStateException("Reviewer playback storage open must not run in a transaction.");
@@ -75,16 +82,20 @@ public class DirectAudioReviewerPlaybackService {
 
     private record Descriptor(
             com.ksh.entities.PracticeSpeakingStorageProvider storageProvider,
-            String storageProfileCode, String storageKey, String mimeType, long byteSize) {
+            String storageProfileCode, String storageKey, String mimeType, long byteSize,
+            String observationKey) {
         private static Descriptor from(DirectAudioReviewerPlaybackStore.PlaybackDescriptor value) {
             return new Descriptor(value.storageProvider(), value.storageProfileCode(),
-                    value.storageKey(), value.mimeType(), value.byteSize());
+                    value.storageKey(), value.mimeType(), value.byteSize(),
+                    value.observationKey());
         }
 
         private void validate(long maxAudioBytes) {
             if (storageProvider == null || storageKey == null || storageKey.isBlank()
                     || !"PRACTICE_SPEAKING".equals(storageProfileCode)
-                    || byteSize <= 0L || byteSize > maxAudioBytes) {
+                    || byteSize <= 0L || byteSize > maxAudioBytes
+                    || observationKey == null || observationKey.isBlank()
+                    || observationKey.length() > 80) {
                 throw new PracticeSpeakingMediaPlaybackNotFoundException();
             }
             try {

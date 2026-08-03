@@ -1375,3 +1375,55 @@ Remaining automated-safe boundary: metadata-only reviewer access audit events
 can be designed without exposing audio/storage/secret values. A visual reviewer
 UI, provider-side deletion confirmation, production enablement and learner score
 release remain separately gated.
+
+### 6.24 Authorized reviewer-access audit
+
+Status: `V95_FORWARD_ONLY / AUTHORIZED_METADATA_ONLY / FAIL_CLOSED / DEFAULT_OFF`.
+
+Forward-only V95 adds an immutable access-event table for the two production
+reviewer read actions: `INSPECTION_METADATA` and `PLAYBACK_OPEN`. Each row binds
+the authenticated reviewer, attempt, question, media and exact dark-observation
+identity to `PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION`, an `AUTHORIZED`
+outcome and timestamps. The schema contains no audio bytes, storage identity,
+URL, token, provider payload/request identifier, acoustic value, score, IP
+address or user-agent. V1–V94 migration bytes remain unchanged.
+
+Both default-off reviewer services now record the authorized event only after
+the complete named-grant/consent/retention/binding descriptor has validated,
+and before returning metadata or opening private storage. A zero-row/failed
+audit insert propagates and therefore prevents both operations. Missing or
+denied authorization still collapses to the bounded not-found path before an
+audit insert; V95 deliberately does not retain denied-probe identifiers or
+network metadata because their collection and retention require a separate
+privacy/security decision.
+
+JDK `17.0.19` evidence:
+
+- focused reviewer/audit/controller/static gate: `15/15` green;
+- combined direct-audio, Korean alignment, Enterprise fake transport,
+  completeness, cleanup unit/static and migration-authority gate: `84/84`
+  green;
+- `mvnw -DskipTests package`: green;
+- fresh named MySQL 8.4 database `ksh_test_pre15_v95_20260803`: Flyway
+  validated and applied exactly `95` migrations; the dedicated V95 Spring
+  schema integration gate passed `1/1` and verified all bounded columns and
+  CHECK constraints. The container had a `768 MiB` limit and was stopped with
+  `--rm`, removing the disposable database and synthetic credential.
+
+The existing 18-test cleanup integration suite was also run on that fresh
+catalog. Flyway reached V95 successfully, but three existing claim/retry tests
+reproduced failures (`15/18` green: two expired-claim `Optional.empty` markers
+and one retry reported `SKIPPED`). V95 does not modify the cleanup table/entity/
+service, and the directly relevant V95 schema test is green; this marker is not
+misreported as a V95 regression or silently discarded. It remains an isolated
+cleanup-test timing/persistence-context investigation boundary.
+
+Operational readiness remains red. Before enabling either reviewer API, the
+privacy/release owner must approve a bounded retention term and purge mechanism
+for authorized-access metadata. Denied-access audit collection, if desired,
+must separately decide which attempted identifiers/IP/user-agent fields are
+permitted and how long they are retained. Reviewer UI/audit presentation,
+provider-side deletion confirmation, real provider policy/capture evidence,
+Korean acoustic corpus/calibration/fairness/repeatability evidence and learner
+score release remain outside this slice. No real provider/storage call, secret,
+shared DB, learner acoustic exposure or score release occurred.

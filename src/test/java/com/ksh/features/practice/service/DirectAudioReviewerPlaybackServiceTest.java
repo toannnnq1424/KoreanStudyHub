@@ -18,15 +18,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DirectAudioReviewerPlaybackServiceTest {
     private static final String STORAGE_KEY = "learner-speaking/ready/reviewer-secret.webm";
     private final DirectAudioReviewerPlaybackStore store = mock(DirectAudioReviewerPlaybackStore.class);
+    private final DirectAudioReviewerAccessAudit audit = mock(DirectAudioReviewerAccessAudit.class);
     private final RecordingStorage storage = new RecordingStorage();
     private final DirectAudioReviewerPlaybackService service = new DirectAudioReviewerPlaybackService(
-            store, storage, properties(), Clock.fixed(Instant.parse("2026-08-03T09:00:00Z"), ZoneOffset.UTC));
+            store, storage, properties(), audit,
+            Clock.fixed(Instant.parse("2026-08-03T09:00:00Z"), ZoneOffset.UTC));
 
     @Test
     void exactAuthorizedGrantConsentAndDarkBindingMayOpenPrivateOriginalForRangePlayback() throws Exception {
@@ -39,6 +42,9 @@ class DirectAudioReviewerPlaybackServiceTest {
         assertThat(stream.inputStream().readAllBytes()).containsExactly(4, 5, 6);
         assertThat(stream.toString()).doesNotContain(STORAGE_KEY);
         verify(store).findAuthorized(any(), any(), any(), any(), any());
+        verify(audit).recordAuthorized(
+                DirectAudioReviewerAccessAudit.Action.PLAYBACK_OPEN,
+                77L, 10L, 20L, 30L, "dark-observation-0001");
     }
 
     @Test
@@ -49,6 +55,7 @@ class DirectAudioReviewerPlaybackServiceTest {
                 .isInstanceOf(PracticeSpeakingMediaPlaybackNotFoundException.class);
 
         assertThat(storage.opened).isFalse();
+        verify(audit, never()).recordAuthorized(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -58,17 +65,30 @@ class DirectAudioReviewerPlaybackServiceTest {
         when(store.findAuthorized(any(), any(), any(), any(), any())).thenReturn(Optional.of(
                 new DirectAudioReviewerPlaybackStore.PlaybackDescriptor(
                         PracticeSpeakingStorageProvider.LOCAL, "PRACTICE_SPEAKING",
-                        STORAGE_KEY, "audio/wav", 3L)));
+                        STORAGE_KEY, "audio/wav", 3L, "dark-observation-0001")));
 
         assertThatThrownBy(() -> service.openForReviewer(77L, 10L, 20L, 30L))
                 .isInstanceOf(PracticeSpeakingMediaPlaybackNotFoundException.class);
         assertThat(storage.opened).isFalse();
     }
 
+    @Test
+    void failedDurableAuditPreventsStorageOpen() {
+        when(store.findAuthorized(any(), any(), any(), any(), any()))
+                .thenReturn(Optional.of(descriptor()));
+        org.mockito.Mockito.doThrow(new IllegalStateException("audit unavailable"))
+                .when(audit).recordAuthorized(any(), any(), any(), any(), any(), any());
+
+        assertThatThrownBy(() -> service.openForReviewer(77L, 10L, 20L, 30L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("audit unavailable");
+        assertThat(storage.opened).isFalse();
+    }
+
     private static DirectAudioReviewerPlaybackStore.PlaybackDescriptor descriptor() {
         return new DirectAudioReviewerPlaybackStore.PlaybackDescriptor(
                 PracticeSpeakingStorageProvider.LOCAL, "PRACTICE_SPEAKING",
-                STORAGE_KEY, "audio/webm", 3L);
+                STORAGE_KEY, "audio/webm", 3L, "dark-observation-0001");
     }
 
     private static SpeakingAudioProperties properties() {

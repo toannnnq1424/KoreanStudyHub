@@ -28,9 +28,13 @@ public class DirectAudioReviewerPlaybackStore {
             Long reviewerId, Long attemptId, Long questionId, Long mediaId, Instant now) {
         return jdbc.query("""
                 SELECT m.storage_provider, m.storage_profile_code, m.storage_key,
-                       m.mime_type, m.byte_size
+                       m.mime_type, m.byte_size, o.observation_key
                 FROM practice_speaking_media m
                 JOIN practice_attempts a ON a.id = m.attempt_id
+                JOIN practice_speaking_direct_audio_dark_observations o
+                  ON o.attempt_id = a.id AND o.question_id = m.question_id
+                 AND o.media_id = m.id AND o.deleted_at IS NULL
+                 AND o.delete_after > ?
                 WHERE m.id = ? AND m.attempt_id = ? AND m.question_id = ?
                   AND m.status = 'READY' AND a.skill = 'SPEAKING'
                   AND EXISTS (
@@ -52,15 +56,11 @@ public class DirectAudioReviewerPlaybackStore {
                     WHERE g.reviewer_id = ? AND g.attempt_id = a.id
                       AND g.purpose_code = 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'
                       AND g.revoked_at IS NULL AND g.expires_at > ?)
-                  AND EXISTS (
-                    SELECT 1
-                    FROM practice_speaking_direct_audio_dark_observations o
-                    WHERE o.attempt_id = a.id AND o.question_id = m.question_id
-                      AND o.media_id = m.id AND o.deleted_at IS NULL
-                      AND o.delete_after > ?)
+                ORDER BY o.captured_at DESC, o.id DESC
+                LIMIT 1
                 """, DirectAudioReviewerPlaybackStore::descriptor,
-                mediaId, attemptId, questionId, reviewerId,
-                Timestamp.from(now), Timestamp.from(now))
+                Timestamp.from(now), mediaId, attemptId, questionId, reviewerId,
+                Timestamp.from(now))
                 .stream().findFirst();
     }
 
@@ -68,7 +68,8 @@ public class DirectAudioReviewerPlaybackStore {
         return new PlaybackDescriptor(
                 PracticeSpeakingStorageProvider.valueOf(rs.getString("storage_provider")),
                 rs.getString("storage_profile_code"), rs.getString("storage_key"),
-                rs.getString("mime_type"), rs.getLong("byte_size"));
+                rs.getString("mime_type"), rs.getLong("byte_size"),
+                rs.getString("observation_key"));
     }
 
     public record PlaybackDescriptor(
@@ -76,6 +77,7 @@ public class DirectAudioReviewerPlaybackStore {
             String storageProfileCode,
             String storageKey,
             String mimeType,
-            long byteSize) {
+            long byteSize,
+            String observationKey) {
     }
 }

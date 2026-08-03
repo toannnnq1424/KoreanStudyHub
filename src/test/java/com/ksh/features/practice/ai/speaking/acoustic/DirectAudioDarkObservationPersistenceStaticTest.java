@@ -105,4 +105,36 @@ class DirectAudioDarkObservationPersistenceStaticTest {
                             "practice_speaking_direct_audio_dark_observations");
         }
     }
+
+    @Test
+    void v95AuditIsAuthorizedMetadataOnlyAndBothReviewerReadsFailClosedOnAudit()
+            throws Exception {
+        String sql = Files.readString(Path.of(
+                "src/main/resources/db/migration/"
+                        + "V95__practice_speaking_reviewer_access_audit.sql"));
+        String audit = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/service/"
+                        + "DirectAudioReviewerAccessAudit.java"));
+        String playback = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/service/"
+                        + "DirectAudioReviewerPlaybackService.java"));
+        String inspection = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/ai/speaking/acoustic/"
+                        + "DirectAudioDarkObservationCoordinator.java"));
+
+        assertThat(sql).contains("outcome_code = 'AUTHORIZED'",
+                        "INSPECTION_METADATA", "PLAYBACK_OPEN", "observation_key")
+                .doesNotContain("audio_bytes", "storage_key", "playback_url",
+                        "access_token", "provider_payload", "score_value",
+                        "ip_address", "user_agent");
+        assertThat(audit).contains("DIRECT_AUDIO_REVIEWER_ACCESS_AUDIT_FAILED",
+                        "rows != 1", "DirectAudioSpeakingEvaluationService.PURPOSE")
+                .doesNotContain("storageKey", "audioBytes", "accessToken",
+                        "providerObservationTotal", "providerConfidence");
+        assertThat(playback).contains("Action.PLAYBACK_OPEN")
+                .containsSubsequence("descriptor.validate", "audit.recordAuthorized",
+                        "storage.open");
+        assertThat(inspection).contains("Action.INSPECTION_METADATA",
+                "audit.recordAuthorized");
+    }
 }
