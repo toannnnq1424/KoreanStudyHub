@@ -75,6 +75,17 @@ class DirectAudioDarkObservationPersistenceStaticTest {
                 .doesNotContain("openForOwner", "playbackUrl", "scoreRelease");
         assertThat(properties).contains(
                 "PRACTICE_SPEAKING_DIRECT_AUDIO_REVIEWER_PLAYBACK_API_ENABLED:false");
+
+        String inspection = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/controller/"
+                        + "DirectAudioReviewerInspectionController.java"));
+        assertThat(inspection).contains("DIRECT_AUDIO_REVIEW_LATEST_OBSERVATION",
+                        "isAuthenticated()", "noStore()", "scoreReleaseEligible")
+                .doesNotContain("payloadJson()", "providerObservationTotal()",
+                        "providerConfidence()", "holisticScore()", "attemptPoints()",
+                        "storageKey", "playbackUrl");
+        assertThat(properties).contains(
+                "PRACTICE_SPEAKING_DIRECT_AUDIO_REVIEWER_INSPECTION_API_ENABLED:false");
     }
 
     @Test

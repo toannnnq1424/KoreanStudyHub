@@ -1345,3 +1345,33 @@ Operational enablement remains red: the existing cleanup worker and reviewer
 playback endpoint are default-off; real provider-side deletion acknowledgment,
 provider deletion SLA evidence and production monitoring/escalation have not
 been fabricated. Learner acoustic score release remains unavailable.
+
+### 6.23 Reviewer-only dark metadata inspection API
+
+Status: `METADATA_ONLY_GREEN / DEFAULT_OFF / NAMED_GRANT_AND_CONSENT / NO_ACOUSTIC_VALUES`.
+
+A separately named, default-off reviewer inspection endpoint now exposes only
+the latest dark observation's attempt/question/media binding, contract and
+language, evaluator/model/calibration identity, completeness status/reason/
+rejected count, capture time, deletion deadline and explicit
+`scoreReleaseEligible=false`. It deliberately omits the persisted diagnostic
+payload, dimension signal values, provider aggregate/confidence, holistic score,
+attempt points, storage identity, playback URL and raw provider identifiers.
+
+The web layer does not authorize by generic role. It resolves the authenticated
+local user ID and delegates to the existing JDBC read boundary, which requires
+the exact named reviewer grant, active latest consent, unexpired grant and
+retention window, and a non-deleted observation. Missing or malformed state
+collapses to the same bounded not-found response. Both inspection and ranged
+playback remain independent default-off capabilities; no learner controller,
+result presenter, progress service or DTO imports either reviewer surface.
+
+JDK `17.0.19` focused inspection/playback gate passed `14/14`; the wider
+branch-B authorization/acoustic/alignment/cleanup gate passed `79/79`, and
+`mvnw -DskipTests package` passed. No migration, provider/storage/DB call,
+secret, numeric acoustic exposure or score release was added by this slice.
+
+Remaining automated-safe boundary: metadata-only reviewer access audit events
+can be designed without exposing audio/storage/secret values. A visual reviewer
+UI, provider-side deletion confirmation, production enablement and learner score
+release remain separately gated.

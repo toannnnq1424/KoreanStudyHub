@@ -6,13 +6,13 @@ Status: `IMPLEMENTED_DEFAULT_OFF / REVIEWER_ONLY / NON_SCORE_BEARING`.
 
 | Concern | Enforced condition | Evidence |
 | --- | --- | --- |
-| Route | Separate default-off `DIRECT_AUDIO_REVIEW_MEDIA_CONTENT`; it is not the learner `speaking-media` route. | `DirectAudioReviewerPlaybackController`, `app.practice.speaking-direct-audio.reviewer-playback-api-enabled=false` |
+| Route | Separate default-off playback and metadata-inspection routes; neither is the learner `speaking-media` route. | `DirectAudioReviewerPlaybackController`, `DirectAudioReviewerInspectionController`, both default-off properties |
 | Reviewer authorization | Exact reviewer ID, attempt and `PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION` named grant; revoked or expired grants never resolve media. | `DirectAudioReviewerPlaybackStore` query |
 | Consent / withdrawal | The latest purpose-scoped consent event must be `GRANTED`. A later `WITHDRAWN` event blocks every future byte-range open. | same query, latest-event subquery |
 | Dark-result binding | V93 binds each new dark observation to exactly `attempt_id`, `question_id` and `media_id`; rows created before V93 have null binding and are not playable. | `V93__practice_speaking_direct_audio_observation_media_binding.sql` |
 | Retention / deletion | The linked dark observation must be undeleted and before `delete_after`; media must be `READY`. Cleanup/deletion or expiry blocks the next request. | same query |
 | Transport | Only the original private `PRACTICE_SPEAKING` object is opened after all SQL guards. HTTP ranges are served with `Cache-Control: no-store, private`, no URL/presign, storage key, token or audio bytes in logs/audit. | `DirectAudioReviewerPlaybackService`, controller tests |
-| Learner score release | None. The reviewer route is not imported by result, progress, presenter or learner DTO paths. Direct-audio observations keep score/presenter eligibility false and holistic/attempt points null. | `DirectAudioDarkObservationService`, static scan |
+| Learner score release | None. Reviewer routes are not imported by result, progress, presenter or learner DTO paths. Inspection exposes only contract/provenance/completeness/retention metadata and explicit `scoreReleaseEligible=false`; provider observations, aggregates, payload and score values remain server-side. | `DirectAudioDarkObservationService`, inspection controller/static scan |
 
 ## Negative cases
 
@@ -44,7 +44,7 @@ environment guard verdict, not permission to use a shared database.
   default.
 - Provider capture, immutable provider policy evidence and Korean acoustic
   corpus/calibration/fairness/repeatability evidence are still red.
-- Reviewer inspection UI and audit event presentation remain separate
+- Reviewer visual UI and audit event presentation remain separate
   non-score-bearing slices. V94 now enqueues exact consent-withdrawal cleanup
   through the existing private-media worker, which remains default-off until
   an operational release configuration is approved. No learner acoustic score

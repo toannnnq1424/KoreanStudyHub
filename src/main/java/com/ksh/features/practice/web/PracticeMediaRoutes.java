@@ -13,6 +13,8 @@ public final class PracticeMediaRoutes {
     public static final String DIRECT_AUDIO_REVIEW_MEDIA_CONTENT =
             "/direct-audio/review/attempts/{attemptId}/questions/{questionId}"
                     + "/speaking-media/{mediaId}/content";
+    public static final String DIRECT_AUDIO_REVIEW_LATEST_OBSERVATION =
+            "/direct-audio/review/attempts/{attemptId}/observations/latest";
 
     private PracticeMediaRoutes() {
     }
