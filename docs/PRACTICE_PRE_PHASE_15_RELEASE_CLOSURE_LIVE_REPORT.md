@@ -2034,3 +2034,77 @@ Evidence:
   reject source-ID/digest drift, caption-derived timing, invented group ranges,
   false readiness and local path/delivery URL leakage; `mvnw -DskipTests package`
   also completed green.
+
+### 6.36 TOPIK 35 Writing 51–54 provenance-first import audit
+
+Status: `SOURCE_PROMPT_ANSWER_ASSET_QA_GREEN / RUBRIC_BINDING_BLOCKED / LOAD_BLOCKED`.
+
+On `2026-08-03`, the bounded Writing-only audit rendered and visually reviewed
+the user-authorized Listening/Writing PDF pages `16–17` (printed pages
+`14–15`) and answer-key PDF page `2`. The question source remains pinned to
+SHA-256 `cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323`
+and the answer authority to
+`60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b`.
+The stale embedded `32회` title is not trusted; the visible source/answer
+headers and digest binding consistently identify `제35회 TOPIK II`.
+
+The repository now contains a closed, versioned audit package/schema for the
+four exact Writing tasks:
+
+| Task | Source page | Shape | Source points | Audited expectation |
+|---|---:|---|---:|---|
+| Q51 | PDF 16 / printed 14 | two structured blanks | 10 | two official model blank answers; semantic alternatives still require review |
+| Q52 | PDF 16 / printed 14 | two structured blanks | 10 | two official model blank answers; semantic alternatives still require review |
+| Q53 | PDF 17 / printed 15 | 200–300-character chart comparison | 30 | compare 30s/60s public-facility preferences and state an own view; official model response present |
+| Q54 | PDF 17 / printed 15 | 600–700-character essay | 50 | define a happy life, explain the economic-condition/happiness relationship and propose effort; official model response present |
+
+Q51/Q52 are pinned to the current `question-content-v3` plus
+`writing-blanks.v1` / `writing-blank-authority.v1` structured response
+boundary. The official model sentences are not incorrectly treated as an
+exhaustive exact-only answer set: `exactOnly=false` and no semantic-equivalent
+alternatives are approved by this audit. Q53/Q54 remain essay-text tasks. The
+long official model responses are source-authority references only and are not
+materialized as learner answers or generated scores.
+
+Q53 has the only required visual asset. The chart box was rendered from PDF
+page `17` at `200 DPI`, cropped at `x=295,y=395,w=1120,h=620`, then visually
+rechecked. The ignored local `1120×620` PNG is pinned as SHA-256
+`47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1`,
+`143,548` bytes, under logical key
+`practice-seed/topik35-v1/derived/page-image/<sha256>.png`. The package records
+the authoritative data vector: ages 30 — hospital/pharmacy `28`,
+performance/culture center `40`, park `22`, other `10`; ages 60 — `50`, `23`,
+`22`, `5`. Both vectors total `100`. No local path, bucket or delivery URL is
+stored.
+
+Rubric audit produced one important fail-closed finding. The official answer
+sheet publishes maximum points `10/10/30/50`, which match the current Practice
+task totals, but it does not publish the internal subweights. Therefore
+`KSH_INTERNAL_TASK_NATIVE_V1` / `TASK_NATIVE_RUBRIC_V1` is recorded as present
+but not source-authorized or bound. More critically,
+`writing-task-requirements-v1` currently associates Q53 with
+`Q53_FOUR_TRANSPORT_MODES`, `Q53_DATA_2024` and `Q53_DATA_2026`; those belong to
+a different fixture and contradict this TOPIK 35 public-facility chart. The
+validator explicitly rejects that binding instead of silently grading against
+the wrong task.
+
+Source prompt, answer-page and chart-asset QA are complete, but this remains an
+audit rather than a loadable candidate. `candidateMaterialized=false` and
+`loadReady=false` remain locked pending a source-bound TOPIK 35 Writing
+requirement profile, a product/source decision for internal rubric subweights,
+reviewed Q51/Q52 semantic-equivalent answer sets, and canonical draft/version
+IDs. No DB load/migration, R2/object write, provider/AI scoring call, learner
+score creation or 5–7-set bulk ingestion occurred. Listening timing remains
+unchanged and fail-closed.
+
+JDK `17.0.19` evidence:
+
+- focused package/parent-bundle gate
+  `mvnw -Dtest=PracticeTopik35WritingImportAuditTest,PracticeTopik35CanonicalSeedBundleTest test`
+  passed `11/11`;
+- combined content-rules/authoring/import/storage gate
+  `mvnw '-Dtest=PracticeTopik35WritingImportAuditTest,PracticeTopik35CanonicalSeedBundleTest,PracticePre15CanonicalUatSeedManifestTest,PracticeContentRulesTest,PracticeDraftValidatorTest,PracticePdfAuthoringOutputValidatorTest,PracticeAuthoringCandidateNormalizationValidationTest,PracticeImportTargetServiceTest,PracticeStorageProfilesStaticContractTest,PracticeSeedAssetStorageTest,ProfiledPracticeAuthoringStorageTest' test`
+  passed `80/80`; and
+- `jq empty`, `git diff --check`, logical-key/path leakage assertions and
+  adversarial prompt/answer/chart/crop/rubric/readiness tests completed green;
+  `mvnw -DskipTests package` also completed green.

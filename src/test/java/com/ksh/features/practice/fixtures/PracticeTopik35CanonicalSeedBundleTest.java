@@ -44,7 +44,8 @@ class PracticeTopik35CanonicalSeedBundleTest {
                 "topik35-listening-youtube-original-audio", artifact("beb8c362a7ebe9905467fdfd637aa9db15ebfdd8fb28e22f08ed574f3ef0fcaf", 61453300),
                 "topik35-listening-program-mp3", artifact("0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1", 60755426),
                 "topik35-youtube-auto-caption", artifact("50bfb72cddb954cc2fe3c235591f128917b33c9a91832bb13ebc88209b672bb7", 233498),
-                "topik35-youtube-capture-metadata", artifact("a75a506b38d61fc6661e99652c44b4e68968c125aff91e9424ea874ca2ce53a6", 554700));
+                "topik35-youtube-capture-metadata", artifact("a75a506b38d61fc6661e99652c44b4e68968c125aff91e9424ea874ca2ce53a6", 554700),
+                "topik35-writing-q53-chart", artifact("47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1", 143548));
         Map<String, JsonNode> actual = new HashMap<>();
         root.path("artifacts").forEach(node -> actual.put(
                 node.path("artifactId").asText(), node));

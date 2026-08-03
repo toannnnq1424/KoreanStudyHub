@@ -176,6 +176,24 @@
       "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
       "provenanceStatus": "REVIEW_ONLY_CAPTURED",
       "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-writing-q53-chart",
+      "role": "DERIVED_PAGE_IMAGE",
+      "logicalKey": "practice-seed/topik35-v1/derived/page-image/47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1.png",
+      "mediaType": "image/png",
+      "originalSource": "topik35-listening-writing-pdf",
+      "sourceUrls": [
+        "https://drive.google.com/file/d/1Z9rSAlv3pE6LIc00WsaRfhetTVVyDIX3/view",
+        "https://drive.google.com/file/d/1Y32w64vfZXIyWrJm-EWMbRU7jr7lGYXW/preview"
+      ],
+      "originalIdentity": "pdf-page-17-printed-15-render-200dpi-crop-x295-y395-w1120-h620",
+      "sha256": "47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1",
+      "sizeBytes": 143548,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "DERIVED_VISUALLY_VERIFIED",
+      "learnerVisible": false
     }
   ],
   "listening": {
