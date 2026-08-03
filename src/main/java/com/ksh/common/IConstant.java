@@ -49,10 +49,6 @@ public interface IConstant {
     String URL_LECTURER_DASHBOARD = BASE_LECTURER + PATH_DASHBOARD;
     String PATH_LIBRARY      = "/library";
     String URL_LIBRARY       = BASE_LECTURER + PATH_LIBRARY;
-    String URL_LIBRARY_API   = URL_LIBRARY + "/api";
-    String PATH_LIBRARY_TARGETS = "/targets";
-    String URL_LIBRARY_TARGETS  = URL_LIBRARY + PATH_LIBRARY_TARGETS;
-    String URL_LIBRARY_TARGET_CLASSES = URL_LIBRARY_TARGETS + "/classes";
 
     // ───────── View names ────────────────────────────────────────────
     String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
@@ -65,9 +61,7 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
     String VIEW_CLASS_DETAIL_PROGRESS   = "classes/detail-progress";
     String VIEW_CLASS_DETAIL_TESTS      = "classes/detail-tests";
-    String VIEW_LESSON_FORM             = "classes/lesson-form";
     String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
-    String VIEW_STUDENT_LESSON_DETAIL   = "student/lesson-detail";
 
     // ───────── Model attribute keys ──────────────────────────────────
     String ATTR_FORM              = "form";
@@ -102,18 +96,11 @@ public interface IConstant {
     // Personal file library (lecturer-file-library).
     String ATTR_LIBRARY_PAGE   = "libraryPage";
     String ATTR_LIBRARY_QUERY  = "libraryQuery";
-    String ATTR_LIBRARY_KIND   = "libraryKind";
     String ATTR_LIBRARY_SIZE   = "librarySize";
-    String ATTR_LIBRARY_TOTAL_COUNT    = "libraryTotalCount";
-    String ATTR_LIBRARY_DOCUMENT_COUNT = "libraryDocumentCount";
-    String ATTR_LIBRARY_VIDEO_COUNT    = "libraryVideoCount";
     String ATTR_LIBRARY_TEMPLATE_COUNT = "libraryTemplateCount";
-    String ATTR_LIBRARY_TAB            = "libraryTab";
-    String ATTR_LIBRARY_CLASS_ID       = "libraryClassId";
     String ATTR_LIBRARY_CLASS_OPTIONS  = "libraryClassOptions";
 
     /** Library sidebar rail for lesson templates (not a file kind). */
-    String LIBRARY_TAB_TEMPLATES = "TEMPLATES";
 
     /** Default section title auto-created when cloning into an empty class. */
     String DEFAULT_SECTION_TITLE = "Chương 1";
@@ -508,9 +495,6 @@ public interface IConstant {
     // Personal file library — SSR / picker page size.
     int DEFAULT_LIBRARY_PAGE_SIZE = 12;
     int MAX_LIBRARY_PAGE_SIZE = 50;
-    // Library attach wizard — editable class target page size.
-    int DEFAULT_LIBRARY_TARGET_PAGE_SIZE = 12;
-    int MAX_LIBRARY_TARGET_PAGE_SIZE = 50;
 
     // Flashcards — own decks per SSR numbered-pager page.
     int DEFAULT_DECK_PAGE_SIZE = 12;
@@ -605,39 +589,16 @@ public interface IConstant {
     String MSG_QB_INSERT_EMPTY    = "Vui lòng chọn ít nhất một câu hỏi đã duyệt để chèn";
 
     // ───────── Personal file library (Vietnamese UI text) ────────────
-    String MSG_LIBRARY_UPLOADED        = "Đã thêm tệp vào kho học liệu";
-    String MSG_LIBRARY_RENAMED         = "Đã đổi tên tệp trong kho";
-    String MSG_LIBRARY_DELETED         = "Đã xoá tệp khỏi kho học liệu";
     String MSG_LIBRARY_ASSET_NOT_FOUND = "Không tìm thấy học liệu";
-    String MSG_LIBRARY_ASSET_IN_USE    =
-            "Không thể xoá: học liệu đang được dùng trong bài giảng";
-    String MSG_LIBRARY_TITLE_BLANK     = "Tên hiển thị không được để trống";
     String MSG_LIBRARY_BIND_INVALID_KIND =
             "Loại học liệu không phù hợp với thao tác này";
     String MSG_LIBRARY_BIND_NOT_PDF    = "Chỉ có thể chọn tệp PDF làm nội dung chính";
-    String MSG_LIBRARY_BOUND_PDF       = "Đã gắn PDF từ kho học liệu";
-    String MSG_LIBRARY_BOUND_VIDEO     = "Đã gắn video từ kho học liệu";
-    String MSG_LIBRARY_BOUND_ATTACHMENT = "Đã gắn tệp từ kho học liệu";
-    String MSG_LIBRARY_ATTACHED_TO_CLASS = "Đã gắn học liệu vào bài giảng";
-    String MSG_LIBRARY_ATTACH_FAILED     = "Không gắn được học liệu vào bài giảng";
-    String MSG_LIBRARY_ATTACH_REPLACE_PDF =
-            "Bài giảng đã có PDF chính. Thay thế bằng tệp từ kho?";
-    String MSG_LIBRARY_ATTACH_REPLACE_VIDEO =
-            "Bài giảng đã có video tải lên. Thay thế bằng video từ kho?";
 
     // ───────── Lesson templates (Vietnamese UI text) ─────────────────
-    String MSG_TEMPLATE_SAVED          = "Đã lưu bài giảng vào kho mẫu";
-    String MSG_TEMPLATE_RENAMED        = "Đã đổi tên mẫu bài giảng";
     String MSG_TEMPLATE_DELETED        = "Đã xoá mẫu bài giảng";
     String MSG_TEMPLATE_NOT_FOUND      = "Không tìm thấy mẫu bài giảng";
-    String MSG_TEMPLATE_TITLE_BLANK    = "Tên mẫu không được để trống";
-    String MSG_TEMPLATE_CLONE_OK       = "Đã clone bài giảng sang lớp (bản nháp)";
-    String MSG_TEMPLATE_CLONE_FAILED   = "Không clone được bài giảng";
-    String MSG_TEMPLATE_SAVE_FAILED    = "Không lưu được mẫu bài giảng";
     String MSG_TEMPLATE_BODY_INCOMPLETE =
             "Bài giảng chưa đủ nội dung để lưu mẫu (thiếu PDF/video/nội dung)";
-    String MSG_TEMPLATE_PROMOTE_FAILED =
-            "Không thể đưa tệp đính kèm vào kho học liệu";
 
     // Admin permission management.
     String URL_ADMIN_PERMISSIONS           = "/admin/permissions";

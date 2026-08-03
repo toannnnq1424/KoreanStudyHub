@@ -8,7 +8,10 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
 </head>
 <body>
-<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+<header th:if="${!teachingView}"
+        th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+<header th:if="${teachingView}"
+        th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
 <main class="student-lessons-shell">
   <!-- Flash payload drained into KshToast by student-lesson-nav.js. -->
@@ -19,12 +22,20 @@
 
   <!-- Top bar with back link + class name -->
   <div class="student-lessons-header">
-    <a th:href="@{/my/classes}" class="student-lessons-back">
+    <a th:if="${!teachingView}" th:href="@{/my/classes}" class="student-lessons-back">
       <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            width="16" height="16">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
       Quay lại lớp của tôi
+    </a>
+    <a th:if="${teachingView}" th:href="@{|/lecturer/classes/${view.classId()}|}"
+       class="student-lessons-back">
+      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           width="16" height="16" aria-hidden="true">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Quay lại quản lý lớp
     </a>
     <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
   </div>
@@ -39,10 +50,12 @@
          extras (shared decks, chapter switcher) are passed as slot markup;
          because they are children of a th:replace element they are consumed as
          fragment sources, not rendered inline. -->
-    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('lessons', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{::lessonsProgress}, ~{::lessonsExtras})}">
+    <div th:if="${!teachingView}"
+         th:replace="~{fragments/student-class-sidebar :: classSidebar('lessons', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{::lessonsProgress}, ~{::lessonsExtras})}">
       <!-- SLOT: progress bar inside the class card (KSH-4.5). -->
       <th:block th:fragment="lessonsProgress">
-        <div class="student-lessons-progress" th:if="${view.publishedTotal() > 0}">
+        <div class="student-lessons-progress"
+             th:if="${!teachingView and view.publishedTotal() > 0}">
           <div class="student-lessons-progress-track">
             <div class="student-lessons-progress-fill"
                  th:style="'width:' + ${view.percent()} + '%'"></div>
@@ -83,13 +96,41 @@
                  class="student-lessons-section-link">
                 <span th:text="${section.title()}">Chương 1</span>
                 <span class="student-lessons-section-count"
-                      th:text="${section.completedCount()} + '/' + ${section.publishedCount()}">0/0</span>
+                      th:text="${teachingView} ? (${section.publishedCount()} + ' bài') : (${section.completedCount()} + '/' + ${section.publishedCount()})">0/0</span>
               </a>
             </li>
           </ul>
         </div>
       </th:block>
     </div>
+
+    <aside th:if="${teachingView}" class="student-lessons-sidebar">
+      <div class="student-lessons-class-card">
+        <p class="student-lessons-class-name" th:text="${view.className()}">Tên lớp</p>
+        <p class="student-lessons-class-code">Mã lớp: <b th:text="${view.classCode()}">KSH01</b></p>
+        <p class="student-lessons-class-lecturer" th:if="${view.lecturerName() != null}">
+          Giảng viên: <b th:text="${view.lecturerName()}">Giảng viên</b>
+        </p>
+      </div>
+      <div>
+        <p class="student-lessons-sidebar-title">Quản lý nội dung</p>
+        <ul class="student-lessons-nav">
+          <li>
+            <span class="student-lessons-nav-item is-active" aria-current="page">Bài học đã phân phối</span>
+          </li>
+          <li>
+            <a class="student-lessons-nav-item" th:href="@{/lecturer/library/templates}">
+              Mở Library để tạo và phân phối
+            </a>
+          </li>
+          <li>
+            <a class="student-lessons-nav-item" th:href="@{|/lecturer/classes/${view.classId()}|}">
+              Quản lý lớp
+            </a>
+          </li>
+        </ul>
+      </div>
+    </aside>
 
     <!-- Empty class: keep the shared class sidebar and replace only the
          lesson/rail area with a useful central empty state. -->
@@ -103,7 +144,11 @@
         </svg>
         <h2>Chưa có nội dung bài giảng</h2>
         <p th:text="${T(com.ksh.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_CLASS}">Lớp này chưa có chương</p>
-        <span>Giảng viên chưa tạo chương cho lớp này. Bạn vẫn có thể dùng các mục khác ở thanh bên.</span>
+        <span th:text="${teachingView}
+                       ? 'Tạo bài học trong Library rồi phân phối tới lớp này.'
+                       : 'Giảng viên chưa phân phối bài học cho lớp này. Bạn vẫn có thể dùng các mục khác ở thanh bên.'">
+          Lớp chưa có bài học được phân phối.
+        </span>
       </div>
     </section>
 
@@ -252,7 +297,7 @@
             </svg>
             <span class="student-lessons-acc-title" th:text="${section.title()}">Chương 1</span>
             <span class="student-lessons-acc-count"
-                  th:text="${section.completedCount()} + '/' + ${section.publishedCount()}">0/0</span>
+                  th:text="${teachingView} ? (${section.publishedCount()} + ' bài') : (${section.completedCount()} + '/' + ${section.publishedCount()})">0/0</span>
           </summary>
 
           <!-- Empty-section state -->

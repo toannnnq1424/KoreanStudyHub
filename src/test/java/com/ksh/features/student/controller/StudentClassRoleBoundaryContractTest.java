@@ -15,10 +15,16 @@ class StudentClassRoleBoundaryContractTest {
     @Test
     void everyLearnerClassControllerRequiresExactStudentRole() {
         assertStudentGate(StudentClassesController.class);
-        assertStudentGate(StudentLessonsController.class);
+        assertAuthenticatedGate(StudentLessonsController.class);
         assertStudentGate(StudentClassTestsController.class);
         assertStudentGate(StudentClassMessagesController.class);
         assertStudentGate(LearningProgressController.class);
+    }
+
+    private static void assertAuthenticatedGate(Class<?> controller) {
+        PreAuthorize gate = controller.getAnnotation(PreAuthorize.class);
+        assertThat(gate).isNotNull();
+        assertThat(gate.value()).isEqualTo("isAuthenticated()");
     }
 
     private static void assertStudentGate(Class<?> controller) {

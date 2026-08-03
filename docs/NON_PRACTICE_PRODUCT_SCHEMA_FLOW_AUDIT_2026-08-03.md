@@ -1,6 +1,6 @@
 # KoreanStudyHub non-Practice product/schema audit
 
-Status: audit only; no implementation or migration change. Date: 2026-08-03 (Asia/Ho_Chi_Minh).
+Status: audit baseline complete; implementation decisions approved and tracked below. Date: 2026-08-03 (Asia/Ho_Chi_Minh).
 
 ## 1. Baseline, method, and hard boundary
 
@@ -27,7 +27,7 @@ Protection is dependency-based, not merely name-based.
 2. **Leader assignment is destructive ownership transfer:** `/leader/assign/{classId}` calls `reassignLecturer`, changing `classes.lecturer_id`. Lecturer lists, edit gates, join approval, notifications and messaging all treat that column as owner. `created_by` does not preserve access. With no co-lecturer relation, the correct no-new-table decision is remove `/leader/assign` and its UI. Keeping co-lecturers requires one join table and explicit permissions.
 3. **Class lifecycle mismatch:** database/code allow `DRAFT, UPCOMING, ACTIVE, COMPLETED, CANCELLED, REJECTED`; approval maps DRAFT to UPCOMING. Target permits only `DRAFT, ACTIVE, ARCHIVED`. `start_date` is editable and is not creation date. No evidenced scheduled auto-archive worker exists.
 4. **Join mismatch:** current discovery is invite CODE/LINK; it provisions two tokens per class. The desired flow is searchable ACTIVE-class discovery then PENDING enrollment. `enrollments` can support this, but `invite_code_id`, `joined_via` CODE/LINK, generators, settings UI, join form, repository and tests become removable.
-5. **Library mismatch:** current `/lecturer/library` manages owner-scoped loose `library_assets`, plus `lesson_templates`; `/lecturer/classes/{id}/lessons` owns sections/lessons and all create/edit/upload/publish actions. Target is subject → section → lesson → materials authored in Library and distributed to matching classes. Existing `sections.class_id NOT NULL` cannot express this hierarchy.
+5. **Library mismatch:** current `/lecturer/library` manages owner-scoped loose `library_assets`, plus `lesson_templates`; `/lecturer/classes/{id}/lessons` owns sections/lessons and all create/edit/upload/publish actions. With the approved one-new-table ceiling already consumed by `class_co_lecturers`, the minimal target reuses `lesson_templates` as subject → chapter → lesson → materials and snapshots a published copy into existing class-owned `sections`/`lessons`. This avoids a second distribution table; it intentionally provides no live two-way sync/revocation identity.
 6. **Question bank mismatch:** V46 requires both `department_id` and `category_id`; lecturer/leader controllers, import and bulk actions are category-oriented. Tests themselves are already class-scoped (`tests.class_id`), so “create inside class” can remain; importing/copying approved bank questions into a class test is preferable to coupling runtime test questions to bank rows.
 7. **Comments mismatch:** `/api/lessons/{lessonId}/comments` is student-facing and includes moderation, but the requested product removes class lesson comments. Remove only after verifying all callers in lesson templates/JS and non-comment consumers; do not touch Practice feedback/explanations.
 
@@ -50,18 +50,19 @@ Recommended default: Model A. Seed stable unique codes `KOR311`, `KOR321`, `KOR4
 | `departments` | RENAME/REPURPOSE → `subjects` | Row shape already supplies code/name/leader/active. Update users, classes, QB, leader services, admin UI, permissions and audit naming. |
 | `courses`, `course_categories`, `categories` | REMOVE | Classes stopped referencing courses in V7. Remaining category admin/tests and seed/FKs are legacy. Verify no flashcard/discovery caller before deletion. |
 | `activity_courses` | REMOVE | Parent is removed and no production writer/entity was found. |
-| `activity_departments`, `department_activities` | MERGE | Duplicated domain audit. If subject audit is required, use the proposed generic audit; otherwise remove with old admin surface. |
+| `activity_departments` | REMOVE | V3 duplicate has no entity, repository, writer, reader, route or template caller. |
+| `department_activities` | RENAME → `subject_activities` | This is not dead: `DepartmentService` writes create/update/toggle/leader events through `SubjectAuditWriter`; `DepartmentQueryService.listActivities` reads it for the paged “Lịch sử cập nhật” tab in `admin/departments-form.html`. Rename table/column/entity/repository/writer/DTO vocabulary to subject; do not keep a table named `department_activities`. |
 | `activity_sections`, `activity_lessons`, `activity_classes`, `activity_tests` | MERGE | These have active writer/entity code. Uniform shape supports one append-only audit table; index by `(entity_type, entity_id, created_at)` and `(type, created_at)`. |
 | other V3 `activity_*` (`enrollments`, assignments, submissions, users, comments, content_versions, flashcard_decks) | REMOVE unless a live writer/query is proven | No matching application writer/entity was found in source scan. `user_activities` and `permission_activities` are separate live audit implementations and should be evaluated, not conflated blindly. |
 | proposed `entity_activities` | ADD only if audit retention is required | Columns: id, entity_type, entity_id, event_type, description, metadata, actor_id, created_at. No polymorphic FK. Ownership by a single audit service; monthly/age retention; indexes above. This is one replacement for up to 15 fragmented logs. |
 | `classes` | KEEP/RESHAPE | Replace `department_id` with `subject_id`; drop random class `code` if it is only an invite identifier; statuses exactly three; immutable DB `created_at`; optional `end_date`; approval DRAFT→ACTIVE; end-date worker ACTIVE→ARCHIVED. Keep `created_by` and owner lecturer. |
 | `class_invite_codes` | REMOVE | CODE/LINK flow is explicitly removed. Drop enrollment FK first and remove provisioning/backfill/UI/tests. |
 | `enrollments` | KEEP/RESHAPE | Supports PENDING→ACTIVE/REJECTED teacher approval. Remove invite FK; normalize `joined_via` to REQUEST/MANUAL/IMPORT or remove if unused. Student catalog query must show ACTIVE non-deleted non-archived classes only. |
-| `sections`, `lessons` | RENAME/RESHAPE | Convert from class-owned authoring to subject-owned Library hierarchy. `sections.subject_id`; lessons remain section-owned. Remove class creation routes. |
+| `sections`, `lessons` | KEEP as distributed snapshots | Existing class-owned rows remain the read/progress delivery model. Only Library distribution creates published snapshots; remove class authoring routes. |
 | `lesson_attachments` | KEEP/RESHAPE | Materials under lessons. Prefer references to non-Practice `library_assets`; preserve download authorization. |
-| `lesson_templates`, `lesson_template_attachments` | MERGE/REMOVE | They duplicate the desired reusable lesson concept. Migrate useful content into subject lessons then retire; do not keep two authoring sources. |
+| `lesson_templates`, `lesson_template_attachments` | KEEP/RESHAPE as canonical Library lessons | Add subject/chapter/order to templates; attachments continue referencing non-Practice `library_assets`. This becomes the only authoring source. |
 | `library_assets` | KEEP/RESHAPE | Non-Practice upload storage, but assets must be created/attached within the subject hierarchy, not presented as an unowned loose-upload product. |
-| `lesson_class_distributions` | ADD (justified) | Required M:N: a canonical lesson can go to many same-subject classes and each class receives many lessons. Cloning rows would lose canonical identity, revocation/version semantics and create drift. Columns can be only `(lesson_id, class_id, distributed_by, distributed_at)`, composite PK/FKs. |
+| `lesson_class_distributions` | DO NOT ADD under approved table ceiling | Distribution snapshots canonical Library content into existing class sections/lessons. Trade-off: no canonical distribution identity, withdrawal or live update; re-distribution of the same title is rejected to prevent silent duplicates. |
 | `learning_progress` | KEEP | Continue per user/lesson; access must require ACTIVE enrollment plus distribution. Decide how progress behaves after archive/revocation. |
 | `comments`, `comment_moderation`, `activity_comments` | REMOVE for class lessons | Remove controller/service/repository/template fragments/static/tests only after caller scan. Do not confuse with Practice editorial feedback. |
 | `question_bank_categories` | REMOVE | Product scopes by subject code. |
@@ -74,7 +75,7 @@ Recommended default: Model A. Seed stable unique codes `KOR311`, `KOR321`, `KOR4
 
 Current: `departments → users/classes/question_bank_categories/question_bank_items`; `classes → sections → lessons → attachments`; `classes → tests`; invite tokens → enrollments; loose library assets/templates are cloned/attached into class lessons.
 
-Target: `subjects → classes`, `subjects → library_sections → lessons → materials`, `subjects → question_bank_items → options`; `lesson ↔ class` through one distribution table constrained in service/DB trigger-free validation to equal subject; `classes → enrollments/tests`; tests copy questions from same-subject bank.
+Target: physical `departments` acts as the subject catalog; `subjects → classes`, `subjects → lesson_templates(chapter) → template materials`, and Library distribution snapshots into `classes → sections → published lessons → attachments`; `subjects → question_bank_items → options`; `classes → enrollments/tests`; tests copy questions from the same-subject bank.
 
 ## 4. Activity size/usage audit
 
@@ -168,8 +169,8 @@ Fresh rewrite implication: an empty DB gets the target directly and removed tabl
 2. **Subject model + seed:** one commit for `departments`→subjects semantic change and KOR311/KOR321/KOR411 deterministic seeds; next commit for class required subject selection/filter. Tests: uniqueness/FK, required create validation, authorization and exact seed codes.
 3. **Class lifecycle:** statuses only DRAFT/ACTIVE/ARCHIVED, approval mapping, immutable created date, optional end date and idempotent scheduled archive. Tests: boundary timezone/date, archived teacher visibility/student exclusion, DRAFT exclusion, concurrency.
 4. **Join discovery:** ACTIVE catalog query/search/page, request creates/reopens PENDING, teacher approve/reject. Then atomically remove invite routes/services/entities/table/UI/static/tests and obsolete columns. Tests: information leakage, ownership, capacity locking, duplicate requests.
-5. **Leader bug:** default commit removes assign route/service/template/nav/static/tests. Alternative only after approval: add `class_lecturers(class_id,user_id,role)` and update every owner/edit/message/join notification query; preserve creator/primary owner.
-6. **Library hierarchy:** reshape non-Practice sections/lessons/materials to subject ownership and build Library IA; then add the single justified distribution join and class read-only views; finally remove class authoring/clone/attach-target dead surfaces and lesson templates after caller scan. Tests: cross-subject denial, distribution idempotency, download auth, archive visibility, no Practice asset access.
+5. **Leader co-lecturer:** approved one new table `class_co_lecturers`; leader assign adds/removes co-lecturer membership only and never changes `classes.lecturer_id` or `created_by`.
+6. **Library hierarchy:** reuse `lesson_templates` as canonical subject lessons, snapshot to existing same-subject class sections/lessons, make class views read-only, and remove class authoring/clone/attach-target dead surfaces. Tests: cross-subject denial, duplicate defense, download auth, archive visibility, no Practice asset access.
 7. **Question/test bank:** remove QB categories and category permissions/routes/UI; scope items by subject; add copy-to-test/distribute to matching class while retaining inside-class authoring. Tests: cross-subject denial, approved-only copy, immutable copied question behavior, Practice route/table non-interaction.
 8. **Comments/categories/courses cleanup:** remove verified dead non-Practice code/schema/static/tests in small domain commits. Each deletion commit includes `rg` caller evidence and route 404/nav assertions.
 9. **Activity consolidation:** only after live counts/retention decision. Backfill active audit tables in bounded batches, validate per-source counts/hashes, switch writers/readers, then remove old tables. Security audit retention remains separately protected.
@@ -181,9 +182,9 @@ Every commit must be single-domain and reversible in source. Data reset must be 
 ## 8. Blockers and required choices
 
 - **Blocker:** applied Flyway histories and real table sizes are unavailable. Fresh rewrite and activity migration batching cannot be approved yet.
-- Choose user↔subject cardinality: retain one subject per user (minimal current behavior) or allow multi-subject teaching (requires a join table).
-- Choose co-lecturer: recommended remove assign; adding correct co-lecturer necessarily adds a relation table.
-- Define distribution semantics: snapshot vs live canonical lesson, withdrawal, and whether archived-class students retain access.
+- **Approved:** retain current one-subject-per-user authorization assumption for this release.
+- **Approved:** add exactly one table, `class_co_lecturers`, and preserve primary owner/creator.
+- **Approved default forced by the table ceiling:** Library distribution is a published snapshot into existing class lesson tables; no live sync/withdrawal identity in this release.
 - Define test-bank “distribute”: create/copy a class test (recommended) versus shared test identity; set scheduling and editing-after-distribution rules.
 - Confirm whether subject catalog is admin-editable or seed-only. Recommended seed-only initially, with stable codes and editable display names only if required.
 
@@ -206,8 +207,8 @@ Difficulty is not the only ordering rule: a low-code deletion stays behind its r
 | 10 | Medium | Remove admin/general and QB category UI/code | Can be done after subject filters exist, avoiding a functionality gap. | Category routes/controllers/templates/static/permissions have no caller; Practice catalog untouched. |
 | 11 | Medium–hard | Reshape Question Bank to subject and integrate test creation | Crosses workflow, import, review and class test authoring, but can reuse existing test/question tables. | Same-subject and approved-only rules; copied test remains valid if bank item later changes; in-class creation preserved. |
 | 12 | Hard | Build subject Library hierarchy | Changes ownership of sections/lessons/materials and moves authoring out of classes. Must be additive first. | Library can author complete subject→section→lesson→material tree; authorization/download tests pass. |
-| 13 | Hard | Add lesson↔class distribution and make class lessons read-only | The only justified new product relation; affects lecturer/student access, progress and archive behavior. | Multi-class same-subject distribution is idempotent; cross-subject denied; both roles view; no class authoring endpoint remains. |
-| 14 | Hard | Remove/merge old loose library/templates/class lesson authoring | Deletion becomes safe only after orders 12–13. Requires static/API caller cleanup and content migration validation. | No dead attach-target/clone/upload route; retained content counts match; Practice `lecturer_assets` unchanged. |
+| 13 | Hard | Snapshot Library lesson to classes and make class lessons read-only | Reuses current sections/lessons because the single approved new table is co-lecturers. | Multi-class same-subject snapshot is atomic; duplicate/cross-subject denied; both roles view; no class authoring endpoint remains. |
+| 14 | Hard | Remove old class authoring and loose attach/clone surfaces | Deletion becomes safe only after Library create/distribute exists. Requires static/API caller cleanup and content validation. | No dead attach-target/clone/class-upload route; retained content counts match; Practice `lecturer_assets` unchanged. |
 | 15 | Hard | Remove class lesson comments | Code deletion is moderate, but must follow the final lesson access model to avoid misclassifying callers. | Comment API/UI/moderation/activity callers absent; unrelated comments/Practice feedback untouched. |
 | 16 | Very hard | Department→subject physical rename/removal across all remaining domains | Broad FK, authorization, admin, leader, report and seed migration. Semantic subject work lands earlier; physical cleanup waits until dependencies are drained. | No live `department*` product concept/reference; upgrade/fresh migrations and role gates pass. |
 | 17 | Very hard | Courses/categories/table cleanup and migration compaction | Physical deletion/rewrite is checksum- and FK-sensitive. Do after all semantic replacements and deployment proof. | Empty-schema + supported-upgrade + rollback rehearsal; no caller; exact row/FK validation. |
@@ -225,4 +226,14 @@ Within every order, prefer three atomic commits where applicable: additive schem
 
 ## 10. Audit conclusion
 
-The requested direction is feasible without touching Practice, but not as a broad deletion. The minimal coherent target reuses departments as subjects, keeps classes/enrollments/tests/QB items, removes course/category/invite/comment legacies, consolidates only genuinely uniform audit logs, and adds exactly one unavoidable Library lesson↔class distribution relation. Implementation must wait for Flyway/deployment evidence and the four product choices above.
+The requested direction is feasible without touching Practice. The approved minimal target reuses physical `departments` as the subject catalog, renames the live audit to `subject_activities`, removes dead `activity_departments`, keeps classes/enrollments/tests/QB items, removes course/category/invite/comment legacies, and uses the single approved new table only for `class_co_lecturers`. Library distribution uses existing class lesson tables as snapshots. Fresh-only migration rewriting remains blocked until Flyway/deployment evidence is available; implementation uses forward migrations meanwhile.
+
+## 11. Implementation checkpoints (forward-migration path)
+
+- `171b2b37`: subject seeds/class lifecycle/join discovery/invite retirement/co-lecturer membership; V88–V91 also rename the live audit table to `subject_activities` and remove the unused duplicate `activity_departments`.
+- `a8923e24`: removes non-Practice course/general-category schema and code.
+- `273c297f`: scopes the non-Practice Question Bank to subject and removes its category ownership.
+- `54e5a2d8`: removes class lesson comments and their audit table.
+- Library slice under validation: V95 reuses `lesson_templates` for subject → chapter → lesson → materials, snapshots published lessons into existing same-subject class rows, removes class-scoped authoring/loose-attach routes, and adds no table.
+
+The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V95 create no tables. Practice paths and migrations remain outside every implementation diff.

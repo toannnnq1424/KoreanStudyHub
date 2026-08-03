@@ -32,13 +32,26 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "V91__subject_activity_audit.sql",
                 "V92__remove_courses_and_general_categories.sql",
                 "V93__scope_question_bank_by_subject.sql",
-                "V94__remove_lesson_comments.sql");
+                "V94__remove_lesson_comments.sql",
+                "V95__subject_library_hierarchy.sql");
         String combined = files.stream().map(this::readUnchecked).reduce("", String::concat);
 
         assertThat(count(combined, "CREATE TABLE")).isEqualTo(1);
         assertThat(combined).contains("CREATE TABLE class_co_lecturers");
         assertThat(combined).doesNotContain("CREATE TABLE subjects");
         assertThat(combined).doesNotContain("practice_");
+    }
+
+    @Test
+    void library_hierarchy_reuses_templates_assets_sections_and_lessons() throws IOException {
+        String sql = read("V95__subject_library_hierarchy.sql");
+
+        assertThat(sql).contains(
+                "ALTER TABLE lesson_templates",
+                "ADD COLUMN subject_id",
+                "ADD COLUMN chapter_title",
+                "REFERENCES departments(id)");
+        assertThat(sql).doesNotContain("CREATE TABLE", "practice_");
     }
 
     @Test

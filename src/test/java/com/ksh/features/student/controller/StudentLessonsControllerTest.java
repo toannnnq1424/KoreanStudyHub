@@ -214,9 +214,10 @@ class StudentLessonsControllerTest {
      */
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void lecturer_cannot_open_student_lesson_route() throws Exception {
+    void owning_lecturer_can_view_distributed_lesson_without_progress_side_effect() throws Exception {
         mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), defaultLesson.getId())))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(view().name("student/class-lessons"));
 
         // The D7 guard short-circuits before recordOpened for non-students.
         // This is the assertion that locks the guard: reverting it lets the

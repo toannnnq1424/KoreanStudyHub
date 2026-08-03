@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${form.id == null ? 'Tạo bài học trong Library' : 'Sửa bài học trong Library'}, ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/library.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('library')}"></header>
+
+<main class="detail-page library-lesson-form-page">
+  <a class="toolbar-back" th:href="@{/lecturer/library/templates}">← Quay lại Library</a>
+  <h1 class="detail-title" th:text="${form.id == null ? 'Tạo bài học' : 'Sửa bài học'}">Tạo bài học</h1>
+  <p class="detail-sub">Bài học được quản lý theo mã môn → chương → bài học → materials.</p>
+
+  <div class="library-subject-banner" aria-label="Mã môn của bài học">
+    <span>Mã môn</span>
+    <strong th:text="${librarySubject.code()}">KOR311</strong>
+    <span th:text="${librarySubject.name()}">Tiếng Hàn</span>
+  </div>
+
+  <form class="detail-card library-lesson-form" method="post" enctype="multipart/form-data"
+        th:action="@{/lecturer/library/templates}" th:object="${form}">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+    <input type="hidden" th:field="*{id}">
+
+    <div class="library-form-grid">
+      <label>
+        <span>Chương / section</span>
+        <input type="text" th:field="*{chapterTitle}" maxlength="200" required
+               th:attr="aria-invalid=${#fields.hasErrors('chapterTitle')}">
+        <small class="field-error" th:if="${#fields.hasErrors('chapterTitle')}"
+               th:errors="*{chapterTitle}">Tên chương không hợp lệ</small>
+      </label>
+      <label>
+        <span>Tên bài học</span>
+        <input type="text" th:field="*{title}" maxlength="300" required
+               th:attr="aria-invalid=${#fields.hasErrors('title')}">
+        <small class="field-error" th:if="${#fields.hasErrors('title')}"
+               th:errors="*{title}">Tên bài học không hợp lệ</small>
+      </label>
+      <label>
+        <span>Loại nội dung</span>
+        <select th:field="*{contentType}" required
+                th:attr="aria-invalid=${#fields.hasErrors('contentType')}">
+          <option value="RICHTEXT">Văn bản</option>
+          <option value="PDF">PDF</option>
+          <option value="VIDEO">Video</option>
+        </select>
+        <small class="field-error" th:if="${#fields.hasErrors('contentType')}"
+               th:errors="*{contentType}">Loại nội dung không hợp lệ</small>
+      </label>
+    </div>
+
+    <label class="library-form-block">
+      <span>Nội dung văn bản</span>
+      <textarea th:field="*{contentRichtext}" rows="10"
+                aria-describedby="richtextHint"></textarea>
+      <small id="richtextHint">Dùng khi loại nội dung là Văn bản.</small>
+    </label>
+
+    <div class="library-form-grid">
+      <label>
+        <span>Tải PDF chính</span>
+        <input type="file" th:field="*{pdfUpload}" accept="application/pdf,.pdf">
+        <small>Hoặc chọn một PDF đã dùng trước đây bên dưới.</small>
+      </label>
+      <label>
+        <span>PDF đã có</span>
+        <select th:field="*{pdfLibraryAssetId}">
+          <option value="">Chọn PDF</option>
+          <option th:each="asset : ${materialOptions}"
+                  th:if="${asset.mimeType() == 'application/pdf'}"
+                  th:value="${asset.id()}" th:text="${asset.title()}">PDF</option>
+        </select>
+      </label>
+      <label>
+        <span>Nguồn video</span>
+        <select th:field="*{videoProvider}">
+          <option value="">Chọn nguồn</option>
+          <option value="UPLOAD">Video trong Library</option>
+          <option value="YOUTUBE">YouTube</option>
+          <option value="VIMEO">Vimeo</option>
+        </select>
+      </label>
+      <label>
+        <span>Tải video MP4</span>
+        <input type="file" th:field="*{videoUpload}" accept="video/mp4,.mp4">
+      </label>
+      <label>
+        <span>Video đã có</span>
+        <select th:field="*{videoLibraryAssetId}">
+          <option value="">Chọn video</option>
+          <option th:each="asset : ${materialOptions}" th:if="${asset.kind() == 'VIDEO'}"
+                  th:value="${asset.id()}" th:text="${asset.title()}">Video</option>
+        </select>
+      </label>
+      <label>
+        <span>URL YouTube/Vimeo</span>
+        <input type="url" th:field="*{videoUrl}" maxlength="500" placeholder="https://…">
+      </label>
+    </div>
+
+    <label class="library-form-block">
+      <span>Tải materials đính kèm</span>
+      <input type="file" th:field="*{materialUploads}" multiple
+             accept="application/pdf,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip">
+      <small>Tài liệu tải tại đây sẽ được lưu và gắn vào bài học.</small>
+    </label>
+
+    <label class="library-form-block">
+      <span>Materials đã có</span>
+      <select th:field="*{materialAssetIds}" multiple size="8"
+              aria-describedby="materialsHint">
+        <option th:each="asset : ${materialOptions}" th:if="${asset.kind() == 'DOCUMENT'}"
+                th:value="${asset.id()}" th:text="${asset.title()}">Tài liệu</option>
+      </select>
+      <small id="materialsHint">Giữ Ctrl/Cmd để chọn nhiều tài liệu.</small>
+    </label>
+
+    <div class="form-actions">
+      <a class="btn-ghost" th:href="@{/lecturer/library/templates}">Huỷ</a>
+      <button type="submit" class="btn-primary">Lưu bài học</button>
+    </div>
+  </form>
+</main>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -9,7 +9,6 @@ import com.ksh.features.student.service.StudentLessonDetailService;
 import com.ksh.features.student.service.StudentLessonsService;
 import com.ksh.security.Role;
 import com.ksh.security.KshUserDetails;
-import com.ksh.security.Roles;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +51,7 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_CLASS_LESSONS;
  */
 @Controller
 @RequestMapping("/my/classes/{classId}/lessons")
-@PreAuthorize(Roles.PREAUTH_STUDENT)
+@PreAuthorize("isAuthenticated()")
 public class StudentLessonsController {
 
     private static final Logger log = LoggerFactory.getLogger(StudentLessonsController.class);
@@ -85,9 +84,12 @@ public class StudentLessonsController {
         Long activeSectionId = resolveActiveSection(view, sectionParam);
         model.addAttribute(ATTR_VIEW, view);
         model.addAttribute(ATTR_ACTIVE_SECTION_ID, activeSectionId);
+        boolean teachingView = user.getRole() != Role.STUDENT;
+        model.addAttribute("teachingView", teachingView);
         // Surface flashcard decks shared to this class in the sidebar.
         model.addAttribute("classSharedDecks",
-                deckService.listSharedForClass(classId, user.getId()));
+                teachingView ? java.util.List.of()
+                        : deckService.listSharedForClass(classId, user.getId()));
 
         // Inline lesson detail when ?lesson=X is provided AND it belongs to the
         // active section. Invalid lesson id falls back to the hero placeholder

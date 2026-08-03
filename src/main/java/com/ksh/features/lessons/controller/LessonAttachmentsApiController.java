@@ -1,14 +1,10 @@
 package com.ksh.features.lessons.controller;
 
-import com.ksh.features.lessons.dto.LessonDtos.LessonAttachmentRow;
-import com.ksh.features.lessons.dto.SectionDtos.AjaxResult;
 import com.ksh.features.lessons.service.LessonAttachmentsService;
 import com.ksh.features.lessons.service.LessonAttachmentsService.DownloadHandle;
 import com.ksh.features.storage.ObjectStorage;
-import com.ksh.features.storage.StorageNotConfiguredException;
 import com.ksh.features.storage.StoredObject;
 import com.ksh.features.storage.StoredObjectResource;
-import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
@@ -22,42 +18,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-import static com.ksh.common.IConstant.MSG_ATTACHMENT_TOO_LARGE;
-import static com.ksh.common.IConstant.MSG_STORAGE_R2_NOT_CONFIGURED;
-import static com.ksh.common.IConstant.MSG_STORAGE_UPLOAD_FAILED;
-import static com.ksh.features.lessons.controller.support.AjaxResponses.badRequest;
-import static com.ksh.features.lessons.controller.support.AjaxResponses.forbidden;
-import static com.ksh.features.lessons.controller.support.AjaxResponses.internalError;
-import static com.ksh.features.lessons.controller.support.AjaxResponses.notFound;
 
 /**
- * JSON / streaming endpoints for lesson attachments (KSH-4.0c).
- *
- * <p>Split from {@link LessonsApiController} per design D6: keeps both files
- * under the ~200-line guideline and isolates the file-IO concerns from the
- * lesson CRUD JSON endpoints.
- *
- * <p>Two URL spaces share this controller:
- * <ul>
- *   <li>{@code /lecturer/classes/.../attachments[/{id}]} — upload + delete,
- *       restricted to lecturers/leaders/admins by the class-level
- *       {@code @PreAuthorize}.</li>
- *   <li>{@code /api/lessons/{lessonId}/attachments/{attachmentId}/download}
- *       — accessible to any authenticated user; service-layer auth gates
- *       students to enrolled + PUBLISHED lessons only.</li>
- * </ul>
+ * Read-only streaming endpoint for materials on distributed lessons.
+ * Authoring uploads are owned by Library; class-scoped attachment mutation
+ * routes intentionally do not exist.
  */
 @RestController
 public class LessonAttachmentsApiController {
@@ -71,83 +43,6 @@ public class LessonAttachmentsApiController {
                                           ObjectStorage objectStorage) {
         this.attachmentsService = attachmentsService;
         this.objectStorage = objectStorage;
-    }
-
-    @PostMapping(value = "/lecturer/classes/{classId}/sections/{sectionId}/lessons/{lessonId}/attachments",
-            produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
-    public ResponseEntity<?> upload(@PathVariable Long classId,
-                                    @PathVariable Long sectionId,
-                                    @PathVariable Long lessonId,
-                                    @RequestParam("file") MultipartFile file,
-                                    @AuthenticationPrincipal KshUserDetails user) {
-        try {
-            LessonAttachmentRow row = attachmentsService.upload(classId, sectionId, lessonId,
-                    file, user.getId(), user.getRole());
-            return ResponseEntity.ok(row);
-        } catch (IllegalArgumentException ex) {
-            return badRequest(ex.getMessage());
-        } catch (MaxUploadSizeExceededException ex) {
-            return badRequest(MSG_ATTACHMENT_TOO_LARGE);
-        } catch (StorageNotConfiguredException ex) {
-            return badRequest(MSG_STORAGE_R2_NOT_CONFIGURED);
-        } catch (AccessDeniedException ex) {
-            return forbidden();
-        } catch (EntityNotFoundException ex) {
-            return notFound(ex.getMessage());
-        } catch (IOException ex) {
-            log.error("Failed to write attachment for lesson {}", lessonId, ex);
-            return badRequest(MSG_STORAGE_UPLOAD_FAILED);
-        } catch (RuntimeException ex) {
-            log.error("Unexpected error uploading attachment to lesson {}", lessonId, ex);
-            return internalError();
-        }
-    }
-
-    @PostMapping(value = "/lecturer/classes/{classId}/sections/{sectionId}/lessons/{lessonId}/attachments/from-library",
-            produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
-    public ResponseEntity<?> bindFromLibrary(@PathVariable Long classId,
-                                             @PathVariable Long sectionId,
-                                             @PathVariable Long lessonId,
-                                             @RequestParam("assetId") Long assetId,
-                                             @AuthenticationPrincipal KshUserDetails user) {
-        try {
-            LessonAttachmentRow row = attachmentsService.bindAttachmentFromLibrary(
-                    classId, sectionId, lessonId, assetId, user.getId(), user.getRole());
-            return ResponseEntity.ok(row);
-        } catch (IllegalArgumentException ex) {
-            return badRequest(ex.getMessage());
-        } catch (AccessDeniedException ex) {
-            return forbidden();
-        } catch (EntityNotFoundException ex) {
-            return notFound(ex.getMessage());
-        } catch (RuntimeException ex) {
-            log.error("Failed to bind library attachment to lesson {}", lessonId, ex);
-            return internalError();
-        }
-    }
-
-    @DeleteMapping(value = "/lecturer/classes/{classId}/sections/{sectionId}/lessons/{lessonId}/attachments/{attachmentId}",
-            produces = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
-    public ResponseEntity<AjaxResult> delete(@PathVariable Long classId,
-                                             @PathVariable Long sectionId,
-                                             @PathVariable Long lessonId,
-                                             @PathVariable Long attachmentId,
-                                             @AuthenticationPrincipal KshUserDetails user) {
-        try {
-            attachmentsService.delete(classId, sectionId, lessonId, attachmentId,
-                    user.getId(), user.getRole());
-            return ResponseEntity.ok(AjaxResult.success());
-        } catch (AccessDeniedException ex) {
-            return forbidden();
-        } catch (EntityNotFoundException ex) {
-            return notFound(ex.getMessage());
-        } catch (RuntimeException ex) {
-            log.error("Failed to delete attachment {} on lesson {}", attachmentId, lessonId, ex);
-            return internalError();
-        }
     }
 
     @GetMapping("/api/lessons/{lessonId}/attachments/{attachmentId}/download")

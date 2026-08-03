@@ -17,35 +17,13 @@ class DeferredResubmitGuardTest {
 
     @Test
     void gated_submit_scripts_defer_the_real_submit() throws IOException {
-        for (String filename : List.of(
-                "lesson-form-type.js",
-                "flashcard-deck-form.js")) {
+        for (String filename : List.of("flashcard-deck-form.js")) {
             String source = read(filename);
             assertThat(source)
                     .as(filename + " must leave the current submit dispatch before re-firing")
                     .containsAnyOf("setTimeout", ".then(", "queueMicrotask",
                             "requestAnimationFrame");
         }
-        assertThat(read("lesson-form-type.js"))
-                .contains("submitForReal")
-                .contains("window.setTimeout")
-                .contains("form.requestSubmit(submitter || undefined)");
-    }
-
-    @Test
-    void lesson_form_releases_guard_on_every_gate_abort() throws IOException {
-        String source = read("lesson-form-type.js");
-        long abortBranches = source.lines()
-                .filter(line -> line.contains("if (!ok"))
-                .count();
-        long releasedBranches = source.lines()
-                .filter(line -> line.contains("if (!ok")
-                        && line.contains("abortSubmit()"))
-                .count();
-
-        assertThat(releasedBranches)
-                .isGreaterThan(0)
-                .isEqualTo(abortBranches);
     }
 
     private static String read(String filename) throws IOException {

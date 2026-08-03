@@ -66,6 +66,8 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
 
+    Optional<Lesson> findFirstBySectionIdAndTitleIgnoreCase(Long sectionId, String title);
+
     /**
      * Lessons belonging to classes owned by {@code lecturerId}, newest update first.
      * Optional title search and optional {@code classId} filter. Used by the
@@ -122,4 +124,3 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
            nativeQuery = true)
     void clearPdfAttachmentId(@Param("attachmentId") Long attachmentId);
 }
-
