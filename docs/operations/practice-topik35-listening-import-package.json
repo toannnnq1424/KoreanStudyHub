@@ -3,7 +3,7 @@
   "packageId": "topik35-v1-listening-v1",
   "bundleId": "topik35-v1",
   "capturedAt": "2026-08-03",
-  "status": "CANONICAL_SOURCE_QA_COMPLETE_IMPORT_LOAD_BLOCKED",
+  "status": "QUESTION_PAYLOAD_QA_COMPLETE_IMPORT_LOAD_BLOCKED",
   "skill": "LISTENING",
   "targetContract": {
     "canonicalQuestionType": "SINGLE_CHOICE",
@@ -11,6 +11,11 @@
     "answerSchema": "answer-spec-v1",
     "languageTag": "ko",
     "candidateMaterialized": false
+  },
+  "questionPayloadBinding": {
+    "schemaVersion": "practice-topik35-listening-question-payload-v1",
+    "packageId": "topik35-v1-listening-question-payload-v1",
+    "status": "QUESTION_PAYLOAD_AND_VISUAL_QA_COMPLETE_LOAD_BLOCKED"
   },
   "loadPolicy": {
     "disposableLocalOnly": true,
@@ -1954,8 +1959,7 @@
   ],
   "transcriptGaps": [],
   "materializationBlockers": [
-    "QUESTION_PROMPT_AND_OPTION_PAYLOAD_NOT_YET_TRANSCRIBED_INTO_QUESTION_CONTENT_V3",
-    "IMAGE_OPTION_PAGE_ASSETS_Q01_Q03_NOT_YET_DERIVED_AND_MAPPED",
+    "GROUP_TRANSCRIPT_TEXT_NOT_MATERIALIZED_BY_THIS_SLICE",
     "GROUP_TIMING_RANGES_NOT_YET_MANUALLY_VERIFIED",
     "CANONICAL_DRAFT_VERSION_IDS_NOT_YET_ALLOCATED"
   ],
@@ -1965,6 +1969,9 @@
     "totalPoints": 100,
     "answerCount": 50,
     "transcriptCoveredQuestionCount": 50,
+    "payloadQuestionCount": 50,
+    "payloadOptionCount": 200,
+    "payloadVisualAssetCount": 12,
     "timingReadyGroupCount": 0,
     "loadReady": false
   }

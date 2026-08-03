@@ -124,7 +124,15 @@ class PracticeTopik35ListeningImportPackageTest {
             assertThat(timing.path("transcriptBoundaryChecked").asBoolean()).isFalse();
             assertThat(timing.path("examModeConsumption").asText()).isEqualTo("FORBIDDEN");
         });
-        assertThat(root.path("materializationBlockers")).hasSize(4);
+        assertThat(root.path("materializationBlockers")).hasSize(3);
+        assertThat(root.at("/questionPayloadBinding/packageId").asText())
+                .isEqualTo("topik35-v1-listening-question-payload-v1");
+        assertThat(root.at("/validationSummary/payloadQuestionCount").asInt())
+                .isEqualTo(50);
+        assertThat(root.at("/validationSummary/payloadOptionCount").asInt())
+                .isEqualTo(200);
+        assertThat(root.at("/validationSummary/payloadVisualAssetCount").asInt())
+                .isEqualTo(12);
         assertThat(root.at("/targetContract/candidateMaterialized").asBoolean()).isFalse();
         assertThat(root.at("/validationSummary/loadReady").asBoolean()).isFalse();
         assertThat(root.at("/loadPolicy/bulkSetIngestionAllowed").asBoolean()).isFalse();
@@ -202,7 +210,7 @@ class PracticeTopik35ListeningImportPackageTest {
     private static void validate(JsonNode root) {
         require("practice-topik35-listening-import-package-v1".equals(
                 root.path("schemaVersion").asText()), "schema identity");
-        require("CANONICAL_SOURCE_QA_COMPLETE_IMPORT_LOAD_BLOCKED".equals(
+        require("QUESTION_PAYLOAD_QA_COMPLETE_IMPORT_LOAD_BLOCKED".equals(
                 root.path("status").asText()), "fail-closed status");
         require(root.path("groups").size() == 20, "group count");
         require(root.path("questions").size() == 50, "question count");

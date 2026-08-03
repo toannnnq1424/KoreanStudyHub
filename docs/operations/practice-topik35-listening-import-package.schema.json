@@ -4,15 +4,16 @@
   "title": "Canonical TOPIK 35 Listening import source package",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "targetContract", "loadPolicy", "sourceBindings", "sourceAnomalies", "manualQaEvidence", "playbackPolicy", "groups", "questions", "transcriptGaps", "materializationBlockers", "validationSummary"],
+  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "targetContract", "questionPayloadBinding", "loadPolicy", "sourceBindings", "sourceAnomalies", "manualQaEvidence", "playbackPolicy", "groups", "questions", "transcriptGaps", "materializationBlockers", "validationSummary"],
   "properties": {
     "schemaVersion": {"const": "practice-topik35-listening-import-package-v1"},
     "packageId": {"const": "topik35-v1-listening-v1"},
     "bundleId": {"const": "topik35-v1"},
     "capturedAt": {"type": "string", "format": "date"},
-    "status": {"const": "CANONICAL_SOURCE_QA_COMPLETE_IMPORT_LOAD_BLOCKED"},
+    "status": {"const": "QUESTION_PAYLOAD_QA_COMPLETE_IMPORT_LOAD_BLOCKED"},
     "skill": {"const": "LISTENING"},
     "targetContract": {"$ref": "#/$defs/targetContract"},
+    "questionPayloadBinding": {"$ref": "#/$defs/questionPayloadBinding"},
     "loadPolicy": {"$ref": "#/$defs/loadPolicy"},
     "sourceBindings": {"$ref": "#/$defs/sourceBindings"},
     "sourceAnomalies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceAnomaly"}},
@@ -34,6 +35,15 @@
         "answerSchema": {"const": "answer-spec-v1"},
         "languageTag": {"const": "ko"},
         "candidateMaterialized": {"const": false}
+      }
+    },
+    "questionPayloadBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "packageId", "status"],
+      "properties": {
+        "schemaVersion": {"const": "practice-topik35-listening-question-payload-v1"},
+        "packageId": {"const": "topik35-v1-listening-question-payload-v1"},
+        "status": {"const": "QUESTION_PAYLOAD_AND_VISUAL_QA_COMPLETE_LOAD_BLOCKED"}
       }
     },
     "loadPolicy": {
@@ -199,11 +209,14 @@
     },
     "validationSummary": {
       "type": "object", "additionalProperties": false,
-      "required": ["groupCount", "questionCount", "totalPoints", "answerCount", "transcriptCoveredQuestionCount", "timingReadyGroupCount", "loadReady"],
+      "required": ["groupCount", "questionCount", "totalPoints", "answerCount", "transcriptCoveredQuestionCount", "payloadQuestionCount", "payloadOptionCount", "payloadVisualAssetCount", "timingReadyGroupCount", "loadReady"],
       "properties": {
         "groupCount": {"const": 20}, "questionCount": {"const": 50},
         "totalPoints": {"const": 100}, "answerCount": {"const": 50},
         "transcriptCoveredQuestionCount": {"const": 50},
+        "payloadQuestionCount": {"const": 50},
+        "payloadOptionCount": {"const": 200},
+        "payloadVisualAssetCount": {"const": 12},
         "timingReadyGroupCount": {"const": 0}, "loadReady": {"const": false}
       }
     }
