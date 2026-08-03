@@ -165,42 +165,6 @@ public class PracticeController {
         return PracticeViews.CATALOG_CARDS;
     }
 
-    // --- Legacy Redirects ---
-    @GetMapping(PracticeRoutes.LEGACY_SET)
-    public String legacyDetail(@PathVariable Long setId) {
-        return PracticeRoutes.redirectToSetDetail(setId);
-    }
-
-    @GetMapping(PracticeRoutes.LEGACY_SET_DETAIL)
-    public String legacyDetailView(@PathVariable Long setId) {
-        return PracticeRoutes.redirectToSetDetail(setId);
-    }
-
-    @GetMapping(PracticeRoutes.LEGACY_MODE)
-    public String legacyMode(@PathVariable Long setId) {
-        return PracticeRoutes.redirectToSetDetail(setId);
-    }
-
-    @GetMapping(PracticeRoutes.LEGACY_ROOM)
-    public String legacyPlayer(@PathVariable Long setId) {
-        return PracticeRoutes.redirectToSetDetail(setId);
-    }
-
-    @PostMapping(PracticeRoutes.LEGACY_SUBMIT)
-    public String legacySubmit(@PathVariable Long setId) {
-        return PracticeRoutes.redirectToSetDetail(setId);
-    }
-
-    @GetMapping(PracticeRoutes.LEGACY_SUBMISSION_RESULT)
-    public String legacyResult(@PathVariable Long submissionId) {
-        return PracticeRoutes.redirectToResult(submissionId);
-    }
-
-    @PostMapping(PracticeRoutes.LEGACY_SUBMISSION_RE_EVALUATE)
-    public String legacyReEvaluate(@PathVariable Long submissionId) {
-        return PracticeRoutes.redirectToResult(submissionId);
-    }
-
     // --- New Flow Routing ---
     @GetMapping(PracticeRoutes.SET_DETAIL)
     public String setDetail(@PathVariable Long setId,

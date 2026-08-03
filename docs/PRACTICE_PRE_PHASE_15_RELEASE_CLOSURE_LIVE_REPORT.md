@@ -302,4 +302,67 @@ and load nothing until all three evidence records are supplied.
 | Spring Boot support | Move to a currently supported production line with regression evidence, buy/record commercial support for 3.5, or declare release NO-GO. | A clean CVE snapshot does not supply future fixes after OSS support. | Supported-line upgrade in a separate tested slice; otherwise explicit NO-GO rather than an ownerless exception. |
 | external advisory feeds | Supply approved CISA/OSS metadata access and rerun, or accept a named time-bounded gap. | KEV/OSS unknown can miss exploited or ecosystem-only advisories. | Restore both feeds and rerun immediately before Manual UAT; no silent waiver. |
 
-Verdict remains `NO_GO` while these external/product/data decisions are open.
+Verdict at this historical checkpoint was `NO_GO` while these
+external/product/data decisions were open; section 6 records the subsequent
+owner dispositions.
+
+## 6. Owner decisions received (`2026-08-03`)
+
+The product owner has now supplied the following release decisions:
+
+- Korean SME content, assets and calibration are approved. This closes the
+  governance decision, but does not permit this repository to invent missing
+  content or asset identifiers. The static seed remains fail-closed until the
+  approved artifacts and their evidence references are materialized in the
+  manifest.
+- Practice has not had an official production deployment. Attempts, AI
+  feedback, ungrouped questions, incomplete locks, import aliases and legacy
+  routes are development-only and may be reset/removed completely. This is the
+  authoritative retained-data disposition for `COMP-01..09,12,14,21`; no
+  production migration or compatibility window is required.
+- Spring Boot `3.5.16` is the selected support line. The release owner accepts
+  its support-lifecycle risk independently of the dated vulnerability result.
+  The BOM remains unchanged; security metadata must still be refreshed for
+  every release candidate.
+- For this pre-production closure, the security decision is a time-bounded
+  exception: the complete dated NVD baseline plus exact vendor-coordinate
+  review is sufficient to enter Manual UAT. CISA KEV `403` and OSS Index `401`
+  remain recorded coverage gaps, not clean results. Both official feeds must
+  be restored and rerun before the first public production release; any
+  reachable High/Critical or KEV match returns the gate to `NO_GO`.
+
+### 6.1 COMP-07 legacy route retirement
+
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED`.
+
+All seven legacy learner route constants and redirect handlers were removed.
+Canonical `/practice/sets/...` and `/practice/attempts/...` routes remain. The
+three existing integration assertions now require `404`, and a DB-free static
+contract prevents the removed constants/handlers from returning. This is safe
+under the development-only retained-data/caller disposition above. The first
+integration invocation was rejected before context startup because
+`TEST_DB_URL` was absent; a retry against the named disposable container was
+rejected because its persisted root credential no longer matched its creation
+environment. Neither attempt mutated a database. The DB-free JDK 17 compile and
+static/manifest/AIM-8 gate passed `13/13`.
+
+### 6.2 COMP-08 server alias retirement
+
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED` for the authoritative Java resolver.
+
+`QuestionTypeResolver` now accepts canonical enum codes only. The historical
+aliases `MCQ`, `MCQ_SINGLE`, `MCQ_MULTIPLE`, `MULTIPLE_CHOICE`, `TFNG`,
+`GAP_FILL`, `MATCHING_INFORMATION`, `MATCHING_FEATURES` and `MATCHING_LABELS`
+fail closed instead of being normalized. Extended canonical codes
+`MULTIPLE_ANSWER` and `MATCHING` remain unchanged; this does not open deferred
+Phase 14 feature work. Presenter regression proves unsupported stored values
+are explicitly `UNSCORABLE`, never silently reinterpreted. JDK 17 resolver,
+presenter and route-retirement gate passed `56/56`.
+
+Remaining occurrences in historical UI fixtures/authoring compatibility are
+not claimed removed by this sub-slice and must be retired with their owning
+contract, not by an unsafe global replacement.
+
+Current verdict remains `NO_GO`: owner decisions are now recorded, but the
+approved SME artifacts still need concrete manifest references and the
+remaining development-only compatibility branches require tested retirement.

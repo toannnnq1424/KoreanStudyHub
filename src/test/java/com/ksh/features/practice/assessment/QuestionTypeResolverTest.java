@@ -12,13 +12,12 @@ class QuestionTypeResolverTest {
     private final QuestionTypeResolver resolver = new QuestionTypeResolver();
 
     @Test
-    void legacyAliasesResolveToCanonicalTypes() {
-        assertEquals(CanonicalQuestionType.SINGLE_CHOICE, resolver.resolve("MCQ"));
-        assertEquals(CanonicalQuestionType.SINGLE_CHOICE, resolver.resolve("MCQ_SINGLE"));
-        assertEquals(CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN, resolver.resolve("TFNG"));
-        assertEquals(CanonicalQuestionType.FILL_BLANK, resolver.resolve(" GAP_FILL "));
-        assertEquals(CanonicalQuestionType.MULTIPLE_ANSWER, resolver.resolve("MCQ_MULTIPLE"));
-        assertEquals(CanonicalQuestionType.MATCHING, resolver.resolve("MATCHING_INFORMATION"));
+    void retiredAliasesFailClosed() {
+        for (String alias : new String[]{"MCQ", "MCQ_SINGLE", "TFNG", "GAP_FILL",
+                "MCQ_MULTIPLE", "MULTIPLE_CHOICE", "MATCHING_INFORMATION",
+                "MATCHING_FEATURES", "MATCHING_LABELS"}) {
+            assertThrows(IllegalArgumentException.class, () -> resolver.resolve(alias));
+        }
     }
 
     @Test

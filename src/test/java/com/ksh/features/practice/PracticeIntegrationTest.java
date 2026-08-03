@@ -992,10 +992,9 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void testLegacySubmissionResultRedirectStillTargetsAttemptRoute() throws Exception {
+    void retiredSubmissionResultRouteIsNotMapped() throws Exception {
         mockMvc.perform(get("/practice/submissions/123"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/attempts/123/result"));
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -1084,18 +1083,16 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void legacyModeRedirectsToSetDetail() throws Exception {
+    void retiredModeRouteIsNotMapped() throws Exception {
         mockMvc.perform(get("/practice/" + practiceSet.getId() + "/mode"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/sets/" + practiceSet.getId()));
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void legacyRoomRedirectsToSetDetail() throws Exception {
+    void retiredRoomRouteIsNotMapped() throws Exception {
         mockMvc.perform(get("/practice/" + practiceSet.getId() + "/room"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/sets/" + practiceSet.getId()));
+                .andExpect(status().isNotFound());
     }
 
     @Test

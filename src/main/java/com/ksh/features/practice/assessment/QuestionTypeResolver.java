@@ -10,20 +10,11 @@ import java.util.Optional;
 public class QuestionTypeResolver {
 
     private static final Map<String, CanonicalQuestionType> TYPES = Map.ofEntries(
-            Map.entry("MCQ", CanonicalQuestionType.SINGLE_CHOICE),
-            Map.entry("MCQ_SINGLE", CanonicalQuestionType.SINGLE_CHOICE),
             Map.entry("SINGLE_CHOICE", CanonicalQuestionType.SINGLE_CHOICE),
-            Map.entry("MCQ_MULTIPLE", CanonicalQuestionType.MULTIPLE_ANSWER),
-            Map.entry("MULTIPLE_CHOICE", CanonicalQuestionType.MULTIPLE_ANSWER),
             Map.entry("MULTIPLE_ANSWER", CanonicalQuestionType.MULTIPLE_ANSWER),
-            Map.entry("MATCHING_INFORMATION", CanonicalQuestionType.MATCHING),
-            Map.entry("MATCHING_FEATURES", CanonicalQuestionType.MATCHING),
-            Map.entry("MATCHING_LABELS", CanonicalQuestionType.MATCHING),
             Map.entry("MATCHING", CanonicalQuestionType.MATCHING),
-            Map.entry("TFNG", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN),
             Map.entry("TRUE_FALSE_NOT_GIVEN", CanonicalQuestionType.TRUE_FALSE_NOT_GIVEN),
             Map.entry("FILL_BLANK", CanonicalQuestionType.FILL_BLANK),
-            Map.entry("GAP_FILL", CanonicalQuestionType.FILL_BLANK),
             Map.entry("ESSAY", CanonicalQuestionType.ESSAY),
             Map.entry("SPEAKING", CanonicalQuestionType.SPEAKING)
     );

@@ -37,13 +37,6 @@ public final class PracticeRoutes {
     public static final String PREFERENCES = "/preferences";
     public static final String KOREAN_FONT_PREFERENCE = "/preferences/korean-font";
 
-    public static final String LEGACY_SET = "/{setId}";
-    public static final String LEGACY_SET_DETAIL = "/{setId}/detail";
-    public static final String LEGACY_MODE = "/{setId}/mode";
-    public static final String LEGACY_ROOM = "/{setId}/room";
-    public static final String LEGACY_SUBMIT = "/{setId}/submit";
-    public static final String LEGACY_SUBMISSION_RESULT = "/submissions/{submissionId}";
-    public static final String LEGACY_SUBMISSION_RE_EVALUATE = "/submissions/{submissionId}/re-evaluate";
     public static final String PROFILE = "/profile";
     public static final String MANAGE_MANUAL = "/manage/manual";
 

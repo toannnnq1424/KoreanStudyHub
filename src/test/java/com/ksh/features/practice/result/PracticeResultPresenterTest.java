@@ -196,7 +196,7 @@ class PracticeResultPresenterTest {
     }
 
     @Test
-    void objectiveAliasesShareCanonicalGroupsAndUnsupportedTypesFailClosed() {
+    void objectiveAliasesAndUnsupportedTypesFailClosed() {
         AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
         QuestionTypeResolver typeResolver = new QuestionTypeResolver();
         AssessmentScoringEngine scoringEngine = mock(AssessmentScoringEngine.class);
@@ -204,13 +204,13 @@ class PracticeResultPresenterTest {
         ObjectiveResultPresenter presenter = new ObjectiveResultPresenter(
                 codec, typeResolver, scoringEngine, explanations, objectMapper);
         List<PracticeQuestionVersion> questions = List.of(
-                objectiveQuestion(115L, "MCQ"),
-                objectiveQuestion(116L, "MCQ_SINGLE"),
-                objectiveQuestion(117L, "SINGLE_CHOICE"),
-                objectiveQuestion(118L, "TFNG"),
-                objectiveQuestion(119L, "TRUE_FALSE_NOT_GIVEN"),
-                objectiveQuestion(120L, "GAP_FILL"),
-                objectiveQuestion(121L, "FILL_BLANK"),
+                objectiveQuestion(115L, "SINGLE_CHOICE"),
+                objectiveQuestion(116L, "TRUE_FALSE_NOT_GIVEN"),
+                objectiveQuestion(117L, "FILL_BLANK"),
+                objectiveQuestion(118L, "MCQ"),
+                objectiveQuestion(119L, "MCQ_SINGLE"),
+                objectiveQuestion(120L, "TFNG"),
+                objectiveQuestion(121L, "GAP_FILL"),
                 objectiveQuestion(122L, "ALIEN_LEGACY_TYPE"));
         when(codec.adaptLegacyContent(any(), anyString())).thenReturn(QuestionContent.empty());
         when(codec.adaptLegacyAnswerSpec(anyString(), any(), any())).thenReturn(mock(AnswerSpec.class));
@@ -232,17 +232,17 @@ class PracticeResultPresenterTest {
         assertThat(payload.breakdown()).hasSize(4);
         assertThat(payload.breakdown().get(0).questionType()).isEqualTo("SINGLE_CHOICE");
         assertThat(payload.breakdown().get(0).label()).isEqualTo("Trắc nghiệm một đáp án");
-        assertThat(payload.breakdown().get(0).answers().total()).isEqualTo(3);
+        assertThat(payload.breakdown().get(0).answers().total()).isEqualTo(1);
         assertThat(payload.breakdown().get(1).questionType()).isEqualTo("TRUE_FALSE_NOT_GIVEN");
         assertThat(payload.breakdown().get(1).label())
                 .isEqualTo("Đúng, sai hoặc không có thông tin");
-        assertThat(payload.breakdown().get(1).answers().total()).isEqualTo(2);
+        assertThat(payload.breakdown().get(1).answers().total()).isEqualTo(1);
         assertThat(payload.breakdown().get(2).questionType()).isEqualTo("FILL_BLANK");
         assertThat(payload.breakdown().get(2).label()).isEqualTo("Điền từ");
-        assertThat(payload.breakdown().get(2).answers().total()).isEqualTo(2);
+        assertThat(payload.breakdown().get(2).answers().total()).isEqualTo(1);
         assertThat(payload.breakdown().get(3).questionType()).isEqualTo("UNSCORABLE");
         assertThat(payload.breakdown().get(3).label()).isEqualTo("Loại câu hỏi không thể chấm");
-        assertThat(payload.breakdown().get(3).answers().unscorable()).isEqualTo(1);
+        assertThat(payload.breakdown().get(3).answers().unscorable()).isEqualTo(5);
         assertThat(payload.breakdown())
                 .extracting(row -> row.questionType())
                 .doesNotContain("MCQ", "MCQ_SINGLE", "TFNG", "GAP_FILL",
