@@ -114,6 +114,48 @@ class DirectAudioSpeakingEvaluationServiceTest {
         assertThat(outcome.acousticScoresAvailable()).isFalse();
     }
 
+    @Test
+    void cacheIdentityIsBoundToConsentDisclosureAndReviewerEvidence() {
+        DirectAudioSpeakingEvaluationService.Candidate original = validCandidate();
+        DirectAudioSpeakingEvaluationService.Candidate changedConsent = withConsent(
+                original, new DirectAudioSpeakingEvaluationService.ConsentEvidence(
+                        "TEST-CONSENT-2", DirectAudioSpeakingEvaluationService.ConsentState.ACTIVE,
+                        DirectAudioSpeakingEvaluationService.PURPOSE,
+                        "TEST-DISCLOSURE-V2", true));
+        DirectAudioSpeakingEvaluationService.Candidate changedReviewer = withReviewer(
+                original, new DirectAudioSpeakingEvaluationService.ReviewerPolicy(
+                        "TEST-REVIEWER-POLICY-2", true, true));
+
+        assertThat(DirectAudioSpeakingEvaluationService.cacheIdentity(original))
+                .isNotEqualTo(DirectAudioSpeakingEvaluationService.cacheIdentity(changedConsent))
+                .isNotEqualTo(DirectAudioSpeakingEvaluationService.cacheIdentity(changedReviewer));
+    }
+
+    @Test
+    void blankProviderReceiptIdentityCannotProveConsumption() {
+        DirectAudioSpeakingEvaluationService.Candidate allowed = validCandidate();
+        DirectAudioSpeakingEvaluationService service =
+                new DirectAudioSpeakingEvaluationService(
+                        request -> new DirectAudioSpeakingEvaluationPort.Receipt("", true),
+                        event -> { },
+                        new DirectAudioSpeakingEvaluationService.ReadinessAuthority() {
+                            @Override public boolean providerPolicyAllowed(
+                                    DirectAudioSpeakingEvaluationService.ProviderPolicy policy) {
+                                return allowed.providerPolicy().equals(policy);
+                            }
+                            @Override public boolean calibrationApproved(
+                                    DirectAudioSpeakingEvaluationService.CalibrationEvidence evidence) {
+                                return allowed.calibration().equals(evidence);
+                            }
+                        });
+
+        var outcome = service.evaluate(allowed);
+
+        assertThat(outcome.rejectionReason())
+                .isEqualTo("PROVIDER_AUDIO_CONSUMPTION_UNPROVEN");
+        assertThat(outcome.scoreAvailable()).isFalse();
+    }
+
     private static DirectAudioSpeakingEvaluationService service(
             AtomicReference<DirectAudioSpeakingEvaluationPort.AuthorizedRequest> captured,
             List<DirectAudioSpeakingEvaluationService.AuditEvent> audit,

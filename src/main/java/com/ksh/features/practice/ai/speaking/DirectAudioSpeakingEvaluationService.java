@@ -62,7 +62,8 @@ public final class DirectAudioSpeakingEvaluationService {
                         cacheIdentity(candidate));
         audit.record(AuditEvent.of(candidate, "TRANSFER_AUTHORIZED", "DARK_CAPTURE"));
         DirectAudioSpeakingEvaluationPort.Receipt receipt = provider.evaluate(request);
-        if (receipt == null || !receipt.audioConsumed()) {
+        if (receipt == null || !receipt.audioConsumed()
+                || !present(receipt.providerRequestId())) {
             audit.record(AuditEvent.of(
                     candidate, "PROVIDER_CONSUMPTION_UNPROVEN", "NON_SCORE_BEARING"));
             return Outcome.rejected("PROVIDER_AUDIO_CONSUMPTION_UNPROVEN");
@@ -79,6 +80,9 @@ public final class DirectAudioSpeakingEvaluationService {
     public static String cacheIdentity(Candidate candidate) {
         return "ksh-speaking-direct-audio-v1|sha256|" + sha256(String.join("|",
                 POLICY_BUNDLE_FINGERPRINT,
+                candidate.consent().evidenceId(),
+                candidate.consent().disclosureVersion(),
+                candidate.reviewerPolicy().evidenceId(),
                 candidate.providerPolicy().providerProfileId(),
                 candidate.providerPolicy().regionEvidenceId(),
                 candidate.providerPolicy().nonTrainingEvidenceId(),

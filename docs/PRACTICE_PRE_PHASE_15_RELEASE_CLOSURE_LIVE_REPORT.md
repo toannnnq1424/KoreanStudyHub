@@ -530,11 +530,14 @@ Implementation plan and remaining boundaries:
    introduced by this plan.
 
 Focused JDK 17 evidence: `DirectAudioSpeakingEvaluationServiceTest` passed
-`5/5`. It covers authorized byte capture, digest binding, defensive/redacted
+`7/7`. It covers authorized byte capture, digest binding, defensive/redacted
 transport, consent withdrawal/deletion, owner authorization, reviewer/provider/
 calibration evidence absence, disabled/premature score rollout and unproven
-provider consumption. The combined direct-audio, existing transcript-client,
-rollout-readiness, score-policy and normalizer regression gate passed `52/52`,
+provider consumption. Consent evidence, disclosure version and reviewer-policy
+evidence now participate in the deterministic cache identity; a blank provider
+receipt ID cannot prove consumption. The combined direct-audio, existing
+transcript-client, rollout-readiness, score-policy and normalizer regression
+gate passed `54/54`,
 with `0` failures, errors or skips. Provider/storage/database calls were
 `0/0/0`; no migration was changed. Readiness remains red because repository
 tests use only clearly named `TEST-*` evidence and no real provider policy,
