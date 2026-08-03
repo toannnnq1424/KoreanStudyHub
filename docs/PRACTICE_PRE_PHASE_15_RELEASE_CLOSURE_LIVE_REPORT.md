@@ -2513,3 +2513,89 @@ JDK `17.0.19` evidence:
   all remained `0`; and
 - static-fixture SHA/format inspection, migration/source scans,
   `git diff --check` and the final SQL predicates completed green.
+
+### 6.42 TOPIK 35 owner-scoped speaker-check registration and binding
+
+Status: `DISPOSABLE_BINDING_GREEN / OWNER_SCOPED / CANDIDATE_STILL_DISABLED`.
+
+On `2026-08-04`, the data owner approved the recommended narrow action from
+6.41. `PracticeTopik35CheckAudioBinder` now provides an explicit, non-startup,
+non-controller operation guarded to catalogs named
+`ksh_test_topik35_candidate_*`. It refuses non-disposable catalogs and refuses
+any storage backend other than the local `PRACTICE_AUTHORING` profile before
+writing bytes. There is no global-material lookup, title/model-name inference,
+cross-owner fallback or supplied numeric ID.
+
+The binder reads the existing classpath fixture without modifying it and
+requires all three immutable markers before storage or registration:
+
+- filename `listening-speaker-check.wav`;
+- size `158,804` bytes and detected MIME `audio/wav`; and
+- full SHA-256
+  `7896983a2a4c869a30c4cf2e9cf396282ae66a281bdeb271b24d7af5cefda913`.
+
+Bytes pass through the existing `PracticeSeedAssetStorage`/authoring-storage
+port. The persisted backend-neutral logical key is exactly
+`practice-seed/topik35-v1/review/artifact/7896983a2a4c869a30c4cf2e9cf396282ae66a281bdeb271b24d7af5cefda913.wav`;
+no local absolute path, bucket or delivery URL enters the draft or asset
+provenance. The resulting `LecturerAsset` is database-ID-assigned,
+`MANUAL_UPLOAD`, `AUDIO`, `content_verified=true`, `ACTIVE`, `PRIVATE`, has no
+retention expiry, and records `DRAFT_OWNER_ONLY` / `shared=false` plus the
+approved source identity. Only the same draft owner may satisfy the strict
+preflight.
+
+The exact draft reference uses the new persisted placement
+`LISTENING_CHECK_AUDIO`, reference key `topik35-v1-section-listening`, and the
+canonical delivery form `/practice/materials/{db-issued-id}/content`. Repeat
+binding re-locks and verifies the asset row, draft reference, provenance
+envelope and stored bytes before returning `REUSED`. An explicit withdrawal
+removes only that exact draft reference and returns the candidate to
+`WITHDRAWN_MATERIAL_REQUIRED`; physical deletion remains behind the existing
+all-reference retention check. A retained binding cannot be deleted, a foreign
+owner cannot bind/delete/read it, and after withdrawal the ordinary lifecycle
+service may queue deletion. A deleted row is never revived or reused.
+
+Fresh disposable evidence used MySQL 8.4 catalog
+`ksh_test_topik35_candidate_check_audio_20260804a`; unchanged V1-V96 applied
+with zero failures. The first registration received DB ID `1`; repeat binding
+reused ID `1`. The integration test then withdrew the exact reference, proved
+deletion was blocked before withdrawal, queued ID `1` as
+`DELETION_PENDING` only after withdrawal, and verified material delivery was
+denied. Rebinding the unchanged approved bytes received new DB ID `2`, and its
+repeat reused ID `2`. Final evidence was:
+
+| Marker | Result |
+|---|---:|
+| active owner-scoped check-audio asset/reference | `ID 2 / 1` |
+| withdrawn asset / lifecycle task | `ID 1 DELETION_PENDING / 1` |
+| final candidate drafts | `1` (`DRAFT`, no published set) |
+| TOPIK 35 learner-visible sets | `0` |
+| storage backend/profile | `LOCAL / PRACTICE_AUTHORING` |
+| provider execution audits / capability runs | `0 / 0` |
+
+The binder changes only the check-audio reference and a versioned provenance
+envelope. It preserves `publicationAllowed=false`, the single continuous
+Listening program, no seek/replay/timestamp navigation/highlight, optional
+Listening timing, and all four Writing questions as
+`MANUAL_OR_EXPERIMENTAL_UNSCORED`. It does not invoke the publisher or allocate
+set/test/question/version IDs, so the candidate remains absent from learner
+catalogue and results.
+
+JDK `17.0.19` evidence:
+
+- focused binder tests passed `4/4`, covering create/replay, strict owner
+  isolation, foreign-asset rejection, non-disposable DB rejection and
+  withdrawal without policy drift;
+- combined importer/validator/storage/reference/access/deletion/result gate
+  passed `149/149`; and
+- combined canonical Reading/Listening/Writing/UAT/storage/import gate passed
+  `119/119`; and
+- the fresh disposable persistence gate passed `1/1`, including exact delivered
+  byte digest, withdrawal/deletion/rebind, final DB counts, zero provider calls
+  and zero learner set creation.
+
+No migration/schema change, shared/developer DB, R2 call/configuration, AI or
+provider call, real credential, learner-visible publication, push, PR or merge
+was used by this slice. The disposable container peaked at about `575 MiB` of
+its `640 MiB` limit, then the exact container and isolated local test-object
+directory were removed; no stale database or seed object remains.
