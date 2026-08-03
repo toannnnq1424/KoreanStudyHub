@@ -1410,13 +1410,15 @@ JDK `17.0.19` evidence:
   CHECK constraints. The container had a `768 MiB` limit and was stopped with
   `--rm`, removing the disposable database and synthetic credential.
 
-The existing 18-test cleanup integration suite was also run on that fresh
-catalog. Flyway reached V95 successfully, but three existing claim/retry tests
-reproduced failures (`15/18` green: two expired-claim `Optional.empty` markers
-and one retry reported `SKIPPED`). V95 does not modify the cleanup table/entity/
-service, and the directly relevant V95 schema test is green; this marker is not
-misreported as a V95 regression or silently discarded. It remains an isolated
-cleanup-test timing/persistence-context investigation boundary.
+The existing 18-test cleanup integration suite was also run on the disposable
+V95 catalog and passed `18/18`. An initial harness invocation that forced
+`serverTimezone=UTC` while the JVM/test clock used `Asia/Ho_Chi_Minh` produced
+three false expired-lease/retry markers: a traced JDBC `LocalDateTime` write was
+read through JPA at `+07:00`, making the synthetic lease appear unexpired. The
+same suite passed fully after removing that conflicting URL override. No
+production cleanup code or migration was changed to hide the harness defect;
+future rehearsal commands must keep JDBC and Hibernate timezone interpretation
+aligned.
 
 Operational readiness remains red. Before enabling either reviewer API, the
 privacy/release owner must approve a bounded retention term and purge mechanism

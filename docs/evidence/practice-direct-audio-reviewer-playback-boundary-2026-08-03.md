@@ -39,7 +39,11 @@ A fresh, named MySQL 8.4 disposable database applied exactly V1–V95. The
 dedicated Spring schema integration test passed `1/1` and verified the V95
 columns and purpose/action/outcome CHECK constraints. The 768 MiB container was
 stopped with `--rm`; its database and synthetic credential were removed. No
-shared database was touched.
+shared database was touched. The existing cleanup integration suite passed
+`18/18` on the V95 catalog when the disposable JDBC URL used the application's
+timezone convention; an intentionally investigated conflicting
+`serverTimezone=UTC` override was removed after trace evidence showed it shifted
+JDBC-written `LocalDateTime` leases by seven hours on JPA read.
 
 ## Remaining release blockers
 
