@@ -26,8 +26,10 @@ retained-data reset.
 
 The release-closure worktree was re-audited at exact baseline `3d38a2f0`.
 Migration source inventory is frozen as `87` files, versions `1..87`, with no
-gap and no duplicate. No migration after V87 exists. The canonical upstream
-historical bytes and the integrated Practice compaction byte are:
+gap and no duplicate. No migration after V87 existed at this freeze checkpoint;
+the later approved forward-only V88/V89 branch-B migrations are recorded in
+sections 6.8/6.9. The canonical upstream historical bytes and the integrated
+Practice compaction byte are:
 
 | Migration | SHA-256 | Disposition |
 | --- | --- | --- |
@@ -608,14 +610,13 @@ migrations and its dedicated auto-remove container was stopped. This failed
 startup is not counted as green evidence. Provider/storage calls remained
 `0/0`; no shared database was contacted.
 
-The B2 runtime coordinator is now implemented behind
-`app.practice.speaking-direct-audio.authorization.enabled=false`. Enabling it
-requires a nonblank disclosure version and an explicit numeric grant-manager
-user-ID allowlist; missing or role-shaped values fail startup. Consent authority
-queries exact learner ownership plus Speaking skill. Reviewer grants require a
-named allowlisted manager, forbid self-grant/reviewer ownership of the attempt,
-and default to a maximum `P7D` lifetime. Every write is transaction-bound. No
-web route or evaluator/provider adapter consumes this coordinator yet.
+The B2 runtime coordinator is implemented behind
+`app.practice.speaking-direct-audio.authorization.enabled=false`. Consent
+authority queries exact learner ownership plus Speaking skill. Reviewer grants
+require an active approved business-authority assignment, forbid self-grant/
+reviewer ownership of the attempt, and default to a maximum `P7D` lifetime.
+Every write is transaction-bound. No web route or evaluator/provider adapter
+consumes this coordinator yet.
 
 Coordinator evidence: the expanded focused gate passed `23/23`; tests pin
 missing-config rejection, configured disclosure binding, owned-attempt scope,
@@ -643,15 +644,28 @@ does not invent a provider or legal claim. Minor/guardian use also remains
 disabled until a separate lawful-consent flow exists.
 
 Grant management is defined by stable business authorities rather than fake
-development users: `ACADEMIC_LEADER` and `PRIVACY_RELEASE_OWNER`. Existing KSH
-role `LEADER` maps to the academic authority. Privacy/release ownership must be
+development users: `ACADEMIC_LEADER` and `PRIVACY_RELEASE_OWNER`. An existing
+KSH `LEADER` may receive the academic authority through an explicit assignment;
+the role alone is not enough. Privacy/release ownership must likewise be
 assigned to a separately named account when one exists; it must not silently
-mean every `ADMIN`. Until those principals exist, the numeric runtime allowlist
-stays empty and authorization remains disabled. No fake user row or production
-identity was created.
+mean every `ADMIN`. No fake user row or production identity was created.
 
 The disclosure/artifact plus B1/B2 regression gate passed `25/25` on JDK 17;
 machine validation binds the implementation purpose/policy constants, limits,
 default-unchecked consent, withdrawal and score-release blocker. The first
 wording assertion exposed only a Markdown line-wrap mismatch and is not counted
 as green evidence; whitespace-normalized learner-copy validation then passed.
+
+Forward-only V89 replaces the temporary numeric-manager configuration seam
+with an append-only authority event journal. It accepts only
+`ACADEMIC_LEADER` and `PRIVACY_RELEASE_OWNER`, records explicit
+`ASSIGNED/REVOKED` evidence and seeds zero identities. The coordinator resolves
+the latest event per account and authority; only latest `ASSIGNED` is active.
+The disclosure artifact ID and both authority codes are now safe defaults while
+the outer authorization capability remains disabled by default.
+
+JDK 17 authority/disclosure/B1/B2 gate passed `26/26`. Fresh isolated MySQL 8.4
+applied continuous `V1..V89`, max version `89`, zero failed migrations and zero
+grant-manager rows; Spring/Hibernate default-off startup passed `4/4`. The
+container was stopped and auto-removed. V1..V88 bytes were not edited; provider
+and storage calls remained `0/0`.

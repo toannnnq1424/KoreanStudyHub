@@ -20,13 +20,13 @@ class DirectAudioAuthorizationCoordinatorTest {
 
     @Test
     void enablementFailsClosedWithoutDisclosureOrNamedManager() {
-        assertThatThrownBy(() -> coordinator("", "30"))
+        assertThatThrownBy(() -> coordinator("", "ACADEMIC_LEADER"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("disclosure");
         assertThatThrownBy(() -> coordinator("TEST-DISCLOSURE-V1", ""))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("grant manager");
-        assertThatThrownBy(() -> coordinator("TEST-DISCLOSURE-V1", "role:LECTURER"))
+        assertThatThrownBy(() -> coordinator("TEST-DISCLOSURE-V1", "LEADER"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("allowlist");
     }
@@ -34,7 +34,7 @@ class DirectAudioAuthorizationCoordinatorTest {
     @Test
     void consentUsesConfiguredDisclosureAndOwnedSpeakingAttemptQuery() {
         DirectAudioAuthorizationCoordinator coordinator =
-                coordinator("TEST-DISCLOSURE-V1", "30");
+                coordinator("TEST-DISCLOSURE-V1", "ACADEMIC_LEADER");
 
         var event = coordinator.grantConsent(11L, 22L, "event-0001",
                 "chain-0001", "TEST-CONSENT");
@@ -47,7 +47,8 @@ class DirectAudioAuthorizationCoordinatorTest {
     @Test
     void onlyNamedManagerCanGrantBoundedReviewerAccess() {
         DirectAudioAuthorizationCoordinator coordinator =
-                coordinator("TEST-DISCLOSURE-V1", "30,31");
+                coordinator("TEST-DISCLOSURE-V1",
+                        "ACADEMIC_LEADER,PRIVACY_RELEASE_OWNER");
 
         assertThatThrownBy(() -> coordinator.grantReviewer(99L, 40L, 22L,
                 "grant-0001", "TEST-GRANT", NOW.plus(Duration.ofDays(1))))
@@ -65,7 +66,14 @@ class DirectAudioAuthorizationCoordinatorTest {
         when(store.createReviewerGrant(any())).thenAnswer(invocation -> invocation.getArgument(0));
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.queryForObject(anyString(), any(Class.class), any(Object[].class)))
-                .thenReturn(1L);
+                .thenAnswer(invocation -> {
+                    String sql = invocation.getArgument(0);
+                    if (sql.contains("practice_speaking_audio_grant_manager_events")) {
+                        Object actorId = invocation.getArgument(2);
+                        return Long.valueOf(30L).equals(actorId) ? 1L : 0L;
+                    }
+                    return 1L;
+                });
         return new DirectAudioAuthorizationCoordinator(
                 store, jdbc, disclosure, Duration.ofDays(7), managers,
                 Clock.fixed(NOW, ZoneOffset.UTC));

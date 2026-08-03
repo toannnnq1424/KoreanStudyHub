@@ -31,10 +31,10 @@ public class DirectAudioAuthorizationCoordinator {
             String disclosureVersion,
             @Value("${app.practice.speaking-direct-audio.authorization.max-reviewer-grant:P7D}")
             Duration maximumReviewerGrant,
-            @Value("${app.practice.speaking-direct-audio.authorization.grant-manager-user-ids:}")
-            String grantManagerUserIds) {
+            @Value("${app.practice.speaking-direct-audio.authorization.grant-manager-authorities:}")
+            String grantManagerAuthorities) {
         this(store, jdbc, disclosureVersion, maximumReviewerGrant,
-                grantManagerUserIds, Clock.systemUTC());
+                grantManagerAuthorities, Clock.systemUTC());
     }
 
     DirectAudioAuthorizationCoordinator(
@@ -42,13 +42,13 @@ public class DirectAudioAuthorizationCoordinator {
             JdbcTemplate jdbc,
             String disclosureVersion,
             Duration maximumReviewerGrant,
-            String grantManagerUserIds,
+            String grantManagerAuthorities,
             Clock clock) {
         if (disclosureVersion == null || disclosureVersion.isBlank()) {
             throw new IllegalStateException(
                     "Direct-audio disclosure version must be configured before enablement.");
         }
-        Set<Long> managers = parseManagers(grantManagerUserIds);
+        Set<String> managers = parseAuthorities(grantManagerAuthorities);
         if (managers.isEmpty()) {
             throw new IllegalStateException(
                     "At least one explicit reviewer grant manager is required.");
@@ -60,13 +60,13 @@ public class DirectAudioAuthorizationCoordinator {
                         SELECT COUNT(*) FROM practice_attempts
                         WHERE id = ? AND user_id = ? AND skill = 'SPEAKING'
                         """, attemptId, learnerId),
-                (actorId, reviewerId, attemptId) -> managers.contains(actorId)
-                        && !actorId.equals(reviewerId)
+                (actorId, reviewerId, attemptId) -> !actorId.equals(reviewerId)
                         && exists(jdbc, """
                                 SELECT COUNT(*) FROM practice_attempts
                                 WHERE id = ? AND skill = 'SPEAKING'
                                   AND user_id <> ?
-                                """, attemptId, reviewerId),
+                                """, attemptId, reviewerId)
+                        && hasGrantManagerAuthority(jdbc, actorId, managers),
                 clock,
                 maximumReviewerGrant);
     }
@@ -109,18 +109,43 @@ public class DirectAudioAuthorizationCoordinator {
         return count != null && count == 1L;
     }
 
-    private static Set<Long> parseManagers(String csv) {
+    private static Set<String> parseAuthorities(String csv) {
         if (csv == null || csv.isBlank()) return Set.of();
-        try {
-            return Arrays.stream(csv.split(","))
-                    .map(String::trim)
-                    .filter(value -> !value.isEmpty())
-                    .map(Long::valueOf)
-                    .filter(value -> value > 0)
-                    .collect(Collectors.toUnmodifiableSet());
-        } catch (RuntimeException exception) {
+        Set<String> values = Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
+        Set<String> supported = Set.of("ACADEMIC_LEADER", "PRIVACY_RELEASE_OWNER");
+        if (!supported.containsAll(values)) {
             throw new IllegalStateException(
-                    "Reviewer grant manager allowlist is invalid.", exception);
+                    "Reviewer grant manager authority allowlist is invalid.");
         }
+        return values;
+    }
+
+    private static boolean hasGrantManagerAuthority(
+            JdbcTemplate jdbc, Long actorId, Set<String> authorities) {
+        String placeholders = authorities.stream().map(value -> "?")
+                .collect(Collectors.joining(","));
+        String sql = """
+                SELECT COUNT(*)
+                FROM practice_speaking_audio_grant_manager_events e
+                WHERE e.subject_user_id = ?
+                  AND e.authority_code IN (%s)
+                  AND e.event_type = 'ASSIGNED'
+                  AND e.id = (
+                    SELECT e2.id
+                    FROM practice_speaking_audio_grant_manager_events e2
+                    WHERE e2.subject_user_id = e.subject_user_id
+                      AND e2.authority_code = e.authority_code
+                    ORDER BY e2.occurred_at DESC, e2.id DESC
+                    LIMIT 1)
+                """.formatted(placeholders);
+        Object[] args = new Object[authorities.size() + 1];
+        args[0] = actorId;
+        int index = 1;
+        for (String authority : authorities) args[index++] = authority;
+        Long count = jdbc.queryForObject(sql, Long.class, args);
+        return count != null && count > 0;
     }
 }
