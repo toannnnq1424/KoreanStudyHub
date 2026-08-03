@@ -7,6 +7,7 @@ import com.ksh.features.admin.settings.service.PracticeAiControlPlaneAdminServic
 import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilityTestService;
 import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneException;
 import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioCapabilityRegistry;
+import com.ksh.features.practice.ai.controlplane.PracticeAiFixedProviderPresetRegistry;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
@@ -121,6 +122,27 @@ public class PracticeAiControlPlaneController {
             result.reject("profile", safeCode(exception));
             populateProfileForm(model, form.id() == null ? "create" : "edit");
             return "admin/settings-practice-ai-profile-form";
+        }
+    }
+
+    @PostMapping("/profiles/presets/{presetKey}")
+    public String createFixedProviderPreset(
+            @PathVariable String presetKey,
+            @AuthenticationPrincipal KshUserDetails principal,
+            RedirectAttributes redirect) {
+        if (principal == null) {
+            return errorRedirect(redirect, "ADMIN_SESSION_UNSUPPORTED");
+        }
+        try {
+            Long profileId = adminService.createFixedProviderPreset(
+                    presetKey, principal.getId());
+            redirect.addFlashAttribute(
+                    ATTR_FLASH_SUCCESS,
+                    "Đã tạo profile tắt. Nhập key khi sẵn sàng; model vẫn cần kiểm tra riêng.");
+            return "redirect:/admin/settings/practice-ai/profiles/"
+                    + profileId + "/edit";
+        } catch (RuntimeException exception) {
+            return errorRedirect(redirect, safeCode(exception));
         }
     }
 
@@ -274,6 +296,9 @@ public class PracticeAiControlPlaneController {
                 .findFirst().orElse(null);
 
         model.addAttribute("profiles", profiles);
+        model.addAttribute(
+                "fixedProviderPresets",
+                adminService.fixedProviderPresets(profiles));
         model.addAttribute("bindings", bindings);
         model.addAttribute("enabledProfileCount", enabledProfileCount);
         model.addAttribute("configuredBindingCount", configuredBindingCount);
@@ -284,6 +309,14 @@ public class PracticeAiControlPlaneController {
     }
 
     private void populateProfileForm(Model model, String mode) {
+        Object form = model.getAttribute("form");
+        if (form instanceof ProfileForm profileForm) {
+            model.addAttribute(
+                    "fixedPreset",
+                    PracticeAiFixedProviderPresetRegistry
+                            .findByProfileCode(profileForm.profileCode())
+                            .orElse(null));
+        }
         model.addAttribute("mode", mode);
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
     }

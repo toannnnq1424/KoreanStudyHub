@@ -1550,3 +1550,43 @@ mutated and no purge/provider/storage call occurred. Preproduction null-policy
 V95 rows are still not guessed into P90D; their count/disposition must be
 verified on the explicit disposable or deployment-target inventory before
 worker enablement.
+
+### 6.28 Fixed xAI/Grok and Groq Practice provider presets
+
+Status: `LOCAL_CONTROL_PLANE_ONLY / DISABLED / NEEDS_VERIFICATION / NO_PROVIDER_CALL`.
+
+On `2026-08-03`, the existing Admin Practice AI control plane gained exactly
+two server-owned OpenAI-compatible provider presets:
+
+| Preset/profile | Fixed base URL | Fixed official key console | Initial/readiness state |
+|---|---|---|---|
+| `XAI_GROK` / `PRACTICE_XAI_GROK` | `https://api.x.ai/v1` | `https://console.x.ai/team/default/api-keys` | disabled / `Cần kiểm tra` |
+| `GROQ` / `PRACTICE_GROQ` | `https://api.groq.com/openai/v1` | `https://console.groq.com/keys` | disabled / `Cần kiểm tra` |
+
+The xAI endpoint/key-console coordinates were checked against the official xAI
+Quickstart and its `Create API key` console link; the Groq coordinates were
+checked against the official Groq OpenAI Compatibility/API Keys pages. The
+repository does not infer a model ID from either provider name and does not
+call `/models`. Official console links are literal allowlisted HTTPS anchors
+with `target="_blank"` plus `rel="noopener noreferrer"`.
+
+Creating a preset is a permission-owned CSRF POST that writes only a separate,
+secretless, disabled profile skeleton. A later key submission stays masked and
+server-side; the stored preset secret cannot use the existing reveal endpoint.
+The registry rejects unknown preset keys, exact-coordinate tampering and every
+attempt to enable either profile before a future verification boundary. It
+does not create a purpose binding, run a capability probe or invoke transport.
+Practice retains no-global-fallback, and direct-audio capability/policy/
+calibration/dark-rollout/score-release gates are unchanged.
+
+JDK 17 focused verification:
+
+- `mvnw -Dtest=PracticeAiFixedProviderPresetTest,PracticeAiFixedProviderPresetControllerTest,PracticeAiFixedProviderPresetStaticContractTest,PracticeAiControlPlaneAdminServiceTest,PracticeAiControlPlaneStaticContractTest,AdminSettingsInformationArchitectureStaticContractTest test`
+  passed `35/35`;
+- `mvnw '-Dtest=PracticeAi*Test,AdminSettingsInformationArchitectureStaticContractTest,PracticeAim8CompatibilityStaticContractTest' test`
+  passed all `80` executed tests (`86` discovered, `6` explicitly
+  environment-gated integration/authorization skips); and
+- `mvnw -DskipTests package` completed green.
+
+No model, key, provider response or provider/storage/shared-DB call was used.
+No migration or existing Practice data was changed.

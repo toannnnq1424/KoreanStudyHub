@@ -19,6 +19,8 @@ class AdminSettingsInformationArchitectureStaticContractTest {
             "https://aistudio.google.com/apikey",
             "https://platform.deepseek.com/api_keys",
             "https://www.alibabacloud.com/help/en/model-studio/get-api-key",
+            "https://console.x.ai/team/default/api-keys",
+            "https://console.groq.com/keys",
             "https://developers.cloudflare.com/r2/api/tokens/");
 
     @Test

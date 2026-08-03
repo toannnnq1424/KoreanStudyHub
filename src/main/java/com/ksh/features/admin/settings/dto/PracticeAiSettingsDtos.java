@@ -54,8 +54,35 @@ public final class PracticeAiSettingsDtos {
             String baseUrl,
             boolean enabled,
             long revision,
-            LocalDateTime updatedAt
+            LocalDateTime updatedAt,
+            boolean verificationRequired
     ) {
+        public String statusCode() {
+            if (verificationRequired) {
+                return "check";
+            }
+            return enabled ? "ready" : "paused";
+        }
+
+        public String statusLabel() {
+            if (verificationRequired) {
+                return "Cần kiểm tra";
+            }
+            return enabled ? "Sẵn sàng" : "Tạm tắt";
+        }
+    }
+
+    public record FixedProviderPresetRow(
+            String key,
+            String profileCode,
+            String displayName,
+            String baseUrl,
+            String keyConsoleUrl,
+            Long configuredProfileId
+    ) {
+        public boolean configured() {
+            return configuredProfileId != null;
+        }
     }
 
     public record BindingForm(

@@ -3,6 +3,7 @@ package com.ksh.features.admin.settings.service;
 import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.BindingForm;
 import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.BindingRow;
 import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.CapabilityRunRow;
+import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.FixedProviderPresetRow;
 import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.ProfileForm;
 import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.ProfileRow;
 import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
@@ -10,6 +11,7 @@ import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilityTestRunRepo
 import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneCodec;
 import com.ksh.features.practice.ai.controlplane.PracticeAiCredentialMode;
 import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioCapabilityRegistry;
+import com.ksh.features.practice.ai.controlplane.PracticeAiFixedProviderPresetRegistry;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfile;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfileRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -63,7 +66,27 @@ public class PracticeAiControlPlaneAdminService {
                         profile.getBaseUrl(),
                         profile.isEnabled(),
                         profile.getRevision(),
-                        profile.getUpdatedAt()))
+                        profile.getUpdatedAt(),
+                        PracticeAiFixedProviderPresetRegistry
+                                .findByProfileCode(profile.getProfileCode())
+                                .isPresent()))
+                .toList();
+    }
+
+    public List<FixedProviderPresetRow> fixedProviderPresets(
+            List<ProfileRow> configuredProfiles) {
+        Map<String, Long> configuredIds = new HashMap<>();
+        for (ProfileRow profile : configuredProfiles) {
+            configuredIds.put(profile.profileCode(), profile.id());
+        }
+        return PracticeAiFixedProviderPresetRegistry.all().stream()
+                .map(preset -> new FixedProviderPresetRow(
+                        preset.key(),
+                        preset.profileCode(),
+                        preset.displayName(),
+                        preset.baseUrl(),
+                        preset.keyConsoleUrl(),
+                        configuredIds.get(preset.profileCode())))
                 .toList();
     }
 
@@ -89,8 +112,43 @@ public class PracticeAiControlPlaneAdminService {
                 profile.getProviderFamily(),
                 profile.getCredentialMode(),
                 profile.getBaseUrl(),
-                MASKED,
+                profile.getCredentialSecret() == null ? "" : MASKED,
                 profile.isEnabled()));
+    }
+
+    @Transactional
+    public Long createFixedProviderPreset(String presetKey, Long actorId) {
+        var preset = PracticeAiFixedProviderPresetRegistry.findByKey(presetKey)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "PRACTICE_AI_PROVIDER_PRESET_NOT_ALLOWED"));
+        Optional<PracticeAiProviderProfile> existing = profileRepository
+                .findByProfileCode(preset.profileCode());
+        if (existing.isPresent()) {
+            PracticeAiProviderProfile profile = existing.get();
+            if (profile.isEnabled()
+                    || !preset.baseUrl().equals(profile.getBaseUrl())
+                    || !PracticeAiBindingResolver.PROVIDER_FAMILY
+                            .equals(profile.getProviderFamily())
+                    || !PracticeAiCredentialMode.STATIC_BEARER.name()
+                            .equals(profile.getCredentialMode())) {
+                throw new IllegalStateException(
+                        "PRACTICE_AI_PROVIDER_PRESET_STATE_INVALID");
+            }
+            return profile.getId();
+        }
+        PracticeAiProviderProfile created = new PracticeAiProviderProfile(
+                preset.profileCode(),
+                preset.displayName(),
+                PracticeAiBindingResolver.PROVIDER_FAMILY,
+                preset.baseUrl(),
+                PracticeAiCredentialMode.STATIC_BEARER.name(),
+                null,
+                false,
+                actorId);
+        Long id = profileRepository.save(created).getId();
+        log.info("Fixed disabled Practice AI preset {} created by admin {}",
+                preset.profileCode(), actorId);
+        return id;
     }
 
     @Transactional(readOnly = true)
@@ -125,6 +183,11 @@ public class PracticeAiControlPlaneAdminService {
     @Transactional
     public Long saveProfile(ProfileForm form, Long actorId) {
         String code = form.profileCode().trim().toUpperCase(Locale.ROOT);
+        var fixedPreset = PracticeAiFixedProviderPresetRegistry
+                .findByProfileCode(code);
+        if (fixedPreset.isPresent()) {
+            assertFixedPresetContract(form, fixedPreset.get());
+        }
         String secret = newSecret(form.credentialSecret())
                 ? form.credentialSecret().trim()
                 : null;
@@ -143,12 +206,15 @@ public class PracticeAiControlPlaneAdminService {
             }
             PracticeAiProviderProfile created = new PracticeAiProviderProfile(
                     code,
-                    form.displayName().trim(),
+                    fixedPreset.map(PracticeAiFixedProviderPresetRegistry.Preset::displayName)
+                            .orElseGet(() -> form.displayName().trim()),
                     PracticeAiBindingResolver.PROVIDER_FAMILY,
-                    PracticeAiBindingResolver.normalizeBaseUrl(form.baseUrl()),
+                    fixedPreset.map(PracticeAiFixedProviderPresetRegistry.Preset::baseUrl)
+                            .orElseGet(() -> PracticeAiBindingResolver
+                                    .normalizeBaseUrl(form.baseUrl())),
                     credentialMode,
                     secret,
-                    form.enabled(),
+                    fixedPreset.isEmpty() && form.enabled(),
                     actorId);
             Long id = profileRepository.save(created).getId();
             log.info("Practice AI profile {} created by admin {}", code, actorId);
@@ -166,12 +232,15 @@ public class PracticeAiControlPlaneAdminService {
             throw new IllegalArgumentException("PROFILE_SECRET_REQUIRED");
         }
         profile.update(
-                form.displayName().trim(),
+                fixedPreset.map(PracticeAiFixedProviderPresetRegistry.Preset::displayName)
+                        .orElseGet(() -> form.displayName().trim()),
                 PracticeAiBindingResolver.PROVIDER_FAMILY,
-                PracticeAiBindingResolver.normalizeBaseUrl(form.baseUrl()),
+                fixedPreset.map(PracticeAiFixedProviderPresetRegistry.Preset::baseUrl)
+                        .orElseGet(() -> PracticeAiBindingResolver
+                                .normalizeBaseUrl(form.baseUrl())),
                 credentialMode,
                 secret,
-                form.enabled(),
+                fixedPreset.isEmpty() && form.enabled(),
                 actorId);
         profileRepository.save(profile);
         log.info("Practice AI profile {} updated by admin {}", code, actorId);
@@ -181,6 +250,11 @@ public class PracticeAiControlPlaneAdminService {
     @Transactional
     public boolean toggleProfile(Long id, Long actorId) {
         return profileRepository.findByIdForUpdate(id).map(profile -> {
+            if (PracticeAiFixedProviderPresetRegistry
+                    .findByProfileCode(profile.getProfileCode()).isPresent()) {
+                throw new IllegalStateException(
+                        "PRACTICE_AI_PROVIDER_PRESET_VERIFICATION_REQUIRED");
+            }
             profile.toggle(actorId);
             profileRepository.save(profile);
             return profile.isEnabled();
@@ -202,6 +276,8 @@ public class PracticeAiControlPlaneAdminService {
     @Transactional(readOnly = true)
     public Optional<String> revealSecret(Long id) {
         return profileRepository.findById(id)
+                .filter(profile -> PracticeAiFixedProviderPresetRegistry
+                        .findByProfileCode(profile.getProfileCode()).isEmpty())
                 .map(PracticeAiProviderProfile::getCredentialSecret);
     }
 
@@ -340,6 +416,22 @@ public class PracticeAiControlPlaneAdminService {
 
     private static boolean newSecret(String value) {
         return value != null && !value.isBlank() && !MASKED.equals(value.trim());
+    }
+
+    private static void assertFixedPresetContract(
+            ProfileForm form,
+            PracticeAiFixedProviderPresetRegistry.Preset preset) {
+        String normalizedBaseUrl = PracticeAiBindingResolver
+                .normalizeBaseUrl(form.baseUrl());
+        if (!preset.displayName().equals(form.displayName().trim())
+                || !preset.baseUrl().equals(normalizedBaseUrl)
+                || !PracticeAiBindingResolver.PROVIDER_FAMILY
+                        .equals(form.providerFamily())
+                || !PracticeAiCredentialMode.STATIC_BEARER.name()
+                        .equals(form.credentialMode())) {
+            throw new IllegalArgumentException(
+                    "PRACTICE_AI_PROVIDER_PRESET_CONTRACT_MISMATCH");
+        }
     }
 
     private static String requiredCapabilities(PracticeAiPurpose purpose) {

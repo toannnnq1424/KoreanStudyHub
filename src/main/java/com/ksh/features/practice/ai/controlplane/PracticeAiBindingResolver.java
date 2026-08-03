@@ -48,6 +48,8 @@ public class PracticeAiBindingResolver {
         PracticeAiProviderProfile profile = current.getProviderProfile();
         if (!current.isEnabled()
                 || !profile.isEnabled()
+                || PracticeAiFixedProviderPresetRegistry
+                        .findByProfileCode(profile.getProfileCode()).isPresent()
                 || current.getRevision() != snapshot.bindingRevision()
                 || profile.getRevision() != snapshot.providerProfileRevision()
                 || !current.getModel().equals(snapshot.model())
@@ -67,6 +69,11 @@ public class PracticeAiBindingResolver {
             PracticeAiPurpose purpose,
             PracticeAiPurposeBinding binding) {
         PracticeAiProviderProfile profile = binding.getProviderProfile();
+        if (PracticeAiFixedProviderPresetRegistry
+                .findByProfileCode(profile.getProfileCode()).isPresent()) {
+            throw new PracticeAiControlPlaneException(
+                    "PRACTICE_AI_PROVIDER_PRESET_VERIFICATION_REQUIRED", false);
+        }
         if (!binding.isEnabled() || !profile.isEnabled()) {
             throw unavailable();
         }
