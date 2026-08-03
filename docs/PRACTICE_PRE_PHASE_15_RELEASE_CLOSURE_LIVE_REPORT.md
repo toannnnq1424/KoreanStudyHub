@@ -1019,3 +1019,51 @@ learner score path. Any persistence must be a new forward-only migration and
 must store bounded observation/provenance data without raw audio, tokens or
 secrets. Learner presenter/progress/result surfaces and score release must stay
 disconnected.
+
+### 6.16 B3 dark-observation persistence and reviewer inspection boundary
+
+Status: `V92_APPLIED / REVIEWER_GRANT_ENFORCED / NON_SCORE_BEARING / NO_WEB_ROUTE`.
+
+Forward-only V92 adds
+`practice_speaking_direct_audio_dark_observations`; V1..V91 bytes remain
+unchanged. Capture uses `INSERT ... SELECT` restricted to a real Speaking
+attempt. The record contains contract/evaluator/calibration identities,
+provider total/confidence, a backend-built numeric/timestamp evidence
+projection, and SHA-256 receipt/cache fingerprints. It contains no raw audio,
+linguistic/free-text observation, raw provider request ID, token, credential,
+storage key, holistic score or attempt points.
+
+The 30-day ceiling comes from the approved
+`KSH-SPEAKING-DIRECT-AUDIO-DISCLOSURE-V1` artifact and is enforced both before
+write and by the database check. Deleted or expired observations cannot be
+read. The JDBC read embeds an `EXISTS` check for an active, non-revoked,
+unexpired reviewer grant on the same attempt and exact direct-audio purpose;
+there is no role-wide fallback. The reviewer view hard-codes score release
+false and exposes no holistic/attempt score. No controller, learner route,
+presenter, progress service or result DTO consumes this boundary.
+
+Dated `2026-08-03` JDK `17.0.19` evidence:
+
+- focused persistence/authorization/acoustic command passed `17/17` after a
+  source assertion was corrected to inspect schema identities rather than a
+  negative word appearing only in a migration comment;
+- a fresh tmpfs MySQL 8.4 container and catalog `ksh_test_pre15_v92` applied
+  continuous V1..V92: `92` successful rows, min/max `1/92`, zero failures,
+  exactly one dark-observation table and zero observation rows;
+- Spring/Flyway/Hibernate startup passed `4/4`. Its first startup caught that
+  the new `@Repository` had been declared final and could not receive Spring's
+  exception-translation proxy; the class was corrected and the accepted rerun
+  validated all 92 migrations and the full context;
+- combined B1/B2/B3/control-plane/readiness/acoustic/persistence command passed
+  `119` tests: `113` executed green and `6` existing DB/auth guards skipped;
+  the migration ceiling/continuity guards were intentionally advanced from V91
+  to exact V92 and remain closed to V93+; and
+- the disposable container was stopped and auto-removed. Real provider/storage
+  calls, shared-DB mutations, dependencies and learner score releases remained
+  `0`.
+
+This slice deliberately stops before a web inspection page and before physical
+retention cleanup. A future reviewer UI must preserve the same named grant,
+CSRF/auth and ranged-audio controls. A deletion worker must claim due rows and
+record deletion evidence before production capture can be enabled; expiry
+already hides due rows fail closed.
