@@ -8,6 +8,7 @@ import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.ProfileRow;
 import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
 import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilityTestRunRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneCodec;
+import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioProviderCatalog;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfile;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfileRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
@@ -200,6 +201,9 @@ public class PracticeAiControlPlaneAdminService {
         if (directAudio && !form.directAudioInput()) {
             throw new IllegalArgumentException("DIRECT_AUDIO_INPUT_CAPABILITY_REQUIRED");
         }
+        if (directAudio) {
+            assertDirectAudioCandidate(profile, form.model(), form.enabled());
+        }
         if (directAudio && form.enabled() && !policyEvidenceComplete(form)) {
             throw new IllegalArgumentException("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
         }
@@ -266,6 +270,11 @@ public class PracticeAiControlPlaneAdminService {
                 && !policyEvidenceComplete(binding)) {
             throw new IllegalStateException("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
         }
+        if (!binding.isEnabled()
+                && purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION) {
+            assertDirectAudioCandidate(
+                    binding.getProviderProfile(), binding.getModel(), true);
+        }
         binding.toggle(actorId);
         bindingRepository.save(binding);
         return binding.isEnabled();
@@ -331,6 +340,20 @@ public class PracticeAiControlPlaneAdminService {
                 && present(binding.getNonTrainingEvidenceId())
                 && present(binding.getRetentionEvidenceId())
                 && present(binding.getDeletionSlaEvidenceId());
+    }
+
+    private static void assertDirectAudioCandidate(
+            PracticeAiProviderProfile profile,
+            String model,
+            boolean enabling) {
+        var candidate = PracticeDirectAudioProviderCatalog
+                .match(profile.getBaseUrl(), model)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED"));
+        if (enabling && !candidate.runtimeAuthReady()) {
+            throw new IllegalStateException(
+                    "DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED");
+        }
     }
 
     private static boolean present(String value) {

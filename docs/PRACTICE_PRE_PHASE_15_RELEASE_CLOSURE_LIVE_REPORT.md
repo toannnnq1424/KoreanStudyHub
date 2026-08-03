@@ -730,3 +730,56 @@ profile and exact model only after official model documentation proves direct
 audio input, then attach immutable evidence IDs for processing region,
 non-training, retention and deletion SLA. Provider-family presets and model
 names are convenience only, never readiness evidence.
+
+### 6.11 B3 dual Gemini provider selection
+
+Status: `BOTH_CANDIDATES_LOCKED / DEVELOPER_DARK_CONFIGURABLE / ENTERPRISE_AUTH_RED`.
+
+The product owner selected both previously proposed Gemini deployment options.
+This does not create two active evaluators or a fallback chain: the existing
+`practice_ai_purpose_bindings` primary key still permits exactly one active
+binding for `PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION`. Switching profiles is
+an explicit admin revision and therefore changes the binding/cache authority;
+the other profile may coexist only as an unbound or inactive profile.
+
+The repository-controlled catalog now accepts exactly these dated pairs:
+
+| Candidate | Exact model/endpoint contract | Runtime disposition |
+| --- | --- | --- |
+| `GEMINI_DEVELOPER_DIRECT_AUDIO` | `gemini-3.6-flash` at `https://generativelanguage.googleapis.com/v1beta/openai` | Existing static-bearer transport is technically compatible. It may be configured only behind all B1/B2/B3 evidence and remains dark/non-score-bearing. |
+| `GEMINI_ENTERPRISE_DIRECT_AUDIO` | `gemini-3.5-flash` at a concrete Google `aiplatform.googleapis.com` project/location `.../endpoints/openapi` endpoint | Binding may be saved disabled. Enabling/resolution fails with `DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED`; Google Cloud OAuth/ADC uses short-lived access tokens, so the static API-key field must not masquerade as production Enterprise authentication. |
+
+Official documentation reviewed on `2026-08-03` records Developer API
+OpenAI-compatible bearer authentication, `gemini-3.6-flash`, direct
+`input_audio` and structured output:
+`https://ai.google.dev/gemini-api/docs/openai`. Google Cloud documents the
+OpenAI-compatible endpoint, Google Cloud auth/ADC and short-lived token refresh
+at `https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/migrate/openai/auth-and-credentials`.
+The Enterprise `gemini-3.5-flash` model card records audio input, structured
+output, Chat Completions, supported processing regions and GA lifecycle at
+`https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-flash`.
+
+Backend enforcement rejects arbitrary/lookalike hosts, placeholder
+project/location paths, wrong model/endpoint combinations, insecure HTTP and
+Enterprise enable/toggle attempts through a static bearer. The Admin model
+picker exposes both choices without `/models` discovery and explains the
+Enterprise ADC blocker. Matching a catalog candidate still supplies no legal
+or privacy evidence: region, non-training, retention and deletion-SLA evidence
+IDs remain mandatory and no policy value was fabricated.
+
+JDK `17.0.19` focused catalog/admin/resolver/template/transport gate passed
+`29/29`. The consolidated B1/B2/B3 regression gate passed `55` tests with
+`50` executed green and `5` existing DB/auth integration guards skipped for
+missing disposable-DB configuration. The initial focused run exposed one
+test fixture that paired the Enterprise endpoint with the Developer model; the
+catalog rejected it as designed, the fixture was corrected, and the green
+rerun is the accepted evidence. Real provider/storage/database calls remained
+`0/0/0`; no migration, dependency, credential, score-release path or shared
+state changed.
+
+Next isolated boundary: implement a Google Cloud ADC credential-source port
+and metadata-safe authorization adapter before Enterprise can be enabled. That
+slice must use fake token-source tests, avoid logging tokens, recheck the
+dependency/SBOM delta if a Google auth library is introduced, and still stop
+before any provider request. Developer dark rollout separately remains blocked
+on real policy evidence IDs, consent/grants and approved calibration artifacts.

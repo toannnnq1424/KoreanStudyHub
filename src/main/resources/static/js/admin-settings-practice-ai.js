@@ -115,6 +115,11 @@
         var path = parsed.pathname.replace(/\/+$/, '');
         if (parsed.hostname === 'api.openai.com' && path === '/v1') return 'openai';
         if (parsed.hostname === 'generativelanguage.googleapis.com' && path === '/v1beta/openai') return 'gemini';
+        if ((parsed.hostname === 'aiplatform.googleapis.com'
+          || /^[a-z0-9-]+-aiplatform\.googleapis\.com$/.test(parsed.hostname))
+          && /^\/v1(?:beta1)?\/projects\/[^/]+\/locations\/[^/]+\/endpoints\/openapi$/.test(path)) {
+          return 'gemini-enterprise';
+        }
         if (parsed.hostname === 'api.deepseek.com' && path === '/v1') return 'deepseek';
         var alibabaHost = parsed.hostname === 'dashscope.aliyuncs.com'
           || parsed.hostname === 'dashscope-intl.aliyuncs.com'

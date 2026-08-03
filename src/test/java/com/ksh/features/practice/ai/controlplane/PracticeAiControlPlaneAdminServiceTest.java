@@ -108,7 +108,59 @@ class PracticeAiControlPlaneAdminServiceTest {
         verify(bindings, never()).save(any());
     }
 
+    @Test
+    void directAudioBindingRejectsUnverifiedProviderModelPair() {
+        when(profiles.findById(7L)).thenReturn(Optional.of(new PracticeAiProviderProfile(
+                "UNKNOWN_AUDIO", "Unknown", PracticeAiBindingResolver.PROVIDER_FAMILY,
+                "https://provider.invalid/v1", "SECRET", true, 9L)));
+
+        assertThatThrownBy(() -> service.saveBinding(
+                directAudioForm(true, false, "", "", "", ""), 9L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED");
+        verify(bindings, never()).save(any());
+    }
+
+    @Test
+    void enterpriseCandidateMayBeSavedDisabledButCannotBeEnabledWithStaticSecret() {
+        PracticeAiProviderProfile enterprise = new PracticeAiProviderProfile(
+                "GEMINI_ENTERPRISE_DIRECT_AUDIO",
+                "Gemini Enterprise",
+                PracticeAiBindingResolver.PROVIDER_FAMILY,
+                "https://aiplatform.googleapis.com/v1/projects/ksh-project/"
+                        + "locations/asia-southeast1/endpoints/openapi",
+                "SHORT_LIVED_TOKEN_MUST_NOT_BECOME_PRODUCTION_AUTH",
+                true,
+                9L);
+        when(profiles.findById(7L)).thenReturn(Optional.of(enterprise));
+
+        service.saveBinding(directAudioFormWithModel(
+                PracticeDirectAudioProviderCatalog.GEMINI_ENTERPRISE_MODEL,
+                true, false, "", "", "", ""), 9L);
+        verify(bindings).save(any());
+
+        assertThatThrownBy(() -> service.saveBinding(directAudioFormWithModel(
+                PracticeDirectAudioProviderCatalog.GEMINI_ENTERPRISE_MODEL,
+                true, true, "region/1", "non-training/1",
+                "retention/1", "deletion/1"), 9L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED");
+    }
+
     private static BindingForm directAudioForm(
+            boolean directAudioInput,
+            boolean enabled,
+            String region,
+            String nonTraining,
+            String retention,
+            String deletionSla) {
+        return directAudioFormWithModel(
+                PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_MODEL,
+                directAudioInput, enabled, region, nonTraining, retention, deletionSla);
+    }
+
+    private static BindingForm directAudioFormWithModel(
+            String model,
             boolean directAudioInput,
             boolean enabled,
             String region,
@@ -118,7 +170,7 @@ class PracticeAiControlPlaneAdminServiceTest {
         return new BindingForm(
                 PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
                 7L,
-                "explicit-audio-model",
+                model,
                 false,
                 5_000,
                 60_000,
@@ -140,7 +192,7 @@ class PracticeAiControlPlaneAdminServiceTest {
                 "PRACTICE_PRIMARY",
                 "Primary",
                 PracticeAiBindingResolver.PROVIDER_FAMILY,
-                "https://provider.invalid/v1",
+                PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_BASE_URL,
                 "AIM5_REALISTIC_TEST_SECRET",
                 true,
                 9L);

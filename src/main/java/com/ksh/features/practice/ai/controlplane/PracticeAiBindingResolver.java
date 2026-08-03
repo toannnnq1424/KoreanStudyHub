@@ -89,6 +89,16 @@ public class PracticeAiBindingResolver {
             throw new PracticeAiControlPlaneException(
                     "DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE", false);
         }
+        if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION) {
+            var candidate = PracticeDirectAudioProviderCatalog
+                    .match(profile.getBaseUrl(), binding.getModel())
+                    .orElseThrow(() -> new PracticeAiControlPlaneException(
+                            "DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED", false));
+            if (!candidate.runtimeAuthReady()) {
+                throw new PracticeAiControlPlaneException(
+                        "DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED", false);
+            }
+        }
         PracticeAiLimits limits = codec.parseLimits(binding.getLimitsJson());
         PracticeAiExecutionSnapshot snapshot = new PracticeAiExecutionSnapshot(
                 purpose,
