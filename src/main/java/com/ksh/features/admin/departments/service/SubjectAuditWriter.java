@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
-/** Single insertion point for {@code subject_activities} rows. */
+/** Single insertion point for {@code subjects_activities} rows. */
 @Component
 class SubjectAuditWriter {
 

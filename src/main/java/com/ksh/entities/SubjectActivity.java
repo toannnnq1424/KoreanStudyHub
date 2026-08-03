@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 
 /** Immutable audit-log entry for administrative mutations on a subject. */
 @Entity
-@Table(name = "subject_activities")
+@Table(name = "subjects_activities")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SubjectActivity {

@@ -36,7 +36,8 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "V95__subject_library_hierarchy.sql",
                 "V96__remove_unused_activity_tables.sql",
                 "V97__remove_random_class_code.sql",
-                "V98__remove_legacy_invite_provenance.sql");
+                "V98__remove_legacy_invite_provenance.sql",
+                "V99__pluralize_subjects_activity_table.sql");
         String combined = files.stream().map(this::readUnchecked).reduce("", String::concat);
 
         assertThat(count(combined, "CREATE TABLE")).isEqualTo(1);
@@ -106,6 +107,19 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "SET joined_via = 'REQUEST'",
                 "CHECK (joined_via IN ('IMPORT','MANUAL','REQUEST'))");
         assertThat(migration).doesNotContain("CREATE TABLE", "practice_");
+    }
+
+    @Test
+    void live_subject_audit_reaches_the_requested_plural_physical_name()
+            throws IOException {
+        String migration = read("V99__pluralize_subjects_activity_table.sql");
+        String entity = Files.readString(Path.of(
+                "src/main/java/com/ksh/entities/SubjectActivity.java"));
+
+        assertThat(migration).contains(
+                "RENAME TABLE subject_activities TO subjects_activities");
+        assertThat(migration).doesNotContain("CREATE TABLE", "DROP TABLE", "practice_");
+        assertThat(entity).contains("@Table(name = \"subjects_activities\")");
     }
 
     @Test
