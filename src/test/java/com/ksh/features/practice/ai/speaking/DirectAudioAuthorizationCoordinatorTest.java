@@ -1,5 +1,6 @@
 package com.ksh.features.practice.ai.speaking;
 
+import com.ksh.features.practice.ai.speaking.acoustic.DirectAudioDarkObservationJdbcStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -7,12 +8,14 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DirectAudioAuthorizationCoordinatorTest {
@@ -59,9 +62,32 @@ class DirectAudioAuthorizationCoordinatorTest {
         assertThat(grant.expiresAt()).isEqualTo(NOW.plus(Duration.ofDays(1)));
     }
 
+    @Test
+    void withdrawalLogicallyDeletesOnlyThatLearnersDarkObservationsInSameBoundary() {
+        DirectAudioAuthorizationJdbcStore store = mock(DirectAudioAuthorizationJdbcStore.class);
+        DirectAudioDarkObservationJdbcStore darkObservations =
+                mock(DirectAudioDarkObservationJdbcStore.class);
+        when(store.latestConsent(11L, 22L,
+                DirectAudioAuthorizationLifecycleService.PURPOSE)).thenReturn(Optional.of(
+                new DirectAudioAuthorizationLifecycleService.ConsentEvent(
+                        "event-0001", "chain-0001", 11L, 22L,
+                        DirectAudioAuthorizationLifecycleService.EventType.GRANTED,
+                        "TEST-DISCLOSURE-V1", "TEST-CONSENT", NOW.minusSeconds(1))));
+        when(store.appendConsent(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        DirectAudioAuthorizationCoordinator coordinator = coordinator(
+                store, darkObservations, "TEST-DISCLOSURE-V1", "ACADEMIC_LEADER");
+
+        coordinator.withdrawConsent(11L, 22L, "event-0002", "TEST-WITHDRAWAL");
+
+        verify(darkObservations).deleteForWithdrawal(11L, 22L,
+                "TEST-WITHDRAWAL", NOW);
+    }
+
     private static DirectAudioAuthorizationCoordinator coordinator(
             String disclosure, String managers) {
         DirectAudioAuthorizationJdbcStore store = mock(DirectAudioAuthorizationJdbcStore.class);
+        DirectAudioDarkObservationJdbcStore darkObservations =
+                mock(DirectAudioDarkObservationJdbcStore.class);
         when(store.appendConsent(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(store.createReviewerGrant(any())).thenAnswer(invocation -> invocation.getArgument(0));
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
@@ -75,7 +101,19 @@ class DirectAudioAuthorizationCoordinatorTest {
                     return 1L;
                 });
         return new DirectAudioAuthorizationCoordinator(
-                store, jdbc, disclosure, Duration.ofDays(7), managers,
+                store, darkObservations, jdbc, disclosure, Duration.ofDays(7), managers,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    private static DirectAudioAuthorizationCoordinator coordinator(
+            DirectAudioAuthorizationJdbcStore store,
+            DirectAudioDarkObservationJdbcStore darkObservations,
+            String disclosure, String managers) {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.queryForObject(anyString(), any(Class.class), any(Object[].class)))
+                .thenReturn(1L);
+        return new DirectAudioAuthorizationCoordinator(
+                store, darkObservations, jdbc, disclosure, Duration.ofDays(7), managers,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 }

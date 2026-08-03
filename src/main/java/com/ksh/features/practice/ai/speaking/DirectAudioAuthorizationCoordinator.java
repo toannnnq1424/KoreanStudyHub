@@ -1,5 +1,6 @@
 package com.ksh.features.practice.ai.speaking;
 
+import com.ksh.features.practice.ai.speaking.acoustic.DirectAudioDarkObservationJdbcStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,10 +23,12 @@ import java.util.stream.Collectors;
 public class DirectAudioAuthorizationCoordinator {
 
     private final DirectAudioAuthorizationLifecycleService lifecycle;
+    private final DirectAudioDarkObservationJdbcStore darkObservations;
     private final String disclosureVersion;
 
     public DirectAudioAuthorizationCoordinator(
             DirectAudioAuthorizationJdbcStore store,
+            DirectAudioDarkObservationJdbcStore darkObservations,
             JdbcTemplate jdbc,
             @Value("${app.practice.speaking-direct-audio.authorization.disclosure-version:}")
             String disclosureVersion,
@@ -33,12 +36,13 @@ public class DirectAudioAuthorizationCoordinator {
             Duration maximumReviewerGrant,
             @Value("${app.practice.speaking-direct-audio.authorization.grant-manager-authorities:}")
             String grantManagerAuthorities) {
-        this(store, jdbc, disclosureVersion, maximumReviewerGrant,
+        this(store, darkObservations, jdbc, disclosureVersion, maximumReviewerGrant,
                 grantManagerAuthorities, Clock.systemUTC());
     }
 
     DirectAudioAuthorizationCoordinator(
             DirectAudioAuthorizationJdbcStore store,
+            DirectAudioDarkObservationJdbcStore darkObservations,
             JdbcTemplate jdbc,
             String disclosureVersion,
             Duration maximumReviewerGrant,
@@ -54,6 +58,7 @@ public class DirectAudioAuthorizationCoordinator {
                     "At least one explicit reviewer grant manager is required.");
         }
         this.disclosureVersion = disclosureVersion.trim();
+        this.darkObservations = java.util.Objects.requireNonNull(darkObservations);
         this.lifecycle = new DirectAudioAuthorizationLifecycleService(
                 store,
                 (learnerId, attemptId) -> exists(jdbc, """
@@ -82,7 +87,11 @@ public class DirectAudioAuthorizationCoordinator {
     @Transactional
     public DirectAudioAuthorizationLifecycleService.ConsentEvent withdrawConsent(
             Long learnerId, Long attemptId, String eventKey, String evidenceId) {
-        return lifecycle.withdrawConsent(learnerId, attemptId, eventKey, evidenceId);
+        DirectAudioAuthorizationLifecycleService.ConsentEvent event = lifecycle.withdrawConsent(
+                learnerId, attemptId, eventKey, evidenceId);
+        darkObservations.deleteForWithdrawal(
+                learnerId, attemptId, evidenceId, event.occurredAt());
+        return event;
     }
 
     @Transactional

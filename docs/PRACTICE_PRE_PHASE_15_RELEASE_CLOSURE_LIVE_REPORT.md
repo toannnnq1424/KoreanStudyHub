@@ -1300,3 +1300,8 @@ The JDK `17.0.19` direct-audio focused selector passed `55/55` for this
 boundary; the immutable query/static gate covers latest-event ordering, exact
 purpose, grant expiry/revocation, retention/deletion and the no-learner-surface
 scan.
+
+The targeted JDK `17.0.19` withdrawal/authorization/inspection/playback gate
+passed `22/22` with mocks/static fixtures only:
+
+`mvnw -Dtest=DirectAudioAuthorizationCoordinatorTest,DirectAudioAuthorizationLifecycleServiceTest,DirectAudioAuthorizationJdbcStoreTest,DirectAudioDarkObservationPersistenceStaticTest,DirectAudioDarkObservationServiceTest,DirectAudioReviewerPlaybackServiceTest,DirectAudioReviewerPlaybackControllerTest test`

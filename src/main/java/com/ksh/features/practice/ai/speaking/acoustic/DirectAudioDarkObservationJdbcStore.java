@@ -96,6 +96,17 @@ public class DirectAudioDarkObservationJdbcStore
                 .stream().findFirst();
     }
 
+    /** Logical deletion for a learner's withdrawal transaction; no audio object is touched here. */
+    public int deleteForWithdrawal(
+            Long learnerId, Long attemptId, String evidenceId, Instant deletedAt) {
+        return jdbc.update("""
+                UPDATE practice_speaking_direct_audio_dark_observations o
+                JOIN practice_attempts a ON a.id = o.attempt_id
+                SET o.deleted_at = ?, o.deleted_by = ?, o.deletion_evidence_id = ?
+                WHERE o.attempt_id = ? AND a.user_id = ? AND o.deleted_at IS NULL
+                """, Timestamp.from(deletedAt), learnerId, evidenceId, attemptId, learnerId);
+    }
+
     private static DirectAudioDarkObservationService.StoredObservation stored(
             ResultSet rs, int row) throws SQLException {
         return new DirectAudioDarkObservationService.StoredObservation(
