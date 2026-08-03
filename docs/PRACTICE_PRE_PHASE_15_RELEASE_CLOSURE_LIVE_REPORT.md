@@ -590,3 +590,20 @@ and auto-removed after the read-only verdict query.
 Until the remaining values are supplied, B1/B2 remain unwired production
 contracts: no controller or provider adapter can transfer audio, and score
 release is structurally unavailable.
+
+The next isolated B2 slice adds `DirectAudioAuthorizationJdbcStore`, the
+production V88 persistence adapter only. Consent lookup is deterministically
+latest-event-first. Reviewer lookup requires named reviewer + attempt + exact
+purpose, unexpired state and no revocation; mutation locking uses `FOR UPDATE`
+and refuses to run outside an active transaction. Queries and mappings contain
+no audio bytes, storage key, provider request ID or credential field. No
+controller, lifecycle facade or evaluator wiring was added.
+
+Adapter evidence (`2026-08-03`, JDK 17): focused lifecycle/evaluator/migration/
+adapter gate passed `20/20`. The first fresh Spring startup exposed and rejected
+a final-class CGLIB proxy incompatibility before any application operation; the
+adapter was made proxy-compatible and the retry passed `KshApplicationTests`
+`3/3` against the isolated V88 catalog. The catalog remained at 88 successful
+migrations and its dedicated auto-remove container was stopped. This failed
+startup is not counted as green evidence. Provider/storage calls remained
+`0/0`; no shared database was contacted.
