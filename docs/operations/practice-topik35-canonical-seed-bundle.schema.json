@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-topik35-canonical-seed-bundle-v1",
+  "title": "Canonical TOPIK 35 seed bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "bundleId", "capturedAt", "status", "sourceAuthority", "loadPolicy", "rights", "storageContract", "artifacts", "listening", "postTestReview", "contentScope"],
+  "properties": {
+    "schemaVersion": {"const": "practice-topik35-canonical-seed-bundle-v1"},
+    "bundleId": {"const": "topik35-v1"},
+    "capturedAt": {"type": "string", "format": "date"},
+    "status": {"const": "PROVENANCE_CAPTURED_CONTENT_QA_PENDING"},
+    "sourceAuthority": {"const": "REPO_MANIFEST_LOCAL_ASSETS_DO_NOT_LOAD"},
+    "loadPolicy": {"$ref": "#/$defs/loadPolicy"},
+    "rights": {"$ref": "#/$defs/rights"},
+    "storageContract": {"$ref": "#/$defs/storageContract"},
+    "artifacts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifact"}},
+    "listening": {"$ref": "#/$defs/listening"},
+    "postTestReview": {"$ref": "#/$defs/postTestReview"},
+    "contentScope": {"$ref": "#/$defs/contentScope"}
+  },
+  "$defs": {
+    "loadPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["disposableLocalOnly", "sharedDatabaseAllowed", "productionDatabaseAllowed", "flywayMigration", "massQuestionImport"],
+      "properties": {
+        "disposableLocalOnly": {"const": true}, "sharedDatabaseAllowed": {"const": false},
+        "productionDatabaseAllowed": {"const": false}, "flywayMigration": {"const": false},
+        "massQuestionImport": {"const": false}
+      }
+    },
+    "rights": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertionId", "assertedBy", "scope", "learnerAttributionRequired", "metadataVisibility"],
+      "properties": {
+        "assertionId": {"type": "string", "minLength": 1}, "assertedBy": {"const": "USER_DATA_OWNER"},
+        "scope": {"type": "string", "minLength": 1}, "learnerAttributionRequired": {"const": false},
+        "metadataVisibility": {"const": "OPERATIONS_ONLY"}
+      }
+    },
+    "storageContract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["port", "profileCode", "currentBackend", "futureBackendCompatible", "logicalKeyOnly", "absoluteLocalPathAllowed", "bucketOrDeliveryUrlStored", "deliveryResolvedServerSide", "legacyAudioUrlColumnsLoaded", "prefixes"],
+      "properties": {
+        "port": {"const": "AssetStorageService"}, "profileCode": {"const": "PRACTICE_AUTHORING"},
+        "currentBackend": {"const": "LOCAL"}, "futureBackendCompatible": {"const": "R2"},
+        "logicalKeyOnly": {"const": true}, "absoluteLocalPathAllowed": {"const": false},
+        "bucketOrDeliveryUrlStored": {"const": false}, "deliveryResolvedServerSide": {"const": true},
+        "legacyAudioUrlColumnsLoaded": {"const": false},
+        "prefixes": {"type": "array", "minItems": 7, "uniqueItems": true, "items": {"type": "string", "pattern": "^practice-seed/topik35-v1/"}}
+      }
+    },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "role", "logicalKey", "mediaType", "originalSource", "sourceUrls", "originalIdentity", "sha256", "sizeBytes", "retrievedAt", "rightsAssertionId", "provenanceStatus", "learnerVisible"],
+      "properties": {
+        "artifactId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]+$"},
+        "role": {"enum": ["SOURCE_DOCUMENT", "SOURCE_AUDIO", "SOURCE_IMAGE", "DERIVED_AUDIO_MP3", "DERIVED_PAGE_IMAGE", "DERIVED_TRANSCRIPT", "REVIEW_ARTIFACT"]},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/(source/(document|audio|image)|derived/(audio-mp3|page-image|transcript)|review/artifact)/[0-9a-f]{64}\\.[a-z0-9]{1,10}$"},
+        "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
+        "originalSource": {"type": "string", "minLength": 1},
+        "sourceUrls": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "format": "uri"}},
+        "originalIdentity": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "sizeBytes": {"type": "integer", "minimum": 1},
+        "retrievedAt": {"type": "string", "format": "date"},
+        "rightsAssertionId": {"type": "string", "minLength": 1},
+        "provenanceStatus": {"type": "string", "minLength": 1},
+        "learnerVisible": {"const": false}
+      }
+    },
+    "listeningGroup": {
+      "type": "object", "additionalProperties": false,
+      "required": ["groupId", "questionFrom", "questionTo", "instruction", "startMs", "endMs", "timingStatus"],
+      "properties": {
+        "groupId": {"type": "string", "pattern": "^L[0-9]{2}_[0-9]{2}$"},
+        "questionFrom": {"type": "integer", "minimum": 1, "maximum": 50},
+        "questionTo": {"type": "integer", "minimum": 1, "maximum": 50},
+        "instruction": {"type": "string", "minLength": 1},
+        "startMs": {"type": "null"}, "endMs": {"type": "null"},
+        "timingStatus": {"const": "PENDING_MANUAL_QA"}
+      }
+    },
+    "listening": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionCount", "singleOrderedAudioProgram", "audioLogicalKey", "examPlaybackPolicy", "timingAuthority", "groups"],
+      "properties": {
+        "questionCount": {"const": 50}, "singleOrderedAudioProgram": {"const": true},
+        "audioLogicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/derived/audio-mp3/[0-9a-f]{64}\\.mp3$"},
+        "examPlaybackPolicy": {"$ref": "#/$defs/examPlaybackPolicy"},
+        "timingAuthority": {"$ref": "#/$defs/timingAuthority"},
+        "groups": {"type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/listeningGroup"}}
+      }
+    },
+    "examPlaybackPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["startOnce", "continuousPlayback", "seekAllowed", "replayAllowed", "learnerControlsQuestionNavigation", "timestampAutoNavigation", "timestampAutoHighlight", "timestampDrivenAssistance"],
+      "properties": {
+        "startOnce": {"const": true}, "continuousPlayback": {"const": true},
+        "seekAllowed": {"const": false}, "replayAllowed": {"const": false},
+        "learnerControlsQuestionNavigation": {"const": true},
+        "timestampAutoNavigation": {"const": false},
+        "timestampAutoHighlight": {"const": false},
+        "timestampDrivenAssistance": {"const": false}
+      }
+    },
+    "timingAuthority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["use", "examModeUse", "sourceCandidateArtifactId", "sourceCandidateAuthoritative", "allRangesRequireManualQa"],
+      "properties": {
+        "use": {"const": "AUTHOR_QA_PROVENANCE_AND_POST_TEST_REVIEW_ONLY"},
+        "examModeUse": {"const": "FORBIDDEN"},
+        "sourceCandidateArtifactId": {"const": "topik35-youtube-auto-caption"},
+        "sourceCandidateAuthoritative": {"const": false},
+        "allRangesRequireManualQa": {"const": true}
+      }
+    },
+    "postTestReview": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabledByThisBundle", "targetLayout", "testModePlaybackPolicyUnchanged", "timingMayBeUsedAfterManualQa"],
+      "properties": {
+        "enabledByThisBundle": {"const": false},
+        "targetLayout": {
+          "type": "object", "additionalProperties": false,
+          "required": ["leftPane", "rightPane"],
+          "properties": {"leftPane": {"const": "TRANSCRIPT"}, "rightPane": {"const": "EXPLANATION"}}
+        },
+        "testModePlaybackPolicyUnchanged": {"const": true},
+        "timingMayBeUsedAfterManualQa": {"const": true}
+      }
+    },
+    "contentScope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["seededNow", "questionBodiesSeeded", "answerKeyLoaded", "transcriptPublished", "explanationsGenerated", "remainingGate"],
+      "properties": {
+        "seededNow": {"const": "PROVENANCE_STORAGE_AND_GROUP_STRUCTURE_ONLY"},
+        "questionBodiesSeeded": {"const": false}, "answerKeyLoaded": {"const": false},
+        "transcriptPublished": {"const": false}, "explanationsGenerated": {"const": false},
+        "remainingGate": {"const": "MANUAL_CONTENT_TRANSCRIPTION_IMAGE_MAPPING_AND_TIMING_QA"}
+      }
+    }
+  }
+}

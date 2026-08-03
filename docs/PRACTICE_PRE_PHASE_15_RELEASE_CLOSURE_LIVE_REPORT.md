@@ -1697,3 +1697,79 @@ No integration defect requiring a code change was found. Release readiness
 remains red until the 12 real evidence artifacts are supplied and accepted;
 reviewer endpoints and learner pronunciation/fluency/holistic score exposure
 remain disabled.
+
+### 6.31 Canonical TOPIK 35 provenance/storage seed boundary
+
+Status: `LOCAL_BUNDLE_GREEN / CONTENT_QA_PENDING / NO_DB_LOAD / NO_R2_CALL`.
+
+On `2026-08-03`, a bounded TOPIK 35 bundle captured the user/data-owner's
+explicit assertion permitting experimental reuse of the supplied URLs and
+their linked routes, including conversion of the selected YouTube audio to
+MP3. This is an operational rights assertion, not an independently inferred
+public licence. Rights/provenance metadata is operations-only and is not
+unnecessarily exposed to learners.
+
+The captured canonical source identities are SHA-256 and byte-size pinned:
+
+| Artifact | Source identity | SHA-256 | Bytes |
+|---|---|---:|---:|
+| source index | `tai-de-thi-topik-35` | `3feaac13d1080d46bc990656d0275624853aa4ad22772a7077074287e64c5818` | 78,248 |
+| Listening/Writing PDF | user-selected Drive file `1Z9r...` and linked `1Y32...`, byte-identical | `cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323` | 949,386 |
+| Reading PDF | Drive file `1l3Z...` | `d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd` | 13,902,947 |
+| answer PDF | Drive file `1x_Ob...` | `60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b` | 261,669 |
+| Listening transcript PDF | Drive file `1axf...` | `25caa51ee044b020f84b75fae2f64b5d95fbb35ebef07f58d5d8fc9186df3922` | 951,996 |
+| YouTube format-140 M4A | video `zqd7AQTKk6k`, AAC 44.1 kHz stereo | `beb8c362a7ebe9905467fdfd637aa9db15ebfdd8fb28e22f08ed574f3ef0fcaf` | 61,453,300 |
+| derived MP3 | ffmpeg 8.1.2/libmp3lame, 128 kbps, 44.1 kHz stereo | `0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1` | 60,755,426 |
+| Korean auto-caption VTT | YouTube original auto-caption; non-authoritative | `50bfb72cddb954cc2fe3c235591f128917b33c9a91832bb13ebc88209b672bb7` | 233,498 |
+| capture metadata | yt-dlp 2026.7.4 info capture | `a75a506b38d61fc6661e99652c44b4e68968c125aff91e9424ea874ca2ce53a6` | 554,700 |
+
+Source binaries remain ignored local working assets. The repository artifact is
+a closed, versioned manifest/schema that records the exact source URLs,
+original identity, retrieval date, media type, digest, size, rights assertion,
+provenance state and a backend-neutral logical key. The auto-caption is
+explicitly QA-only. Reading PDF font extraction was not reliable enough for
+canonical question import, so the slice deliberately does not mass-copy
+question bodies, answers, transcript or explanations.
+
+Storage reuses the single existing `AssetStorageService` port and the
+`PRACTICE_AUTHORING` profiled adapter. The adapter now accepts the fenced
+`practice-seed/...` namespace in addition to lecturer assets. Seed kinds pin
+the allowed source, derived and review prefixes; returned objects must use a
+lowercase content-digest key. The manifest contains no bucket, R2 URL,
+credential or absolute local path. Data-plane persistence must retain only the
+logical key; delivery is resolved server-side through the storage adapter. A
+mocked backend-identity test proves that the logical key is identical for
+`LOCAL` and a future `R2` adapter without making an R2 call.
+
+Listening is represented by exactly one ordered MP3 program, never 50 clips.
+The manifest has 20 groups covering questions `1–50` without gaps or overlap:
+`1–3`, `4–8`, `9–12`, `13–16`, `17–20`, then the canonical two-question
+groups through `49–50`. Every `startMs`/`endMs` remains null with
+`PENDING_MANUAL_QA`. Timing is author/QA/provenance and post-test-review-only;
+its in-exam use is explicitly forbidden. Exam playback starts once, runs
+continuously, and has no seek or replay. The learner controls question/group
+navigation; timestamps cannot auto-navigate, auto-highlight or otherwise
+assist the learner. A future post-test screen may place transcript left and
+explanation right only after content QA, without changing exam playback.
+
+No DB fixture/load script or migration was added because current historical
+`audio_url` fields could treat a logical key as a delivery URL. Loading remains
+blocked until a forward data-plane boundary persists logical keys and resolves
+media server-side. No shared/disposable DB, provider, AI or object-storage call
+occurred in this slice.
+
+JDK `17.0.19` evidence:
+
+- focused manifest/storage validation
+  `mvnw -Dtest=PracticeSeedAssetStorageTest,ProfiledPracticeAuthoringStorageTest,PracticeTopik35CanonicalSeedBundleTest test`
+  passed `11/11`;
+- combined seed/UAT/import/storage compatibility gate
+  `mvnw '-Dtest=PracticeTopik35CanonicalSeedBundleTest,PracticePre15CanonicalUatSeedManifestTest,PracticeSeedAssetStorageTest,ProfiledPracticeAuthoringStorageTest,PracticeImportControllerTest,PracticePdfImportApiControllerTest,PracticeImportTargetServiceTest,PracticeStorageProfilesStaticContractTest,StorageProfileObjectStoreTest,LocalObjectStorageTest' test`
+  passed `37/37`; and
+- `jq empty` accepted both manifest and schema, the forbidden-path/URL scan was
+  empty, and `mvnw -DskipTests package` completed green.
+
+Remaining content work is manual/SME QA: canonical transcription, page/image
+mapping, question/answer review and audio group timing verification. Until that
+evidence is attached, the bundle remains provenance/storage/group structure
+only and cannot be loaded into a shared or production database.

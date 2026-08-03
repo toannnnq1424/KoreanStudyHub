@@ -109,7 +109,8 @@ public class ProfiledPracticeAuthoringStorage implements AssetStorageService {
     private static String requireNamespace(String value) {
         String namespace = com.ksh.features.storage.profile.StorageProfileResolver
                 .requireSafeObjectKey(value == null ? "" : value.replaceAll("/+$", ""));
-        if (!namespace.startsWith("lecturer-assets/")) {
+        if (!namespace.startsWith("lecturer-assets/")
+                && !namespace.startsWith("practice-seed/")) {
             throw new IllegalArgumentException("STORAGE_IDENTITY_INVALID");
         }
         return namespace;
