@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-speaking-direct-audio-release-evidence-manifest-v1",
+  "title": "Practice Speaking direct-audio release evidence intake manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "manifestId", "status", "approvalScope", "contracts",
+    "forcedAlignment", "providerEvidence", "calibration", "releaseGate",
+    "blockers"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "practice-speaking-direct-audio-release-evidence-manifest-v1"
+    },
+    "manifestId": {
+      "const": "KSH-SPEAKING-DIRECT-AUDIO-RELEASE-EVIDENCE-INTAKE-V1"
+    },
+    "status": {
+      "enum": ["BLOCKED_EXTERNAL_EVIDENCE", "DARK_VALIDATION_READY"]
+    },
+    "approvalScope": {
+      "const": "AUTHORIZED_TO_COLLECT_AND_REVIEW_NOT_RESULT_ACCEPTANCE"
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose", "policyBundleId", "acousticContractVersion",
+        "alignmentContractVersion", "capabilityRegistryArtifactId"
+      ],
+      "properties": {
+        "purpose": {"const": "PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION"},
+        "policyBundleId": {"const": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1"},
+        "acousticContractVersion": {"const": "ksh-speaking-direct-audio-acoustic-v1"},
+        "alignmentContractVersion": {"const": "ksh-speaking-korean-alignment-v1"},
+        "capabilityRegistryArtifactId": {"const": "KSH_PRACTICE_DIRECT_AUDIO_CAPABILITY_VERIFICATION_V1"}
+      }
+    },
+    "forcedAlignment": {
+      "$ref": "#/$defs/forcedAlignment"
+    },
+    "providerEvidence": {
+      "$ref": "#/$defs/providerEvidence"
+    },
+    "calibration": {
+      "$ref": "#/$defs/calibration"
+    },
+    "releaseGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["darkObservationOnly", "learnerVisible", "scoreReleaseEligible", "reason"],
+      "properties": {
+        "darkObservationOnly": {"const": true},
+        "learnerVisible": {"const": false},
+        "scoreReleaseEligible": {"const": false},
+        "reason": {"const": "EVIDENCE_INTAKE_CANNOT_AUTHORIZE_SCORE_RELEASE"}
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ALIGNER_COMPONENT_SELECTION_REQUIRED",
+          "ALIGNER_CAPTURE_EVIDENCE_REQUIRED",
+          "PROVIDER_RUNTIME_CAPTURE_REQUIRED",
+          "PROVIDER_POLICY_EVIDENCE_REQUIRED",
+          "CALIBRATION_CORPUS_ARTIFACTS_REQUIRED",
+          "FAIRNESS_REPEATABILITY_REPORTS_REQUIRED"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind", "state", "artifactId", "relativePath", "sha256",
+        "reviewDecisionId"
+      ],
+      "properties": {
+        "kind": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+        "state": {"enum": ["MISSING", "SUPPLIED_REVIEW_PENDING", "ACCEPTED"]},
+        "artifactId": {"type": ["string", "null"]},
+        "relativePath": {"type": ["string", "null"]},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "reviewDecisionId": {"type": ["string", "null"]}
+      }
+    },
+    "forcedAlignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectionStatus", "componentType", "provider", "model", "version",
+        "minimumReleaseCapability", "higherGranularityPolicy", "evidence"
+      ],
+      "properties": {
+        "selectionStatus": {"enum": ["NOT_SELECTED", "SELECTED_REVIEW_PENDING", "ACCEPTED"]},
+        "componentType": {"type": ["string", "null"], "enum": [null, "DEDICATED_FORCED_ALIGNER", "ASR_WORD_TIMESTAMPS"]},
+        "provider": {"type": ["string", "null"]},
+        "model": {"type": ["string", "null"]},
+        "version": {"type": ["string", "null"]},
+        "minimumReleaseCapability": {"const": "EOJJEOL_OR_WORD_TIMESTAMPS"},
+        "higherGranularityPolicy": {"const": "SYLLABLE_JAMO_PHONEME_REQUIRE_SEPARATE_CAPTURED_EVIDENCE"},
+        "evidence": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/evidenceRef"}}
+      }
+    },
+    "providerEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectionStatus", "profileCode", "baseUrl", "model",
+        "credentialMode", "requiredReceiptFields", "evidence"
+      ],
+      "properties": {
+        "selectionStatus": {"enum": ["NOT_SELECTED", "SELECTED_REVIEW_PENDING", "ACCEPTED"]},
+        "profileCode": {"type": ["string", "null"]},
+        "baseUrl": {"type": ["string", "null"]},
+        "model": {"type": ["string", "null"]},
+        "credentialMode": {"type": ["string", "null"], "enum": [null, "STATIC_BEARER", "GOOGLE_CLOUD_ADC"]},
+        "requiredReceiptFields": {
+          "const": [
+            "provider_request_id", "audio_consumed", "audio_digest",
+            "provider_cache_identity", "provenance_digest"
+          ]
+        },
+        "evidence": {"type": "array", "minItems": 6, "items": {"$ref": "#/$defs/evidenceRef"}}
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approvalState", "profileId", "version", "language",
+        "requiredCoverageDimensions", "numericThresholds", "evidence"
+      ],
+      "properties": {
+        "approvalState": {"const": "COLLECTION_AND_SME_REVIEW_AUTHORIZED"},
+        "profileId": {"type": ["string", "null"]},
+        "version": {"type": ["string", "null"]},
+        "language": {"const": "ko-KR"},
+        "requiredCoverageDimensions": {
+          "const": ["DEVICE", "ENVIRONMENT", "VOICE", "REPEATED_TAKE", "SME_RATER"]
+        },
+        "numericThresholds": {"const": null},
+        "evidence": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/evidenceRef"}}
+      }
+    }
+  }
+}

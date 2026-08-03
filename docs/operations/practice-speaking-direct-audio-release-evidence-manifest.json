@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "practice-speaking-direct-audio-release-evidence-manifest-v1",
+  "manifestId": "KSH-SPEAKING-DIRECT-AUDIO-RELEASE-EVIDENCE-INTAKE-V1",
+  "status": "BLOCKED_EXTERNAL_EVIDENCE",
+  "approvalScope": "AUTHORIZED_TO_COLLECT_AND_REVIEW_NOT_RESULT_ACCEPTANCE",
+  "contracts": {
+    "purpose": "PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION",
+    "policyBundleId": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1",
+    "acousticContractVersion": "ksh-speaking-direct-audio-acoustic-v1",
+    "alignmentContractVersion": "ksh-speaking-korean-alignment-v1",
+    "capabilityRegistryArtifactId": "KSH_PRACTICE_DIRECT_AUDIO_CAPABILITY_VERIFICATION_V1"
+  },
+  "forcedAlignment": {
+    "selectionStatus": "NOT_SELECTED",
+    "componentType": null,
+    "provider": null,
+    "model": null,
+    "version": null,
+    "minimumReleaseCapability": "EOJJEOL_OR_WORD_TIMESTAMPS",
+    "higherGranularityPolicy": "SYLLABLE_JAMO_PHONEME_REQUIRE_SEPARATE_CAPTURED_EVIDENCE",
+    "evidence": [
+      {"kind": "ALIGNER_CAPABILITY_CAPTURE", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "KOREAN_TIMESTAMP_SAMPLE_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null}
+    ]
+  },
+  "providerEvidence": {
+    "selectionStatus": "NOT_SELECTED",
+    "profileCode": null,
+    "baseUrl": null,
+    "model": null,
+    "credentialMode": null,
+    "requiredReceiptFields": [
+      "provider_request_id", "audio_consumed", "audio_digest",
+      "provider_cache_identity", "provenance_digest"
+    ],
+    "evidence": [
+      {"kind": "REGION_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "NON_TRAINING_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "RETENTION_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "DELETION_SLA_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "REDACTED_CAPTURED_REQUEST", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "REDACTED_CAPTURED_RESPONSE_RECEIPT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null}
+    ]
+  },
+  "calibration": {
+    "approvalState": "COLLECTION_AND_SME_REVIEW_AUTHORIZED",
+    "profileId": null,
+    "version": null,
+    "language": "ko-KR",
+    "requiredCoverageDimensions": [
+      "DEVICE", "ENVIRONMENT", "VOICE", "REPEATED_TAKE", "SME_RATER"
+    ],
+    "numericThresholds": null,
+    "evidence": [
+      {"kind": "CORPUS_MANIFEST_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "ACOUSTIC_CALIBRATION_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "FAIRNESS_REVIEW_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
+      {"kind": "REPEATABILITY_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null}
+    ]
+  },
+  "releaseGate": {
+    "darkObservationOnly": true,
+    "learnerVisible": false,
+    "scoreReleaseEligible": false,
+    "reason": "EVIDENCE_INTAKE_CANNOT_AUTHORIZE_SCORE_RELEASE"
+  },
+  "blockers": [
+    "ALIGNER_COMPONENT_SELECTION_REQUIRED",
+    "ALIGNER_CAPTURE_EVIDENCE_REQUIRED",
+    "PROVIDER_RUNTIME_CAPTURE_REQUIRED",
+    "PROVIDER_POLICY_EVIDENCE_REQUIRED",
+    "CALIBRATION_CORPUS_ARTIFACTS_REQUIRED",
+    "FAIRNESS_REPEATABILITY_REPORTS_REQUIRED"
+  ]
+}

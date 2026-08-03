@@ -1590,3 +1590,46 @@ JDK 17 focused verification:
 
 No model, key, provider response or provider/storage/shared-DB call was used.
 No migration or existing Practice data was changed.
+
+### 6.29 Direct-audio aligner/provider/calibration evidence intake
+
+Status: `OFFLINE_INTAKE_GREEN / 12_ARTIFACTS_EXPLICITLY_MISSING / DARK_VALIDATION_MAXIMUM / SCORE_RELEASE_UNREPRESENTABLE`.
+
+The product/SME direction now authorizes collection and review, but does not
+claim results that have not been supplied. A closed v1 intake manifest and
+schema therefore bind the current direct-audio purpose, policy bundle,
+acoustic contract, Korean alignment contract and technical capability-registry
+identity without inventing a forced-aligner, provider runtime selection,
+corpus result or numeric threshold.
+
+The manifest makes the remaining evidence concrete:
+
+- forced alignment: component capability capture plus Korean timestamp sample
+  report; minimum capability is eojjeol/word timestamps, while syllable/jamo/
+  phoneme claims require their own captured evidence;
+- provider: exact runtime profile/base URL/model/credential mode, four policy
+  reports (region, non-training, retention and deletion SLA), a redacted
+  captured request and a redacted response/consumption receipt; and
+- calibration: corpus manifest, acoustic calibration, fairness review and
+  repeatability reports covering device, environment, voice, repeated take and
+  SME-rater dimensions. Numeric thresholds remain null until reviewed evidence
+  supplies them.
+
+Every supplied report must live below
+`docs/evidence/practice-speaking-direct-audio/`, contain no raw audio/secret/
+token/storage key/playback URL, and have a SHA-256-bound ID of the form
+`KSH-DA-EVIDENCE-<KIND>-<YYYYMMDD>-<first-12-sha256>`. `ACCEPTED` additionally
+requires an immutable `reviewDecisionId`. The validator rejects missing files,
+path traversal, fake/test/placeholder identities, digest tampering, incomplete
+selections and falsely ready state.
+
+The only v1 states are `BLOCKED_EXTERNAL_EVIDENCE` and
+`DARK_VALIDATION_READY`. The release gate is permanently dark-only,
+learner-hidden and non-score-bearing; score-release-ready, holistic score and
+attempt points cannot be represented. This package performs no provider,
+storage or DB call and does not choose a provider/component on name alone.
+
+JDK 17 focused command
+`mvnw -Dtest=DirectAudioReleaseEvidenceManifestTest test` passed `5/5`.
+The combined direct-audio/alignment/control-plane selector passed `92/92`, and
+`mvnw -DskipTests package` completed green.
