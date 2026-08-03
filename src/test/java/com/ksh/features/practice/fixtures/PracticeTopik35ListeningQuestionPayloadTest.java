@@ -158,9 +158,9 @@ class PracticeTopik35ListeningQuestionPayloadTest {
         assertThat(source.at("/targetContract/candidateMaterialized").asBoolean()).isFalse();
         assertThat(source.at("/validationSummary/loadReady").asBoolean()).isFalse();
         assertThat(source.path("materializationBlockers").toString())
-                .contains("GROUP_TRANSCRIPT_TEXT_NOT_MATERIALIZED_BY_THIS_SLICE")
                 .contains("GROUP_TIMING_RANGES_NOT_YET_MANUALLY_VERIFIED")
-                .doesNotContain("QUESTION_PROMPT_AND_OPTION_PAYLOAD_NOT_YET_TRANSCRIBED",
+                .doesNotContain("GROUP_TRANSCRIPT_TEXT_NOT_MATERIALIZED_BY_THIS_SLICE",
+                        "QUESTION_PROMPT_AND_OPTION_PAYLOAD_NOT_YET_TRANSCRIBED",
                         "IMAGE_OPTION_PAGE_ASSETS_Q01_Q03_NOT_YET_DERIVED");
         assertThat(source.at("/playbackPolicy/singleOrderedAudioProgram").asBoolean())
                 .isTrue();

@@ -4,16 +4,17 @@
   "title": "Canonical TOPIK 35 Listening import source package",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "targetContract", "questionPayloadBinding", "loadPolicy", "sourceBindings", "sourceAnomalies", "manualQaEvidence", "playbackPolicy", "groups", "questions", "transcriptGaps", "materializationBlockers", "validationSummary"],
+  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "targetContract", "questionPayloadBinding", "transcriptPayloadBinding", "loadPolicy", "sourceBindings", "sourceAnomalies", "manualQaEvidence", "playbackPolicy", "groups", "questions", "transcriptGaps", "materializationBlockers", "validationSummary"],
   "properties": {
     "schemaVersion": {"const": "practice-topik35-listening-import-package-v1"},
     "packageId": {"const": "topik35-v1-listening-v1"},
     "bundleId": {"const": "topik35-v1"},
     "capturedAt": {"type": "string", "format": "date"},
-    "status": {"const": "QUESTION_PAYLOAD_QA_COMPLETE_IMPORT_LOAD_BLOCKED"},
+    "status": {"const": "TRANSCRIPT_AND_QUESTION_PAYLOAD_QA_COMPLETE_IMPORT_LOAD_BLOCKED"},
     "skill": {"const": "LISTENING"},
     "targetContract": {"$ref": "#/$defs/targetContract"},
     "questionPayloadBinding": {"$ref": "#/$defs/questionPayloadBinding"},
+    "transcriptPayloadBinding": {"$ref": "#/$defs/transcriptPayloadBinding"},
     "loadPolicy": {"$ref": "#/$defs/loadPolicy"},
     "sourceBindings": {"$ref": "#/$defs/sourceBindings"},
     "sourceAnomalies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceAnomaly"}},
@@ -44,6 +45,16 @@
         "schemaVersion": {"const": "practice-topik35-listening-question-payload-v1"},
         "packageId": {"const": "topik35-v1-listening-question-payload-v1"},
         "status": {"const": "QUESTION_PAYLOAD_AND_VISUAL_QA_COMPLETE_LOAD_BLOCKED"}
+      }
+    },
+    "transcriptPayloadBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "packageId", "status", "contentProjectionSha256"],
+      "properties": {
+        "schemaVersion": {"const": "practice-topik35-listening-transcript-payload-v1"},
+        "packageId": {"const": "topik35-v1-listening-transcript-payload-v1"},
+        "status": {"const": "TRANSCRIPT_QA_COMPLETE_LOAD_BLOCKED"},
+        "contentProjectionSha256": {"const": "490f58b95a23ceb3f66745d1cebea79b6aa46715fed72118be08da70c2cb7daf"}
       }
     },
     "loadPolicy": {
@@ -209,7 +220,7 @@
     },
     "validationSummary": {
       "type": "object", "additionalProperties": false,
-      "required": ["groupCount", "questionCount", "totalPoints", "answerCount", "transcriptCoveredQuestionCount", "payloadQuestionCount", "payloadOptionCount", "payloadVisualAssetCount", "timingReadyGroupCount", "loadReady"],
+      "required": ["groupCount", "questionCount", "totalPoints", "answerCount", "transcriptCoveredQuestionCount", "payloadQuestionCount", "payloadOptionCount", "payloadVisualAssetCount", "transcriptMaterializedGroupCount", "transcriptQuestionBindingCount", "timingReadyGroupCount", "loadReady"],
       "properties": {
         "groupCount": {"const": 20}, "questionCount": {"const": 50},
         "totalPoints": {"const": 100}, "answerCount": {"const": 50},
@@ -217,6 +228,8 @@
         "payloadQuestionCount": {"const": 50},
         "payloadOptionCount": {"const": 200},
         "payloadVisualAssetCount": {"const": 12},
+        "transcriptMaterializedGroupCount": {"const": 20},
+        "transcriptQuestionBindingCount": {"const": 50},
         "timingReadyGroupCount": {"const": 0}, "loadReady": {"const": false}
       }
     }

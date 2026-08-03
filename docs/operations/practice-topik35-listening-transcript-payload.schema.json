@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-topik35-listening-transcript-payload-v1",
+  "title": "Canonical TOPIK 35 Listening authoritative transcript payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "languageTag", "sourceBinding", "crossCheck", "materializationPolicy", "groups", "questionBindings", "remainingLoadBlockers", "validationSummary"],
+  "properties": {
+    "schemaVersion": {"const": "practice-topik35-listening-transcript-payload-v1"},
+    "packageId": {"const": "topik35-v1-listening-transcript-payload-v1"},
+    "bundleId": {"const": "topik35-v1"},
+    "capturedAt": {"type": "string", "format": "date"},
+    "status": {"const": "TRANSCRIPT_QA_COMPLETE_LOAD_BLOCKED"},
+    "languageTag": {"const": "ko"},
+    "sourceBinding": {"$ref": "#/$defs/sourceBinding"},
+    "crossCheck": {"$ref": "#/$defs/crossCheck"},
+    "materializationPolicy": {"$ref": "#/$defs/materializationPolicy"},
+    "groups": {"type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/group"}},
+    "questionBindings": {"type": "array", "minItems": 50, "maxItems": 50, "items": {"$ref": "#/$defs/questionBinding"}},
+    "remainingLoadBlockers": {
+      "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true,
+      "items": {"enum": ["GROUP_TIMING_RANGES_NOT_YET_MANUALLY_VERIFIED", "CANONICAL_DRAFT_VERSION_IDS_NOT_YET_ALLOCATED"]}
+    },
+    "validationSummary": {"$ref": "#/$defs/validationSummary"}
+  },
+  "$defs": {
+    "sourceBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "sha256", "pageFrom", "pageTo", "displayedIdentity"],
+      "properties": {
+        "artifactId": {"const": "topik35-listening-transcript-pdf"},
+        "logicalKey": {"const": "practice-seed/topik35-v1/source/document/25caa51ee044b020f84b75fae2f64b5d95fbb35ebef07f58d5d8fc9186df3922.pdf"},
+        "sha256": {"const": "25caa51ee044b020f84b75fae2f64b5d95fbb35ebef07f58d5d8fc9186df3922"},
+        "pageFrom": {"const": 1},
+        "pageTo": {"const": 26},
+        "displayedIdentity": {"const": "제35회 한국어능력시험 II B형 (듣기 통합)"}
+      }
+    },
+    "crossCheck": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionPayloadSchemaVersion", "questionPayloadPackageId", "questionPayloadProjectionSha256", "importPackageSchemaVersion", "importPackageId"],
+      "properties": {
+        "questionPayloadSchemaVersion": {"const": "practice-topik35-listening-question-payload-v1"},
+        "questionPayloadPackageId": {"const": "topik35-v1-listening-question-payload-v1"},
+        "questionPayloadProjectionSha256": {"const": "52249b9398f8950e948b7d449d0d1391f493e9113aaffa78e9ab8818e604df1f"},
+        "importPackageSchemaVersion": {"const": "practice-topik35-listening-import-package-v1"},
+        "importPackageId": {"const": "topik35-v1-listening-v1"}
+      }
+    },
+    "materializationPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceRole", "method", "captionUsed", "audioUsedForText", "timestampsDerived", "questionOrAnswerTextIncluded"],
+      "properties": {
+        "sourceRole": {"const": "AUTHORITATIVE_OFFICIAL_TRANSCRIPT_PDF"},
+        "method": {"const": "MANUAL_VISUAL_QA_WITH_TEXT_EXTRACTION_AS_INDEX_ONLY"},
+        "captionUsed": {"const": false},
+        "audioUsedForText": {"const": false},
+        "timestampsDerived": {"const": false},
+        "questionOrAnswerTextIncluded": {"const": false}
+      }
+    },
+    "sourceRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "sourceId", "pageNumber"],
+      "properties": {
+        "kind": {"const": "PAGE"},
+        "sourceId": {"const": "topik35-listening-transcript-pdf"},
+        "pageNumber": {"type": "integer", "minimum": 1, "maximum": 26}
+      }
+    },
+    "stimulus": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "type", "instruction", "passageText", "transcriptText", "mediaReference", "sourceRefs"],
+      "properties": {
+        "schemaVersion": {"const": "practice-stimulus-v2"},
+        "type": {"const": "LISTENING_AUDIO"},
+        "instruction": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "passageText": {"const": ""},
+        "transcriptText": {"type": "string", "minLength": 1, "maxLength": 1000000},
+        "mediaReference": {"type": "null"},
+        "sourceRefs": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"$ref": "#/$defs/sourceRef"}}
+      }
+    },
+    "group": {
+      "type": "object", "additionalProperties": false,
+      "required": ["groupId", "displayOrder", "questionFrom", "questionTo", "sourcePdfPages", "stimulus", "transcriptQaStatus", "timingStatus", "startMs", "endMs"],
+      "properties": {
+        "groupId": {"type": "string", "pattern": "^L[0-9]{2}_[0-9]{2}$"},
+        "displayOrder": {"type": "integer", "minimum": 1, "maximum": 20},
+        "questionFrom": {"type": "integer", "minimum": 1, "maximum": 50},
+        "questionTo": {"type": "integer", "minimum": 1, "maximum": 50},
+        "sourcePdfPages": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"type": "integer", "minimum": 1, "maximum": 26}},
+        "stimulus": {"$ref": "#/$defs/stimulus"},
+        "transcriptQaStatus": {"const": "VISUALLY_VERIFIED"},
+        "timingStatus": {"const": "PENDING_MANUAL_AUDIO_QA"},
+        "startMs": {"type": "null"},
+        "endMs": {"type": "null"}
+      }
+    },
+    "questionBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionNumber", "seedKey", "groupId", "sourcePdfPage", "sourcePrintedPage"],
+      "properties": {
+        "questionNumber": {"type": "integer", "minimum": 1, "maximum": 50},
+        "seedKey": {"type": "string", "pattern": "^topik35-listening-q[0-9]{2}$"},
+        "groupId": {"type": "string", "pattern": "^L[0-9]{2}_[0-9]{2}$"},
+        "sourcePdfPage": {"type": "integer", "minimum": 1, "maximum": 26},
+        "sourcePrintedPage": {"type": "integer", "minimum": 1, "maximum": 26}
+      }
+    },
+    "validationSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["groupCount", "questionBindingCount", "sourcePageCount", "transcriptQaComplete", "timingReadyGroupCount", "contentProjectionSha256", "loadReady"],
+      "properties": {
+        "groupCount": {"const": 20},
+        "questionBindingCount": {"const": 50},
+        "sourcePageCount": {"const": 26},
+        "transcriptQaComplete": {"const": true},
+        "timingReadyGroupCount": {"const": 0},
+        "contentProjectionSha256": {"const": "490f58b95a23ceb3f66745d1cebea79b6aa46715fed72118be08da70c2cb7daf"},
+        "loadReady": {"const": false}
+      }
+    }
+  }
+}

@@ -1905,3 +1905,58 @@ JDK `17.0.19` evidence:
   passed `90/90`; and
 - `jq empty` accepted both new payload/schema and the updated source
   package/schema. The forbidden absolute-path/delivery-URL scan was empty.
+
+### 6.34 TOPIK 35 Listening authoritative transcript materialization
+
+Status: `TRANSCRIPT_QA_GREEN / 20_TYPED_STIMULI / 50_QUESTION_BINDINGS / TIMING_PENDING / LOAD_BLOCKED`.
+
+On `2026-08-03`, the licensed official integrated-transcript PDF was rendered
+and visually checked on all `26/26` pages. Text extraction was used only as a
+spacing and indexing aid; the rendered PDF remained the layout/content
+authority. No page, spoken passage or question binding was unreadable or
+ambiguous in this source set.
+
+The repository now contains a closed, versioned Korean transcript payload and
+schema. It materializes exactly `20` group-level `practice-stimulus-v2`
+objects with `type=LISTENING_AUDIO`, non-empty `transcriptText`, the canonical
+group instruction and exact PAGE source references. These are the current
+typed authoring/import stimulus fields; `passageText` is empty and
+`mediaReference` remains null while load is blocked. The payload separately
+contains `50` ordered question bindings so each question seed key, canonical
+group and PDF/printed page can be cross-checked against both the existing
+50-question/answer payload and the source-import package without duplicating
+or altering the answer vector.
+
+The exact group transcript plus 50-binding projection is pinned as SHA-256
+`490f58b95a23ceb3f66745d1cebea79b6aa46715fed72118be08da70c2cb7daf`.
+The validator rejects missing or misordered bindings, mismatched group/page
+provenance, blank group transcript, digest drift and falsely ready timing/load
+states. Representative Korean source checkpoints across the first, shared
+two-question, `1만 시간의 법칙` and final water-industry passages are also
+pinned in tests.
+
+No YouTube caption or audio was used to create transcript text, and no
+timestamp was derived or inferred. All `20` groups remain
+`PENDING_MANUAL_AUDIO_QA` with null `startMs`/`endMs`; the source package keeps
+its stricter cue/repeat/neighbor/transcript-boundary checks false. The only
+remaining load blockers are manual audio-range QA and allocation of canonical
+draft/version IDs. Consequently `candidateMaterialized=false` and
+`loadReady=false` remain unchanged.
+
+The single continuous exam player contract also remains unchanged: start once,
+no seek, no replay, learner-owned question/group navigation and no
+timestamp-driven navigation, highlighting or assistance. The licensed PDF
+and render intermediates are not repository content; the package stores only
+the existing digest-bound logical source key. No DB load, migration, R2/object
+write, provider or AI call occurred.
+
+JDK `17.0.19` evidence:
+
+- focused transcript/question/source-package/parent-bundle gate
+  `mvnw -Dtest=PracticeTopik35ListeningTranscriptPayloadTest,PracticeTopik35ListeningQuestionPayloadTest,PracticeTopik35ListeningImportPackageTest,PracticeTopik35CanonicalSeedBundleTest test`
+  passed `25/25`;
+- combined typed-contract/import/draft/storage compatibility gate
+  `mvnw '-Dtest=PracticeTopik35ListeningTranscriptPayloadTest,PracticeTopik35ListeningQuestionPayloadTest,PracticeTopik35ListeningImportPackageTest,PracticeTopik35CanonicalSeedBundleTest,PracticePre15CanonicalUatSeedManifestTest,PracticeImportControllerTest,PracticePdfImportApiControllerTest,PracticeImportTargetServiceTest,PracticeDraftValidatorTest,PracticeAuthoringCandidateNormalizationValidationTest,PracticePdfAuthoringOutputValidatorTest,PracticeStorageProfilesStaticContractTest,PracticeSeedAssetStorageTest,ProfiledPracticeAuthoringStorageTest' test`
+  passed `97/97`; and
+- `jq empty`, canonical projection hashing, the forbidden absolute-path/
+  delivery-URL scan and `mvnw -DskipTests package` completed green.

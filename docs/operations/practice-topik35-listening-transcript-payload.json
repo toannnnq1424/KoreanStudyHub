@@ -1,0 +1,514 @@
+{
+  "schemaVersion": "practice-topik35-listening-transcript-payload-v1",
+  "packageId": "topik35-v1-listening-transcript-payload-v1",
+  "bundleId": "topik35-v1",
+  "capturedAt": "2026-08-03",
+  "status": "TRANSCRIPT_QA_COMPLETE_LOAD_BLOCKED",
+  "languageTag": "ko",
+  "sourceBinding": {
+    "artifactId": "topik35-listening-transcript-pdf",
+    "logicalKey": "practice-seed/topik35-v1/source/document/25caa51ee044b020f84b75fae2f64b5d95fbb35ebef07f58d5d8fc9186df3922.pdf",
+    "sha256": "25caa51ee044b020f84b75fae2f64b5d95fbb35ebef07f58d5d8fc9186df3922",
+    "pageFrom": 1,
+    "pageTo": 26,
+    "displayedIdentity": "제35회 한국어능력시험 II B형 (듣기 통합)"
+  },
+  "crossCheck": {
+    "questionPayloadSchemaVersion": "practice-topik35-listening-question-payload-v1",
+    "questionPayloadPackageId": "topik35-v1-listening-question-payload-v1",
+    "questionPayloadProjectionSha256": "52249b9398f8950e948b7d449d0d1391f493e9113aaffa78e9ab8818e604df1f",
+    "importPackageSchemaVersion": "practice-topik35-listening-import-package-v1",
+    "importPackageId": "topik35-v1-listening-v1"
+  },
+  "materializationPolicy": {
+    "sourceRole": "AUTHORITATIVE_OFFICIAL_TRANSCRIPT_PDF",
+    "method": "MANUAL_VISUAL_QA_WITH_TEXT_EXTRACTION_AS_INDEX_ONLY",
+    "captionUsed": false,
+    "audioUsedForText": false,
+    "timestampsDerived": false,
+    "questionOrAnswerTextIncluded": false
+  },
+  "groups": [
+    {
+      "groupId": "L01_03",
+      "displayOrder": 1,
+      "questionFrom": 1,
+      "questionTo": 3,
+      "sourcePdfPages": [1, 2, 3],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 알맞은 그림을 고르십시오.",
+        "passageText": "",
+        "transcriptText": "1. 여자: 이거 좀 봐 주실래요? 옷에 커피를 쏟았어요.\n남자: 어디 좀 볼까요? 음……, 세탁하면 깨끗해질 거예요. 언제까지 해 드리면 돼요?\n여자: 내일까지 해 주세요.\n\n2. 여자: 그동안 답답했는데 높은 데 올라오니까 좋네요.\n남자: 그렇죠? 그래서 저는 등산이 좋아요. 이렇게 정상에서 멀리 바라보고 있으면 마음이 편해져요.\n여자: 맞아요. 우리 이제 자주 와요.\n\n3. 남자: 스마트폰 사용자가 많아지면서 모바일 쇼핑 이용객이 급격히 증가한 것으로 나타났습니다. 20대가 가장 많이 이용하는 것으로 나타났으며 10대가 그 뒤를 이었습니다. 여전히 컴퓨터로 쇼핑을 하는 사람들이 많지만 앞으로 모바일 쇼핑 이용객이 더 늘 것으로 예상됩니다.",
+        "mediaReference": null,
+        "sourceRefs": [
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 1},
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 2},
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 3}
+        ]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L04_08",
+      "displayOrder": 2,
+      "questionFrom": 4,
+      "questionTo": 8,
+      "sourcePdfPages": [4, 5],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음 대화를 잘 듣고 이어질 수 있는 말을 고르십시오.",
+        "passageText": "",
+        "transcriptText": "4. 남자: 사장님, 제가 감기 때문에 오늘은 못 나갈 것 같아요. 죄송합니다.\n여자: 괜찮아요. 그런데 병원에 갔다 왔어요? 다른 사람들도 많이 있으니까 걱정하지 말고 푹 쉬어요.\n남자: _________________________________________________\n\n5. 남자: 어서 오십시오, 손님. 어디로 모실까요?\n여자: 서울역요. 그런데 아저씨, 7시까지 도착할 수 있을까요? 제가 기차를 타야 해서요.\n남자: _________________________________________________\n\n6. 여자: 요즘 집에서 만들어 먹는 음료수가 인기래요. 만드는 법도 간단하고 쉬워서 많이 만든대요.\n남자: 직접 만드니까 파는 것보다 건강에 좋겠네요.\n여자: _________________________________________________\n\n7. 여자: 거실이 너무 넓어서 허전해 보였는데 이렇게 화분을 몇 개 놓으니까 훨씬 좋지?\n남자: 응, 그렇기는 한데 문 옆에 커다란 화분이 있으면 좀 불편할 것 같아.\n여자: _________________________________________________\n\n8. 여자: 저, 갑자기 비가 와서 그러는데 요즘도 우산 빌려 주세요?\n남자: 어쩌죠? 우산 대여 서비스가 지난달부터 중단되었습니다. 우산을 반납하는 분들이 너무 적어서 서비스를 계속하기가 힘들어서요.\n여자: _________________________________________________",
+        "mediaReference": null,
+        "sourceRefs": [
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 4},
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 5}
+        ]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L09_12",
+      "displayOrder": 3,
+      "questionFrom": 9,
+      "questionTo": 12,
+      "sourcePdfPages": [6, 7],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음 대화를 잘 듣고 여자가 이어서 할 행동으로 알맞은 것을 고르십시오.",
+        "passageText": "",
+        "transcriptText": "9. 여자: 중고 가게에서 가구를 사 가기도 한다면서? 침대를 팔까 하는데 어떻게 하면 돼?\n남자: 먼저 침대 사진을 찍어서 가게 홈페이지에 올리고 어느 회사 제품인지도 써 놔. 그럼 가게에서 연락이 올 거야.\n여자: 그러면 침대는 내가 갖다 줘야 돼?\n남자: 아니, 가게에서 사람들이 와서 가져갈 거야.\n\n10. 여자: 팀장님, 복사기를 새로 사야 할 것 같은데요.\n남자: 왜요? 고칠 수 없대요?\n여자: 네, 복사기가 너무 오래돼서 고치는 데 비용이 많이 들 것 같다고 합니다. 구매팀에 얘기해서 새것으로 사는 게 어떨까요?\n남자: 그렇게 해요. 그럼 김 대리가 자세한 상황을 알려 주도록 하세요.\n\n11. 여자: 민수 씨, 이번에 인문학 강의 들을 거예요?\n남자: 저는 작년에 들었어요. 그 강의 인기가 많으니까 빨리 신청해야 할 거예요.\n여자: 아, 네. 그럼 서둘러야겠네요. 그런데 교재는 뭐예요? 홈페이지에 나와 있지 않더라고요.\n남자: 그래요? 저한테 그 책이 있으니까 내일 갖다 줄게요.\n\n12. 남자: 강 선생님, 이번 현장학습은 어디로 가면 좋을까요?\n여자: 음……, 안전 교육 체험관이 어때요? 지진과 같은 자연재해를 체험해 보면 학생들한테도 유익할 거예요.\n남자: 그게 좋겠네요. 구체적으로 어떤 프로그램이 있는지 알아봐야겠어요. 위치도 알아보고요.\n여자: 위치는 제가 알아봐 드릴게요.\n남자: 정말요? 고마워요, 강 선생님. 그럼 저는 자세한 일정을 짜야겠어요.",
+        "mediaReference": null,
+        "sourceRefs": [
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 6},
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 7}
+        ]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L13_16",
+      "displayOrder": 4,
+      "questionFrom": 13,
+      "questionTo": 16,
+      "sourcePdfPages": [8, 9],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 내용과 일치하는 것을 고르십시오.",
+        "passageText": "",
+        "transcriptText": "13. 여자: 해외 온라인 쇼핑몰에서 물건을 사면 싸다면서?\n남자: 응. 시간은 좀 오래 걸리는데 훨씬 더 싸. 국내에서 구할 수 없는 물건도 살 수 있고.\n여자: 주문하기 복잡하지 않아? 나도 한번 해 볼까 하는데.\n남자: 별로 안 어렵던데. 세일하면 더 싸지니까 세일 기간도 잘 알아보고 해\n\n14. 여자: 안내 말씀 드리겠습니다. 잠시 후 4시부터 7시까지 영화 촬영이 진행될 예정입니다. 동문 주차장에 차를 세우신 분들은 공원 내 다른 주차장으로 이동시켜 주시기 바랍니다. 영화를 찍는 동안 사진 촬영은 금지되어 있으니 협조해 주시기 바랍니다.\n\n15. 남자: 다음은 작년 말 인기를 끌었던 앙코르 발레 공연 소식입니다. 이 공연은 한 예술고등학교 교사들로 이루어진 무용단이 어린이들을 위해 준비한 발레인데요. 어린이들이 재미있게 볼 수 있도록 무용수들이 동물 복장을 하고 나와 춤을 춥니다. 여기에 노래도 더해져 아이들의 이해를 돕고 있습니다. 휴일 나들이로 온 가족이 함께 관람하시는 것도 좋을 것 같습니다.\n\n16. 여자: 오늘은 기차가 다니지 않는 기차역, 송정역에 나와 있습니다. 역장님, 이곳을 좀 소개해 주시죠.\n남자: 이곳은 10년 전부터 기차를 운행하지 않는 곳입니다. 그래서 그동안 역사를 사용하지 않고 있었는데요. 최근 한 주민의 제안으로 기차역과 열차를 옛날 열차 분위기의 카페로 만들었습니다. 지역 주민들의 반응도 좋고 이곳을 방문했던 손님들의 입소문을 듣고 찾아오는 관광객이 많아졌습니다.",
+        "mediaReference": null,
+        "sourceRefs": [
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 8},
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 9}
+        ]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L17_20",
+      "displayOrder": 5,
+      "questionFrom": 17,
+      "questionTo": 20,
+      "sourcePdfPages": [10, 11],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 남자의 중심 생각을 고르십시오.",
+        "passageText": "",
+        "transcriptText": "17. 남자: 현아 씨가 직장을 그만두고 1년 계획으로 세계여행을 간대요. 정말 대단한 것 같아요.\n여자: 저도 들었어요. 그런데 직장까지 그만두고 여행을 간다는 게 좀 이해가 안돼요. 회사에 다니면서도 여행은 할 수 있을 텐데.\n남자: 길게는 못 가잖아요. 쉬면서 자기 자신도 돌아보고 새로운 계획도 세울 수 있으니까 한번쯤 장기 여행을 가는 건 좋은 것 같아요.\n\n18. 남자: 그럼 운동은 다음 주 월요일부터 시작하시는 걸로 알고 있겠습니다. 더 궁금한 건 없으세요?\n여자: 제가 일주일에 세 번 정도밖에 못 올 것 같은데요. 그 정도로도 운동 효과를 볼 수 있을까요?\n남자: 그럼요. 세 번 정도 하시면 충분합니다. 운동은 많이 한다고 좋은 게 아니거든요. 너무 심하게 운동하면 몸이 스트레스를 받아서 건강에 더 안 좋습니다. 무리하지 말고 적당히 하는 게 좋죠.\n\n19. 남자: 연예인이 자기 아이들과 함께 텔레비전에 나오는 경우가 많네요.\n여자: 그러게요. 그런데 아이들한테 부작용은 없을까요?\n남자: 혼자 출연하는 게 아니라 부모님과 함께 나오니까 걱정할 일은 없을 것 같은데요. 무엇보다 아이들의 재능을 일찍 발견할 수 있어서 좋을 것 같고요.\n여자: 학교에 다녀야 할 나이인데 방송 때문에 공부할 시간이 없잖아요.\n\n20. 여자: 김영재 선생님은 전통 그대로의 한복만 만드시는 걸로 유명한데요. 특별한 이유가 있나요?\n남자: 전 한복의 대중화보다는 전통 한복의 아름다움을 지키는 게 중요하다고 봅니다. 현대 한복은 화려한 색과 실용적인 디자인으로 한복을 대중화하는 데 기여했지요. 하지만 한복의 가장 중요한 요소는 과하지 않은 색과 선입니다. 이런 고유의 특징이 빠진다면 진짜 한복이 아닌 거죠.",
+        "mediaReference": null,
+        "sourceRefs": [
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 10},
+          {"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 11}
+        ]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L21_22",
+      "displayOrder": 6,
+      "questionFrom": 21,
+      "questionTo": 22,
+      "sourcePdfPages": [12],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 기숙사 신청 날짜를 착각해서 신청을 못했는데 어쩌지?\n남자: 학교에서 소개해 주는 집이 있는데 신청해 볼래? 다른 학생들하고 보증금을 나눠 내고 집을 같이 빌리는 방식이라서 보증금 부담도 적은데.\n여자: 그럼 집을 같이 쓰는 거네? 한집에서 공동생활 하는 건 좀 불편할 것 같은데. 아무래도 서로 신경 쓸 일도 많을 거고.\n남자: 공동생활도 생각보다 괜찮아. 방은 혼자 쓰니까 개인 공간도 있고. 부엌이나 거실 같은 공용 공간은 같이 관리하니까 혼자일 때보다 오히려 편해. 서로 의지가 되니까 외로움도 덜하고.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 12}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L23_24",
+      "displayOrder": 7,
+      "questionFrom": 23,
+      "questionTo": 24,
+      "sourcePdfPages": [13],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 김 대리, ‘이름 부르기’ 서비스의 반응이 어떤가요?\n남자: 지금까지는 좋은 것 같습니다. 주문한 음료가 준비되면 이전과는 다르게 진동벨이 아니라 이름을 불러서 알려주니까 고객들이 친근하게 느끼는 것 같습니다.\n여자: 그럼 당분간 반응을 좀 더 지켜봅시다. 그런데 지금까지 보고된 부정적인 의견은 없었나요?\n남자: 매장이 붐빌 때 이름을 부르는 소리가 잘 안 들려서 불편하다는 의견이 있기는 했지만 다른 큰 불만은 없었습니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 13}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L25_26",
+      "displayOrder": 8,
+      "questionFrom": 25,
+      "questionTo": 26,
+      "sourcePdfPages": [14],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 버려지는 종이로 예술 작품을 만드신다고 들었습니다. 이런 작품 활동을 하시는 데에는 이유가 있을 것 같은데요.\n남자: 버려지는 종이를 재료로 쓰는 것은 작품에 메시지를 담고 싶기 때문입니다. ‘일회용품을 사용하지 맙시다.’라는 말을 듣고 실천으로 옮길 사람이 얼마나 될까요? 하지만 버려지는 종이로 만든 작품을 보고 환경 문제에 대해 깨닫는 사람이 훨씬 많을 겁니다. 그럼 결국 환경에 관심이 없던 사람도 자연스럽게 환경 문제를 인식하게 되겠지요. 이런 방법은 환경을 보호하자고 말하는 것보다 더 큰 힘을 가지고 있다고 생각합니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 14}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L27_28",
+      "displayOrder": 9,
+      "questionFrom": 27,
+      "questionTo": 28,
+      "sourcePdfPages": [15],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 너도 어제 그 경기 봤지? 심판이 판정을 잘못해서 메달을 놓친 선수 있잖아. 난 아직도 그 선수의 눈물을 잊을 수가 없어.\n남자: 어, 나도 봤는데 정말 안타깝더라.\n여자: 그런데 심판이 잘못 본 거니까 재심을 해야 하는 거 아냐? 신문하고 뉴스에도 온통 그 얘기뿐이던데.\n남자: 이미 끝난 경기를 가지고 재심을 할 수 있을까? 잘못된 판정도 경기의 일부니까 억울하더라도 받아들일 수밖에 없을 것 같아.\n여자: 잘못은 심판이 했는데 피해는 선수가 보는 건 말도 안 돼. 난 그 선수가 메달을 되찾으면 좋겠어.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 15}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L29_30",
+      "displayOrder": 10,
+      "questionFrom": 29,
+      "questionTo": 30,
+      "sourcePdfPages": [16],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 외국어는 어렸을 때부터 배우면 효과가 있을까요? 아니면 아이들에게 학습 부담감과 스트레스만 줄까요? 조기 외국어 학습에 대한 찬반 의견이 팽팽한데요. 이에 대해 어떻게 생각하십니까?\n남자: 저는 조기 외국어 학습을 긍정적으로 생각하는 입장입니다. 그렇지만 몇 살 때부터 아이에게 외국어를 가르쳐야 하는지는 부모가 꼭 고민해야 하는 문제라고 생각하는데요. 학습 효과는 키우고 부작용은 최소화하려면 외국어를 가장 효율적으로 배울 수 있는 ‘내 아이만의 적기’를 찾아야 합니다. 언어 습득 속도에 개인차가 있듯이 외국어 학습의 시작 시기도 아이마다 다를 수 있다는 의미인데요. 부모는 아이를 관찰해서 아이가 외국어에 관심을 보이는 시기를 찾아야 합니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 16}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L31_32",
+      "displayOrder": 11,
+      "questionFrom": 31,
+      "questionTo": 32,
+      "sourcePdfPages": [17],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: (단호한 말투로) 주차장을 넓히자는 의견에는 찬성하지만 아파트 안에 있는 공원을 없애고 그 자리에 주차장을 만들자는 의견에는 찬성할 수 없습니다.\n남자: (부드럽게 설득하는 말투로) 저도 가능하면 공원을 보존하면서 주차 공간을 넓힐 수 있으면 좋겠는데요. 음……, 그럼 공원의 반 정도만 주차장으로 바꾸는 것에 대해서는 어떻게 생각하십니까?\n여자: 공원의 전체든 반이든 공원을 주차장으로 바꾸는 건 문제가 있다고 봅니다. 꽃과 나무를 없애고 그 자리에 차를 세우자니요. 그건 안 됩니다.\n남자: 하지만 주차장이 부족해서 생기는 문제가 한두 가지가 아닙니다. 특히 아무 곳에나 주차한 차들 때문에 아이들이 얼마나 위험한지 모릅니다. 이런 점들을 참고하셔서 다시 한번 생각해 보시기 바랍니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 17}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L33_34",
+      "displayOrder": 12,
+      "questionFrom": 33,
+      "questionTo": 34,
+      "sourcePdfPages": [18],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 현대 사회는 통신 기술이 발달해서 과거에 비해 다양한 방식으로 빠르게 메시지를 주고받을 수 있지요. 그런데 이렇게 매체 환경이 좋아졌다고 해서 현대인들이 다른 사람과 충분히 소통하고 있을까요? 저는 그렇지 않다고 생각합니다. 메시지의 양은 급격히 늘어났지만 질은 문제가 있습니다. 휴대 전화에 몇 천 개의 전화번호가 저장되어 있고 수첩에 일정이 빽빽해도, 막상 대화가 필요할 때 언제든지 편하게 연락할 수 있는 사람이 있느냐는 것이지요. 진정한 소통이 없다 보니 소통할 수 있는 기회는 많아졌지만 오히려 소통에 대한 갈망은 더 커지는 것 같습니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 18}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L35_36",
+      "displayOrder": 13,
+      "questionFrom": 35,
+      "questionTo": 36,
+      "sourcePdfPages": [19],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음을 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "남자: 오늘 이렇게 우리 도서관의 역사 전시실 개관을 알리게 되어 기쁩니다. 이 전시실은 조선 시대의 기록 문화를 교육할 목적으로 마련되었습니다. 조선은 세계적으로 가장 많은 기록 자료를 남긴 나라였습니다. 왕도 역사 기록을 볼 수 없었을 만큼 객관적인 기록과 보관에 큰 노력을 기울였습니다. 새로 문을 연 역사 전시실은 조선 시대 역사관과 기록 절차, 보관 방법, 대표적인 역사 자료들을 전시하고 있습니다. 이 공간이 시민들과 청소년들을 위한 역사 교육의 장으로 널리 이용되기를 기대합니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 19}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L37_38",
+      "displayOrder": 14,
+      "questionFrom": 37,
+      "questionTo": 38,
+      "sourcePdfPages": [20],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음은 교양 프로그램입니다. 잘 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 박사님이 저술하신 『1만 시간의 법칙』이 요즘 화제를 모으고 있는데요, 아직 읽어 보지 않은 분들을 위해 소개 좀 해 주시겠습니까?\n남자: ‘1만 시간의 법칙’은 어떤 분야든 만 시간을 투자해야 전문성이 쌓이고 성공할 수 있는 기본 조건이 갖춰진다는 법칙입니다. 10년 동안 매일 3시간씩을 투자해야 만 시간이 되는데요. 무조건 만 시간을 채운다고 해서 성공할 수 있다는 뜻은 아닙니다. 가령, 악기 연습을 할 때 자신이 연주를 잘하는 곡만 연습하는 것은 전문가가 되기 위해 필요한 만 시간을 채우는 데 전혀 도움이 안 됩니다. 자신에게 익숙하고 편안한 것에서 벗어나 자기 앞을 가로막고 있는 장애물과 만 시간 동안 마주해야 진정한 발전이 있습니다. 단순한 꾸준함보다는 자신의 한계를 넘어서려는 노력과 연습, 그것이 바로 성공의 관건이 된다는 것이죠.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 20}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L39_40",
+      "displayOrder": 15,
+      "questionFrom": 39,
+      "questionTo": 40,
+      "sourcePdfPages": [21],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음은 대담입니다. 잘 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 그렇게 엄청난 양의 곡물이 소의 사료로 소비된다니 참 불합리하다는 생각이 드는데요, 그러면 이런 부분이 식량 부족 현상의 주된 원인이 되는 건가요?\n남자: 물론 이렇게 가축에 의해 소비되는 것도 큰 문제이기는 한데, 사실 더 심각한 이유로 볼 수 있는 것은 세계 식량 시장의 가격 결정 구조입니다. 세계 식량 시장에서 곡물 가격은 몇몇 세계적 곡물상들의 거래에 의해 결정됩니다. 곡물상들이 곡물을 대량으로 사들이면 가격이 올라서 그 곡물이 귀해지는 거죠. 곡물상들은 이렇게 매입한 곡물을 가장 많은 이익을 낼 수 있는 시점에 팔기 때문에 식량을 구입하지 못하는 나라들이 생기게 됩니다. 식량 가격이 어떤 국제 기구의 조정이나 인도적 배려 없이 그저 시장 논리에 의해 결정이 되고 있는 것이지요.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 21}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L41_42",
+      "displayOrder": 16,
+      "questionFrom": 41,
+      "questionTo": 42,
+      "sourcePdfPages": [22],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음은 강연입니다. 잘 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "남자: 오늘은 인간의 특성을 형성하는 중요한 요소인 거울 세포에 대해서 알아보도록 하겠습니다. 거울 세포는 타인의 행동을 보고만 있는데도 마치 자신이 실제 그 행동을 하는 것처럼 반응하게 하는 세포입니다. 예를 들면 아기가 앞에 있는 사람의 행동을 따라 하는 것도 이 세포 때문입니다. 사실 원숭이들도 거울 세포가 있어서 간단한 행동을 따라 할 수 있는데요. 하지만 원숭이와 달리 인간의 거울 세포는 뇌의 여러 부분에 분포하여 서로 체계를 이루고 있어서, 인간이 고차원적이고 복잡한 행동을 모방할 수 있도록 도와줍니다. 듣거나 보는 것 같은 간접 체험만으로도 그 경험을 자신의 것으로 습득할 수 있게 되는 겁니다. 즉 인간이 지식을 축적하고 문화를 세워 나갈 수 있게 하는 기제가 바로 이 거울 세포라고 할 수 있는 거지요.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 22}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L43_44",
+      "displayOrder": 17,
+      "questionFrom": 43,
+      "questionTo": 44,
+      "sourcePdfPages": [23],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음은 다큐멘터리입니다. 잘 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 지금 뒤에 보이는 것은 한 시골 마을의 ‘둠벙’입니다. 지금 빈 둠벙에 물을 채우는 작업을 하고 있습니다. 둠벙은 논에 물을 대기 위해 만든 작은 웅덩이를 말하는데요. 보통 겨울철에는 농사를 짓지 않아 물이 필요 없기 때문에 비어 있는 경우가 많습니다. 그런데 둠벙은 작물을 생산하는 데 필요한 물을 제공하는 기능 이외에 다양한 습지 동식물이 사는 공간이 되기도 합니다. 둠벙에는 주로 민물새우와 잠자리 유충 등 손톱보다 작은 동물들이 사는데, 이러한 습지 동식물은 둠벙의 물을 빼면 물과 함께 사라지거나 말라 죽게 됩니다. 따라서 습지 동식물들이 사라지는 것을 막고 자연 생태계를 보존하기 위해서는 겨울철에도 둠벙에 어느 정도의 물을 채우는 것이 좋습니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 23}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L45_46",
+      "displayOrder": 18,
+      "questionFrom": 45,
+      "questionTo": 46,
+      "sourcePdfPages": [24],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음은 강연입니다. 잘 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: ‘오페라’와 ‘대중가요’ 하면 음악 중에서도 전혀 다른 장르로 여겨지는데요. 요즘 오페라 음악과 대중가요의 특성을 융합해서 새로운 무대를 보여주는 경우가 많습니다. 이 과정에서 ‘팝페라’라는 새로운 장르가 생겨 큰 인기를 끌고 있죠. 두 장르가 만나 익숙하면서도 신선한 음악이 탄생한 것입니다. 이렇게 장르와 장르가 만나는 것을 ‘콜라보레이션’이라고 부르는데요. ‘콜라보레이션’은 서로 다름을 인정하고 조화를 추구함으로써 새로움을 창조해 냅니다. ‘콜라보레이션’이 우리의 삶에도 스며든다면 새로운 변화가 일어나지 않을까요? 예술가들이 서로의 차이를 이해하고 포용한 것처럼 ‘같음’과 ‘다름’이라는 이분법적인 사고를 넘어서서 서로를 존중한다면 다양함이 조화를 이루는 사회가 될 것입니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 24}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L47_48",
+      "displayOrder": 19,
+      "questionFrom": 47,
+      "questionTo": 48,
+      "sourcePdfPages": [25],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음은 대담입니다. 잘 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 의료 산업은 새롭게 주목받고 있는 전략 분야로 최근 여러 선진국에서도 많은 관심을 보이고 있습니다. 우리나라도 앞으로 이에 대해 많은 관심을 가져야 할 텐데요, 우리나라의 의료 산업 현황은 어떻습니까? 박사님.\n남자: 의사의 국제 경쟁력은 중상위권이지만 의료 서비스 산업의 경쟁력은 다른 국가들에 비해 상당히 낮은 위치에 있습니다. 의료 서비스 산업의 경쟁력이 낮은 이유는 현행 법규에서 의료 산업이 비영리산업으로 되어 있어서 투자를 적극적으로 하지 않기 때문입니다. 투자가 활발해져야 의료 관광, 요양 같은 의료 서비스 산업을 육성할 수 있는데 말이죠. 의료 산업이 서비스 산업으로 바뀌면 투자가 늘고 그럼 이에 따른 경쟁력이 높아져서 결국에는 많은 사람들이 첨단 의료 기술의 혜택을 누릴 수 있습니다. 게다가 국내 병원의 해외 진출이 가능해져서 의료 산업으로 많은 수익을 얻을 수 있습니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 25}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    },
+    {
+      "groupId": "L49_50",
+      "displayOrder": 20,
+      "questionFrom": 49,
+      "questionTo": 50,
+      "sourcePdfPages": [26],
+      "stimulus": {
+        "schemaVersion": "practice-stimulus-v2",
+        "type": "LISTENING_AUDIO",
+        "instruction": "다음은 강연입니다. 잘 듣고 물음에 답하십시오.",
+        "passageText": "",
+        "transcriptText": "여자: 요즘 지구촌 곳곳에서 물 부족 문제로 심각한 고통을 겪고 있는 나라들이 많습니다. 이제 곧 물 부족 시대가 도래할 것이라는 예상은 우리나라에서뿐만 아니라 전 세계적으로 많은 관심의 대상이 되고 있습니다. 이러한 관심은 물 산업에 대한 관심으로 이어지고 있습니다. 우리 정부도 물 산업 육성을 위해 정책적 지원을 아끼지 않고 있습니다. 예를 들면, 바닷물을 담수로 바꾸고 하수를 처리하는 기술 개발을 지원하고 있고 그 기술을 해외로 수출하기 위해서도 애를 많이 쓰고 있습니다. 그런데 우리는 좀 더 체계적으로 물 부족 시대에 대비해야 합니다. 물과 관련된 기업, 대학, 연구소의 핵심 주체들이 모여 물 산업 발전에 필요한 연구 개발을 효과적으로 추진해야 한다는 것입니다. 이를 기반으로 신기술 개발, 마케팅, 자금 알선 업무를 수행하면 물 산업 발전에 시너지 효과를 낳을 수 있을 것입니다.",
+        "mediaReference": null,
+        "sourceRefs": [{"kind": "PAGE", "sourceId": "topik35-listening-transcript-pdf", "pageNumber": 26}]
+      },
+      "transcriptQaStatus": "VISUALLY_VERIFIED",
+      "timingStatus": "PENDING_MANUAL_AUDIO_QA",
+      "startMs": null,
+      "endMs": null
+    }
+  ],
+  "questionBindings": [
+    {"questionNumber": 1, "seedKey": "topik35-listening-q01", "groupId": "L01_03", "sourcePdfPage": 1, "sourcePrintedPage": 1},
+    {"questionNumber": 2, "seedKey": "topik35-listening-q02", "groupId": "L01_03", "sourcePdfPage": 2, "sourcePrintedPage": 2},
+    {"questionNumber": 3, "seedKey": "topik35-listening-q03", "groupId": "L01_03", "sourcePdfPage": 3, "sourcePrintedPage": 3},
+    {"questionNumber": 4, "seedKey": "topik35-listening-q04", "groupId": "L04_08", "sourcePdfPage": 4, "sourcePrintedPage": 4},
+    {"questionNumber": 5, "seedKey": "topik35-listening-q05", "groupId": "L04_08", "sourcePdfPage": 4, "sourcePrintedPage": 4},
+    {"questionNumber": 6, "seedKey": "topik35-listening-q06", "groupId": "L04_08", "sourcePdfPage": 4, "sourcePrintedPage": 4},
+    {"questionNumber": 7, "seedKey": "topik35-listening-q07", "groupId": "L04_08", "sourcePdfPage": 5, "sourcePrintedPage": 5},
+    {"questionNumber": 8, "seedKey": "topik35-listening-q08", "groupId": "L04_08", "sourcePdfPage": 5, "sourcePrintedPage": 5},
+    {"questionNumber": 9, "seedKey": "topik35-listening-q09", "groupId": "L09_12", "sourcePdfPage": 6, "sourcePrintedPage": 6},
+    {"questionNumber": 10, "seedKey": "topik35-listening-q10", "groupId": "L09_12", "sourcePdfPage": 6, "sourcePrintedPage": 6},
+    {"questionNumber": 11, "seedKey": "topik35-listening-q11", "groupId": "L09_12", "sourcePdfPage": 7, "sourcePrintedPage": 7},
+    {"questionNumber": 12, "seedKey": "topik35-listening-q12", "groupId": "L09_12", "sourcePdfPage": 7, "sourcePrintedPage": 7},
+    {"questionNumber": 13, "seedKey": "topik35-listening-q13", "groupId": "L13_16", "sourcePdfPage": 8, "sourcePrintedPage": 8},
+    {"questionNumber": 14, "seedKey": "topik35-listening-q14", "groupId": "L13_16", "sourcePdfPage": 8, "sourcePrintedPage": 8},
+    {"questionNumber": 15, "seedKey": "topik35-listening-q15", "groupId": "L13_16", "sourcePdfPage": 9, "sourcePrintedPage": 9},
+    {"questionNumber": 16, "seedKey": "topik35-listening-q16", "groupId": "L13_16", "sourcePdfPage": 9, "sourcePrintedPage": 9},
+    {"questionNumber": 17, "seedKey": "topik35-listening-q17", "groupId": "L17_20", "sourcePdfPage": 10, "sourcePrintedPage": 10},
+    {"questionNumber": 18, "seedKey": "topik35-listening-q18", "groupId": "L17_20", "sourcePdfPage": 10, "sourcePrintedPage": 10},
+    {"questionNumber": 19, "seedKey": "topik35-listening-q19", "groupId": "L17_20", "sourcePdfPage": 11, "sourcePrintedPage": 11},
+    {"questionNumber": 20, "seedKey": "topik35-listening-q20", "groupId": "L17_20", "sourcePdfPage": 11, "sourcePrintedPage": 11},
+    {"questionNumber": 21, "seedKey": "topik35-listening-q21", "groupId": "L21_22", "sourcePdfPage": 12, "sourcePrintedPage": 12},
+    {"questionNumber": 22, "seedKey": "topik35-listening-q22", "groupId": "L21_22", "sourcePdfPage": 12, "sourcePrintedPage": 12},
+    {"questionNumber": 23, "seedKey": "topik35-listening-q23", "groupId": "L23_24", "sourcePdfPage": 13, "sourcePrintedPage": 13},
+    {"questionNumber": 24, "seedKey": "topik35-listening-q24", "groupId": "L23_24", "sourcePdfPage": 13, "sourcePrintedPage": 13},
+    {"questionNumber": 25, "seedKey": "topik35-listening-q25", "groupId": "L25_26", "sourcePdfPage": 14, "sourcePrintedPage": 14},
+    {"questionNumber": 26, "seedKey": "topik35-listening-q26", "groupId": "L25_26", "sourcePdfPage": 14, "sourcePrintedPage": 14},
+    {"questionNumber": 27, "seedKey": "topik35-listening-q27", "groupId": "L27_28", "sourcePdfPage": 15, "sourcePrintedPage": 15},
+    {"questionNumber": 28, "seedKey": "topik35-listening-q28", "groupId": "L27_28", "sourcePdfPage": 15, "sourcePrintedPage": 15},
+    {"questionNumber": 29, "seedKey": "topik35-listening-q29", "groupId": "L29_30", "sourcePdfPage": 16, "sourcePrintedPage": 16},
+    {"questionNumber": 30, "seedKey": "topik35-listening-q30", "groupId": "L29_30", "sourcePdfPage": 16, "sourcePrintedPage": 16},
+    {"questionNumber": 31, "seedKey": "topik35-listening-q31", "groupId": "L31_32", "sourcePdfPage": 17, "sourcePrintedPage": 17},
+    {"questionNumber": 32, "seedKey": "topik35-listening-q32", "groupId": "L31_32", "sourcePdfPage": 17, "sourcePrintedPage": 17},
+    {"questionNumber": 33, "seedKey": "topik35-listening-q33", "groupId": "L33_34", "sourcePdfPage": 18, "sourcePrintedPage": 18},
+    {"questionNumber": 34, "seedKey": "topik35-listening-q34", "groupId": "L33_34", "sourcePdfPage": 18, "sourcePrintedPage": 18},
+    {"questionNumber": 35, "seedKey": "topik35-listening-q35", "groupId": "L35_36", "sourcePdfPage": 19, "sourcePrintedPage": 19},
+    {"questionNumber": 36, "seedKey": "topik35-listening-q36", "groupId": "L35_36", "sourcePdfPage": 19, "sourcePrintedPage": 19},
+    {"questionNumber": 37, "seedKey": "topik35-listening-q37", "groupId": "L37_38", "sourcePdfPage": 20, "sourcePrintedPage": 20},
+    {"questionNumber": 38, "seedKey": "topik35-listening-q38", "groupId": "L37_38", "sourcePdfPage": 20, "sourcePrintedPage": 20},
+    {"questionNumber": 39, "seedKey": "topik35-listening-q39", "groupId": "L39_40", "sourcePdfPage": 21, "sourcePrintedPage": 21},
+    {"questionNumber": 40, "seedKey": "topik35-listening-q40", "groupId": "L39_40", "sourcePdfPage": 21, "sourcePrintedPage": 21},
+    {"questionNumber": 41, "seedKey": "topik35-listening-q41", "groupId": "L41_42", "sourcePdfPage": 22, "sourcePrintedPage": 22},
+    {"questionNumber": 42, "seedKey": "topik35-listening-q42", "groupId": "L41_42", "sourcePdfPage": 22, "sourcePrintedPage": 22},
+    {"questionNumber": 43, "seedKey": "topik35-listening-q43", "groupId": "L43_44", "sourcePdfPage": 23, "sourcePrintedPage": 23},
+    {"questionNumber": 44, "seedKey": "topik35-listening-q44", "groupId": "L43_44", "sourcePdfPage": 23, "sourcePrintedPage": 23},
+    {"questionNumber": 45, "seedKey": "topik35-listening-q45", "groupId": "L45_46", "sourcePdfPage": 24, "sourcePrintedPage": 24},
+    {"questionNumber": 46, "seedKey": "topik35-listening-q46", "groupId": "L45_46", "sourcePdfPage": 24, "sourcePrintedPage": 24},
+    {"questionNumber": 47, "seedKey": "topik35-listening-q47", "groupId": "L47_48", "sourcePdfPage": 25, "sourcePrintedPage": 25},
+    {"questionNumber": 48, "seedKey": "topik35-listening-q48", "groupId": "L47_48", "sourcePdfPage": 25, "sourcePrintedPage": 25},
+    {"questionNumber": 49, "seedKey": "topik35-listening-q49", "groupId": "L49_50", "sourcePdfPage": 26, "sourcePrintedPage": 26},
+    {"questionNumber": 50, "seedKey": "topik35-listening-q50", "groupId": "L49_50", "sourcePdfPage": 26, "sourcePrintedPage": 26}
+  ],
+  "remainingLoadBlockers": [
+    "GROUP_TIMING_RANGES_NOT_YET_MANUALLY_VERIFIED",
+    "CANONICAL_DRAFT_VERSION_IDS_NOT_YET_ALLOCATED"
+  ],
+  "validationSummary": {
+    "groupCount": 20,
+    "questionBindingCount": 50,
+    "sourcePageCount": 26,
+    "transcriptQaComplete": true,
+    "timingReadyGroupCount": 0,
+    "contentProjectionSha256": "490f58b95a23ceb3f66745d1cebea79b6aa46715fed72118be08da70c2cb7daf",
+    "loadReady": false
+  }
+}

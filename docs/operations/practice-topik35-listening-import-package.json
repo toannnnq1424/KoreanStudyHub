@@ -3,7 +3,7 @@
   "packageId": "topik35-v1-listening-v1",
   "bundleId": "topik35-v1",
   "capturedAt": "2026-08-03",
-  "status": "QUESTION_PAYLOAD_QA_COMPLETE_IMPORT_LOAD_BLOCKED",
+  "status": "TRANSCRIPT_AND_QUESTION_PAYLOAD_QA_COMPLETE_IMPORT_LOAD_BLOCKED",
   "skill": "LISTENING",
   "targetContract": {
     "canonicalQuestionType": "SINGLE_CHOICE",
@@ -16,6 +16,12 @@
     "schemaVersion": "practice-topik35-listening-question-payload-v1",
     "packageId": "topik35-v1-listening-question-payload-v1",
     "status": "QUESTION_PAYLOAD_AND_VISUAL_QA_COMPLETE_LOAD_BLOCKED"
+  },
+  "transcriptPayloadBinding": {
+    "schemaVersion": "practice-topik35-listening-transcript-payload-v1",
+    "packageId": "topik35-v1-listening-transcript-payload-v1",
+    "status": "TRANSCRIPT_QA_COMPLETE_LOAD_BLOCKED",
+    "contentProjectionSha256": "490f58b95a23ceb3f66745d1cebea79b6aa46715fed72118be08da70c2cb7daf"
   },
   "loadPolicy": {
     "disposableLocalOnly": true,
@@ -1959,7 +1965,6 @@
   ],
   "transcriptGaps": [],
   "materializationBlockers": [
-    "GROUP_TRANSCRIPT_TEXT_NOT_MATERIALIZED_BY_THIS_SLICE",
     "GROUP_TIMING_RANGES_NOT_YET_MANUALLY_VERIFIED",
     "CANONICAL_DRAFT_VERSION_IDS_NOT_YET_ALLOCATED"
   ],
@@ -1972,6 +1977,8 @@
     "payloadQuestionCount": 50,
     "payloadOptionCount": 200,
     "payloadVisualAssetCount": 12,
+    "transcriptMaterializedGroupCount": 20,
+    "transcriptQuestionBindingCount": 50,
     "timingReadyGroupCount": 0,
     "loadReady": false
   }
