@@ -1067,3 +1067,74 @@ retention cleanup. A future reviewer UI must preserve the same named grant,
 CSRF/auth and ranged-audio controls. A deletion worker must claim due rows and
 record deletion evidence before production capture can be enabled; expiry
 already hides due rows fail closed.
+
+### 6.17 Cross-skill strict-output audit and Korean alignment contract
+
+Status: `DATED_MATRIX_COMPLETE / ALIGNMENT_V1_DARK_GREEN / TEXT_REPLACEMENT_RETRY_OPEN / NO_LEARNER_UI`.
+
+The dated evidence artifact
+`practice-ai-contract-robustness-and-korean-alignment-2026-08-03.md` maps the
+actual Writing, R/L explanation, transcript Speaking, direct-audio acoustic and
+future alignment paths from request schema through provider capability,
+decoder/domain parser and retry policy. Writing, R/L and transcript Speaking do
+send the complete domain schema as OpenAI-compatible
+`response_format.type=json_schema` with `strict=true`; the shared adapter also
+requires the resolved binding to advertise strict JSON schema and forbids
+plain-JSON/tool/streaming fallback. An explicit Admin capability test can send
+a bounded strict fixture. Neither a stored capability flag nor that small
+fixture proves every production-sized schema/model response.
+
+The audit also records the unresolved robustness gap instead of calling it
+green. Current transport retries only HTTP `429/500/502/503/504` within the
+binding's `0..3` retry limit. An HTTP-200 refusal, truncation, malformed
+structured output or downstream schema mismatch receives no bounded complete-
+replacement retry. Writing and R/L keep score/publication safe by rejecting the
+whole response, but independent findings/rationales are still coupled to one
+invalid leaf and there is no cross-skill `PARTIAL_NON_SCORE` status. Writing's
+contract identity string still says `max-retries=5` even though the authoritative
+control plane allows at most `3`; that stale identity is an exact next-slice
+correction, not current retry evidence.
+
+The separate closed schema `ksh-speaking-korean-alignment-v1` models Korean
+`EOJJEOL`, `SYLLABLE`, `JAMO` and `PHONEME` spans without importing English IPA
+assumptions. It binds transcript token/UTF-16 identity to authorized audio time
+ranges, expected/observed pronunciation, confidence, issue code and evidence
+provenance. Grammar and lexical issue codes are absent; those remain in the
+transcript-language analysis. The engine must identify a dedicated forced
+aligner or ASR word-timestamp component. `LLM_ONLY` is invalid, and no Gemini
+model is claimed to guarantee phoneme timestamps.
+
+The alignment normalizer implements the requested tiers: audio/transcript/
+engine/policy/calibration/release identity is atomic; independent spans are
+validated item-by-item; one invalid child produces `PARTIAL_NON_SCORE` while
+retaining safe siblings; no valid spans or a critical mismatch yields
+`UNAVAILABLE`. Every result constructor forces score release and learner
+visibility false and clears playback URL, holistic score and attempt points.
+Static scans show no learner presenter/progress/result/storage consumer and no
+per-word audio object path.
+
+Dated `2026-08-03` JDK `17.0.19` focused alignment/acoustic/control-plane/
+evidence command passed `22/22`. Fake fixtures cover a valid eojjeol+syllable
+hierarchy and adversarial wrong audio, LLM-only engine, score-release attempt,
+raw-URL field, invalid child timestamp, grammar-as-acoustic issue and orphan
+child. Real provider/storage/DB calls, migrations, dependencies, audio objects,
+web routes and score releases remained `0`.
+
+The combined B1/B2/B3/control-plane/readiness/acoustic/persistence/alignment
+selector passed `126` tests: `120` executed green and `6` existing DB/auth
+guards skipped. `mvnw -DskipTests package` also completed green.
+
+Current playback supports an owner-authorized application route with no-store
+headers and HTTP byte ranges over the original private audio; it exposes no raw
+storage key. Target word/phoneme playback must seek within that one authorized
+audio, not create a file per span. Reviewer playback/time-to-byte mapping and
+signed/ranged authorization do not yet exist; learner exposure remains behind
+the score-release/readiness gate.
+
+Exact blockers: select and verify a Korean forced-aligner/ASR timestamp
+component; capture eojjeol/syllable/jamo/phoneme evidence across the approved
+corpus; issue immutable capability/calibration IDs; implement reviewer ranged
+playback plus withdrawal/deletion propagation; and separately add one bounded,
+cost-controlled full-replacement retry/status contract for Writing and R/L.
+No malformed provider payload may be recursively repaired or merged into a
+score-bearing response.

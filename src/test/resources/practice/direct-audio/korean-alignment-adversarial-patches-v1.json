@@ -1,0 +1,9 @@
+[
+  { "case": "wrong_audio", "op": "replace", "pointer": "/audio/audio_digest", "value": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "expected_status": "UNAVAILABLE", "expected_reason": "ALIGNMENT_AUDIO_IDENTITY_MISMATCH" },
+  { "case": "llm_only_engine", "op": "replace", "pointer": "/engine/component_type", "value": "LLM_ONLY", "expected_status": "UNAVAILABLE", "expected_reason": "ALIGNMENT_DEDICATED_COMPONENT_REQUIRED" },
+  { "case": "score_release_attempt", "op": "replace", "pointer": "/score_release/eligible", "value": true, "expected_status": "UNAVAILABLE", "expected_reason": "ALIGNMENT_SCORE_RELEASE_FORBIDDEN" },
+  { "case": "unknown_critical_field", "op": "add", "pointer": "/audio/raw_url", "value": "https://example.invalid/audio", "expected_status": "UNAVAILABLE", "expected_reason": "ALIGNMENT_AUDIO_IDENTITY_INVALID" },
+  { "case": "invalid_independent_timestamp", "op": "replace", "pointer": "/spans/1/end_ms", "value": 3000, "expected_status": "PARTIAL_NON_SCORE", "expected_reason": "INVALID_ITEMS_DROPPED" },
+  { "case": "grammar_mislabeled_acoustic", "op": "replace", "pointer": "/spans/1/issue_code", "value": "GRAMMAR_ERROR", "expected_status": "PARTIAL_NON_SCORE", "expected_reason": "INVALID_ITEMS_DROPPED" },
+  { "case": "orphan_child", "op": "replace", "pointer": "/spans/1/parent_span_id", "value": "missing-parent", "expected_status": "PARTIAL_NON_SCORE", "expected_reason": "INVALID_ITEMS_DROPPED" }
+]
