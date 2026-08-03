@@ -2416,3 +2416,100 @@ TOPIK 35 Writing answers remain submitted/unscored with no automated result,
 best/latest/progress contribution or accepted AI score until source-bound
 grading authority is approved and a separate release changes the explicit
 evaluation mode.
+
+### 6.41 TOPIK 35 generic speaker-check material authority audit
+
+Status: `NO_APPROVED_REUSABLE_REFERENCE / PUBLICATION_FAIL_CLOSED /
+DATA_OWNER_DECISION_REQUIRED`.
+
+On `2026-08-04`, the publisher/material workflow was audited read-only before
+attempting any TOPIK 35 binding. New Listening content has one canonical
+delivery identity: `practice-section-delivery-v1` requires
+`listeningDelivery.checkAudioReference` to match exactly
+`/practice/materials/{positive-asset-id}/content`. A syntactically valid URL is
+not sufficient authority. The referenced `LecturerAsset` must remain
+non-deleted and linkable, the target draft and asset must have the same owner,
+and a `PracticeMaterialReference` must bind that exact asset to that exact
+draft. Learner delivery additionally requires `content_verified=true`; after
+publication the immutable published-version reference, an `ACTIVE` or
+`ARCHIVED` asset and the normal set/attempt access decision are required.
+
+The repository does contain the deterministic compatibility fixture
+`src/main/resources/static/audio/practice/listening-speaker-check.wav`
+(`158,804` bytes, PCM mono 44.1 kHz, SHA-256
+`7896983a2a4c869a30c4cf2e9cf396282ae66a281bdeb271b24d7af5cefda913`).
+Applied V44 points only the historical V25 seed version at
+`/audio/practice/listening-speaker-check.wav`. That static path has no
+`LecturerAsset` identity, owner, content-verification row or material
+reference. Runtime retains it as a historical seed compatibility path, while
+the current authoring validator deliberately rejects it for new publication.
+It is therefore evidence of bytes, not an approved reusable material ID, and
+was not rebound or promoted.
+
+Fresh disposable evidence used MySQL 8.4 catalog
+`ksh_test_topik35_check_audio_20260804`. The JDK 17 test context validated and
+applied unchanged V1-V96 with zero failed migrations. A final context-only
+gate revalidated the schema without invoking the importer, leaving the catalog
+with zero drafts and no application data write. Read-only SQL returned:
+
+| Marker | Result |
+|---|---:|
+| Flyway maximum / failed rows | `96 / 0` |
+| `lecturer_assets` total | `0` |
+| verified, linkable `audio/*` assets | `0` |
+| candidate generic speaker-check assets | `0` |
+| `practice_material_references` total | `0` |
+| `practice_drafts` total | `0` |
+| historical static-seed version references | `1` |
+
+The reproducible audit predicate was:
+
+```sql
+SELECT COUNT(*)
+FROM lecturer_assets
+WHERE deleted_at IS NULL
+  AND content_verified = 1
+  AND UPPER(status) IN ('ACTIVE', 'TEMPORARY')
+  AND LOWER(COALESCE(mime_type, '')) LIKE 'audio/%';
+```
+
+No binding/preflight implementation is authorized by this evidence: inventing
+an auto-increment ID or treating the V44 static route as current material
+authority would bypass both ownership and immutable published-reference
+controls. There is also no canonical `LISTENING_CHECK_AUDIO` purpose/approval
+field today; current rows express technical verification and ownership, not a
+separate product approval label.
+
+The exact product/data decision needed before the next bounded slice is:
+
+1. approve the exact speaker-check audio bytes (the existing digest above or
+   a supplied replacement), its learner-facing purpose and rights/provenance;
+2. choose ownership semantics: **recommended default** is an owner-scoped
+   `MANUAL_UPLOAD` asset owned by the same Practice draft owner and linked
+   through the existing material library; a platform-global asset shared
+   across unrelated owners is not supported by the present ownership contract
+   and would require a separate product/security design;
+3. register the approved bytes through the existing local storage/material
+   workflow so the database assigns the real asset ID, with `asset_type=AUDIO`,
+   verified `audio/*` MIME, SHA-256, non-deleted linkable status and
+   `content_verified=true`; and
+4. authorize the TOPIK 35 importer preflight to accept that explicit asset ID
+   only when owner, digest, MIME, state and exact draft reference all match,
+   then write `/practice/materials/{id}/content`. No lookup by title, guessed
+   ID, static-route fallback or cross-profile/global fallback is acceptable.
+
+Listening group timing remains optional post-test metadata and is unrelated to
+this blocker. Writing Q51-Q54 remain publishable content but explicitly
+`MANUAL_OR_EXPERIMENTAL_UNSCORED`. No learner-visible set/version, material row,
+reference, migration/schema change, shared DB mutation, R2/object operation or
+AI/provider call occurred in this audit.
+
+JDK `17.0.19` evidence:
+
+- publisher-validator, material-reference, material-access, asset-ownership
+  and TOPIK 35 importer regressions passed `56/56`;
+- disposable-DB `KshApplicationTests` context gate passed `4/4`, after which
+  TOPIK 35 sets, provider execution audits and provider capability test runs
+  all remained `0`; and
+- static-fixture SHA/format inspection, migration/source scans,
+  `git diff --check` and the final SQL predicates completed green.
