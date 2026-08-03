@@ -1367,7 +1367,8 @@ class PracticeServiceTest {
     @Test
     void testWritingReEvaluateUnavailablePreservesPreviousValidResult() {
         String oldAnswers = "{\"10\":\"Tôi học tiếng Hàn.\"}";
-        String oldFeedback = "{\"10\":{\"raw_score\":30.0,\"raw_score_max\":50.0,\"summary\":\"old\"}}";
+        String oldFeedback = "{\"10\":" + currentWritingFeedback(
+                WritingTaskType.Q54, "30", "old") + "}";
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "WRITING", 20L);
         attempt.lockPublishedVersion(100L, 101L, 102L, 103L);
         attempt.markGraded(BigDecimal.valueOf(60.00), BigDecimal.valueOf(50.0), oldAnswers, oldFeedback);
@@ -3326,6 +3327,10 @@ class PracticeServiceTest {
         node.put("evaluation_reason", reason);
         node.put("evaluation_retryable", true);
         node.put("score_available", false);
+        node.set("result_completeness", objectMapper.valueToTree(
+                com.ksh.features.practice.ai.contract
+                        .PracticeAiResultCompleteness.unavailable(reason, 0)
+                        .toMap()));
         return node.toString();
     }
 

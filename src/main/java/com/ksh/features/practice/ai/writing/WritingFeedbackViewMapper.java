@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import com.ksh.features.practice.dto.PracticeDtos.WritingAnnotationView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFindingView;
@@ -19,16 +20,35 @@ public class WritingFeedbackViewMapper {
         if (feedbackEntry == null || feedbackEntry.isNull() || feedbackEntry.isMissingNode() || !feedbackEntry.isObject()) {
             return null;
         }
+        PracticeAiResultCompleteness completeness;
+        try {
+            completeness = PracticeAiResultCompleteness.require(feedbackEntry);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+        boolean complete = completeness.status()
+                == PracticeAiResultCompleteness.Status.COMPLETE;
+        boolean diagnosticsAvailable = complete
+                || completeness.status()
+                    == PracticeAiResultCompleteness.Status.PARTIAL_NON_SCORE;
         return new WritingFeedbackView(
-                decimal(feedbackEntry.get("raw_score")),
-                decimal(feedbackEntry.get("raw_score_max")),
-                decimal(feedbackEntry.get("score")),
+                complete ? decimal(feedbackEntry.get("raw_score")) : null,
+                complete ? decimal(feedbackEntry.get("raw_score_max")) : null,
+                complete ? decimal(feedbackEntry.get("score")) : null,
                 text(feedbackEntry.get("summary")),
                 text(feedbackEntry.get("summary_vi")),
-                rubricScores(feedbackEntry.get("rubric_scores")),
-                findings(feedbackEntry.get("strengths")),
-                findings(feedbackEntry.get("needs_improvement")),
-                annotations(feedbackEntry.get("annotations")),
+                complete
+                        ? rubricScores(feedbackEntry.get("rubric_scores"))
+                        : List.of(),
+                diagnosticsAvailable
+                        ? findings(feedbackEntry.get("strengths"))
+                        : List.of(),
+                diagnosticsAvailable
+                        ? findings(feedbackEntry.get("needs_improvement"))
+                        : List.of(),
+                diagnosticsAvailable
+                        ? annotations(feedbackEntry.get("annotations"))
+                        : List.of(),
                 text(feedbackEntry.get("upgraded_answer")),
                 sentenceRewrites(feedbackEntry.get("sentence_rewrites")),
                 text(feedbackEntry.get("sample_answer")),
@@ -36,7 +56,8 @@ public class WritingFeedbackViewMapper {
                 text(feedbackEntry.get("evaluation_source")),
                 text(feedbackEntry.get("evaluation_reason")),
                 bool(feedbackEntry.get("evaluation_retryable")),
-                bool(feedbackEntry.get("score_available"))
+                complete && Boolean.TRUE.equals(
+                        bool(feedbackEntry.get("score_available")))
         );
     }
 

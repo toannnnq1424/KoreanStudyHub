@@ -1059,14 +1059,22 @@ class PracticeProgressServiceTest {
                     "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
                     "evaluation_reason":"NONE","evaluation_retryable":false,
-                    "score_available":true
+                    "score_available":true,
+                    "result_completeness":{
+                      "version":"practice-ai-result-completeness-v1",
+                      "status":"COMPLETE","reason_code":"NONE",
+                      "rejected_item_count":0}
                   },
                   "302":{
                     "task_type":"Q52","engine":"KSH_WRITING_EVALUATOR_STATUS",
                     "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V2",
                     "evaluation_status":"EVALUATION_UNAVAILABLE",
                     "evaluation_source":"PROVIDER","evaluation_reason":"HTTP_ERROR",
-                    "evaluation_retryable":true,"score_available":false
+                    "evaluation_retryable":true,"score_available":false,
+                    "result_completeness":{
+                      "version":"practice-ai-result-completeness-v1",
+                      "status":"UNAVAILABLE","reason_code":"HTTP_ERROR",
+                      "rejected_item_count":0}
                   }
                 }
                 """);

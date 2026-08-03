@@ -1179,3 +1179,60 @@ request a bounded full replacement safely. The next safe design boundary is a
 domain-owned replacement coordinator or validator callback with the same hard
 budget and explicit `COMPLETE`, `PARTIAL_NON_SCORE` and `UNAVAILABLE` result;
 Writing/R/L independent diagnostics also still need item-level validation.
+
+### 6.19 Unified Practice AI result completeness
+
+Status: `COMPLETENESS_V1_GREEN / DIRECT_AUDIO_PARTIAL_DARK_ONLY / WRITING_RL_SCORE_ATOMIC / NO_MIGRATION`.
+
+The single domain model `practice-ai-result-completeness-v1` now defines only
+`COMPLETE`, `PARTIAL_NON_SCORE`, and `UNAVAILABLE`, with a bounded reason code
+and rejected-item count. The dated matrix
+`practice-ai-result-completeness-matrix-2026-08-03.md` maps producer, persisted
+JSON envelope/cache, current reader, presenter and score consumer for Writing,
+R/L explanations and direct-audio Speaking. Existing queue/artifact lifecycle
+states remain operational state, not a parallel result authority.
+
+Writing normalized feedback now persists completeness in the same per-question
+JSON used by attempts and cache. The parser rejects missing, malformed, future,
+or score/status-inconsistent metadata as non-current. `scoreAvailableFlag`, the
+exact policy predicate, progress consumers and result presenter remain gated on
+`COMPLETE`. A partial payload carrying fake numeric fields renders those fields
+as `null`, has no rubric score/latest/best/progress authority, and is labelled
+`PARTIAL` rather than zero or failed. Independent diagnostics may remain in the
+view, but current Writing producer findings are still atomically rejected
+because their evidence graph participates in criterion coverage.
+
+R/L strict v4 output receives backend-owned `COMPLETE` metadata only after the
+full strategy, official-answer coverage and evidence contract validates. The
+current reader requires that exact metadata; missing/malformed/non-complete v4
+does not count ready or reach Result Detail. Historical v2/v3 readers remain
+explicitly versioned and are not treated as current v4. R/L has no learner score
+and no unsafe claim/evidence salvage was added.
+
+Direct-audio keeps provider/model/policy/calibration/receipt, both acoustic
+dimensions, totals and confidence atomic. Independent evidence spans now
+validate item-by-item: an invalid sibling is dropped and yields reviewer-only
+`PARTIAL_NON_SCORE`; losing all evidence for a dimension rejects the whole
+result with its original reason. V92 `observation_payload` stores the exact
+status/reason/count. Reviewer inspection re-parses it and hides legacy,
+malformed or unavailable payloads. Score-release eligibility and learner
+presenter eligibility remain false, with holistic score and attempt points
+forced null.
+
+No schema migration was required: the authoritative stores already persist
+canonical JSON envelopes. V1–V92 migration bytes were not modified. Real
+provider/storage/shared-DB calls, secrets and learner acoustic score releases
+remained `0`.
+
+Dated `2026-08-03`, JDK `17.0.19` focused producer/parser/presenter/progress/
+transport gate passed `167/167`. The combined Writing/R/L/Speaking AI,
+replacement, artifact lifecycle, result presenter, service and progress gate
+passed `572` tests: `566` executed green and `6` existing DB/auth guards
+skipped. Refusal, truncation, malformed envelope, replacement exhaustion,
+missing/future completeness, inconsistent score status and invalid independent
+evidence are covered with fake/adversarial inputs only.
+
+The remaining safe boundary is reviewer-only dark-result inspection plus
+authorized ranged playback. It must reuse the named active reviewer grant,
+consent/withdrawal/deletion state and the original private audio object; no raw
+URL, storage key, per-word audio file or learner acoustic score may be exposed.

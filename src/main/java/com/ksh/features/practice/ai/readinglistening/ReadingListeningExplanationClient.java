@@ -2,6 +2,8 @@ package com.ksh.features.practice.ai.readinglistening;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.ExplanationContext;
 import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
@@ -100,6 +102,18 @@ public class ReadingListeningExplanationClient {
             List<ExplanationImageEvidence> images) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
+            if (!(root instanceof ObjectNode objectRoot)) {
+                return null;
+            }
+            if (objectRoot.has(PracticeAiResultCompleteness.FIELD)) {
+                PracticeAiResultCompleteness existing =
+                        PracticeAiResultCompleteness.require(objectRoot);
+                if (existing.status()
+                        != PracticeAiResultCompleteness.Status.COMPLETE) {
+                    return null;
+                }
+                objectRoot.remove(PracticeAiResultCompleteness.FIELD);
+            }
             requireFields(root, Set.of(
                     "schemaVersion",
                     "strategyRegistryVersion",
@@ -119,6 +133,10 @@ public class ReadingListeningExplanationClient {
             }
             JsonNode explanation = object(root, "explanation");
             validateTypeExplanation(explanation, context, images == null ? List.of() : images);
+            objectRoot.set(
+                    PracticeAiResultCompleteness.FIELD,
+                    objectMapper.valueToTree(
+                            PracticeAiResultCompleteness.complete().toMap()));
             return objectMapper.writeValueAsString(root);
         } catch (Exception exception) {
             log.warn("[ReadingListeningAI] explanation cleaning failed type={} exception={}",

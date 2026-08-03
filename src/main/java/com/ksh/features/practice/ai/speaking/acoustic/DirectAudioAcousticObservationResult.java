@@ -1,5 +1,7 @@
 package com.ksh.features.practice.ai.speaking.acoustic;
 
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -18,6 +20,7 @@ public record DirectAudioAcousticObservationResult(
         String providerRequestId,
         String providerCacheIdentity,
         String rejectionCode,
+        PracticeAiResultCompleteness completeness,
         boolean scoreReleaseEligible,
         boolean presenterEligible,
         BigDecimal holisticScore,
@@ -25,6 +28,10 @@ public record DirectAudioAcousticObservationResult(
 
     public DirectAudioAcousticObservationResult {
         observations = observations == null ? List.of() : List.copyOf(observations);
+        if (completeness == null) {
+            throw new IllegalArgumentException(
+                    "Direct-audio completeness is required");
+        }
         scoreReleaseEligible = false;
         presenterEligible = false;
         holisticScore = null;
@@ -36,7 +43,9 @@ public record DirectAudioAcousticObservationResult(
                 State.REJECTED_NON_SCORE_BEARING,
                 DirectAudioAcousticResponseNormalizer.CONTRACT_VERSION,
                 null, null, null, null, null, List.of(), null, null,
-                null, null, code, false, false, null, null);
+                null, null, code,
+                PracticeAiResultCompleteness.unavailable(code, 0),
+                false, false, null, null);
     }
 
     public enum State {

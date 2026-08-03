@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.speaking.acoustic;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -56,6 +57,9 @@ class DirectAudioDarkObservationServiceTest {
         assertThat(view.attemptPoints()).isNull();
         assertThat(view.providerObservationTotal())
                 .isEqualByComparingTo("1.50");
+        assertThat(view.completenessStatus()).isEqualTo(
+                PracticeAiResultCompleteness.Status.COMPLETE);
+        assertThat(view.rejectedItemCount()).isZero();
     }
 
     @Test
@@ -71,6 +75,24 @@ class DirectAudioDarkObservationServiceTest {
         assertThat(stored.get()).isNull();
     }
 
+    @Test
+    void reviewerCanInspectPersistedPartialDiagnosticsWithoutAnyScoreRelease() {
+        service.capture(44L, "dark-observation-partial", partial(),
+                NOW.plusSeconds(3600));
+        reviewerAuthorized = true;
+
+        var view = service.inspect(77L, 44L).orElseThrow();
+
+        assertThat(view.completenessStatus()).isEqualTo(
+                PracticeAiResultCompleteness.Status.PARTIAL_NON_SCORE);
+        assertThat(view.completenessReasonCode()).isEqualTo(
+                "DIRECT_AUDIO_DIAGNOSTIC_ITEMS_REJECTED");
+        assertThat(view.rejectedItemCount()).isEqualTo(1);
+        assertThat(view.scoreReleaseEligible()).isFalse();
+        assertThat(view.holisticScore()).isNull();
+        assertThat(view.attemptPoints()).isNull();
+    }
+
     private static DirectAudioAcousticObservationResult valid() {
         return new DirectAudioAcousticObservationResult(
                 DirectAudioAcousticObservationResult.State.VALID_DARK_OBSERVATION,
@@ -84,6 +106,21 @@ class DirectAudioDarkObservationServiceTest {
                                 .FLUENCY, "evidence-test-2", "0.70", "0.80")),
                 new BigDecimal("1.50"), new BigDecimal("0.85"),
                 "provider-request-test-1", "provider-cache-test-1", null,
+                PracticeAiResultCompleteness.complete(),
+                false, false, null, null);
+    }
+
+    private static DirectAudioAcousticObservationResult partial() {
+        DirectAudioAcousticObservationResult complete = valid();
+        return new DirectAudioAcousticObservationResult(
+                complete.state(), complete.contractVersion(), complete.language(),
+                complete.evaluatorId(), complete.model(),
+                complete.calibrationProfileId(), complete.calibrationVersion(),
+                complete.observations(), complete.providerObservationTotal(),
+                complete.providerConfidence(), complete.providerRequestId(),
+                complete.providerCacheIdentity(), null,
+                PracticeAiResultCompleteness.partial(
+                        "DIRECT_AUDIO_DIAGNOSTIC_ITEMS_REJECTED", 1),
                 false, false, null, null);
     }
 

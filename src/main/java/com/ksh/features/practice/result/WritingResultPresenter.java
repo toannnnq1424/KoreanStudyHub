@@ -113,6 +113,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         int ready = 0;
         int notAnswered = 0;
         int pending = 0;
+        int partial = 0;
         int failed = 0;
         int unavailable = 0;
 
@@ -135,6 +136,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 switch (task.feedback().state()) {
                     case "READY" -> ready++;
                     case "PENDING" -> pending++;
+                    case "PARTIAL" -> partial++;
                     case "FAILED" -> failed++;
                     default -> unavailable++;
                 }
@@ -143,9 +145,10 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
 
         int answered = questions.size() - notAnswered;
         ResultFeedbackAvailability feedback = aggregateFeedback(
-                ready, pending, failed, unavailable, answered);
+                ready, pending, partial, failed, unavailable, answered);
         ResultAnswerDistribution distribution = new ResultAnswerDistribution(
-                0, 0, 0, notAnswered, pending, failed + unavailable, questions.size(), ready);
+                0, 0, 0, notAnswered, pending,
+                partial + failed + unavailable, questions.size(), ready);
         ResultScoreSummary displayScore = feedback.ready()
                 ? context.score()
                 : context.score().unavailableView();
@@ -2108,6 +2111,13 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 || normalizedStatus.contains("PROCESSING")) {
             return new ResultFeedbackAvailability("PENDING", "Đang xử lý đánh giá", 0, 1);
         }
+        if (normalizedStatus.contains("PARTIAL")) {
+            return new ResultFeedbackAvailability(
+                    "PARTIAL",
+                    "Chỉ có nhận xét một phần; không có điểm khả dụng",
+                    0,
+                    1);
+        }
         if (normalizedStatus.contains("UNAVAILABLE") || normalizedStatus.contains("NOT_SCORABLE")) {
             return new ResultFeedbackAvailability(
                     "UNAVAILABLE", "Nhiệm vụ này hiện chưa có đánh giá khả dụng", 0, 1);
@@ -2137,6 +2147,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
     private static ResultFeedbackAvailability aggregateFeedback(
             int ready,
             int pending,
+            int partial,
             int failed,
             int unavailable,
             int total) {
@@ -2149,6 +2160,13 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         }
         if (ready > 0) {
             return new ResultFeedbackAvailability("PARTIAL", "Một phần đánh giá đã sẵn sàng", ready, total);
+        }
+        if (partial > 0) {
+            return new ResultFeedbackAvailability(
+                    "PARTIAL",
+                    "Chỉ có nhận xét một phần; không có điểm khả dụng",
+                    0,
+                    total);
         }
         if (pending > 0) {
             return new ResultFeedbackAvailability(

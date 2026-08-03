@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.speaking.acoustic;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import com.ksh.features.practice.ai.speaking.DirectAudioSpeakingEvaluationService;
 import org.springframework.stereotype.Component;
 
@@ -128,8 +129,10 @@ public final class DirectAudioAcousticResponseNormalizer {
             if (durationMs <= 0 || durationMs > 600_000) {
                 throw rejected("DIRECT_AUDIO_DURATION_INVALID");
             }
-            List<DirectAudioAcousticObservationResult.DimensionObservation> observations =
+            ParsedObservations parsed =
                     observations(input.get("observations"), durationMs);
+            List<DirectAudioAcousticObservationResult.DimensionObservation> observations =
+                    parsed.observations();
             BigDecimal calculatedTotal = observations.stream()
                     .map(DirectAudioAcousticObservationResult.DimensionObservation
                             ::providerSignalValue)
@@ -174,6 +177,11 @@ public final class DirectAudioAcousticResponseNormalizer {
                     expected.providerRequestId(),
                     expected.providerCacheIdentity(),
                     null,
+                    parsed.rejectedItemCount() == 0
+                            ? PracticeAiResultCompleteness.complete()
+                            : PracticeAiResultCompleteness.partial(
+                                    "DIRECT_AUDIO_DIAGNOSTIC_ITEMS_REJECTED",
+                                    parsed.rejectedItemCount()),
                     false, false, null, null);
         } catch (Rejected exception) {
             return DirectAudioAcousticObservationResult.rejected(exception.code);
@@ -183,7 +191,7 @@ public final class DirectAudioAcousticResponseNormalizer {
         }
     }
 
-    private static List<DirectAudioAcousticObservationResult.DimensionObservation>
+    private static ParsedObservations
             observations(JsonNode array, long durationMs) {
         if (array == null || !array.isArray() || array.size() != 2) {
             throw rejected("DIRECT_AUDIO_OBSERVATIONS_INVALID");
@@ -193,6 +201,7 @@ public final class DirectAudioAcousticResponseNormalizer {
         Set<String> evidenceIds = new HashSet<>();
         List<DirectAudioAcousticObservationResult.DimensionObservation> result =
                 new ArrayList<>();
+        int rejectedItemCount = 0;
         for (JsonNode node : array) {
             exactObject(node, OBSERVATION_FIELDS, "DIRECT_AUDIO_OBSERVATION_INVALID");
             DirectAudioAcousticObservationResult.Dimension dimension;
@@ -215,22 +224,41 @@ public final class DirectAudioAcousticResponseNormalizer {
             }
             List<DirectAudioAcousticObservationResult.EvidenceSpan> spans =
                     new ArrayList<>();
+            Rejected firstRejected = null;
             for (JsonNode span : evidence) {
-                exactObject(span, EVIDENCE_FIELDS, "DIRECT_AUDIO_EVIDENCE_INVALID");
-                String evidenceId = requiredText(span, "evidence_id");
-                if (!evidenceIds.add(evidenceId)) {
-                    throw rejected("DIRECT_AUDIO_EVIDENCE_DUPLICATE");
+                try {
+                    exactObject(span, EVIDENCE_FIELDS,
+                            "DIRECT_AUDIO_EVIDENCE_INVALID");
+                    String evidenceId = requiredText(span, "evidence_id");
+                    if (evidenceIds.contains(evidenceId)) {
+                        throw rejected("DIRECT_AUDIO_EVIDENCE_DUPLICATE");
+                    }
+                    long start = requiredLong(span, "start_ms");
+                    long end = requiredLong(span, "end_ms");
+                    if (start < 0 || end <= start || end > durationMs) {
+                        throw rejected(
+                                "DIRECT_AUDIO_EVIDENCE_TIMESTAMP_INVALID");
+                    }
+                    DirectAudioAcousticObservationResult.EvidenceSpan parsedSpan =
+                            new DirectAudioAcousticObservationResult.EvidenceSpan(
+                            evidenceId, start, end,
+                            boundedDecimal(span, "confidence", BigDecimal.ZERO,
+                                    BigDecimal.ONE,
+                                    "DIRECT_AUDIO_CONFIDENCE_INVALID"),
+                            requiredText(span, "observation"));
+                    evidenceIds.add(evidenceId);
+                    spans.add(parsedSpan);
+                } catch (Rejected exception) {
+                    rejectedItemCount++;
+                    if (firstRejected == null) {
+                        firstRejected = exception;
+                    }
                 }
-                long start = requiredLong(span, "start_ms");
-                long end = requiredLong(span, "end_ms");
-                if (start < 0 || end <= start || end > durationMs) {
-                    throw rejected("DIRECT_AUDIO_EVIDENCE_TIMESTAMP_INVALID");
-                }
-                spans.add(new DirectAudioAcousticObservationResult.EvidenceSpan(
-                        evidenceId, start, end,
-                        boundedDecimal(span, "confidence", BigDecimal.ZERO,
-                                BigDecimal.ONE, "DIRECT_AUDIO_CONFIDENCE_INVALID"),
-                        requiredText(span, "observation")));
+            }
+            if (spans.isEmpty()) {
+                throw firstRejected == null
+                        ? rejected("DIRECT_AUDIO_EVIDENCE_MISSING")
+                        : firstRejected;
             }
             result.add(new DirectAudioAcousticObservationResult.DimensionObservation(
                     dimension, signal, confidence, spans));
@@ -239,7 +267,14 @@ public final class DirectAudioAcousticResponseNormalizer {
                 DirectAudioAcousticObservationResult.Dimension.class))) {
             throw rejected("DIRECT_AUDIO_DIMENSIONS_INCOMPLETE");
         }
-        return List.copyOf(result);
+        return new ParsedObservations(
+                List.copyOf(result), rejectedItemCount);
+    }
+
+    private record ParsedObservations(
+            List<DirectAudioAcousticObservationResult.DimensionObservation>
+                    observations,
+            int rejectedItemCount) {
     }
 
     private static void exactObject(JsonNode node, Set<String> fields, String code) {

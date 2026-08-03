@@ -1,7 +1,10 @@
 package com.ksh.features.practice.ai.speaking.acoustic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -47,7 +50,9 @@ public final class DirectAudioDarkObservationService {
         }
         requireDarkResult(result);
 
-        SafePayload payload = new SafePayload(result.observations().stream()
+        SafePayload payload = new SafePayload(
+                result.completeness().toMap(),
+                result.observations().stream()
                 .map(observation -> new SafeDimension(
                         observation.dimension().name(),
                         observation.providerSignalValue(),
@@ -81,14 +86,17 @@ public final class DirectAudioDarkObservationService {
             return Optional.empty();
         }
         return store.findInspectable(reviewerId, attemptId, clock.instant())
-                .map(stored -> new ReviewerView(
+                .flatMap(stored -> validatedCompleteness(stored.payloadJson())
+                .map(completeness -> new ReviewerView(
                         stored.observationKey(), stored.attemptId(),
                         stored.contractVersion(), stored.language(),
                         stored.evaluatorId(), stored.model(),
                         stored.calibrationProfileId(), stored.calibrationVersion(),
                         stored.providerObservationTotal(), stored.providerConfidence(),
                         stored.payloadJson(), stored.capturedAt(), stored.deleteAfter(),
-                        false, null, null));
+                        completeness.status(), completeness.reasonCode(),
+                        completeness.rejectedItemCount(),
+                        false, null, null)));
     }
 
     private static void requireDarkResult(
@@ -100,6 +108,8 @@ public final class DirectAudioDarkObservationService {
                 || result.presenterEligible()
                 || result.holisticScore() != null
                 || result.attemptPoints() != null
+                || result.completeness().status()
+                    == PracticeAiResultCompleteness.Status.UNAVAILABLE
                 || !DirectAudioAcousticResponseNormalizer.CONTRACT_VERSION.equals(
                         result.contractVersion())
                 || !DirectAudioAcousticResponseNormalizer.LANGUAGE.equals(result.language())
@@ -113,6 +123,26 @@ public final class DirectAudioDarkObservationService {
                 || result.providerObservationTotal() == null
                 || result.providerConfidence() == null) {
             throw rejected("DIRECT_AUDIO_DARK_OBSERVATION_INVALID");
+        }
+    }
+
+    private Optional<PracticeAiResultCompleteness> validatedCompleteness(
+            String payloadJson) {
+        try {
+            JsonNode root = mapper.readTree(payloadJson);
+            if (root == null || !root.isObject() || root.size() != 2
+                    || !root.path("observations").isArray()) {
+                return Optional.empty();
+            }
+            PracticeAiResultCompleteness completeness =
+                    PracticeAiResultCompleteness.require(root);
+            if (completeness.status()
+                    == PracticeAiResultCompleteness.Status.UNAVAILABLE) {
+                return Optional.empty();
+            }
+            return Optional.of(completeness);
+        } catch (RuntimeException | JsonProcessingException exception) {
+            return Optional.empty();
         }
     }
 
@@ -185,12 +215,18 @@ public final class DirectAudioDarkObservationService {
             String payloadJson,
             Instant capturedAt,
             Instant deleteAfter,
+            PracticeAiResultCompleteness.Status completenessStatus,
+            String completenessReasonCode,
+            int rejectedItemCount,
             boolean scoreReleaseEligible,
             BigDecimal holisticScore,
             BigDecimal attemptPoints) {
     }
 
-    private record SafePayload(List<SafeDimension> observations) {
+    private record SafePayload(
+            @JsonProperty(PracticeAiResultCompleteness.FIELD)
+            java.util.Map<String, Object> resultCompleteness,
+            List<SafeDimension> observations) {
     }
 
     private record SafeDimension(

@@ -3,6 +3,8 @@ package com.ksh.features.practice.ai.speaking.acoustic;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -38,6 +40,34 @@ class DirectAudioAcousticResponseNormalizerTest {
                 .isEqualByComparingTo(new BigDecimal("1.5"));
         assertThat(result.providerConfidence())
                 .isEqualByComparingTo(new BigDecimal("0.85"));
+        assertThat(result.scoreReleaseEligible()).isFalse();
+        assertThat(result.presenterEligible()).isFalse();
+        assertThat(result.holisticScore()).isNull();
+        assertThat(result.attemptPoints()).isNull();
+        assertThat(result.completeness().status()).isEqualTo(
+                PracticeAiResultCompleteness.Status.COMPLETE);
+    }
+
+    @Test
+    void invalidIndependentEvidenceItemProducesReviewerOnlyPartialResult()
+            throws Exception {
+        ObjectNode input = valid();
+        ArrayNode evidence = (ArrayNode) input.withArray("observations")
+                .get(0).path("evidence");
+        ObjectNode invalidSibling = evidence.get(0).deepCopy();
+        invalidSibling.put("evidence_id", "evidence-invalid-sibling");
+        invalidSibling.put("start_ms", 5000);
+        invalidSibling.put("end_ms", 4000);
+        evidence.add(invalidSibling);
+
+        var result = normalizer.normalize(input, context());
+
+        assertThat(result.state()).isEqualTo(
+                DirectAudioAcousticObservationResult.State.VALID_DARK_OBSERVATION);
+        assertThat(result.completeness().status()).isEqualTo(
+                PracticeAiResultCompleteness.Status.PARTIAL_NON_SCORE);
+        assertThat(result.completeness().rejectedItemCount()).isEqualTo(1);
+        assertThat(result.observations().get(0).evidence()).hasSize(1);
         assertThat(result.scoreReleaseEligible()).isFalse();
         assertThat(result.presenterEligible()).isFalse();
         assertThat(result.holisticScore()).isNull();

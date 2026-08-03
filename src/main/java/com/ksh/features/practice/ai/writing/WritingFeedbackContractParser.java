@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -75,11 +76,19 @@ public class WritingFeedbackContractParser {
         String evaluationReason = text(node.get("evaluation_reason"));
         Boolean evaluationRetryable = bool(node.get("evaluation_retryable"));
         Boolean scoreAvailable = bool(node.get("score_available"));
+        PracticeAiResultCompleteness completeness;
+        try {
+            completeness = PracticeAiResultCompleteness.require(node);
+        } catch (IllegalArgumentException exception) {
+            return EntryResult.malformed();
+        }
         if (evaluationStatus == null
                 || evaluationSource == null
                 || evaluationReason == null
                 || evaluationRetryable == null
-                || scoreAvailable == null) {
+                || scoreAvailable == null
+                || (scoreAvailable
+                    != completeness.scoreBearingComplete())) {
             return EntryResult.malformed();
         }
         boolean explicitNonScoreBearing = isNonScoreBearing(evaluationStatus, scoreAvailable);
@@ -97,7 +106,8 @@ public class WritingFeedbackContractParser {
                     evaluationSource,
                     evaluationReason,
                     evaluationRetryable,
-                    false
+                    false,
+                    completeness
             ));
         }
         BigDecimal rawScore = number(node.get("raw_score"));
@@ -121,7 +131,8 @@ public class WritingFeedbackContractParser {
                 evaluationSource,
                 evaluationReason,
                 evaluationRetryable,
-                scoreAvailable
+                scoreAvailable,
+                completeness
         ));
     }
 

@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -33,6 +34,9 @@ class WritingFeedbackContractParserTest {
                 {"evaluation_status":"EVALUATION_UNAVAILABLE",
                  "evaluation_source":"PROVIDER","evaluation_reason":"HTTP_ERROR",
                  "evaluation_retryable":true,"score_available":false,
+                 "result_completeness":{"version":"practice-ai-result-completeness-v1",
+                   "status":"UNAVAILABLE","reason_code":"HTTP_ERROR",
+                   "rejected_item_count":0},
                  "task_type":"Q51","engine":"KSH_WRITING_EVALUATOR_V2",
                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V3"}
@@ -51,6 +55,32 @@ class WritingFeedbackContractParserTest {
                 parser.parseStoredEntry(flat).status());
         assertEquals(WritingFeedbackContractParser.Status.MALFORMED,
                 parser.parseRoot(flat, List.of(101L)).status());
+    }
+
+    @Test
+    void partialDiagnosticsRemainExplicitlyNonScoreBearing() throws Exception {
+        JsonNode node = objectMapper.readTree("""
+                {"evaluation_status":"EVALUATION_PARTIAL_NON_SCORE",
+                 "evaluation_source":"PROVIDER",
+                 "evaluation_reason":"DIAGNOSTIC_ITEMS_REJECTED",
+                 "evaluation_retryable":false,"score_available":false,
+                 "result_completeness":{
+                   "version":"practice-ai-result-completeness-v1",
+                   "status":"PARTIAL_NON_SCORE",
+                   "reason_code":"DIAGNOSTIC_ITEMS_REJECTED",
+                   "rejected_item_count":2},
+                 "task_type":"Q53","engine":"KSH_WRITING_EVALUATOR_V3",
+                 "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                 "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V3"}
+                """);
+
+        var result = parser.parseStoredEntry(node);
+
+        assertEquals(WritingFeedbackContractParser.Status.VALID_CURRENT,
+                result.status());
+        assertEquals(false, result.value().scoreAvailableFlag());
+        assertEquals(2,
+                result.value().completeness().rejectedItemCount());
     }
 
     @Test
@@ -100,6 +130,9 @@ class WritingFeedbackContractParserTest {
         node.put("evaluation_reason", "NONE");
         node.put("evaluation_retryable", false);
         node.put("score_available", true);
+        node.set(PracticeAiResultCompleteness.FIELD,
+                objectMapper.valueToTree(
+                        PracticeAiResultCompleteness.complete().toMap()));
         node.put("task_type", "Q51");
         node.put("engine", "KSH_WRITING_EVALUATOR_V2");
         node.put("scoring_contract", "TASK_NATIVE_RUBRIC_V1");

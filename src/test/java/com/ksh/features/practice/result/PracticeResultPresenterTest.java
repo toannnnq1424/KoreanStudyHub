@@ -1102,7 +1102,15 @@ class PracticeResultPresenterTest {
         when(pendingAttempt.getAiFeedbackJson()).thenReturn("""
                 {"153":{
                   "evaluation_status":"PROCESSING",
+                  "evaluation_source":"SYSTEM",
+                  "evaluation_reason":"EVALUATION_PROCESSING",
+                  "evaluation_retryable":true,
                   "score_available":false,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE",
+                    "reason_code":"EVALUATION_PROCESSING",
+                    "rejected_item_count":0},
                   "task_type":"Q53",
                   "upgraded_answer":"대기 중 산출물",
                   "sample_answer":"대기 중 참고 답안"
@@ -1236,7 +1244,15 @@ class PracticeResultPresenterTest {
         PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn("""
-                {"153":{"evaluation_status":"PROCESSING","score_available":false}}
+                {"153":{"evaluation_status":"PROCESSING",
+                  "evaluation_source":"SYSTEM",
+                  "evaluation_reason":"EVALUATION_PROCESSING",
+                  "evaluation_retryable":true,"score_available":false,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE",
+                    "reason_code":"EVALUATION_PROCESSING",
+                    "rejected_item_count":0}}}
                 """);
         WritingResultPresenter presenter = writingPresenter();
 
@@ -1440,7 +1456,14 @@ class PracticeResultPresenterTest {
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn("""
                 {"154":{"evaluation_status":"EVALUATION_UNAVAILABLE",
-                  "evaluation_reason":"PROVIDER_UNAVAILABLE","score_available":false}}
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"PROVIDER_UNAVAILABLE",
+                  "evaluation_retryable":true,"score_available":false,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE",
+                    "reason_code":"PROVIDER_UNAVAILABLE",
+                    "rejected_item_count":0}}}
                 """);
 
         PracticeResultPresenter.Presentation result = writingPresenter().present(context(
@@ -1458,6 +1481,41 @@ class PracticeResultPresenterTest {
         assertThat(payload.tasks().get(0).score().scaleLabel()).isEqualTo("Thang điểm 50");
         assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
         assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
+    }
+
+    @Test
+    void writingPartialFeedbackIsLabelledPartialAndNeverBecomesScore() {
+        PracticeQuestionVersion question =
+                writingQuestion(154L, 54, WritingTaskType.Q54);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"154":{"evaluation_status":"EVALUATION_PARTIAL_NON_SCORE",
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"DIAGNOSTIC_ITEMS_REJECTED",
+                  "evaluation_retryable":false,"score_available":false,
+                  "raw_score":45,"raw_score_max":50,"score":90,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"PARTIAL_NON_SCORE",
+                    "reason_code":"DIAGNOSTIC_ITEMS_REJECTED",
+                    "rejected_item_count":2},
+                  "task_type":"Q54","engine":"KSH_WRITING_EVALUATOR_V3",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V3"}}
+                """);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(
+                context("WRITING", List.of(question),
+                        Map.of("154", "Bài viết đã nộp"), attempt));
+        WritingResultPayload payload = (WritingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("PARTIAL");
+        assertThat(result.score().available()).isFalse();
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(payload.tasks().get(0).feedback().state())
+                .isEqualTo("PARTIAL");
+        assertThat(payload.tasks().get(0).score().available()).isFalse();
+        assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
     }
 
     @Test

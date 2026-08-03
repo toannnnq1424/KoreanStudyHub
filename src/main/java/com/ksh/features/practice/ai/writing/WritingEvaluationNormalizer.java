@@ -3,6 +3,7 @@ package com.ksh.features.practice.ai.writing;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
@@ -753,7 +754,7 @@ public class WritingEvaluationNormalizer {
             putEvaluationMetadata(normalized, status, source, reason, retryable, false);
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
-            return "{\"policy_bundle_id\":\"KSH_WRITING_POLICY_BUNDLE_V3\",\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"SYSTEM\",\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\",\"evaluation_retryable\":true,\"score_available\":false,\"summary_vi\":\"Chưa có đánh giá AI khả dụng.\"}";
+            return "{\"policy_bundle_id\":\"KSH_WRITING_POLICY_BUNDLE_V3\",\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"SYSTEM\",\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\",\"evaluation_retryable\":true,\"score_available\":false,\"result_completeness\":{\"version\":\"practice-ai-result-completeness-v1\",\"status\":\"UNAVAILABLE\",\"reason_code\":\"PROVIDER_UNEXPECTED_ERROR\",\"rejected_item_count\":0},\"summary_vi\":\"Chưa có đánh giá AI khả dụng.\"}";
         }
     }
 
@@ -825,6 +826,11 @@ public class WritingEvaluationNormalizer {
         target.put("evaluation_reason", reason);
         target.put("evaluation_retryable", retryable);
         target.put("score_available", scoreAvailable);
+        target.put(PracticeAiResultCompleteness.FIELD,
+                scoreAvailable
+                        ? PracticeAiResultCompleteness.complete().toMap()
+                        : PracticeAiResultCompleteness.unavailable(
+                                reason, 0).toMap());
     }
 
     private static String invalidLearnerReason(String learnerAnswer) {
