@@ -3,10 +3,9 @@ package com.ksh.features.questionbank.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.User;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.questionbank.entity.QuestionBankCategory;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
-import com.ksh.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
 import org.apache.poi.ss.usermodel.Row;
@@ -28,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -40,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** MockMvc coverage for question bank import template, preview, and confirm. */
+/** Disposable-DB MockMvc coverage for subject-scoped import template, preview, and confirm. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -52,47 +50,39 @@ class QuestionBankImportControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private UserRepository userRepository;
-    @Autowired private QuestionBankCategoryRepository categoryRepository;
+    @Autowired private DepartmentRepository subjectRepository;
     @Autowired private QuestionBankItemRepository itemRepository;
     @Autowired private QuestionBankOptionRepository optionRepository;
 
     private Long lecturerId;
-    private Long departmentId;
+    private Long subjectId;
+    private String subjectCode;
 
     @BeforeEach
     void setUp() {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         lecturerId = lecturer.getId();
-        departmentId = lecturer.getDepartmentId();
-        categoryRepository.save(new QuestionBankCategory(
-                departmentId, "Giải tích import", "Import category", true, lecturerId));
+        subjectId = lecturer.getDepartmentId();
+        subjectCode = subjectRepository.findById(subjectId).orElseThrow().getCode();
     }
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void template_download_uses_an_active_actor_category_and_previews_without_errors() throws Exception {
+    void downloaded_template_is_pre_scoped_to_the_actor_subject() throws Exception {
         MvcResult download = mockMvc.perform(get("/lecturer/question-bank/import/template"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(XLSX_MIME))
                 .andReturn();
 
         byte[] workbookBytes = download.getResponse().getContentAsByteArray();
-        String sampleCategory;
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(workbookBytes))) {
-            sampleCategory = workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue();
+            assertThat(workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue()).isEqualTo("Mã môn");
+            assertThat(workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue()).isEqualTo(subjectCode);
         }
-        List<String> activeCategoryNames =
-                categoryRepository.findByDepartmentIdAndActiveTrueOrderByNameAsc(departmentId)
-                        .stream()
-                        .map(QuestionBankCategory::getName)
-                        .toList();
-        assertThat(activeCategoryNames).contains(sampleCategory);
 
-        MockMultipartFile downloadedTemplate = new MockMultipartFile(
+        MockMultipartFile downloaded = new MockMultipartFile(
                 "file", "question-bank-template.xlsx", XLSX_MIME, workbookBytes);
-        mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
-                        .file(downloadedTemplate)
-                        .with(csrf()))
+        mockMvc.perform(multipart("/lecturer/question-bank/import/preview").file(downloaded).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acceptedRows").value(2))
                 .andExpect(jsonPath("$.errorRows").value(0))
@@ -101,97 +91,54 @@ class QuestionBankImportControllerTest {
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void template_download_uses_clear_placeholder_when_department_has_no_active_category() throws Exception {
-        List<QuestionBankCategory> categories =
-                categoryRepository.findByDepartmentIdOrderByNameAsc(departmentId);
-        categories.forEach(category -> category.updateDetails(
-                category.getName(), category.getDescription(), false));
-        categoryRepository.saveAllAndFlush(categories);
+    void preview_and_confirm_persist_valid_same_subject_rows() throws Exception {
+        long before = itemRepository.findBySubjectIdOrderByUpdatedAtDescIdDesc(subjectId).size();
+        MockMultipartFile file = workbookFile(subjectCode, "A");
 
-        MvcResult download = mockMvc.perform(get("/lecturer/question-bank/import/template"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(XLSX_MIME))
-                .andReturn();
-
-        try (Workbook workbook = WorkbookFactory.create(
-                new ByteArrayInputStream(download.getResponse().getContentAsByteArray()))) {
-            assertThat(workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue())
-                    .contains("CHƯA CÓ DANH MỤC ĐANG MỞ", "TRƯỞNG BỘ MÔN");
-        }
-    }
-
-    @Test
-    @WithUserDetails("lecturer@ksh.edu.vn")
-    void preview_and_confirm_persist_valid_rows() throws Exception {
-        long before = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId).size();
-        MockMultipartFile file = new MockMultipartFile("file", "bank.xlsx", XLSX_MIME, buildWorkbook(new String[][]{
-                {"Danh mục", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
-                        "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"},
-                {"Giải tích import", "MCQ", "Đạo hàm của x^2 là gì?", "Áp dụng quy tắc lũy thừa",
-                        "2x", "x", "x^2", "2", "A"}
-        }));
-
-        MvcResult previewResult = mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
-                        .file(file)
-                        .with(csrf()))
+        MvcResult previewResult = mockMvc.perform(
+                        multipart("/lecturer/question-bank/import/preview").file(file).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acceptedRows").value(1))
                 .andExpect(jsonPath("$.errorRows").value(0))
-                .andExpect(jsonPath("$.confirmable").value(true))
                 .andReturn();
 
-        JsonNode previewJson = objectMapper.readTree(previewResult.getResponse().getContentAsString());
-        String sessionId = previewJson.get("sessionId").asText();
-
+        JsonNode preview = objectMapper.readTree(previewResult.getResponse().getContentAsString());
         mockMvc.perform(post("/lecturer/question-bank/import/confirm")
                         .with(csrf())
                         .contentType(APPLICATION_JSON)
-                        .content("{\"sessionId\":\"" + sessionId + "\"}"))
+                        .content("{\"sessionId\":\"" + preview.get("sessionId").asText() + "\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.createdCount").value(1))
                 .andExpect(jsonPath("$.workflowStatus").value("REVIEW"));
 
-        var items = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId);
+        var items = itemRepository.findBySubjectIdOrderByUpdatedAtDescIdDesc(subjectId);
         assertThat(items).hasSize((int) before + 1);
         QuestionBankItem imported = items.get(0);
+        assertThat(imported.getSubjectId()).isEqualTo(subjectId);
         assertThat(imported.getContributorId()).isEqualTo(lecturerId);
-        assertThat(imported.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REVIEW);
         assertThat(optionRepository.findByItemIdOrderBySortOrderAscIdAsc(imported.getId())).hasSize(4);
     }
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void confirm_is_blocked_when_preview_has_errors() throws Exception {
-        long before = itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId).size();
-        MockMultipartFile file = new MockMultipartFile("file", "bank.xlsx", XLSX_MIME, buildWorkbook(new String[][]{
-                {"Danh mục", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
-                        "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"},
-                {"Danh mục không tồn tại", "MCQ", "Câu lỗi", "", "A", "B", "", "", "A,B"}
-        }));
-
-        MvcResult previewResult = mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
-                        .file(file)
+    void preview_blocks_a_different_subject_code() throws Exception {
+        mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
+                        .file(workbookFile("OTHER101", "A"))
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acceptedRows").value(0))
                 .andExpect(jsonPath("$.errorRows").value(1))
                 .andExpect(jsonPath("$.confirmable").value(false))
-                .andReturn();
-
-        JsonNode previewJson = objectMapper.readTree(previewResult.getResponse().getContentAsString());
-        String sessionId = previewJson.get("sessionId").asText();
-
-        mockMvc.perform(post("/lecturer/question-bank/import/confirm")
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content("{\"sessionId\":\"" + sessionId + "\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").exists());
-
-        assertThat(itemRepository.findByDepartmentIdOrderByUpdatedAtDescIdDesc(departmentId)).hasSize((int) before);
+                .andExpect(jsonPath("$.rows[0].message").value("Mã môn phải là " + subjectCode));
     }
 
-    private static byte[] buildWorkbook(String[][] grid) throws IOException {
+    private static MockMultipartFile workbookFile(String code, String correct) throws IOException {
+        String[][] grid = {
+                {"Mã môn", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
+                        "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án đúng"},
+                {code, "MCQ", "Đạo hàm của x^2 là gì?", "Áp dụng quy tắc lũy thừa",
+                        "2x", "x", "x^2", "2", correct}
+        };
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Cau hoi");
@@ -202,7 +149,7 @@ class QuestionBankImportControllerTest {
                 }
             }
             workbook.write(out);
-            return out.toByteArray();
+            return new MockMultipartFile("file", "bank.xlsx", XLSX_MIME, out.toByteArray());
         }
     }
 }

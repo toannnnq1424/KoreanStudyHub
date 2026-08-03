@@ -8,16 +8,14 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repository for department-scoped shared question contributions.
+ * Repository for subject-scoped shared question contributions.
  */
 public interface QuestionBankItemRepository extends JpaRepository<QuestionBankItem, Long> {
 
-    long countByCategoryId(Long categoryId);
+    List<QuestionBankItem> findBySubjectIdOrderByUpdatedAtDescIdDesc(Long subjectId);
 
-    List<QuestionBankItem> findByDepartmentIdOrderByUpdatedAtDescIdDesc(Long departmentId);
+    List<QuestionBankItem> findBySubjectIdAndWorkflowStatusInOrderByUpdatedAtDescIdDesc(
+            Long subjectId, Collection<String> workflowStatuses);
 
-    List<QuestionBankItem> findByDepartmentIdAndWorkflowStatusInOrderByUpdatedAtDescIdDesc(
-            Long departmentId, Collection<String> workflowStatuses);
-
-    Optional<QuestionBankItem> findByIdAndDepartmentId(Long id, Long departmentId);
+    Optional<QuestionBankItem> findByIdAndSubjectId(Long id, Long subjectId);
 }

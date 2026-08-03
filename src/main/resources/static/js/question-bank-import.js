@@ -121,7 +121,7 @@
     rowsBody.innerHTML = (data.rows || []).map(function (row) {
       return '<tr>'
         + cell(row.rowNumber)
-        + cell(row.categoryName || '—')
+        + cell(row.subjectCode || '—')
         + cell(row.questionType || '—')
         + cell(row.contentPreview || '—')
         + cell(row.optionCount)
@@ -153,7 +153,7 @@
         if (!result.ok) {
           throw new Error(result.error || 'Không thể xác nhận import');
         }
-        window.KshToast.success('Đã import ' + result.data.createdCount + ' câu hỏi vào ngân hàng bộ môn');
+        window.KshToast.success('Đã import ' + result.data.createdCount + ' câu hỏi vào ngân hàng mã môn');
         window.location.reload();
       })
       .catch(function (error) {

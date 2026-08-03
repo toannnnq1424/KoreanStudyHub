@@ -2,7 +2,6 @@ package com.ksh.features.questionbank.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.ArrayList;
@@ -12,9 +11,6 @@ import java.util.List;
 public class QuestionBankItemForm {
 
     private Long id;
-
-    @NotNull(message = "Vui lòng chọn danh mục")
-    private Long categoryId;
 
     @NotBlank(message = "Loại câu hỏi không hợp lệ")
     private String questionType = "MCQ";
@@ -50,14 +46,6 @@ public class QuestionBankItemForm {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public Long getCategoryId() {
-        return categoryId;
-    }
-
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
     }
 
     public String getQuestionType() {

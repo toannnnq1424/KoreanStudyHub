@@ -14,12 +14,10 @@ import java.util.List;
  *
  * <p>Uses {@link JdbcTemplate} instead of JPA repository entities because:
  * <ul>
- *   <li>Only simple {@code COUNT} / {@code GROUP BY} queries are needed — full
- *       Department and Course entities do not yet exist.</li>
+ *   <li>Only simple {@code COUNT} / {@code GROUP BY} queries are needed.</li>
  *   <li>Avoids loading entire rows into memory just to obtain a single number.</li>
  * </ul>
- * Once Course/Department CRUD is implemented in a later sprint, these queries
- * should be migrated to the corresponding repositories.
+ * These read models intentionally avoid loading full entities.
  */
 @Service
 public class AdminDashboardService {
@@ -39,7 +37,7 @@ public class AdminDashboardService {
      * Returns high-level platform statistics for the dashboard summary cards.
      *
      * <p>Counts active (non-deleted, active) users, non-deleted classes,
-     * active departments, and non-deleted courses in a single read-only
+     * active subject catalog rows, and active classes in a single read-only
      * transaction.
      *
      * @return a {@link DashboardStats} record containing the four counts
@@ -49,8 +47,9 @@ public class AdminDashboardService {
         Long userCount = countOrZero("SELECT COUNT(*) FROM users WHERE is_deleted = 0 AND is_active = 1");
         Long classCount = countOrZero("SELECT COUNT(*) FROM classes WHERE is_deleted = 0");
         Long departmentCount = countOrZero("SELECT COUNT(*) FROM departments WHERE is_active = 1");
-        Long courseCount = countOrZero("SELECT COUNT(*) FROM courses WHERE is_deleted = 0");
-        return new DashboardStats(userCount, classCount, departmentCount, courseCount);
+        Long activeClassCount = countOrZero(
+                "SELECT COUNT(*) FROM classes WHERE is_deleted = 0 AND status = 'ACTIVE'");
+        return new DashboardStats(userCount, classCount, departmentCount, activeClassCount);
     }
 
     /**

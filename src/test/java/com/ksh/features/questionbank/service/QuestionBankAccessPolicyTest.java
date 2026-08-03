@@ -15,7 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for department-scoped question bank access.
+ * Unit tests for subject-scoped question bank access.
  */
 class QuestionBankAccessPolicyTest {
 
@@ -26,10 +26,10 @@ class QuestionBankAccessPolicyTest {
     void lecturer_can_access_own_department_but_cannot_curate() {
         User lecturer = user(Role.LECTURER, 10L, 5L);
 
-        assertThat(policy.resolveDepartmentId(lecturer)).isEqualTo(5L);
-        assertThat(policy.canAccessDepartment(lecturer, 5L)).isTrue();
-        assertThat(policy.canAccessDepartment(lecturer, 7L)).isFalse();
-        assertThat(policy.canCurateDepartment(lecturer, 5L)).isFalse();
+        assertThat(policy.resolveSubjectId(lecturer)).isEqualTo(5L);
+        assertThat(policy.canAccessSubject(lecturer, 5L)).isTrue();
+        assertThat(policy.canAccessSubject(lecturer, 7L)).isFalse();
+        assertThat(policy.canCurateSubject(lecturer, 5L)).isFalse();
     }
 
     @Test
@@ -38,19 +38,19 @@ class QuestionBankAccessPolicyTest {
         Department department = department(5L, leader.getId());
         when(leaderDepartmentResolver.resolve(leader.getId())).thenReturn(Optional.of(department));
 
-        assertThat(policy.resolveDepartmentId(leader)).isEqualTo(5L);
-        assertThat(policy.canAccessDepartment(leader, 5L)).isTrue();
-        assertThat(policy.canCurateDepartment(leader, 5L)).isTrue();
-        assertThat(policy.canAccessDepartment(leader, 6L)).isFalse();
+        assertThat(policy.resolveSubjectId(leader)).isEqualTo(5L);
+        assertThat(policy.canAccessSubject(leader, 5L)).isTrue();
+        assertThat(policy.canCurateSubject(leader, 5L)).isTrue();
+        assertThat(policy.canAccessSubject(leader, 6L)).isFalse();
     }
 
     @Test
     void admin_is_scoped_by_department_assignment() {
         User admin = user(Role.ADMIN, 12L, 8L);
 
-        assertThat(policy.canAccessDepartment(admin, 8L)).isTrue();
-        assertThat(policy.canCurateDepartment(admin, 8L)).isTrue();
-        assertThat(policy.canAccessDepartment(admin, 9L)).isFalse();
+        assertThat(policy.canAccessSubject(admin, 8L)).isTrue();
+        assertThat(policy.canCurateSubject(admin, 8L)).isTrue();
+        assertThat(policy.canAccessSubject(admin, 9L)).isFalse();
     }
 
     private static User user(Role role, Long id, Long departmentId) {

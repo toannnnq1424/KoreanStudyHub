@@ -45,7 +45,6 @@ import java.util.Set;
 
 import static com.ksh.common.IConstant.ATTR_ACTIVE_DETAIL_TAB;
 import static com.ksh.common.IConstant.ATTR_EXAMS_PAGE;
-import static com.ksh.common.IConstant.ATTR_EXAM_BANK_CATEGORIES;
 import static com.ksh.common.IConstant.ATTR_EXAM_FORM;
 import static com.ksh.common.IConstant.ATTR_LED_CLASSES;
 import static com.ksh.common.IConstant.ATTR_MODE;
@@ -150,7 +149,6 @@ public class LecturerTestController {
 
         model.addAttribute(ATTR_EXAM_FORM, null);
         model.addAttribute(ATTR_LED_CLASSES, ledClasses);
-        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES, java.util.List.of());
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         model.addAttribute(ATTR_SELECTED_CLASS_ID, selectedClassId);
         model.addAttribute(ATTR_TEST_RETURN_URL, returnUrlForClass(selectedClassId));
@@ -189,8 +187,6 @@ public class LecturerTestController {
         ExamForm form = examService.getForEdit(id, userId);
         model.addAttribute(ATTR_EXAM_FORM, form);
         model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(userId));
-        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES,
-                questionBankPickerService.categoriesFor(userId, user.getRole(), id));
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_TEST, monitorService.header(id, userId));
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);

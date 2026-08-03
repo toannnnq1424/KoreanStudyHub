@@ -126,8 +126,7 @@
 
 .qb-filter-grid,
 .qb-form-grid,
-.qb-audit-grid,
-.qb-category-form {
+.qb-audit-grid {
   display: grid;
   gap: 1rem;
 }
@@ -137,14 +136,9 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.qb-category-form {
-  margin-bottom: 1rem;
-}
-
 .qb-input,
 .qb-inline-note,
-.qb-option-text,
-.qb-category-form .qb-input {
+.qb-option-text {
   width: 100%;
   min-width: 0;
   padding: 0.75rem 0.875rem;
@@ -157,8 +151,7 @@
 
 .qb-input:focus,
 .qb-inline-note:focus,
-.qb-option-text:focus,
-.qb-category-form .qb-input:focus {
+.qb-option-text:focus {
   outline: none;
   border-color: var(--color-primary, #2563eb);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -456,25 +449,6 @@ a.stat-card:hover {
   min-height: 80px;
 }
 
-/* Keep the category chooser inside its form column. The enhanced combobox
-   avoids the browser/OS native popup, whose DPI scaling can otherwise turn a
-   desktop select into an oversized, viewport-wide menu. */
-.qb-form .ksh-combo {
-  max-width: none;
-}
-
-.qb-form .ksh-combo-input {
-  min-height: 42px;
-  padding: 9px 34px 9px 12px;
-  border-color: #d0d7de;
-  border-radius: 8px;
-  line-height: 1.5;
-}
-
-.qb-form .ksh-combo-list {
-  max-height: min(260px, 45vh);
-}
-
 .qb-review-card {
   border: 1px solid var(--color-border-medium, #e5e7eb);
   border-radius: 12px;
@@ -719,19 +693,6 @@ body.qb-modal-open {
   overflow: hidden;
 }
 
-/* Toolbar header: card title on the left, "＋ Thêm danh mục" on the right. */
-.qb-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.qb-card-head .detail-card-title {
-  margin: 0;
-}
-
 /* Modal footer review actions (approve/reject/archive/unarchive). */
 .qb-modal-actions {
   display: flex;
@@ -768,74 +729,7 @@ body.qb-modal-open {
   border-color: var(--color-danger-soft, #fecaca);
 }
 
-/* ═══ Master-detail redesign: switch + bulk toolbar + selection ═════ */
-
-/* Back link on the category detail screen. */
-.qb-back {
-  display: inline-block;
-  margin-bottom: 0.5rem;
-  color: var(--color-primary, #2563eb);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.qb-back:hover {
-  text-decoration: underline;
-}
-
-/* Pure-CSS switch — accessible, keyboard-focusable via the checkbox. */
-.qb-switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-  flex-shrink: 0;
-  margin: 0;
-  cursor: pointer;
-}
-
-.qb-switch input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.qb-switch-slider {
-  position: absolute;
-  inset: 0;
-  background: var(--color-border-strong, #d1d5db);
-  border-radius: 999px;
-  transition: background 0.15s ease;
-}
-
-.qb-switch-slider::before {
-  content: "";
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  left: 3px;
-  top: 3px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-  transition: transform 0.15s ease;
-}
-
-.qb-switch input:checked + .qb-switch-slider {
-  background: var(--color-primary, #2563eb);
-}
-
-.qb-switch input:checked + .qb-switch-slider::before {
-  transform: translateX(20px);
-}
-
-.qb-switch input:focus-visible + .qb-switch-slider {
-  outline: 2px solid var(--color-primary, #2563eb);
-  outline-offset: 2px;
-}
-
-/* Screen-reader-only label text (switch state, checkbox purpose). */
+/* Screen-reader-only label text. */
 .sr-only {
   position: absolute;
   width: 1px;

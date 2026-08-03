@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
- * Department-scoped shared question contribution curated by the department LEADER,
+ * Subject-scoped shared question contribution curated by the subject LEADER,
  * independent of any test.
  */
 @Entity
@@ -32,11 +32,8 @@ public class QuestionBankItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "department_id", nullable = false)
-    private Long departmentId;
-
-    @Column(name = "category_id", nullable = false)
-    private Long categoryId;
+    @Column(name = "subject_id", nullable = false)
+    private Long subjectId;
 
     @Column(name = "contributor_id", nullable = false)
     private Long contributorId;
@@ -77,11 +74,10 @@ public class QuestionBankItem {
     protected QuestionBankItem() {
     }
 
-    public QuestionBankItem(Long departmentId, Long categoryId, Long contributorId,
+    public QuestionBankItem(Long subjectId, Long contributorId,
                             String questionType, String workflowStatus,
                             String content, String explanation) {
-        this.departmentId = departmentId;
-        this.categoryId = categoryId;
+        this.subjectId = subjectId;
         this.contributorId = contributorId;
         this.questionType = questionType;
         this.workflowStatus = workflowStatus;
@@ -101,10 +97,9 @@ public class QuestionBankItem {
         updatedAt = LocalDateTime.now();
     }
 
-    /** Updates author-editable content while keeping department ownership stable. */
-    public void updateAuthoring(Long categoryId, String questionType,
+    /** Updates author-editable content while keeping subject ownership stable. */
+    public void updateAuthoring(String questionType,
                                 String content, String explanation) {
-        this.categoryId = categoryId;
         this.questionType = questionType;
         this.content = content;
         this.explanation = explanation;
@@ -154,12 +149,8 @@ public class QuestionBankItem {
         return id;
     }
 
-    public Long getDepartmentId() {
-        return departmentId;
-    }
-
-    public Long getCategoryId() {
-        return categoryId;
+    public Long getSubjectId() {
+        return subjectId;
     }
 
     public Long getContributorId() {

@@ -19,7 +19,7 @@ public final class LeaderDtos {
             long classCount,
             long lecturerCount,
             long studentCount,
-            long courseCount
+            long approvedQuestionCount
     ) {
     }
 

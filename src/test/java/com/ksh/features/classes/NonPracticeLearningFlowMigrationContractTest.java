@@ -29,13 +29,45 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "V88__subject_catalog_and_class_lifecycle.sql",
                 "V89__add_class_co_lecturers.sql",
                 "V90__remove_class_invites.sql",
-                "V91__subject_activity_audit.sql");
+                "V91__subject_activity_audit.sql",
+                "V92__remove_courses_and_general_categories.sql",
+                "V93__scope_question_bank_by_subject.sql");
         String combined = files.stream().map(this::readUnchecked).reduce("", String::concat);
 
         assertThat(count(combined, "CREATE TABLE")).isEqualTo(1);
         assertThat(combined).contains("CREATE TABLE class_co_lecturers");
         assertThat(combined).doesNotContain("CREATE TABLE subjects");
         assertThat(combined).doesNotContain("practice_");
+    }
+
+    @Test
+    void course_and_question_bank_categories_are_removed_without_touching_practice()
+            throws IOException {
+        String courseCatalog = read("V92__remove_courses_and_general_categories.sql");
+        String questionBank = read("V93__scope_question_bank_by_subject.sql");
+
+        assertThat(courseCatalog).contains(
+                "DROP TABLE activity_courses",
+                "DROP TABLE course_categories",
+                "DROP TABLE courses",
+                "DROP TABLE categories");
+        assertThat(questionBank).contains(
+                "RENAME COLUMN department_id TO subject_id",
+                "DROP COLUMN category_id",
+                "DROP TABLE question_bank_categories");
+        assertThat(courseCatalog + questionBank).doesNotContain("practice_");
+    }
+
+    @Test
+    void removed_course_table_has_no_dashboard_reader() throws IOException {
+        String adminDashboard = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/admin/service/AdminDashboardService.java"));
+        String leaderDashboard = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/leader/service/LeaderDashboardService.java"));
+
+        assertThat(adminDashboard + leaderDashboard).doesNotContain("FROM courses", "JOIN courses");
+        assertThat(adminDashboard).contains("status = 'ACTIVE'");
+        assertThat(leaderDashboard).contains("FROM question_bank_items", "subject_id = ?");
     }
 
     @Test

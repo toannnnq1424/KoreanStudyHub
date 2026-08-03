@@ -28,7 +28,7 @@ import static com.ksh.common.IConstant.MSG_QB_BULK_UNARCHIVED_PREFIX;
 import static com.ksh.common.IConstant.PARAM_QB_ITEM_IDS;
 
 /**
- * LEADER bulk review actions on the category detail screen: approve/reject/archive
+ * LEADER bulk review actions on the subject review screen: approve/reject/archive
  * many selected questions at once. Split from {@link LeaderQuestionBankController}
  * to keep each controller focused; both map under the same base path.
  */
@@ -43,66 +43,62 @@ public class LeaderQuestionBankBulkController {
         this.reviewService = reviewService;
     }
 
-    @PostMapping("/categories/{categoryId}/bulk/approve")
-    public String bulkApprove(@PathVariable Long categoryId,
-                              @RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
+    @PostMapping("/bulk/approve")
+    public String bulkApprove(@RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
                               ReviewFilters filters,
                               @AuthenticationPrincipal KshUserDetails user,
                               RedirectAttributes ra) {
         if (isEmpty(itemIds)) {
             ra.addFlashAttribute("flashError", MSG_QB_BULK_EMPTY);
-            return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+            return LeaderQuestionBankController.redirectReview(filters, ra);
         }
         BulkResult result = reviewService.approveAll(user.getId(), itemIds);
         ra.addFlashAttribute("flashSuccess", bulkMessage(MSG_QB_BULK_APPROVED_PREFIX, result));
-        return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+        return LeaderQuestionBankController.redirectReview(filters, ra);
     }
 
-    @PostMapping("/categories/{categoryId}/bulk/reject")
-    public String bulkReject(@PathVariable Long categoryId,
-                             @RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
+    @PostMapping("/bulk/reject")
+    public String bulkReject(@RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
                              @RequestParam(name = "note", required = false) String note,
                              ReviewFilters filters,
                              @AuthenticationPrincipal KshUserDetails user,
                              RedirectAttributes ra) {
         if (isEmpty(itemIds)) {
             ra.addFlashAttribute("flashError", MSG_QB_BULK_EMPTY);
-            return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+            return LeaderQuestionBankController.redirectReview(filters, ra);
         }
         BulkResult result = reviewService.rejectAll(user.getId(), itemIds, note);
         ra.addFlashAttribute("flashSuccess", bulkMessage(MSG_QB_BULK_REJECTED_PREFIX, result));
-        return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+        return LeaderQuestionBankController.redirectReview(filters, ra);
     }
 
-    @PostMapping("/categories/{categoryId}/bulk/archive")
-    public String bulkArchive(@PathVariable Long categoryId,
-                              @RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
+    @PostMapping("/bulk/archive")
+    public String bulkArchive(@RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
                               @RequestParam(name = "note", required = false) String note,
                               ReviewFilters filters,
                               @AuthenticationPrincipal KshUserDetails user,
                               RedirectAttributes ra) {
         if (isEmpty(itemIds)) {
             ra.addFlashAttribute("flashError", MSG_QB_BULK_EMPTY);
-            return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+            return LeaderQuestionBankController.redirectReview(filters, ra);
         }
         BulkResult result = reviewService.archiveAll(user.getId(), itemIds, note);
         ra.addFlashAttribute("flashSuccess", bulkMessage(MSG_QB_BULK_ARCHIVED_PREFIX, result));
-        return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+        return LeaderQuestionBankController.redirectReview(filters, ra);
     }
 
-    @PostMapping("/categories/{categoryId}/bulk/unarchive")
-    public String bulkUnarchive(@PathVariable Long categoryId,
-                                @RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
+    @PostMapping("/bulk/unarchive")
+    public String bulkUnarchive(@RequestParam(name = PARAM_QB_ITEM_IDS, required = false) List<Long> itemIds,
                                 ReviewFilters filters,
                                 @AuthenticationPrincipal KshUserDetails user,
                                 RedirectAttributes ra) {
         if (isEmpty(itemIds)) {
             ra.addFlashAttribute("flashError", MSG_QB_BULK_EMPTY);
-            return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+            return LeaderQuestionBankController.redirectReview(filters, ra);
         }
         BulkResult result = reviewService.unarchiveAll(user.getId(), itemIds);
         ra.addFlashAttribute("flashSuccess", bulkMessage(MSG_QB_BULK_UNARCHIVED_PREFIX, result));
-        return LeaderQuestionBankController.redirectDetail(categoryId, filters, ra);
+        return LeaderQuestionBankController.redirectReview(filters, ra);
     }
 
     /** "Đã duyệt X câu[, bỏ qua Y câu không hợp lệ]" built from a bulk outcome. */

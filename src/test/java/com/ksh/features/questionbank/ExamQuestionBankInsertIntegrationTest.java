@@ -4,10 +4,8 @@ import com.ksh.entities.ClassEntity;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
-import com.ksh.features.questionbank.entity.QuestionBankCategory;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.entity.QuestionBankOption;
-import com.ksh.features.questionbank.repository.QuestionBankCategoryRepository;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
 import com.ksh.features.tests.entity.Question;
@@ -39,7 +37,6 @@ class ExamQuestionBankInsertIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private TestRepository testRepository;
-    @Autowired private QuestionBankCategoryRepository categoryRepository;
     @Autowired private QuestionBankItemRepository itemRepository;
     @Autowired private QuestionBankOptionRepository bankOptionRepository;
     @Autowired private QuestionRepository questionRepository;
@@ -68,10 +65,8 @@ class ExamQuestionBankInsertIntegrationTest {
         test.setClassId(clazz.getId());
         testId = testRepository.save(test).getId();
 
-        QuestionBankCategory category = categoryRepository.save(new QuestionBankCategory(
-                departmentId, "Chèn snapshot", null, true, lecturerId));
         QuestionBankItem item = itemRepository.save(new QuestionBankItem(
-                departmentId, category.getId(), lecturerId,
+                departmentId, lecturerId,
                 QuestionBankItem.TYPE_MCQ, QuestionBankItem.STATUS_APPROVED,
                 "<p>Nội dung gốc</p>", "<p>Giải thích gốc</p>"));
         bankOptionRepository.save(new QuestionBankOption(item.getId(), "<p>Đáp án A</p>", true, 1));
@@ -95,7 +90,7 @@ class ExamQuestionBankInsertIntegrationTest {
 
         // Mutate the bank item after the insert: the copied exam question must NOT change.
         QuestionBankItem bankItem = itemRepository.findById(approvedItemId).orElseThrow();
-        bankItem.updateAuthoring(bankItem.getCategoryId(), QuestionBankItem.TYPE_MCQ,
+        bankItem.updateAuthoring(QuestionBankItem.TYPE_MCQ,
                 "<p>Nội dung ĐÃ SỬA</p>", "<p>Giải thích đã sửa</p>");
         itemRepository.save(bankItem);
 

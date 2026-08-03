@@ -12,7 +12,7 @@ public class AdminDashboardDtos {
             Long userCount,
             Long classCount,
             Long departmentCount,
-            Long courseCount
+            Long activeClassCount
     ) {}
 
     /** A single row in the user-by-role donut chart. */
@@ -77,10 +77,9 @@ public class AdminDashboardDtos {
          */
         public String displayStatus() {
             return switch (status) {
-                case "UPCOMING" -> "Sắp khai giảng";
+                case "DRAFT" -> "Bản nháp";
                 case "ACTIVE" -> "Đang hoạt động";
-                case "COMPLETED" -> "Đã kết thúc";
-                case "CANCELLED" -> "Đã huỷ";
+                case "ARCHIVED" -> "Đã lưu trữ";
                 default -> status;
             };
         }

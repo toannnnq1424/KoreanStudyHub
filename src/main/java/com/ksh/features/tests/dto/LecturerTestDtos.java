@@ -41,16 +41,12 @@ public final class LecturerTestDtos {
                            List<QuestionForm> questions, boolean questionBankLocked) {
     }
 
-    /** One active department category shown in the exam-side bank picker. */
-    public record BankCategoryOption(Long id, String name) {
-    }
-
     /** One option copied from an approved bank item. */
     public record BankOptionSnapshot(String content, boolean correct) {
     }
 
     /** Snapshot payload returned by the approved bank picker query. */
-    public record BankItemSnapshot(Long id, String categoryName, String questionType,
+    public record BankItemSnapshot(Long id, String subjectCode, String questionType,
                                    String content, String explanation,
                                    List<BankOptionSnapshot> options) {
     }

@@ -1,4 +1,4 @@
-/* Question bank category detail — bulk selection UX + per-row view modal.
+/* Subject-scoped question bank review — bulk selection UX + per-row modal.
    Wires the select-all header, per-row checkboxes, live count and the
    show/hide of the sticky bulk toolbar, plus a client-side detail modal
    populated from each row's hidden <template>. No inline handlers. */

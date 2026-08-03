@@ -1,12 +1,13 @@
 package com.ksh.features.questionbank.service;
 
+import com.ksh.entities.Department;
 import com.ksh.entities.User;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.questionbank.dto.QuestionBankImportDtos.ConfirmResult;
 import com.ksh.features.questionbank.dto.QuestionBankImportDtos.PreviewRow;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.entity.QuestionBankOption;
-import com.ksh.features.questionbank.dto.QuestionBankViews.CategoryOption;
 import com.ksh.features.questionbank.imports.QuestionBankImportParser;
 import com.ksh.features.questionbank.imports.QuestionBankImportParser.ParsedFile;
 import com.ksh.features.questionbank.imports.QuestionBankImportParser.RawRow;
@@ -35,38 +36,37 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Two-step preview and confirm flow for department-scoped Excel imports. */
+/** Two-step preview and confirm flow for subject-scoped Excel imports. */
 @Service
 public class QuestionBankImportService {
 
-    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi cộng tác cho bộ môn này";
+    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi của mã môn này";
     private static final String MSG_SESSION_EXPIRED =
             "Phiên import đã hết hạn hoặc không tồn tại. Vui lòng tải file lên lại";
     private static final String MSG_BLOCKING_ERRORS =
             "Bản xem trước còn lỗi chặn nên chưa thể xác nhận import";
-    private static final String MSG_EMPTY_DEPARTMENT =
-            "Bạn chưa được gán bộ môn để import câu hỏi cộng tác";
+    private static final String MSG_EMPTY_SUBJECT =
+            "Bạn chưa được gán mã môn để import câu hỏi cộng tác";
     private static final int MAX_PREVIEW_LENGTH = 80;
-    private static final int MAX_CATEGORY_HINTS = 5;
 
     private final UserRepository userRepository;
+    private final DepartmentRepository subjectRepository;
     private final QuestionBankAccessPolicy accessPolicy;
-    private final QuestionBankCategoryService categoryService;
     private final QuestionBankItemRepository itemRepository;
     private final QuestionBankOptionRepository optionRepository;
     private final QuestionBankImportParser importParser;
     private final QuestionBankImportSessionStore sessionStore;
 
     public QuestionBankImportService(UserRepository userRepository,
+                                     DepartmentRepository subjectRepository,
                                      QuestionBankAccessPolicy accessPolicy,
-                                     QuestionBankCategoryService categoryService,
                                      QuestionBankItemRepository itemRepository,
                                      QuestionBankOptionRepository optionRepository,
                                      QuestionBankImportParser importParser,
                                      QuestionBankImportSessionStore sessionStore) {
         this.userRepository = userRepository;
+        this.subjectRepository = subjectRepository;
         this.accessPolicy = accessPolicy;
-        this.categoryService = categoryService;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
         this.importParser = importParser;
@@ -74,33 +74,26 @@ public class QuestionBankImportService {
     }
 
     /**
-     * Returns active category names for a workbook downloaded by the actor.
-     *
-     * <p>This deliberately reuses the same actor and department checks as preview
-     * so the generated sample cannot leak or reference another department's
-     * question-bank taxonomy.
+     * Returns the actor's active subject code for a workbook sample.
+     * The same access check is reused by preview and confirm.
      */
     @Transactional(readOnly = true)
-    public List<String> activeCategoryNamesForTemplate(Long userId, Role role) {
+    public String subjectCodeForTemplate(Long userId, Role role) {
         User actor = requireActor(userId, role);
-        requireDepartment(actor);
-        return categoryService.activeOptionsFor(actor).stream()
-                .map(CategoryOption::name)
-                .toList();
+        return requireSubject(actor).getCode();
     }
 
     @Transactional(readOnly = true)
     public QuestionBankImportSession previewUpload(Long userId, Role role, MultipartFile file) {
         User actor = requireActor(userId, role);
-        Long departmentId = requireDepartment(actor);
-        Map<String, CategoryOption> categories = activeCategoriesByName(actor);
+        Department subject = requireSubject(actor);
         String workflowStatus = importedWorkflowStatus(actor);
         ParsedFile parsed = importParser.parse(file);
 
         List<ImportedItem> acceptedItems = new ArrayList<>();
         List<PreviewRow> previewRows = new ArrayList<>();
         for (RawRow raw : parsed.rows()) {
-            ValidationResult result = validateRow(raw, categories);
+            ValidationResult result = validateRow(raw, subject.getCode());
             previewRows.add(result.previewRow());
             if (!result.blocking()) {
                 acceptedItems.add(result.item());
@@ -110,7 +103,7 @@ public class QuestionBankImportService {
         QuestionBankImportSession session = new QuestionBankImportSession(
                 UUID.randomUUID(),
                 actor.getId(),
-                departmentId,
+                subject.getId(),
                 Instant.now(),
                 parsed.fileName(),
                 workflowStatus,
@@ -123,10 +116,10 @@ public class QuestionBankImportService {
     @Transactional
     public ConfirmResult confirm(Long userId, Role role, UUID sessionId) {
         User actor = requireActor(userId, role);
-        Long departmentId = requireDepartment(actor);
+        Department subject = requireSubject(actor);
         QuestionBankImportSession session = sessionStore.claim(sessionId, actor.getId())
                 .orElseThrow(() -> new QuestionBankValidationException(MSG_SESSION_EXPIRED));
-        if (!departmentId.equals(session.getDepartmentId())) {
+        if (!subject.getId().equals(session.getSubjectId())) {
             sessionStore.restore(session);
             throw new AccessDeniedException(MSG_FORBIDDEN);
         }
@@ -137,18 +130,9 @@ public class QuestionBankImportService {
         restoreSessionOnRollback(session);
 
         List<Long> itemIds = new ArrayList<>();
-        Map<Long, Long> resolvedCategoryIds = new LinkedHashMap<>();
         for (ImportedItem importedItem : session.getItems()) {
-            Long categoryId = resolvedCategoryIds.get(importedItem.categoryId());
-            if (categoryId == null) {
-                categoryId = categoryService
-                        .resolveForContribution(importedItem.categoryId(), actor)
-                        .getId();
-                resolvedCategoryIds.put(importedItem.categoryId(), categoryId);
-            }
             QuestionBankItem item = itemRepository.save(new QuestionBankItem(
-                    departmentId,
-                    categoryId,
+                    subject.getId(),
                     actor.getId(),
                     importedItem.questionType(),
                     session.getWorkflowStatus(),
@@ -175,11 +159,11 @@ public class QuestionBankImportService {
         });
     }
 
-    private ValidationResult validateRow(RawRow raw, Map<String, CategoryOption> categories) {
+    private ValidationResult validateRow(RawRow raw, String expectedSubjectCode) {
         List<String> messages = new ArrayList<>();
-        CategoryOption category = categories.get(normalizeKey(raw.categoryName()));
-        if (category == null) {
-            messages.add(missingCategoryMessage(raw.categoryName(), categories));
+        if (raw.subjectCode() == null
+                || !expectedSubjectCode.equalsIgnoreCase(raw.subjectCode().trim())) {
+            messages.add("Mã môn phải là " + expectedSubjectCode);
         }
 
         String questionType = normalizeQuestionType(raw.questionType());
@@ -239,7 +223,7 @@ public class QuestionBankImportService {
         String message = blocking ? String.join("; ", messages) : "Sẵn sàng import";
         PreviewRow previewRow = new PreviewRow(
                 raw.rowNumber(),
-                raw.categoryName(),
+                raw.subjectCode(),
                 questionType == null ? blankToDash(raw.questionType()) : questionType,
                 preview(raw.content()),
                 blocking ? "ERROR" : "READY",
@@ -248,20 +232,11 @@ public class QuestionBankImportService {
                 correctCount,
                 blocking);
         ImportedItem item = blocking ? null : new ImportedItem(
-                category.id(),
                 questionType,
                 contentHtml,
                 explanationHtml,
                 importedOptions);
         return new ValidationResult(previewRow, item, blocking);
-    }
-
-    private Map<String, CategoryOption> activeCategoriesByName(User actor) {
-        Map<String, CategoryOption> categories = new LinkedHashMap<>();
-        for (CategoryOption category : categoryService.activeOptionsFor(actor)) {
-            categories.put(normalizeKey(category.name()), category);
-        }
-        return categories;
     }
 
     private User requireActor(Long userId, Role role) {
@@ -276,12 +251,14 @@ public class QuestionBankImportService {
         return actor;
     }
 
-    private Long requireDepartment(User actor) {
-        Long departmentId = accessPolicy.resolveDepartmentId(actor);
-        if (departmentId == null || !accessPolicy.canAccessDepartment(actor, departmentId)) {
-            throw new QuestionBankValidationException(MSG_EMPTY_DEPARTMENT);
+    private Department requireSubject(User actor) {
+        Long subjectId = accessPolicy.resolveSubjectId(actor);
+        if (subjectId == null || !accessPolicy.canAccessSubject(actor, subjectId)) {
+            throw new QuestionBankValidationException(MSG_EMPTY_SUBJECT);
         }
-        return departmentId;
+        return subjectRepository.findById(subjectId)
+                .filter(Department::isActive)
+                .orElseThrow(() -> new QuestionBankValidationException(MSG_EMPTY_SUBJECT));
     }
 
     private static String importedWorkflowStatus(User actor) {
@@ -320,40 +297,6 @@ public class QuestionBankImportService {
         }
         String escaped = HtmlUtils.htmlEscape(value.trim());
         return "<p>" + escaped.replace("\n", "<br>") + "</p>";
-    }
-
-    private static String normalizeKey(String value) {
-        if (value == null) {
-            return "";
-        }
-        return QuestionBankImportParser.normalize(value);
-    }
-
-    private static String missingCategoryMessage(String requestedName,
-                                                 Map<String, CategoryOption> categories) {
-        String requested = blankToDash(preview(requestedName));
-        String prefix = "Danh mục \"" + requested
-                + "\" không tồn tại hoặc đang đóng trong ngân hàng câu hỏi bộ môn. ";
-        if (categories.isEmpty()) {
-            return prefix
-                    + "Hiện chưa có danh mục nào đang mở; hãy nhờ trưởng bộ môn tạo hoặc mở "
-                    + "danh mục trước khi import";
-        }
-
-        List<String> activeNames = new ArrayList<>();
-        for (CategoryOption category : categories.values()) {
-            if (!activeNames.contains(category.name())) {
-                activeNames.add(category.name());
-            }
-        }
-        List<String> hints = activeNames.stream()
-                .limit(MAX_CATEGORY_HINTS)
-                .map(name -> "\"" + preview(name) + "\"")
-                .toList();
-        int remaining = activeNames.size() - hints.size();
-        String more = remaining > 0 ? " (và " + remaining + " danh mục khác)" : "";
-        return prefix + "Hãy thay giá trị ở cột Danh mục bằng đúng một tên đang mở: "
-                + String.join(", ", hints) + more;
     }
 
     private static String preview(String value) {

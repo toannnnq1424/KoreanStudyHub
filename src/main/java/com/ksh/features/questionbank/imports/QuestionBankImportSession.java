@@ -7,14 +7,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** In-memory preview session for a single department-scoped Excel upload. */
+/** In-memory preview session for a single subject-scoped Excel upload. */
 public final class QuestionBankImportSession {
 
     public static final long TTL_MINUTES = 10L;
 
     private final UUID id;
     private final Long actorId;
-    private final Long departmentId;
+    private final Long subjectId;
     private final Instant uploadedAt;
     private final String fileName;
     private final String workflowStatus;
@@ -23,7 +23,7 @@ public final class QuestionBankImportSession {
 
     public QuestionBankImportSession(UUID id,
                                      Long actorId,
-                                     Long departmentId,
+                                     Long subjectId,
                                      Instant uploadedAt,
                                      String fileName,
                                      String workflowStatus,
@@ -31,7 +31,7 @@ public final class QuestionBankImportSession {
                                      List<PreviewRow> rows) {
         this.id = id;
         this.actorId = actorId;
-        this.departmentId = departmentId;
+        this.subjectId = subjectId;
         this.uploadedAt = uploadedAt;
         this.fileName = fileName;
         this.workflowStatus = workflowStatus;
@@ -47,8 +47,8 @@ public final class QuestionBankImportSession {
         return actorId;
     }
 
-    public Long getDepartmentId() {
-        return departmentId;
+    public Long getSubjectId() {
+        return subjectId;
     }
 
     public String getWorkflowStatus() {
@@ -69,8 +69,7 @@ public final class QuestionBankImportSession {
         return uploadedAt.plusSeconds(TTL_MINUTES * 60).isBefore(now);
     }
 
-    public record ImportedItem(Long categoryId,
-                               String questionType,
+    public record ImportedItem(String questionType,
                                String contentHtml,
                                String explanationHtml,
                                List<ImportedOption> options) {

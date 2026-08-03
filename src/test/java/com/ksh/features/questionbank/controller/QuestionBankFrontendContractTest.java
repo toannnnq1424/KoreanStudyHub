@@ -16,6 +16,8 @@ class QuestionBankFrontendContractTest {
             Path.of("src/main/resources/templates/questionbank/list.html");
     private static final Path FORM_TEMPLATE =
             Path.of("src/main/resources/templates/questionbank/form.html");
+    private static final Path SUBJECT_REVIEW_TEMPLATE =
+            Path.of("src/main/resources/templates/questionbank/subject-review.html");
 
     @Test
     void multipart_preview_sends_the_spring_csrf_header() throws IOException {
@@ -33,20 +35,34 @@ class QuestionBankFrontendContractTest {
     }
 
     @Test
-    void authoring_and_import_are_not_offered_without_active_categories() throws IOException {
+    void subject_review_uses_labeled_native_filters_and_has_no_category_ui() throws IOException {
+        String list = Files.readString(LIST_TEMPLATE);
+        String review = Files.readString(SUBJECT_REVIEW_TEMPLATE);
+
+        assertThat(list)
+                .contains("for=\"qbLecturerQuery\"", "id=\"qbLecturerQuery\"")
+                .contains("for=\"qbLecturerStatus\"", "id=\"qbLecturerStatus\"")
+                .doesNotContain("question-bank.js");
+        assertThat(review)
+                .contains("for=\"qbLeaderQuery\"", "id=\"qbLeaderQuery\"")
+                .contains("for=\"qbContributor\"", "id=\"qbContributor\"")
+                .contains("<select class=\"qb-input\" id=\"qbContributor\"")
+                .doesNotContain("category", "danh mục", "question-bank.js");
+    }
+
+    @Test
+    void authoring_and_import_require_only_an_assigned_subject() throws IOException {
         String list = Files.readString(LIST_TEMPLATE);
         String form = Files.readString(FORM_TEMPLATE);
 
         assertThat(list)
-                .contains("th:if=\"${!emptyDepartment and !emptyCategories}\"")
-                .contains("Chưa có danh mục ngân hàng câu hỏi nào đang mở trong bộ môn")
-                .contains("Vui lòng liên hệ trưởng bộ môn")
-                .doesNotContain("Vui lòng liên hệ ADMIN");
+                .contains("th:if=\"${!emptyDepartment}\"")
+                .contains("Bạn chưa được gán mã môn")
+                .contains("<th>Mã môn</th>")
+                .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
         assertThat(form)
-                .contains("th:if=\"${!emptyDepartment and !emptyCategories}\"")
-                .contains("Chưa có danh mục ngân hàng câu hỏi nào đang mở trong bộ môn")
-                .contains("Vui lòng liên hệ trưởng bộ môn")
-                .contains("Danh mục ngân hàng câu hỏi")
-                .doesNotContain("Vui lòng liên hệ ADMIN");
+                .contains("th:if=\"${!emptyDepartment}\"")
+                .contains("Bạn chưa được gán mã môn")
+                .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
     }
 }

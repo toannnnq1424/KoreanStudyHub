@@ -48,12 +48,11 @@ public class LecturerTestQuestionBankController {
     /** Searches approved shared-bank questions the current actor may snapshot into this exam. */
     @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> search(@PathVariable Long testId,
-                                    @RequestParam(name = "categoryId", required = false) Long categoryId,
                                     @RequestParam(name = "q", required = false) String q,
                                     @AuthenticationPrincipal KshUserDetails user) {
         try {
             return ResponseEntity.ok(AjaxResult.success(
-                    pickerService.searchApproved(user.getId(), user.getRole(), testId, categoryId, q)));
+                    pickerService.searchApproved(user.getId(), user.getRole(), testId, q)));
         } catch (AccessDeniedException ex) {
             return forbidden();
         }

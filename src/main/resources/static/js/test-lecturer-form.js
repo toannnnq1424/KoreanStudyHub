@@ -191,7 +191,7 @@
                 }).join('');
                 return '<article class="lf-bank-item">'
                     + '<div class="lf-bank-item-head">'
-                    + '<div><div class="lf-bank-meta"><span>' + escapeHtml(item.categoryName || '—') + '</span>'
+                    + '<div><div class="lf-bank-meta"><span>' + escapeHtml(item.subjectCode || '—') + '</span>'
                     + '<span>' + escapeHtml(item.questionType || 'MCQ') + '</span></div>'
                     + '<div class="lf-bank-preview">' + preview + '</div></div>'
                     + '<button type="button" class="tst-btn lf-bank-add" data-bank-id="' + escapeHtml(String(item.id)) + '">Chèn vào đề</button>'
@@ -249,9 +249,7 @@
             if (state) state.textContent = 'Đang tải câu hỏi cộng tác đã duyệt...';
             if (host) host.innerHTML = '';
             var url = new URL(readBankSearchUrl(), window.location.origin);
-            var categoryId = val('lfBankCategory');
             var query = val('lfBankQuery');
-            if (categoryId) url.searchParams.set('categoryId', categoryId);
             if (query) url.searchParams.set('q', query);
             fetch(url.toString(), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
                 .then(function (res) {

@@ -1,7 +1,6 @@
 package com.ksh.features.questionbank.controller;
 
 import com.ksh.features.questionbank.dto.QuestionBankItemForm;
-import com.ksh.features.questionbank.dto.QuestionBankViews.CategoryOption;
 import com.ksh.features.questionbank.service.QuestionBankItemService;
 import com.ksh.features.questionbank.service.QuestionBankValidationException;
 import com.ksh.security.Roles;
@@ -21,17 +20,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.List;
-
 import static com.ksh.common.IConstant.ATTR_FORM;
 import static com.ksh.common.IConstant.ATTR_MODE;
-import static com.ksh.common.IConstant.ATTR_QB_CATEGORIES;
 import static com.ksh.common.IConstant.ATTR_QB_DETAIL;
-import static com.ksh.common.IConstant.ATTR_QB_EMPTY_CATEGORIES;
 import static com.ksh.common.IConstant.ATTR_QB_EMPTY_DEPARTMENT;
 import static com.ksh.common.IConstant.ATTR_QB_ITEMS;
 import static com.ksh.common.IConstant.ATTR_QB_QUERY;
-import static com.ksh.common.IConstant.ATTR_QB_SELECTED_CATEGORY_ID;
 import static com.ksh.common.IConstant.ATTR_QB_SELECTED_STATUS;
 import static com.ksh.common.IConstant.BASE_LECTURER_QUESTION_BANK;
 import static com.ksh.common.IConstant.MODE_CREATE;
@@ -45,7 +39,7 @@ import static com.ksh.common.IConstant.VIEW_QB_DETAIL;
 import static com.ksh.common.IConstant.VIEW_QB_FORM;
 import static com.ksh.common.IConstant.VIEW_QB_LIST;
 
-/** Lecturer contribution screens for the department-scoped shared question bank. */
+/** Lecturer contribution screens for the subject-scoped shared question bank. */
 @Controller
 @RequestMapping(BASE_LECTURER_QUESTION_BANK)
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
@@ -59,28 +53,20 @@ public class LecturerQuestionBankController {
 
     @GetMapping
     public String list(@RequestParam(name = "status", required = false) String status,
-                       @RequestParam(name = "categoryId", required = false) Long categoryId,
                        @RequestParam(name = "q", required = false) String q,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
-        boolean emptyDepartment = !itemService.hasDepartment(user.getId(), user.getRole());
+        boolean emptyDepartment = !itemService.hasSubject(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
         if (emptyDepartment) {
-            model.addAttribute(ATTR_QB_ITEMS, List.of());
-            model.addAttribute(ATTR_QB_CATEGORIES, List.of());
-            model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, true);
+            model.addAttribute(ATTR_QB_ITEMS, java.util.List.of());
             model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
-            model.addAttribute(ATTR_QB_SELECTED_CATEGORY_ID, categoryId);
             model.addAttribute(ATTR_QB_QUERY, q);
             return VIEW_QB_LIST;
         }
-        List<CategoryOption> categories = itemService.categoriesFor(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_ITEMS,
-                itemService.list(user.getId(), user.getRole(), status, categoryId, null, q));
-        model.addAttribute(ATTR_QB_CATEGORIES, categories);
-        model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, categories.isEmpty());
+                itemService.list(user.getId(), user.getRole(), status, null, q));
         model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
-        model.addAttribute(ATTR_QB_SELECTED_CATEGORY_ID, categoryId);
         model.addAttribute(ATTR_QB_QUERY, q);
         return VIEW_QB_LIST;
     }
@@ -179,16 +165,8 @@ public class LecturerQuestionBankController {
 
     private void populateForm(Model model, KshUserDetails user, String mode) {
         model.addAttribute(ATTR_MODE, mode);
-        boolean emptyDepartment = !itemService.hasDepartment(user.getId(), user.getRole());
+        boolean emptyDepartment = !itemService.hasSubject(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
-        if (emptyDepartment) {
-            model.addAttribute(ATTR_QB_CATEGORIES, List.of());
-            model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, true);
-            return;
-        }
-        List<CategoryOption> categories = itemService.categoriesFor(user.getId(), user.getRole());
-        model.addAttribute(ATTR_QB_CATEGORIES, categories);
-        model.addAttribute(ATTR_QB_EMPTY_CATEGORIES, categories.isEmpty());
     }
 
     private static String redirectList() {

@@ -248,17 +248,11 @@
                data-dirty-guard="ignore" hidden>
         <div class="lf-bank-toolbar">
           <input class="lf-input" id="lfBankQuery" type="text"
-                 placeholder="Tìm theo nội dung hoặc danh mục câu hỏi">
-          <select class="lf-input" id="lfBankCategory">
-            <option value="">Tất cả danh mục</option>
-            <option th:each="category : ${examBankCategories}"
-                    th:value="${category.id()}"
-                    th:text="${category.name()}">Danh mục</option>
-          </select>
+                 placeholder="Tìm theo nội dung hoặc mã môn">
           <button type="button" class="tst-btn" id="lfBankSearch">Tìm</button>
           <button type="button" class="tst-btn" id="lfBankClose">Đóng</button>
         </div>
-        <div class="lf-bank-state" id="lfBankState">Nhập từ khoá hoặc chọn danh mục để tải các câu đã được duyệt của ngân hàng bộ môn.</div>
+        <div class="lf-bank-state" id="lfBankState">Tải các câu đã duyệt thuộc cùng mã môn với lớp.</div>
         <div class="lf-bank-results" id="lfBankResults"></div>
       </section>
 

@@ -58,8 +58,8 @@ public class LeaderDashboardService {
                         + "INNER JOIN classes c ON c.id = e.class_id "
                         + "WHERE e.status = 'ACTIVE' AND c.is_deleted = 0 AND c.department_id = ?",
                 deptId);
-        long courseCount = countOrZero(
-                "SELECT COUNT(*) FROM courses WHERE is_deleted = 0 AND department_id = ?",
+        long approvedQuestionCount = countOrZero(
+                "SELECT COUNT(*) FROM question_bank_items WHERE subject_id = ? AND workflow_status = 'APPROVED'",
                 deptId);
 
         List<ClassEntity> recent = classRepository
@@ -77,7 +77,7 @@ public class LeaderDashboardService {
 
         return new DashboardView(
                 new DepartmentSummary(dept.getId(), dept.getCode(), dept.getName()),
-                new DashboardKpis(classCount, lecturerCount, studentCount, courseCount),
+                new DashboardKpis(classCount, lecturerCount, studentCount, approvedQuestionCount),
                 rows,
                 false);
     }
