@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-topik35-reading-question-payload-v1.json",
+  "title": "Canonical TOPIK 35 Reading question payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageId", "sourceAuditId", "bundleId", "capturedAt", "status", "skill", "sourceAuthority", "storagePolicy", "panePolicy", "markerContract", "pageQa", "visualAssets", "passageGroups", "questions", "qaBlockers", "remainingLoadBlockers", "loadPolicy", "validationSummary"],
+  "properties": {
+    "schemaVersion": {"const": "practice-topik35-reading-question-payload-v1"},
+    "packageId": {"const": "topik35-v1-reading-question-payload-v1"},
+    "sourceAuditId": {"const": "topik35-v1-reading-source-identity-audit-20260803"},
+    "bundleId": {"const": "topik35-v1"},
+    "capturedAt": {"const": "2026-08-03"},
+    "status": {"const": "QUESTION_OPTION_ANSWER_GROUP_AND_ASSET_QA_COMPLETE_LOAD_BLOCKED"},
+    "skill": {"const": "READING"},
+    "sourceAuthority": {"$ref": "#/$defs/sourceAuthority"},
+    "storagePolicy": {"$ref": "#/$defs/storagePolicy"},
+    "panePolicy": {"$ref": "#/$defs/panePolicy"},
+    "markerContract": {"$ref": "#/$defs/markerContract"},
+    "pageQa": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"$ref": "#/$defs/pageQa"}},
+    "visualAssets": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/visualAsset"}},
+    "passageGroups": {"type": "array", "minItems": 42, "maxItems": 42, "items": {"$ref": "#/$defs/passageGroup"}},
+    "questions": {"type": "array", "minItems": 50, "maxItems": 50, "items": {"$ref": "#/$defs/question"}},
+    "qaBlockers": {"type": "array", "maxItems": 0},
+    "remainingLoadBlockers": {"type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "loadPolicy": {"$ref": "#/$defs/loadPolicy"},
+    "validationSummary": {"$ref": "#/$defs/validationSummary"}
+  },
+  "$defs": {
+    "sourceAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["questionArtifactId", "questionArtifactSha256", "questionArtifactPageCount", "answerArtifactId", "answerArtifactSha256", "answerArtifactPageCount", "answerAuthorityPdfPage", "sourceAnnotationsAreAnswerAuthority", "readingTranscriptProvided", "separateReadingAssetRouteProvided"],
+      "properties": {
+        "questionArtifactId": {"const": "topik35-reading-pdf"},
+        "questionArtifactSha256": {"const": "d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd"},
+        "questionArtifactPageCount": {"const": 23},
+        "answerArtifactId": {"const": "topik35-answer-key-pdf"},
+        "answerArtifactSha256": {"const": "60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b"},
+        "answerArtifactPageCount": {"const": 3},
+        "answerAuthorityPdfPage": {"const": 3},
+        "sourceAnnotationsAreAnswerAuthority": {"const": false},
+        "readingTranscriptProvided": {"const": false},
+        "separateReadingAssetRouteProvided": {"const": false}
+      }
+    },
+    "storagePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicalKeyOnly", "localDerivedAssetsIgnored", "objectStoreWrite", "bucketOrDeliveryUrlStored"],
+      "properties": {
+        "logicalKeyOnly": {"const": true},
+        "localDerivedAssetsIgnored": {"const": true},
+        "objectStoreWrite": {"const": false},
+        "bucketOrDeliveryUrlStored": {"const": false}
+      }
+    },
+    "panePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groupMetadataDrivesReadingPane", "passageSourceField", "assetSourceField", "questionNavigationSelectsGroup", "automaticQuestionNavigation", "learnerSurfaceChangedByThisSlice"],
+      "properties": {
+        "groupMetadataDrivesReadingPane": {"const": true},
+        "passageSourceField": {"const": "passageGroups[].passageText"},
+        "assetSourceField": {"const": "passageGroups[].visualAssetIds"},
+        "questionNavigationSelectsGroup": {"const": true},
+        "automaticQuestionNavigation": {"const": false},
+        "learnerSurfaceChangedByThisSlice": {"const": false}
+      }
+    },
+    "markerContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blankMarker", "insertionMarkers", "markersArePresentationMetadataNotSourceText"],
+      "properties": {
+        "blankMarker": {"const": "[BLANK]"},
+        "insertionMarkers": {
+          "type": "array",
+          "prefixItems": [{"const": "[SLOT_1]"}, {"const": "[SLOT_2]"}, {"const": "[SLOT_3]"}, {"const": "[SLOT_4]"}],
+          "items": false
+        },
+        "markersArePresentationMetadataNotSourceText": {"const": true}
+      }
+    },
+    "pageQa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pdfPage", "printedPage", "questionFrom", "questionTo", "qaStatus"],
+      "properties": {
+        "pdfPage": {"type": "integer", "minimum": 3, "maximum": 23},
+        "printedPage": {"type": "integer", "minimum": 1, "maximum": 21},
+        "questionFrom": {"type": "integer", "minimum": 1, "maximum": 50},
+        "questionTo": {"type": "integer", "minimum": 1, "maximum": 50},
+        "qaStatus": {"const": "VISUALLY_VERIFIED"}
+      }
+    },
+    "cropPixels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {"type": "integer", "minimum": 0},
+        "y": {"type": "integer", "minimum": 0},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1}
+      }
+    },
+    "visualSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactId", "artifactSha256", "pdfPage", "printedPage", "renderDpi", "cropPixels"],
+      "properties": {
+        "artifactId": {"const": "topik35-reading-pdf"},
+        "artifactSha256": {"const": "d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd"},
+        "pdfPage": {"const": 5},
+        "printedPage": {"const": 3},
+        "renderDpi": {"const": 200},
+        "cropPixels": {"$ref": "#/$defs/cropPixels"}
+      }
+    },
+    "visualAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assetId", "role", "questionNumbers", "logicalKey", "mediaType", "sha256", "sizeBytes", "width", "height", "source", "qaStatus"],
+      "properties": {
+        "assetId": {"enum": ["topik35-reading-q09-table", "topik35-reading-q10-chart"]},
+        "role": {"enum": ["PASSAGE_TABLE", "PASSAGE_CHART"]},
+        "questionNumbers": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "integer", "minimum": 9, "maximum": 10}},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/derived/page-image/[0-9a-f]{64}\\.png$"},
+        "mediaType": {"const": "image/png"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "sizeBytes": {"type": "integer", "minimum": 1},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "source": {"$ref": "#/$defs/visualSource"},
+        "qaStatus": {"const": "VISUALLY_VERIFIED"}
+      }
+    },
+    "passageGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groupId", "questionNumbers", "sourcePdfPage", "sourcePrintedPage", "instruction", "passageText", "blankCount", "insertionSlotCount", "visualAssetIds", "qaStatus"],
+      "properties": {
+        "groupId": {"type": "string", "pattern": "^R[0-9]{3}(_[0-9]{3})?$"},
+        "questionNumbers": {"type": "array", "minItems": 1, "maxItems": 3, "uniqueItems": true, "items": {"type": "integer", "minimum": 1, "maximum": 50}},
+        "sourcePdfPage": {"type": "integer", "minimum": 3, "maximum": 23},
+        "sourcePrintedPage": {"type": "integer", "minimum": 1, "maximum": 21},
+        "instruction": {"type": "string", "minLength": 1},
+        "passageText": {"type": "string", "minLength": 1},
+        "blankCount": {"type": "integer", "minimum": 0, "maximum": 1},
+        "insertionSlotCount": {"enum": [0, 4]},
+        "visualAssetIds": {"type": "array", "maxItems": 1, "uniqueItems": true, "items": {"enum": ["topik35-reading-q09-table", "topik35-reading-q10-chart"]}},
+        "qaStatus": {"const": "VISUALLY_VERIFIED"}
+      }
+    },
+    "option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "imageReference"],
+      "properties": {
+        "id": {"enum": ["opt_1", "opt_2", "opt_3", "opt_4"]},
+        "text": {"type": "string", "minLength": 1},
+        "imageReference": {"type": "null"}
+      }
+    },
+    "questionContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "languageTag", "options", "blanks"],
+      "properties": {
+        "schemaVersion": {"const": "question-content-v3"},
+        "languageTag": {"const": "ko"},
+        "options": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/option"}},
+        "blanks": {"type": "array", "maxItems": 0}
+      }
+    },
+    "answerSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "questionType", "correctOptionIds", "correctValue", "blanks", "scoringPolicyCode"],
+      "properties": {
+        "schemaVersion": {"const": "answer-spec-v1"},
+        "questionType": {"const": "SINGLE_CHOICE"},
+        "correctOptionIds": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"enum": ["opt_1", "opt_2", "opt_3", "opt_4"]}},
+        "correctValue": {"type": "null"},
+        "blanks": {"type": "array", "maxItems": 0},
+        "scoringPolicyCode": {"const": "ALL_OR_NOTHING"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["questionArtifactId", "questionPdfPage", "questionPrintedPage", "answerArtifactId", "answerPdfPage", "answerRowQuestion"],
+      "properties": {
+        "questionArtifactId": {"const": "topik35-reading-pdf"},
+        "questionPdfPage": {"type": "integer", "minimum": 3, "maximum": 23},
+        "questionPrintedPage": {"type": "integer", "minimum": 1, "maximum": 21},
+        "answerArtifactId": {"const": "topik35-answer-key-pdf"},
+        "answerPdfPage": {"const": 3},
+        "answerRowQuestion": {"type": "integer", "minimum": 1, "maximum": 50}
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["questionNumber", "seedKey", "groupId", "prompt", "points", "questionType", "questionContent", "answerSpec", "provenance", "qaStatus"],
+      "properties": {
+        "questionNumber": {"type": "integer", "minimum": 1, "maximum": 50},
+        "seedKey": {"type": "string", "pattern": "^topik35-reading-q[0-9]{2}$"},
+        "groupId": {"type": "string", "pattern": "^R[0-9]{3}(_[0-9]{3})?$"},
+        "prompt": {"type": "string", "minLength": 1},
+        "points": {"const": 2},
+        "questionType": {"const": "SINGLE_CHOICE"},
+        "questionContent": {"$ref": "#/$defs/questionContent"},
+        "answerSpec": {"$ref": "#/$defs/answerSpec"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "qaStatus": {"const": "VISUALLY_VERIFIED"}
+      }
+    },
+    "loadPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentQaComplete", "assetQaComplete", "allOrNothingValidationRequired", "databaseLoadPerformed", "migrationPerformed", "objectStoreWritePerformed", "providerCallPerformed", "aiCallPerformed", "loadReady"],
+      "properties": {
+        "contentQaComplete": {"const": true},
+        "assetQaComplete": {"const": true},
+        "allOrNothingValidationRequired": {"const": true},
+        "databaseLoadPerformed": {"const": false},
+        "migrationPerformed": {"const": false},
+        "objectStoreWritePerformed": {"const": false},
+        "providerCallPerformed": {"const": false},
+        "aiCallPerformed": {"const": false},
+        "loadReady": {"const": false}
+      }
+    },
+    "validationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pageQaCount", "groupCount", "sharedPassageGroupCount", "questionCount", "optionCount", "answerCount", "visualAssetCount", "ambiguityCount", "answerVector", "contentProjectionSha256", "loadReady"],
+      "properties": {
+        "pageQaCount": {"const": 21},
+        "groupCount": {"const": 42},
+        "sharedPassageGroupCount": {"const": 7},
+        "questionCount": {"const": 50},
+        "optionCount": {"const": 200},
+        "answerCount": {"const": 50},
+        "visualAssetCount": {"const": 2},
+        "ambiguityCount": {"const": 0},
+        "answerVector": {
+          "type": "array",
+          "prefixItems": [
+            {"const":3},{"const":4},{"const":1},{"const":1},{"const":1},{"const":2},{"const":1},{"const":3},{"const":4},{"const":1},
+            {"const":2},{"const":3},{"const":1},{"const":4},{"const":4},{"const":2},{"const":3},{"const":3},{"const":2},{"const":4},
+            {"const":1},{"const":2},{"const":1},{"const":3},{"const":3},{"const":1},{"const":4},{"const":3},{"const":4},{"const":4},
+            {"const":1},{"const":2},{"const":4},{"const":4},{"const":2},{"const":2},{"const":4},{"const":4},{"const":2},{"const":3},
+            {"const":3},{"const":1},{"const":2},{"const":2},{"const":3},{"const":2},{"const":3},{"const":2},{"const":1},{"const":4}
+          ],
+          "items": false
+        },
+        "contentProjectionSha256": {"const": "ff98f5c7c112f46d42e19682041dbc40c80aa8ab2abd2d19587560c53f9dc5e6"},
+        "loadReady": {"const": false}
+      }
+    }
+  }
+}

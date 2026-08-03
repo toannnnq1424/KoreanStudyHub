@@ -2165,3 +2165,69 @@ Validation evidence:
   no DB, storage or provider dependency; and
 - `git diff --check` plus changed-file boundary/path-leakage scans completed
   green with documentation/provenance files only.
+
+### 6.38 TOPIK 35 Reading canonical question/group payload
+
+Status: `50_QUESTION_CONTENT_ASSET_QA_GREEN / VERSION_IDS_BLOCKED / LOAD_BLOCKED`.
+
+On `2026-08-03`, all Reading content pages `3–23` (printed pages `1–21`)
+were rendered at `200 DPI`, locally OCR-indexed, and then visually reviewed
+against the confirmed user-authorized Reading PDF. The materialized payload is
+pinned to Reading SHA-256
+`d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd`
+and answer-key SHA-256
+`60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b`.
+The separate answer-key PDF page `3`, not highlights or handwritten
+annotations visible in the question PDF, is the sole answer authority.
+
+The closed `practice-topik35-reading-question-payload-v1` package/schema now
+contains exactly:
+
+- `50` sequential `SINGLE_CHOICE` questions, `200` non-empty options and `50`
+  all-or-nothing answers at two points each;
+- `42` explicit passage groups, including `7` shared groups, with each question
+  belonging to exactly one group and each group pinned to its PDF/printed page;
+- typed `[BLANK]` and four-slot sentence-insertion presentation markers whose
+  counts are checked against each passage; and
+- all `21` content pages as `VISUALLY_VERIFIED`, with complete contiguous
+  question coverage from Q1 through Q50.
+
+The group contract is the future left-reading-pane authority:
+`passageGroups[].passageText` supplies the passage and
+`passageGroups[].visualAssetIds` supplies its required visual. Learner question
+navigation may select the corresponding group; this slice creates no UI and
+does not introduce automatic question navigation. No Reading transcript is
+recorded because none exists in the authorized source index.
+
+Only Q9 and Q10 require separate visual crops. Both ignored local PNGs were
+rendered from PDF page `5` / printed page `3`, visually rechecked, and referenced
+only by R2-ready digest keys:
+
+| Asset | Crop at 200 DPI | Digest / size | Logical role |
+|---|---|---|---|
+| Q9 flower-fair table | `x=290,y=335,w=1120,h=580` | `2bb6a1b88df53a1aafd6e1f70906f0aa1068f46079b060123df0c2c215d81e85`, `121,704` bytes | `PASSAGE_TABLE` |
+| Q10 pet-source chart | `x=360,y=1300,w=940,h=500` | `734ae3aa61930d951e8a2a800409712d6d73fe8bfef6bf13fe311538a6b671ca`, `52,556` bytes | `PASSAGE_CHART` |
+
+No absolute path, bucket or delivery URL is persisted. The canonical sorted
+content projection (`passageGroups`, `questions`, `visualAssets`) is frozen as
+SHA-256
+`ff98f5c7c112f46d42e19682041dbc40c80aa8ab2abd2d19587560c53f9dc5e6`.
+The validator is deliberately all-or-nothing: removing or reordering a
+question, option, answer, group membership or page, changing a source/crop
+binding, or attempting to set readiness true rejects the whole package.
+
+Content and required asset QA for this bounded package are complete, but
+`loadReady=false` remains locked until canonical Practice set, test and all
+question version IDs are allocated and a separate DB import is authorized.
+No DB load/row, migration, R2/object write, AI/provider call or learner-surface
+change occurred.
+
+JDK `17.0.19` evidence:
+
+- focused `mvnw -Dtest=PracticeTopik35ReadingQuestionPayloadTest test` passed
+  `6/6`, including adversarial all-or-nothing mutations;
+- combined Reading/Listening/Writing/UAT/content/import/storage gate
+  `mvnw '-Dtest=PracticeTopik35ReadingQuestionPayloadTest,PracticeTopik35CanonicalSeedBundleTest,PracticeTopik35ListeningQuestionPayloadTest,PracticeTopik35ListeningTranscriptPayloadTest,PracticeTopik35ListeningImportPackageTest,PracticeTopik35ListeningAudioQaTest,PracticeTopik35WritingImportAuditTest,PracticePre15CanonicalUatSeedManifestTest,PracticeContentRulesTest,PracticeDraftValidatorTest,PracticePdfAuthoringOutputValidatorTest,PracticeAuthoringCandidateNormalizationValidationTest,PracticeImportTargetServiceTest,PracticeStorageProfilesStaticContractTest,PracticeSeedAssetStorageTest,ProfiledPracticeAuthoringStorageTest' test`
+  passed `111/111`; and
+- `jq empty`, source/bundle digest assertions, local asset SHA/size checks,
+  logical-key/path-leakage scans and `git diff --check` completed green.
