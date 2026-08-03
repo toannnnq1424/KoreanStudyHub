@@ -883,3 +883,70 @@ Verdict: `GREEN` for custom-model draft persistence plus fail-closed
 verification. Enterprise remains `ADC_ADAPTER_REQUIRED`; a custom model remains
 red until its technical artifact entry and all provider-policy evidence are
 reviewed and added.
+
+### 6.14 B3 Enterprise short-lived credential and captured-transport boundary
+
+Status: `ADC_PORT_DEFINED / PRODUCTION_TOKEN_SOURCE_DISABLED / CAPTURED_TRANSPORT_GREEN / NO_GOOGLE_CALL`.
+
+The existing purpose-bound HTTP transport accepts a static bearer secret and
+is shared by text/STT/TTS flows. It was not repurposed for Enterprise audio.
+This slice adds the separately named
+`GoogleCloudShortLivedAccessTokenSource` and
+`GeminiEnterpriseDirectAudioEvaluationAdapter` boundaries. No Google auth
+dependency was necessary for this contract slice, so the Spring Boot `3.5.16`
+support line, dependency graph and SBOM remain unchanged.
+
+The only production token-source bean is deliberately disabled and returns
+`GOOGLE_CLOUD_ADC_WORKLOAD_IDENTITY_UNAVAILABLE`. It reads no environment
+credential, service-account JSON, private key, access token or application
+property. The Enterprise evaluator itself is deliberately not a Spring bean,
+and contains no HTTP client; production audio cannot reach Google until an
+approved workload-identity source and captured transport are implemented and
+wired.
+
+The request-local token contract binds exact resource audience, the sole
+`cloud-platform` scope, project, location, concrete HTTPS Vertex endpoint and
+credential-mode revision. Tokens with blank material, no more than 60 seconds
+remaining, wrong audience, a different scope set, project, location, endpoint
+or revision fail before transport. Technical registry evidence and all four
+provider-policy evidence IDs are required again at the Enterprise adapter
+boundary. Profile revision is the current credential-mode revision authority,
+so any profile/auth-mode change invalidates previous provenance.
+
+Provider request provenance includes provider/binding revisions, credential
+mode/revision, audience, scope, project, location, endpoint, technical evidence
+IDs and policy-bundle fingerprint. Only its SHA-256 digest is appended to the
+governed cache identity; token, project/location and raw provenance do not
+appear in that cache key. Token and audio byte arrays are redacted from request
+string representations, and the existing direct-audio audit events contain
+neither.
+
+Dated `2026-08-03` JDK `17.0.19` evidence:
+
+- focused token/security/service/resolver command
+  `mvnw -Dtest=GoogleCloudAdcBoundaryStaticContractTest,GeminiEnterpriseDirectAudioEvaluationAdapterTest,DirectAudioSpeakingEvaluationServiceTest,PracticeAiControlPlaneContractTest,PracticeAiControlPlaneAdminServiceTest,PracticeDirectAudioCapabilityRegistryTest test`
+  passed `38/38`;
+- captured fake transport tests proved a fully governed dark request transfers
+  exactly once, remains non-score-bearing, and produces redacted audit/request
+  output; withdrawn consent issues zero tokens and transfers zero audio;
+- blank/expired/wrong-audience/wrong-scope/wrong-project/wrong-location/
+  wrong-endpoint/wrong-revision tokens each produced a bounded rejection with
+  zero transport calls;
+- combined B1/B2/B3/control-plane/readiness command
+  `mvnw -Dtest=PracticeAi*Test,DirectAudio*Test,GoogleCloud*Test,GeminiEnterprise*Test,SpeakingProviderRolloutReadinessTest,ProviderOperationalReadinessPolicyTest,AdminSettingsInformationArchitectureStaticContractTest test`
+  passed `106` tests: `100` executed green and `6` existing DB/auth guards
+  skipped; and
+- `mvnw -DskipTests package` completed green. Real provider/storage/DB calls,
+  dependency additions, migrations and score releases remained `0`.
+
+Exact next blocker audit: `DirectAudioSpeakingEvaluationPort.Receipt` still
+contains only request/consumption/cache proof, and the Enterprise captured
+transport has no provider response body or response schema. The current
+`SpeakingEvaluationNormalizer` and rubric contract are transcript-grounded;
+they intentionally suppress acoustic criteria, pronunciation/fluency scoring
+and holistic score availability. The next isolated slice must therefore define
+a separately versioned direct-audio strict JSON schema, bounded provider
+response decoder, acoustic evidence/rubric reconciliation and non-score-bearing
+normalizer. Score release must remain off until real captured responses plus
+approved calibration/fairness/repeatability evidence satisfy that contract;
+none of those results are fabricated here.

@@ -74,7 +74,9 @@ public final class DirectAudioSpeakingEvaluationService {
                 false,
                 false,
                 null,
-                request.cacheIdentity());
+                present(receipt.providerCacheIdentity())
+                        ? receipt.providerCacheIdentity()
+                        : request.cacheIdentity());
     }
 
     public static String cacheIdentity(Candidate candidate) {

@@ -40,6 +40,12 @@ public interface DirectAudioSpeakingEvaluationPort {
         }
     }
 
-    record Receipt(String providerRequestId, boolean audioConsumed) {
+    record Receipt(
+            String providerRequestId,
+            boolean audioConsumed,
+            String providerCacheIdentity) {
+        public Receipt(String providerRequestId, boolean audioConsumed) {
+            this(providerRequestId, audioConsumed, null);
+        }
     }
 }
