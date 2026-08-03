@@ -77,7 +77,6 @@ public class PracticeAiBindingResolver {
         }
         String model = required(binding.getModel());
         String retentionCode = required(binding.getRetentionCode());
-        String secret = required(profile.getCredentialSecret());
         URI baseUrl = validateBaseUrl(profile.getBaseUrl());
         PracticeAiCapabilitySet capabilities = codec.parseCapabilities(
                 purpose, binding.getCapabilityJson());
@@ -94,11 +93,16 @@ public class PracticeAiBindingResolver {
                     .match(profile.getBaseUrl(), binding.getModel())
                     .orElseThrow(() -> new PracticeAiControlPlaneException(
                             "DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED", false));
+            if (!candidate.credentialMode().name().equals(profile.getCredentialMode())) {
+                throw new PracticeAiControlPlaneException(
+                        "DIRECT_AUDIO_CREDENTIAL_MODE_MISMATCH", false);
+            }
             if (!candidate.runtimeAuthReady()) {
                 throw new PracticeAiControlPlaneException(
                         "DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED", false);
             }
         }
+        String secret = required(profile.getCredentialSecret());
         PracticeAiLimits limits = codec.parseLimits(binding.getLimitsJson());
         PracticeAiExecutionSnapshot snapshot = new PracticeAiExecutionSnapshot(
                 purpose,

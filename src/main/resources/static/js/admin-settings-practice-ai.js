@@ -26,6 +26,21 @@
     var modelInput = document.getElementById('model');
     var suggestions = document.getElementById('model-suggestions');
     var modelSearchQuery = '';
+    var credentialMode = document.getElementById('credentialMode');
+    var credentialSecret = document.getElementById('credentialSecret');
+
+    function syncCredentialMode() {
+      if (!credentialMode || !credentialSecret) return;
+      var adc = credentialMode.value === 'GOOGLE_CLOUD_ADC';
+      credentialSecret.disabled = adc;
+      credentialSecret.required = !adc;
+      if (adc) credentialSecret.value = '';
+    }
+
+    if (credentialMode && credentialSecret) {
+      credentialMode.addEventListener('change', syncCredentialMode);
+      syncCredentialMode();
+    }
 
     function comboboxOption(value) {
       if (!providerOptions) return null;

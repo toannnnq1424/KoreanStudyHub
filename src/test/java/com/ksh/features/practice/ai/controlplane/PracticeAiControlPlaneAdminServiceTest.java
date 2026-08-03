@@ -55,6 +55,7 @@ class PracticeAiControlPlaneAdminServiceTest {
                 "PRACTICE_PRIMARY",
                 "Renamed",
                 "OPENAI_COMPATIBLE",
+                "STATIC_BEARER",
                 "https://provider.invalid/v1/",
                 MASKED,
                 true);
@@ -68,7 +69,8 @@ class PracticeAiControlPlaneAdminServiceTest {
         assertThatThrownBy(() -> service.saveProfile(
                 new ProfileForm(
                         7L, 8L, "PRACTICE_PRIMARY", "Stale",
-                        "OPENAI_COMPATIBLE", "https://provider.invalid/v1",
+                        "OPENAI_COMPATIBLE", "STATIC_BEARER",
+                        "https://provider.invalid/v1",
                         MASKED, true),
                 9L))
                 .isInstanceOf(IllegalStateException.class)
@@ -129,7 +131,8 @@ class PracticeAiControlPlaneAdminServiceTest {
                 PracticeAiBindingResolver.PROVIDER_FAMILY,
                 "https://aiplatform.googleapis.com/v1/projects/ksh-project/"
                         + "locations/asia-southeast1/endpoints/openapi",
-                "SHORT_LIVED_TOKEN_MUST_NOT_BECOME_PRODUCTION_AUTH",
+                PracticeAiCredentialMode.GOOGLE_CLOUD_ADC.name(),
+                null,
                 true,
                 9L);
         when(profiles.findById(7L)).thenReturn(Optional.of(enterprise));
@@ -145,6 +148,67 @@ class PracticeAiControlPlaneAdminServiceTest {
                 "retention/1", "deletion/1"), 9L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED");
+    }
+
+    @Test
+    void adcProfileStoresNoSecretAndRejectsAccidentalCredentialMaterial() {
+        ProfileForm adc = new ProfileForm(
+                null, null,
+                "GEMINI_ENTERPRISE_DIRECT_AUDIO",
+                "Gemini Enterprise",
+                "OPENAI_COMPATIBLE",
+                "GOOGLE_CLOUD_ADC",
+                "https://aiplatform.googleapis.com/v1/projects/ksh-project/"
+                        + "locations/asia-southeast1/endpoints/openapi",
+                "",
+                false);
+        when(profiles.findByProfileCode("GEMINI_ENTERPRISE_DIRECT_AUDIO"))
+                .thenReturn(Optional.empty());
+        when(profiles.save(any())).thenAnswer(call -> call.getArgument(0));
+
+        service.saveProfile(adc, 9L);
+        verify(profiles).save(org.mockito.ArgumentMatchers.argThat(profile ->
+                profile.getCredentialSecret() == null
+                        && "GOOGLE_CLOUD_ADC".equals(profile.getCredentialMode())));
+
+        assertThatThrownBy(() -> service.saveProfile(new ProfileForm(
+                null, null,
+                "GEMINI_ENTERPRISE_WITH_TOKEN",
+                "Gemini Enterprise token",
+                "OPENAI_COMPATIBLE",
+                "GOOGLE_CLOUD_ADC",
+                adc.baseUrl(),
+                "SHORT_LIVED_TOKEN",
+                false), 9L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ADC_PROFILE_MUST_NOT_STORE_SECRET");
+    }
+
+    @Test
+    void adcProfileCannotSwitchToStaticBearerWithoutNewSecret() {
+        PracticeAiProviderProfile adc = new PracticeAiProviderProfile(
+                "GEMINI_ENTERPRISE_DIRECT_AUDIO",
+                "Gemini Enterprise",
+                "OPENAI_COMPATIBLE",
+                "https://aiplatform.googleapis.com/v1/projects/ksh-project/"
+                        + "locations/asia-southeast1/endpoints/openapi",
+                PracticeAiCredentialMode.GOOGLE_CLOUD_ADC.name(),
+                null,
+                false,
+                9L);
+        when(profiles.findByIdForUpdate(7L)).thenReturn(Optional.of(adc));
+
+        assertThatThrownBy(() -> service.saveProfile(new ProfileForm(
+                7L, 0L,
+                "GEMINI_ENTERPRISE_DIRECT_AUDIO",
+                "Gemini Enterprise",
+                "OPENAI_COMPATIBLE",
+                "STATIC_BEARER",
+                adc.getBaseUrl(),
+                MASKED,
+                false), 9L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("PROFILE_SECRET_REQUIRED");
     }
 
     private static BindingForm directAudioForm(

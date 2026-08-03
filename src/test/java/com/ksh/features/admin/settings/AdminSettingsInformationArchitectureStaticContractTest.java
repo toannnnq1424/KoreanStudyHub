@@ -58,7 +58,7 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("directAudioInput", "regionEvidenceId",
                         "nonTrainingEvidenceId", "retentionEvidenceId",
                         "deletionSlaEvidenceId")
-                .contains("Chưa có preset direct-audio được xác minh")
+                .contains("Direct-audio chỉ chấp nhận hai cặp endpoint/model")
                 .contains("không fallback global")
                 .contains("th:href=\"@{/admin/settings/practice-ai/profiles/new}\"")
                 .contains("Thêm nhà cung cấp")
@@ -199,7 +199,8 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 "withProviderProfileId");
         assertThat(controller)
                 .contains("/edit?profileId=", "@RequestParam(required = false) Long profileId")
-                .contains("Đã lưu nhà cung cấp. Tiếp theo");
+                .contains("Đã lưu nhà cung cấp. Tiếp theo")
+                .contains("isDirectAudioProfile(form)");
         assertThat(profile).contains("Lưu và chọn model", "Chưa thể lưu nhà cung cấp");
         assertThat(profile).contains("Các dịch vụ dưới đây có endpoint OpenAI-compatible")
                 .contains("Practice vẫn kiểm tra strict schema và audio riêng");
@@ -225,6 +226,12 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("parsed.hostname === 'api.deepseek.com'")
                 .contains("parsed.hostname === 'dashscope-intl.aliyuncs.com'")
                 .contains("path === '/compatible-mode/v1'");
+        assertThat(profile)
+                .contains("GOOGLE_CLOUD_ADC", "không lưu secret")
+                .contains("id=\"credentialMode\"");
+        assertThat(practiceAiJs)
+                .contains("syncCredentialMode", "credentialSecret.disabled = adc")
+                .contains("credentialSecret.value = ''");
 
         assertThat(editor)
                 .contains("pi-body practice-editor-body")

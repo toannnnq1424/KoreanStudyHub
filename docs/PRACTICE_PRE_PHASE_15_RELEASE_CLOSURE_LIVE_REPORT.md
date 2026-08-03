@@ -783,3 +783,56 @@ slice must use fake token-source tests, avoid logging tokens, recheck the
 dependency/SBOM delta if a Google auth library is introduced, and still stop
 before any provider request. Developer dark rollout separately remains blocked
 on real policy evidence IDs, consent/grants and approved calibration artifacts.
+
+### 6.12 B3 credential-mode persistence boundary
+
+Status: `V91_APPLIED / ADC_SECRETLESS_PROFILE_IMPLEMENTED / TOKEN_SOURCE_UNWIRED`.
+
+The dual-provider audit found that the original profile form/database required
+a static credential for every OpenAI-compatible endpoint. That contract was
+correct for Gemini Developer but unsafe and misleading for Enterprise: Google
+Cloud ADC issues short-lived access tokens and must not be represented by a
+long-lived value in `credential_secret`.
+
+Forward-only V91 adds exact profile credential modes `STATIC_BEARER` and
+`GOOGLE_CLOUD_ADC`. Existing rows deterministically remain static bearer.
+Database constraints require non-blank credential material for static bearer
+and require `credential_secret IS NULL` for ADC. No profile, identity, token,
+project or region is seeded. V1..V90 bytes remain unchanged.
+
+The existing Admin profile flow now exposes the two authentication choices.
+ADC disables and clears the password field in the browser; the controller and
+service independently accept a new ADC profile without a secret and reject any
+attempt to persist token material as `ADC_PROFILE_MUST_NOT_STORE_SECRET`.
+Profile list/read DTOs expose only the credential mode, never the credential.
+Creating either named direct-audio candidate routes to the existing direct-
+audio purpose binding rather than an unrelated PDF purpose. A provider/model
+binding must match the catalog's expected credential mode.
+
+Enterprise remains fail closed. The resolver validates the concrete Vertex
+endpoint/model and the `GOOGLE_CLOUD_ADC` mode, then returns
+`DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED` before transport because no
+production token source is wired. Developer continues to require
+`STATIC_BEARER`. No access token, placeholder secret or real Google call was
+introduced.
+
+Dated `2026-08-03` JDK `17.0.19` evidence:
+
+- consolidated profile/admin/catalog/resolver/UI/B1/B2/migration-chain gate
+  ran `79` tests: `75` executed green and `4` existing authorization guards
+  skipped because that DB-backed role fixture was not enabled;
+- fresh disposable MySQL 8.4 catalog `ksh_test_pre15_b3_v91` validated and
+  applied continuous `V1..V91`, exactly `91` successful rows, min/max `1/91`
+  and zero failures;
+- the V91 control-plane persistence test plus Spring/Hibernate startup passed
+  `5/5`; the schema proved `credential_mode NOT NULL DEFAULT STATIC_BEARER`,
+  nullable secret storage governed by the cross-field check, and a disposable
+  ADC profile persisted with SQL `credential_secret IS NULL`; and
+- the tmpfs-backed dedicated container was stopped and auto-removed. The
+  pre-existing evidence container was not touched.
+
+Real provider/storage calls remained `0/0`; the only database mutation was the
+explicitly named disposable catalog. No dependency or score-release path was
+added. The remaining Enterprise boundary is now narrower: supply a production
+ADC token-source adapter with refresh/expiry/audience/scope checks and redacted
+fake-port tests. Any library addition requires a dated SBOM/advisory delta.

@@ -8,6 +8,7 @@ import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.ProfileRow;
 import com.ksh.features.practice.ai.controlplane.PracticeAiBindingResolver;
 import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilityTestRunRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneCodec;
+import com.ksh.features.practice.ai.controlplane.PracticeAiCredentialMode;
 import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioProviderCatalog;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfile;
 import com.ksh.features.practice.ai.controlplane.PracticeAiProviderProfileRepository;
@@ -58,6 +59,7 @@ public class PracticeAiControlPlaneAdminService {
                         profile.getProfileCode(),
                         profile.getDisplayName(),
                         profile.getProviderFamily(),
+                        profile.getCredentialMode(),
                         profile.getBaseUrl(),
                         profile.isEnabled(),
                         profile.getRevision(),
@@ -85,6 +87,7 @@ public class PracticeAiControlPlaneAdminService {
                 profile.getProfileCode(),
                 profile.getDisplayName(),
                 profile.getProviderFamily(),
+                profile.getCredentialMode(),
                 profile.getBaseUrl(),
                 MASKED,
                 profile.isEnabled()));
@@ -125,8 +128,14 @@ public class PracticeAiControlPlaneAdminService {
         String secret = newSecret(form.credentialSecret())
                 ? form.credentialSecret().trim()
                 : null;
+        String credentialMode = form.credentialMode().trim();
+        boolean adc = PracticeAiCredentialMode.GOOGLE_CLOUD_ADC.name()
+                .equals(credentialMode);
+        if (adc && secret != null) {
+            throw new IllegalArgumentException("ADC_PROFILE_MUST_NOT_STORE_SECRET");
+        }
         if (form.id() == null) {
-            if (secret == null) {
+            if (!adc && secret == null) {
                 throw new IllegalArgumentException("PROFILE_SECRET_REQUIRED");
             }
             if (profileRepository.findByProfileCode(code).isPresent()) {
@@ -137,6 +146,7 @@ public class PracticeAiControlPlaneAdminService {
                     form.displayName().trim(),
                     PracticeAiBindingResolver.PROVIDER_FAMILY,
                     PracticeAiBindingResolver.normalizeBaseUrl(form.baseUrl()),
+                    credentialMode,
                     secret,
                     form.enabled(),
                     actorId);
@@ -152,10 +162,14 @@ public class PracticeAiControlPlaneAdminService {
         if (!profile.getProfileCode().equals(code)) {
             throw new IllegalArgumentException("PROFILE_CODE_IMMUTABLE");
         }
+        if (!adc && secret == null && profile.getCredentialSecret() == null) {
+            throw new IllegalArgumentException("PROFILE_SECRET_REQUIRED");
+        }
         profile.update(
                 form.displayName().trim(),
                 PracticeAiBindingResolver.PROVIDER_FAMILY,
                 PracticeAiBindingResolver.normalizeBaseUrl(form.baseUrl()),
+                credentialMode,
                 secret,
                 form.enabled(),
                 actorId);
@@ -350,6 +364,9 @@ public class PracticeAiControlPlaneAdminService {
                 .match(profile.getBaseUrl(), model)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "DIRECT_AUDIO_PROVIDER_MODEL_UNVERIFIED"));
+        if (!candidate.credentialMode().name().equals(profile.getCredentialMode())) {
+            throw new IllegalArgumentException("DIRECT_AUDIO_CREDENTIAL_MODE_MISMATCH");
+        }
         if (enabling && !candidate.runtimeAuthReady()) {
             throw new IllegalStateException(
                     "DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED");

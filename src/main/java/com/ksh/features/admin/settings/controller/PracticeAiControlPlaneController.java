@@ -6,6 +6,7 @@ import com.ksh.features.admin.settings.dto.PracticeAiSettingsDtos.ProfileForm;
 import com.ksh.features.admin.settings.service.PracticeAiControlPlaneAdminService;
 import com.ksh.features.practice.ai.controlplane.PracticeAiCapabilityTestService;
 import com.ksh.features.practice.ai.controlplane.PracticeAiControlPlaneException;
+import com.ksh.features.practice.ai.controlplane.PracticeDirectAudioProviderCatalog;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
@@ -88,6 +89,7 @@ public class PracticeAiControlPlaneController {
             return errorRedirect(redirect, "ADMIN_SESSION_UNSUPPORTED");
         }
         if (form.id() == null
+                && "STATIC_BEARER".equals(form.credentialMode())
                 && (form.credentialSecret() == null
                 || form.credentialSecret().isBlank())) {
             result.rejectValue(
@@ -107,8 +109,11 @@ public class PracticeAiControlPlaneController {
                             ? "Đã lưu nhà cung cấp. Tiếp theo, hãy chọn model cho mục đích đầu tiên."
                             : "Đã lưu thay đổi nhà cung cấp Practice AI.");
             if (creating) {
+                PracticeAiPurpose firstPurpose = isDirectAudioProfile(form)
+                        ? PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                        : PracticeAiPurpose.PRACTICE_PDF_AUTHORING;
                 return "redirect:/admin/settings/practice-ai/bindings/"
-                        + PracticeAiPurpose.PRACTICE_PDF_AUTHORING.name()
+                        + firstPurpose.name()
                         + "/edit?profileId=" + savedId;
             }
             return REDIRECT;
@@ -295,5 +300,11 @@ public class PracticeAiControlPlaneController {
         return value != null && value.matches("[A-Z][A-Z0-9_]{1,63}")
                 ? value
                 : "PRACTICE_AI_CONTROL_PLANE_ERROR";
+    }
+
+    private static boolean isDirectAudioProfile(ProfileForm form) {
+        String code = form.profileCode() == null ? "" : form.profileCode().trim();
+        return PracticeDirectAudioProviderCatalog.GEMINI_DEVELOPER_CODE.equals(code)
+                || PracticeDirectAudioProviderCatalog.GEMINI_ENTERPRISE_CODE.equals(code);
     }
 }

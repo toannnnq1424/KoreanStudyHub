@@ -94,7 +94,8 @@ class PracticeAiControlPlaneContractTest {
                 "GEMINI_ENTERPRISE_DIRECT_AUDIO", "Enterprise", "OPENAI_COMPATIBLE",
                 "https://asia-southeast1-aiplatform.googleapis.com/v1/projects/"
                         + "ksh-project/locations/asia-southeast1/endpoints/openapi",
-                "SHORT_LIVED_TOKEN", true, 1L);
+                PracticeAiCredentialMode.GOOGLE_CLOUD_ADC.name(),
+                null, true, 1L);
         PracticeAiPurposeBinding binding = new PracticeAiPurposeBinding(
                 PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
                 profile,

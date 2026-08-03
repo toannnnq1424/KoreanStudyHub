@@ -29,6 +29,8 @@ public final class PracticeAiSettingsDtos {
             @NotBlank(message = "Vui lòng nhập tên dễ nhận biết")
             @Size(max = 120, message = "Tên tối đa 120 ký tự") String displayName,
             @NotBlank @Pattern(regexp = "OPENAI_COMPATIBLE") String providerFamily,
+            @NotBlank @Pattern(regexp = "STATIC_BEARER|GOOGLE_CLOUD_ADC")
+            String credentialMode,
             @NotBlank(message = "Vui lòng nhập Base URL")
             @Size(max = 500, message = "Base URL tối đa 500 ký tự")
             @Pattern(regexp = "^https?://.+", message = "Base URL phải bắt đầu bằng http:// hoặc https://")
@@ -39,7 +41,7 @@ public final class PracticeAiSettingsDtos {
         public static ProfileForm empty() {
             return new ProfileForm(
                     null, null, "PRACTICE_PRIMARY", "",
-                    "OPENAI_COMPATIBLE", "", "", false);
+                    "OPENAI_COMPATIBLE", "STATIC_BEARER", "", "", false);
         }
     }
 
@@ -48,6 +50,7 @@ public final class PracticeAiSettingsDtos {
             String profileCode,
             String displayName,
             String providerFamily,
+            String credentialMode,
             String baseUrl,
             boolean enabled,
             long revision,

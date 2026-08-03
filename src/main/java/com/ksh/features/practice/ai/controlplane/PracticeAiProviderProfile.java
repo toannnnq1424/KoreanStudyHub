@@ -30,8 +30,11 @@ public class PracticeAiProviderProfile {
     @Column(name = "base_url", nullable = false, length = 500)
     private String baseUrl;
 
-    @Column(name = "credential_secret", nullable = false, length = 4096)
+    @Column(name = "credential_secret", length = 4096)
     private String credentialSecret;
+
+    @Column(name = "credential_mode", nullable = false, length = 32)
+    private String credentialMode;
 
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
@@ -60,7 +63,22 @@ public class PracticeAiProviderProfile {
             String credentialSecret,
             boolean enabled,
             Long updatedBy) {
-        update(displayName, providerFamily, baseUrl, credentialSecret, enabled, updatedBy);
+        this(profileCode, displayName, providerFamily, baseUrl,
+                PracticeAiCredentialMode.STATIC_BEARER.name(), credentialSecret,
+                enabled, updatedBy);
+    }
+
+    public PracticeAiProviderProfile(
+            String profileCode,
+            String displayName,
+            String providerFamily,
+            String baseUrl,
+            String credentialMode,
+            String credentialSecret,
+            boolean enabled,
+            Long updatedBy) {
+        update(displayName, providerFamily, baseUrl, credentialMode,
+                credentialSecret, enabled, updatedBy);
         this.profileCode = profileCode;
     }
 
@@ -71,11 +89,28 @@ public class PracticeAiProviderProfile {
             String replacementSecret,
             boolean enabled,
             Long updatedBy) {
+        update(displayName, providerFamily, baseUrl,
+                PracticeAiCredentialMode.STATIC_BEARER.name(), replacementSecret,
+                enabled, updatedBy);
+    }
+
+    public void update(
+            String displayName,
+            String providerFamily,
+            String baseUrl,
+            String credentialMode,
+            String replacementSecret,
+            boolean enabled,
+            Long updatedBy) {
         this.displayName = displayName;
         this.providerFamily = providerFamily;
         this.baseUrl = baseUrl;
+        this.credentialMode = credentialMode;
         if (replacementSecret != null) {
             this.credentialSecret = replacementSecret;
+        }
+        if (PracticeAiCredentialMode.GOOGLE_CLOUD_ADC.name().equals(credentialMode)) {
+            this.credentialSecret = null;
         }
         this.enabled = enabled;
         this.updatedBy = updatedBy;
@@ -92,6 +127,7 @@ public class PracticeAiProviderProfile {
     public String getProviderFamily() { return providerFamily; }
     public String getBaseUrl() { return baseUrl; }
     public String getCredentialSecret() { return credentialSecret; }
+    public String getCredentialMode() { return credentialMode; }
     public boolean isEnabled() { return enabled; }
     public long getRevision() { return revision; }
     public Long getUpdatedBy() { return updatedBy; }
