@@ -284,16 +284,6 @@ public interface IConstant {
     // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
     String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";
 
-    // ───────── Lesson-comment messages (KSH-4.6, Vietnamese UI text) ──
-    String MSG_COMMENT_BLANK         = "Nội dung không được để trống";
-    String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
-    String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
-    String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
-    // Moderator hide/unhide (KSH-11.7).
-    String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
-    // Comment bulk moderation (KSH-11.7).
-    String MSG_COMMENT_BULK_EMPTY = "Vui lòng chọn ít nhất một bình luận";
-
     // ───────── Flashcards (KSH-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
@@ -521,11 +511,6 @@ public interface IConstant {
     // Library attach wizard — editable class target page size.
     int DEFAULT_LIBRARY_TARGET_PAGE_SIZE = 12;
     int MAX_LIBRARY_TARGET_PAGE_SIZE = 50;
-
-    // Lesson comments — root comments per "load more" page (default + upper bound).
-    // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
-    int DEFAULT_COMMENT_PAGE_SIZE = 10;
-    int MAX_COMMENT_PAGE_SIZE = 50;
 
     // Flashcards — own decks per SSR numbered-pager page.
     int DEFAULT_DECK_PAGE_SIZE = 12;

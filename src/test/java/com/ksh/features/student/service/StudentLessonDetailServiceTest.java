@@ -132,8 +132,7 @@ class StudentLessonDetailServiceTest {
     void owning_lecturer_not_enrolled_can_view_detail() {
         Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
 
-        // The owning lecturer is not enrolled but must open the detail (and its
-        // discussion thread) to moderate — design D7.
+        // The owning lecturer is not enrolled but must still inspect the detail.
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
                 clazz.getId(), lesson.getId(), lecturer.getId(), Role.LECTURER);
 

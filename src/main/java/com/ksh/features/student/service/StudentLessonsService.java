@@ -35,10 +35,9 @@ import static com.ksh.common.IConstant.CONTENT_TYPE_RICHTEXT;
  *       {@code @SQLRestriction} filters soft-deleted rows
  *       transparently — a missing row maps to 404.</li>
  *   <li>The caller must be admitted: an ACTIVE-enrolled student, OR the
- *       owning lecturer, OR an ADMIN / in-department LEADER moderator
- *       (bypasses enrollment so they can open the discussion thread to moderate — design D7,
- *       mirroring {@code LessonCommentsService.authorize} D3). Any other
- *       caller (REMOVED / COMPLETED / non-enrolled non-moderator) → 404
+ *       owning lecturer, OR an ADMIN / in-department LEADER
+ *       (bypasses enrollment for in-scope inspection). Any other
+ *       caller (REMOVED / COMPLETED / non-enrolled non-privileged) → 404
  *       to avoid leaking class existence (see design D5, D6).</li>
  * </ol>
  *
@@ -74,7 +73,7 @@ public class StudentLessonsService {
      * Returns the lesson view for the given class, admitting an
      * ACTIVE-enrolled student, the owning lecturer, or an ADMIN /
      * in-department LEADER
-     * moderator.
+     * privileged viewer.
      *
      * @param classId target class id
      * @param userId  authenticated user id
@@ -96,11 +95,11 @@ public class StudentLessonsService {
             throw new EntityNotFoundException("Class not found or not accessible");
         }
 
-        // Gate 2: admit the caller. ADMIN and in-department LEADER bypass enrollment so they can
-        // open the discussion thread to moderate; the owning lecturer passes
+        // Gate 2: admit the caller. ADMIN and in-department LEADER bypass enrollment for
+        // in-scope inspection; the owning lecturer passes
         // too; otherwise an ACTIVE enrollment is required. Any other caller
-        // (REMOVED/COMPLETED/non-enrolled non-moderator) → no-leak 404.
-        accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
+        // (REMOVED/COMPLETED/non-enrolled non-privileged) → no-leak 404.
+        accessPolicy.requireViewAccess(clazz, userId, role);
 
         List<Section> sections = sectionRepository
                 .findByClassIdOrderByDisplayOrderAsc(classId);

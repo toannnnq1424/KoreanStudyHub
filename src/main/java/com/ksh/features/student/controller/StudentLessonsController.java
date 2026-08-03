@@ -113,7 +113,7 @@ public class StudentLessonsController {
      * Records the open as IN_PROGRESS, swallowing and logging any failure so
      * a progress write problem can never break lesson rendering (design D7a).
      *
-     * <p>Only ACTIVE-enrolled students accrue progress. A moderator
+     * <p>Only ACTIVE-enrolled students accrue progress. A privileged viewer
      * (ADMIN, in-department LEADER, or the owning lecturer, admitted via the widened D7 gate
      * but not enrolled) opens the lesson to moderate its thread, not to
      * learn — so skipping progress for them is expected, not an error, and
@@ -121,7 +121,7 @@ public class StudentLessonsController {
      * enrollment gate query {@code recordOpened} would otherwise run.
      */
     private void recordOpenedQuietly(Long classId, Long lessonId, Long userId, Role role) {
-        // Progress belongs to students only; moderators generate none (D7).
+        // Progress belongs to students only; privileged viewers generate none.
         if (role != Role.STUDENT) {
             return;
         }

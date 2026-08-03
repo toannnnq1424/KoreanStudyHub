@@ -6,8 +6,6 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-comments.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-comment-thread.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
@@ -192,23 +190,6 @@
           </ul>
         </section>
 
-        <!-- Discussion panel (KSH-4.6). Shell only — lesson-comments.js loads
-             the list via AJAX and renders every row with textContent (XSS-safe). -->
-        <section class="lesson-comments" th:attr="data-lesson-id=${lessonDetail.lessonId()}">
-          <h3 class="lesson-comments-title">Thảo luận</h3>
-
-          <form class="lesson-comments-composer" data-role="composer">
-            <textarea class="lesson-comments-input" data-role="input" rows="1"
-                      maxlength="2000" placeholder="Đặt câu hỏi hoặc thảo luận về bài giảng..."></textarea>
-            <button type="submit" class="lesson-comments-submit" aria-label="Gửi" title="Gửi">
-              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
-          </form>
-
-          <p class="lesson-comments-status" data-role="status" hidden></p>
-          <div class="lesson-comments-list" data-role="list"></div>
-        </section>
       </th:block>
 
       <!-- Fallback hero placeholder when no lesson is selected. -->
@@ -357,7 +338,5 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/student-lesson-nav.js}"></script>
-<script th:src="@{/js/lesson-comments-render.js}"></script>
-<script th:src="@{/js/lesson-comments.js}"></script>
 </body>
 </html>

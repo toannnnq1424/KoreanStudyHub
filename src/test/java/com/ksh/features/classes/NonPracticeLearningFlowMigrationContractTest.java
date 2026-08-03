@@ -31,7 +31,8 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "V90__remove_class_invites.sql",
                 "V91__subject_activity_audit.sql",
                 "V92__remove_courses_and_general_categories.sql",
-                "V93__scope_question_bank_by_subject.sql");
+                "V93__scope_question_bank_by_subject.sql",
+                "V94__remove_lesson_comments.sql");
         String combined = files.stream().map(this::readUnchecked).reduce("", String::concat);
 
         assertThat(count(combined, "CREATE TABLE")).isEqualTo(1);
@@ -68,6 +69,19 @@ class NonPracticeLearningFlowMigrationContractTest {
         assertThat(adminDashboard + leaderDashboard).doesNotContain("FROM courses", "JOIN courses");
         assertThat(adminDashboard).contains("status = 'ACTIVE'");
         assertThat(leaderDashboard).contains("FROM question_bank_items", "subject_id = ?");
+    }
+
+    @Test
+    void lesson_comment_aggregate_and_permissions_are_removed() throws IOException {
+        String sql = read("V94__remove_lesson_comments.sql");
+
+        assertThat(sql).contains(
+                "DROP TABLE activity_comments",
+                "DROP TABLE comment_moderation",
+                "DROP TABLE comments",
+                "feature_key LIKE 'comment.%'",
+                "feature_key LIKE 'moderation.comment_%'");
+        assertThat(sql).doesNotContain("practice_", "CREATE TABLE");
     }
 
     @Test
