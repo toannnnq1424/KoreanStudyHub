@@ -239,6 +239,6 @@ The requested direction is feasible without touching Practice. The approved mini
 - `e1b3e526`: V97 drops `classes.code`; class lists/search/sidebar/approval/assign/report use the catalog subject code instead, and the generator/repository lookup are removed. V98 normalizes historical `joined_via` CODE/LINK rows to REQUEST and removes those invite values from the constraint/enum.
 - `146f84b2`: `/admin/departments` remains the compatibility route and `departments` remains the physical table, while visible admin copy consistently says catalog môn học/mã môn; “trưởng bộ môn” is retained only as the responsible role.
 
-- V99 under validation: forward-renames the live audit table to the exact requested `subjects_activities` name and preserves the V91 checksum/history.
+- `903526d5`: V99 forward-renames the live audit table to the exact requested `subjects_activities` name and preserves the V91 checksum/history.
 
 The one-new-table gate remains exact: only V89 creates `class_co_lecturers`; V88 and V90–V99 create no tables. Practice paths and migrations remain outside every implementation diff. Source/unit/static contracts and `test-compile` pass; Spring integration and migration rehearsal remain blocked by the required missing `TEST_DB_URL`/disposable MySQL target, not by a code failure.
