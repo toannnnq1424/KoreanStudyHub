@@ -14,7 +14,6 @@ public final class PracticeAuthoringCandidateModels {
     public enum SourceKind {
         QUICK_EXCEL("practice-quick-excel-v1"),
         ADVANCED_EXCEL_V2("practice-excel-v2"),
-        LEGACY_EXCEL_V1("practice-excel-v1"),
         PDF_AI("practice-pdf-authoring-output-v1");
 
         private final String contractVersion;

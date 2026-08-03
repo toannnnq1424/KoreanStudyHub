@@ -363,6 +363,18 @@ Remaining occurrences in historical UI fixtures/authoring compatibility are
 not claimed removed by this sub-slice and must be retired with their owning
 contract, not by an unsafe global replacement.
 
+### 6.3 COMP-09 stored legacy Excel source identity retirement
+
+Status: `IMPLEMENTED_AND_FOCUSED_TESTED` for current application code.
+
+`SourceKind.LEGACY_EXCEL_V1` and its `practice-excel-v1` contract identity were
+removed from the current candidate model and convergence fixture. The Quick
+Excel upload boundary continues to reject a legacy workbook deterministically;
+it cannot create a legacy candidate. V83 is an already-applied canonical
+migration and was not rewritten, so its historical database enum literal is
+preserved until a future forward-only schema compaction. JDK 17 Excel,
+candidate-static, resolver and route gate passed `19/19`.
+
 Current verdict remains `NO_GO`: owner decisions are now recorded, but the
 approved SME artifacts still need concrete manifest references and the
 remaining development-only compatibility branches require tested retirement.

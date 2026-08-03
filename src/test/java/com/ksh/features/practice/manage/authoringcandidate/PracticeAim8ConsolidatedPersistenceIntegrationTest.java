@@ -83,8 +83,7 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
         Map<SourceKind, CandidateView> created = new EnumMap<>(SourceKind.class);
         for (SourceKind kind : new SourceKind[] {
                 SourceKind.QUICK_EXCEL,
-                SourceKind.ADVANCED_EXCEL_V2,
-                SourceKind.LEGACY_EXCEL_V1}) {
+                SourceKind.ADVANCED_EXCEL_V2}) {
             CreateCommand command = excelCommand(
                     kind, ownerId, draft.getId(), approvedGroups(kind));
             CandidateView first = candidateService.createOrReuse(command);
@@ -109,7 +108,7 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
         assertThat(beforeApply.getVersion()).isZero();
         assertThat(beforeApply.getDraftJson()).isEqualTo(originalDraft);
         assertThat(applyEvents.count()).isZero();
-        assertThat(candidates.count()).isEqualTo(4);
+        assertThat(candidates.count()).isEqualTo(3);
 
         CandidateView quickReady = ready(created.get(SourceKind.QUICK_EXCEL), ownerId);
         CandidateView advancedReady = ready(
@@ -130,18 +129,6 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
         assertThat(objectMapper.readTree(afterApply.getDraftJson())
                 .path("sections").get(0).path("groups")).hasSize(1);
         assertThat(applyEvents.count()).isEqualTo(2);
-
-        CandidateView legacy = created.get(SourceKind.LEGACY_EXCEL_V1);
-        String beforePreview = drafts.findById(draft.getId()).orElseThrow()
-                .getDraftJson();
-        assertThatThrownBy(() -> previewService.preview(
-                legacy.candidateId(), ownerId,
-                legacy.version(), legacy.contentDigest()))
-                .isInstanceOf(PracticeAuthoringCandidateException.class)
-                .extracting(error -> ((PracticeAuthoringCandidateException) error).code())
-                .isEqualTo("TARGET_DRAFT_VERSION_CONFLICT");
-        assertThat(drafts.findById(draft.getId()).orElseThrow().getDraftJson())
-                .isEqualTo(beforePreview);
 
         assertThat(snapshots).hasSize(6);
         assertThat(snapshots.values()).allSatisfy(snapshot -> {
