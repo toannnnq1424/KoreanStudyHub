@@ -2231,3 +2231,98 @@ JDK `17.0.19` evidence:
   passed `111/111`; and
 - `jq empty`, source/bundle digest assertions, local asset SHA/size checks,
   logical-key/path-leakage scans and `git diff --check` completed green.
+
+### 6.39 TOPIK 35 deterministic candidate-import gate
+
+Status: `IMPORTER_GREEN / CURRENT_BUNDLE_REJECTED_ALL_OR_NOTHING / ZERO_DATA_PLANE_WRITES`.
+
+On `2026-08-03`, the supported Practice import/persistence paths were audited
+before adding a loader. `practice_authoring_candidates` cannot honestly own
+this source: applied V83 constrains `source_kind` to the existing Excel/PDF-AI
+contracts, targets one skill section at a time, and requires an existing
+draft. Reusing one of those identities would misstate provenance, while adding
+a new identity would require a forward migration. This slice therefore uses
+the existing `PracticeDraft` boundary as the only candidate target. A draft is
+not a learner catalogue set, owns no published immutable version, and remains
+disabled with `status=DRAFT`, `publishedSetId=null` and
+`creationMethod=CANONICAL_SEED`. Publishing/version allocation remains a
+separate future gate.
+
+`PracticeTopik35CandidateImporter` now reads the exact seven repository
+packages, computes one deterministic package-set identity, validates the
+cross-package ownership graph, and creates or reuses a draft only after every
+gate is green. The current identity digest is
+`adcd041c9e88c79112dfef34914f6668d53252d6dee6bdb238a951bf3e6f66d2`.
+The preflight verifies:
+
+- `42/50` Reading groups/questions, `20/50` Listening groups/questions and
+  `4` ordered Writing tasks Q51–Q54;
+- stable test/section/group/question seed ownership and exact R/L package
+  bindings, including the Listening question, transcript and audio-QA package
+  identities;
+- `24` unique digest-keyed `practice-seed/topik35-v1/...` logical assets, with
+  no absolute path, bucket, delivery URL or sibling SHA/key mismatch; and
+- package load readiness, all 20 human-audited Listening ranges, and complete
+  canonical version references before any actor row is locked or draft is
+  written.
+
+The importer has no publisher, set/test/question repository, storage port or
+AI/provider client dependency. Its transaction locks the owner only after
+preflight, then serially reuses a draft with the same package identity. It
+does not allocate or pretend to allocate set/test/section/group/question
+version IDs. The generated candidate graph uses stable seed ownership; actual
+database immutable IDs remain exclusively owned by the existing publisher
+after a later release approval.
+
+The repository packages correctly fail the current gate. Both dry-run and
+two consecutive import runs return the same `REJECTED` verdict with:
+
+- `LISTENING_TIMING_PENDING_MANUAL_AUDIO_QA`;
+- `READING_LOAD_NOT_READY`, `LISTENING_LOAD_NOT_READY` and
+  `WRITING_LOAD_NOT_READY`; and
+- `CANONICAL_VERSION_REFERENCES_INCOMPLETE`.
+
+This is intentional: no timing or version identity was fabricated, and a
+blocked bundle does not even lock the requested owner. Adversarial tests also
+reject local-path/logical-key leakage and question-to-group ownership drift.
+A test-only ready fixture proves create/replay idempotence and the exact
+`42/20/4` group ownership without exposing a production bypass.
+
+Disposable-DB evidence used a new MySQL 8.4 container and the exact catalog
+`ksh_test_topik35_candidate_20260803b`; the test-classpath guard rejected all
+non-`ksh_test_*` catalogs. Flyway applied unchanged V1–V96 with zero failed
+migrations. The integration test captured all data-plane counts before and
+after two import attempts. Final evidence was:
+
+| Marker | Result |
+|---|---:|
+| `practice_drafts` candidate rows created | `0` |
+| `practice_authoring_candidates` rows created | `0` |
+| TOPIK 35 learner sets created | `0` |
+| set/test/section/group/question or version-row delta | `0` |
+| `practice_ai_execution_audits` | `0` |
+| `practice_ai_capability_test_runs` | `0` |
+
+The final regression container peaked at about `566 MiB`, then was stopped
+and removed; no
+stale Docker container or database remains. No schema/migration, shared/local
+developer DB, R2/object storage, provider/AI call or learner surface changed.
+
+JDK `17.0.19` evidence:
+
+- focused importer/adversarial/idempotence gate
+  `mvnw -Dtest=PracticeTopik35CandidateImporterTest test` passed `4/4`;
+- combined Reading/Listening/Writing/UAT/content/import/storage gate with the
+  new importer included passed `115/115`;
+- fresh disposable persistence gate
+  `RUN_TOPIK35_CANDIDATE_DB_TESTS=true SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:33316/ksh_test_topik35_candidate_20260803b?...' SPRING_DATASOURCE_USERNAME=root SPRING_DATASOURCE_PASSWORD=<test-only> mvnw -Dtest=PracticeTopik35CandidateImporterPersistenceIntegrationTest test`
+  passed `1/1`; and
+- source dependency scan, package identity hashing, logical-key scan and
+  `git diff --check` completed green.
+
+Exact next gate remains external/manual rather than an importer bypass:
+complete and evidence-bind all 20 Listening ranges, create the source-bound
+TOPIK 35 Writing requirement/rubric authority and reviewed Q51/Q52 answer
+equivalence, then issue updated load-ready/version-reference packages. Only
+after those inputs are complete may this importer persist a disabled draft;
+publication and learner visibility still require a separate release slice.
