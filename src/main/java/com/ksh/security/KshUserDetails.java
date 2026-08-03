@@ -25,6 +25,7 @@ public class KshUserDetails implements UserDetails {
     private final String username;
     private final String password;
     private final String fullName;
+    private volatile String avatarUrl;
     private final boolean active;
     private final boolean locked;
     private final Collection<GrantedAuthority> authorities;
@@ -61,6 +62,7 @@ public class KshUserDetails implements UserDetails {
         this.username = user.getEmail();
         this.password = user.getPasswordHash();
         this.fullName = user.getFullName();
+        this.avatarUrl = user.getAvatarUrl();
         this.active = user.isActive();
         this.locked = user.isLocked();
 
@@ -107,6 +109,16 @@ public class KshUserDetails implements UserDetails {
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */
     public String getFullName() {
         return fullName;
+    }
+
+    /** Current public avatar URL used by the shared application header. */
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    /** Keeps the authenticated header in sync after this user uploads an avatar. */
+    public void updateAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     @Override public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }

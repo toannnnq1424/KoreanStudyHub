@@ -246,7 +246,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void join_by_code_happy_path_creates_pending_enrollment() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "JoinHappy");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "JoinHappy");
         String code = activeCode(c.getId());
         long useBefore = inviteRepository.findByCode(code).orElseThrow().getUseCount();
 
@@ -265,7 +265,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void join_by_code_lowercase_input_is_normalized() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "JoinLower");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "JoinLower");
         String code = activeCode(c.getId());
 
         mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code.toLowerCase()))
@@ -293,7 +293,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void join_with_disabled_token_rerenders_with_inline_error() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "DisabledJoin");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "DisabledJoin");
         ClassInviteCode token = inviteRepository
                 .findByClassIdAndTypeAndActiveTrue(c.getId(), "CODE").orElseThrow();
         token.disable();
@@ -308,7 +308,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void join_when_already_active_short_circuits_with_info_toast() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "DupJoin");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "DupJoin");
         String code = activeCode(c.getId());
 
         // Seed ACTIVE membership, then re-join should no-op.
@@ -333,7 +333,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void join_when_already_pending_is_idempotent() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "DupPending");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "DupPending");
         String code = activeCode(c.getId());
 
         mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
@@ -351,7 +351,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void re_join_after_removed_becomes_pending_again() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "ReviveJoin");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "ReviveJoin");
         String code = activeCode(c.getId());
 
         mockMvc.perform(post("/my/classes/join").with(csrf()).param("code", code))
@@ -382,7 +382,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void joining_cancelled_class_rerenders_with_error() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "CancelClass");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "CancelClass");
         em.createNativeQuery("UPDATE classes SET status = 'CANCELLED' WHERE id = :id")
                 .setParameter("id", c.getId()).executeUpdate();
         em.flush(); em.clear();
@@ -396,7 +396,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void joining_full_class_rerenders_with_class_full_error() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "FullClass");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "FullClass");
         em.createNativeQuery("UPDATE classes SET max_students = 1 WHERE id = :id")
                 .setParameter("id", c.getId()).executeUpdate();
         // Fill the only slot with another seeded student.
@@ -414,7 +414,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void over_max_uses_token_rerenders_with_error() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "OverMax");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "OverMax");
         em.createNativeQuery("UPDATE class_invite_codes SET max_uses = 1, use_count = 1 WHERE class_id = :id AND type='CODE'")
                 .setParameter("id", c.getId()).executeUpdate();
         em.flush(); em.clear();
@@ -492,7 +492,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     void anonymous_link_completes_join_after_login() throws Exception {
         // Setup: lecturer creates the class + LINK token.
-        ClassEntity c = createClassViaController(lecturer.getId(), "DeepLink-AfterLogin");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "DeepLink-AfterLogin");
         String linkToken = activeLink(c.getId());
 
         MockHttpSession session = new MockHttpSession();
@@ -546,7 +546,7 @@ class ClassInviteJoinIntegrationTest {
     @Test
     @WithUserDetails("student@ksh.edu.vn")
     void link_join_records_joined_via_link() throws Exception {
-        ClassEntity c = createClassViaController(lecturer.getId(), "LinkJoin");
+        ClassEntity c = createJoinableClass(lecturer.getId(), "LinkJoin");
         String linkToken = activeLink(c.getId());
 
         mockMvc.perform(get("/j/" + linkToken))
@@ -654,9 +654,9 @@ class ClassInviteJoinIntegrationTest {
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void lecturer_can_access_join_form() throws Exception {
+    void lecturer_cannot_access_student_join_form() throws Exception {
         mockMvc.perform(get("/my/classes/join"))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     // ───────────────── helpers ───────────────────
@@ -664,6 +664,15 @@ class ClassInviteJoinIntegrationTest {
     private ClassEntity createClassViaController(Long lecturerId, String name) {
         ClassForm form = new ClassForm(name, null, null, null, 100);
         ClassEntity saved = classesService.create(form, lecturerId);
+        em.flush();
+        em.clear();
+        return classRepository.findById(saved.getId()).orElseThrow();
+    }
+
+    private ClassEntity createJoinableClass(Long lecturerId, String name) {
+        ClassEntity saved = createClassViaController(lecturerId, name);
+        saved.approve(leader.getId(), java.time.LocalDateTime.now());
+        classRepository.save(saved);
         em.flush();
         em.clear();
         return classRepository.findById(saved.getId()).orElseThrow();

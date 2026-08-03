@@ -11,13 +11,13 @@ class PracticeKoreanFontMigrationContractTest {
 
     private static final Path V64 = Path.of(
             "src/main/resources/db/migration/"
-                    + "V64__practice_user_korean_font_preference.sql");
+                    + "V70__practice_user_korean_font_preference.sql");
     private static final Path V65 = Path.of(
             "src/main/resources/db/migration/"
-                    + "V65__practice_korean_webfont_and_size_preference.sql");
+                    + "V71__practice_korean_webfont_and_size_preference.sql");
     private static final Path V66 = Path.of(
             "src/main/resources/db/migration/"
-                    + "V66__practice_korean_webfont_allowlist_expansion.sql");
+                    + "V72__practice_korean_webfont_allowlist_expansion.sql");
     @Test
     void forwardMigrationKeepsPreferenceInsidePracticeAndEnforcesAllowlist()
             throws Exception {

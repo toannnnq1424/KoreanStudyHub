@@ -244,6 +244,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 "learner-speaking/invalid-" + System.nanoTime() + "/bad\nkey.webm",
                 "audio/webm", "webm", "opus", 1L, 1000L, hash("rollback"));
         invalid = mediaRepository.saveAndFlush(invalid);
@@ -326,8 +327,8 @@ class PracticeSpeakingMediaServiceTest {
                 .isEqualTo(PracticeSpeakingMediaStatus.DELETION_PENDING);
         assertThat(discarded.cleanupTaskCount()).isEqualTo(1);
         assertThat(discarded.immediateCleanupTaskIds()).isEmpty();
-        assertThat(cleanupTaskRepository.findByStorageProviderAndStorageKey(
-                        PracticeSpeakingStorageProvider.LOCAL,
+        assertThat(cleanupTaskRepository.findByStorageProfileCodeAndStorageKey(
+                        "PRACTICE_SPEAKING",
                         descriptor.storageKey()).orElseThrow()
                 .getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.DISCARD_ATTEMPT);
     }
@@ -366,6 +367,7 @@ class PracticeSpeakingMediaServiceTest {
                 "attempt_id",
                 "question_id",
                 "storage_provider",
+                "storage_profile_code",
                 "storage_key",
                 "mime_type",
                 "container",
@@ -389,7 +391,7 @@ class PracticeSpeakingMediaServiceTest {
 
         assertThat(indexes).contains(
                 "PRIMARY",
-                "uk_psm_storage",
+                "uk_psm_profile_storage",
                 "idx_psm_attempt_question_status",
                 "idx_psm_attempt_status");
     }
@@ -402,6 +404,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 key("entity-a.webm"),
                 "audio/webm",
                 "webm",
@@ -510,6 +513,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 storageKey,
                 "audio/webm",
                 "webm",
@@ -522,6 +526,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 storageKey,
                 "audio/webm",
                 "webm",
@@ -542,6 +547,7 @@ class PracticeSpeakingMediaServiceTest {
 
         ValidatedSpeakingMediaDescriptor descriptor = new ValidatedSpeakingMediaDescriptor(
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 "Learner-Speaking/ABC/Take.WEBM",
                 maxMime,
                 maxContainer,
@@ -552,62 +558,81 @@ class PracticeSpeakingMediaServiceTest {
 
         assertThat(descriptor.storageKey()).isEqualTo("learner-speaking/abc/take.webm");
         assertThat(new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, maxStorageKey, maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", maxStorageKey, maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash).storageKey()).hasSize(512);
 
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, maxStorageKey + "x", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", maxStorageKey + "x", maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "valid.webm", maxMime + "x", maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "valid.webm", maxMime + "x", maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "valid.webm", maxMime, maxContainer + "x", maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "valid.webm", maxMime, maxContainer + "x", maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "valid.webm", maxMime, maxContainer, maxCodec + "x", 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "valid.webm", maxMime, maxContainer, maxCodec + "x", 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                null, "valid.webm", maxMime, maxContainer, maxCodec, 1L, 1L, lowercaseHash))
+                null, "PRACTICE_SPEAKING", "valid.webm", maxMime,
+                maxContainer, maxCodec, 1L, 1L, lowercaseHash))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, " ", maxMime, maxContainer, maxCodec, 1L, 1L, lowercaseHash))
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", " ", maxMime, maxContainer, maxCodec, 1L, 1L, lowercaseHash))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "bad\u0000key.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "bad\u0000key.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "/absolute.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "/absolute.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "\\absolute.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "\\absolute.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "C:\\audio.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "C:\\audio.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "\\\\server\\share\\audio.webm", maxMime, maxContainer, maxCodec,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "\\\\server\\share\\audio.webm", maxMime, maxContainer, maxCodec,
                 1L, 1L, lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "a/../b.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "a/../b.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "a\\..\\b.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "a\\..\\b.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "..", maxMime, maxContainer, maxCodec, 1L, 1L, lowercaseHash))
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "..", maxMime, maxContainer, maxCodec, 1L, 1L, lowercaseHash))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "valid.webm", maxMime, maxContainer, maxCodec, -1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "valid.webm", maxMime, maxContainer, maxCodec, -1L, 1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "valid.webm", maxMime, maxContainer, maxCodec, 1L, -1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "valid.webm", maxMime, maxContainer, maxCodec, 1L, -1L,
                 lowercaseHash)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "valid.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "valid.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 "A".repeat(64))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, "valid.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", "valid.webm", maxMime, maxContainer, maxCodec, 1L, 1L,
                 "g".repeat(64))).isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -884,10 +909,12 @@ class PracticeSpeakingMediaServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("path traversal");
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, key("zero.webm"), "audio/webm", "webm", "opus", 0L, 1L, hash("zero")))
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", key("zero.webm"), "audio/webm", "webm", "opus", 0L, 1L, hash("zero")))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ValidatedSpeakingMediaDescriptor(
-                PracticeSpeakingStorageProvider.LOCAL, key("bad.webm"), "audio/webm", "webm", "opus", 1L, 1L, "not-a-hash"))
+                PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING", key("bad.webm"), "audio/webm", "webm", "opus", 1L, 1L, "not-a-hash"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -989,6 +1016,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 key("corruption-b.webm"),
                 "audio/webm",
                 "webm",
@@ -1078,6 +1106,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.userId(), fixture.attemptId(), fixture.speakingQuestionId(), uploaded.mediaId());
 
         assertThat(preparation.transactionActiveDuringPrepare).isFalse();
+        assertThat(storage.transactionActiveDuringPromotions).containsExactly(false);
         assertThat(storage.transactionActiveDuringDeletes).containsExactly(false);
         assertThat(deleted.status()).isEqualTo(PracticeSpeakingMediaStatus.DELETED);
         assertThat(mediaRepository.findById(uploaded.mediaId()).orElseThrow().getStatus())
@@ -1191,6 +1220,7 @@ class PracticeSpeakingMediaServiceTest {
                 fixture.attemptId(),
                 fixture.speakingQuestionId(),
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 key(keySuffix),
                 "audio/webm",
                 "webm",
@@ -1203,6 +1233,7 @@ class PracticeSpeakingMediaServiceTest {
     private ValidatedSpeakingMediaDescriptor descriptor(String keySuffix) {
         return new ValidatedSpeakingMediaDescriptor(
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 key(keySuffix),
                 "audio/webm",
                 "webm",
@@ -1232,6 +1263,8 @@ class PracticeSpeakingMediaServiceTest {
     private PreparedSpeakingAudio prepared(String storageKey, String hashSeed) {
         return new PreparedSpeakingAudio(
                 PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
+                storageKey,
                 storageKey,
                 "audio/webm",
                 "webm",
@@ -1284,6 +1317,7 @@ class PracticeSpeakingMediaServiceTest {
 
     private static final class TransactionObservingStorage implements SpeakingAudioStorage {
         private final List<String> deletedKeys = new ArrayList<>();
+        private final List<Boolean> transactionActiveDuringPromotions = new ArrayList<>();
         private final List<Boolean> transactionActiveDuringDeletes = new ArrayList<>();
 
         @Override
@@ -1292,18 +1326,18 @@ class PracticeSpeakingMediaServiceTest {
         }
 
         @Override
-        public String promoteTemporary(String temporaryKey) {
-            throw new AssertionError("Storage promotion is owned by the preparation test double");
+        public String promoteTemporary(String storageProfileCode, String temporaryKey) {
+            if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+                throw new IllegalArgumentException("unexpected profile");
+            }
+            transactionActiveDuringPromotions.add(
+                    TransactionSynchronizationManager.isActualTransactionActive());
+            return temporaryKey + "-ready";
         }
 
         @Override
-        public InputStream open(String storageKey) {
+        public InputStream open(String storageProfileCode, String storageKey) {
             throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean exists(String storageKey) {
-            return false;
         }
 
         @Override
@@ -1315,17 +1349,12 @@ class PracticeSpeakingMediaServiceTest {
         }
 
         @Override
-        public void delete(String storageKey) {
-            transactionActiveDuringDeletes.add(TransactionSynchronizationManager.isActualTransactionActive());
-            deletedKeys.add(storageKey);
-        }
-
-        @Override
         public void delete(String storageProfileCode, String storageKey) {
             if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
                 throw new IllegalArgumentException("unexpected profile");
             }
-            delete(storageKey);
+            transactionActiveDuringDeletes.add(TransactionSynchronizationManager.isActualTransactionActive());
+            deletedKeys.add(storageKey);
         }
     }
 

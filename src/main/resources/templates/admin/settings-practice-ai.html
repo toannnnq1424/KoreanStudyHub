@@ -1,89 +1,148 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Admin | Practice AI', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Admin | AI cho Practice', ~{::link.page-css})}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin-settings-hub.css}">
 </head>
-<body>
+<body class="settings-body">
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 <div class="class-detail-layout">
     <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
-    <main class="col">
+    <main class="col settings-page">
         <nav class="settings-breadcrumb" aria-label="Breadcrumb">
-            <a th:href="@{/admin/settings}">Cài đặt hệ thống</a><span class="sep">/</span>
-            <a th:href="@{/admin/settings/ai}">AI</a><span class="sep">/</span>
-            <span>Practice control plane</span>
+            <a th:href="@{/admin/settings}">Cài đặt hệ thống</a><span class="sep" aria-hidden="true">/</span>
+            <span aria-current="page">AI cho Practice</span>
         </nav>
-        <h1 class="detail-title">Practice AI control plane</h1>
-        <p class="detail-sub">Mỗi purpose chỉ có một binding. Practice dùng transport riêng và
-            dừng an toàn khi profile hoặc binding không sẵn sàng.</p>
+        <header class="settings-page-header settings-page-header-row">
+            <div>
+                <span class="settings-eyebrow">Riêng cho Practice</span>
+                <h1 class="detail-title">AI cho Practice</h1>
+                <p class="detail-sub">Thiết lập theo ba bước. Practice dùng control plane riêng,
+                    không fallback sang AI toàn hệ thống và sẽ dừng an toàn khi thiếu cấu hình.</p>
+            </div>
+            <a class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm nhà cung cấp</a>
+        </header>
+
         <div th:if="${flashSuccess != null or flashError != null}" id="flash-data"
              th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></div>
 
-        <section class="admin-list-panel">
-            <div class="admin-list-head">
-                <div><h2>Provider profiles</h2><p>Secret không xuất hiện trong bảng.</p></div>
-                <a class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm profile</a>
+        <ol class="settings-progress" aria-label="Tiến độ thiết lập AI cho Practice">
+            <li class="settings-step" th:classappend="${enabledProfileCount > 0} ? ' is-complete' : ' is-current'"
+                th:attr="aria-current=${enabledProfileCount == 0} ? 'step' : null">
+                <span class="settings-step-number">1</span>
+                <span><strong>Chọn nhà cung cấp</strong><small>Nhập khóa và bật profile.</small></span>
+            </li>
+            <li class="settings-step" th:classappend="${configuredBindingCount > 0} ? ' is-complete' : (${enabledProfileCount > 0} ? ' is-current' : '')"
+                th:attr="aria-current=${enabledProfileCount > 0 and configuredBindingCount == 0} ? 'step' : null">
+                <span class="settings-step-number">2</span>
+                <span><strong>Chọn model</strong><small>Chọn model phù hợp cho tính năng.</small></span>
+            </li>
+            <li class="settings-step" th:classappend="${enabledBindingCount == 6} ? ' is-complete' : (${configuredBindingCount > 0} ? ' is-current' : '')"
+                th:attr="aria-current=${configuredBindingCount > 0 and enabledBindingCount < 6} ? 'step' : null">
+                <span class="settings-step-number">3</span>
+                <span><strong>Gán cho mục đích</strong><small>Hoàn tất đủ sáu mục đích riêng.</small></span>
+            </li>
+        </ol>
+
+        <section class="settings-next-action" aria-labelledby="practice-next-action">
+            <div>
+                <span class="settings-zone-kicker">Việc cần làm tiếp theo</span>
+                <h2 id="practice-next-action"><span th:if="${enabledProfileCount == 0}">Thêm và bật nhà cung cấp đầu tiên</span><span th:if="${enabledProfileCount > 0 and configuredBindingCount == 0}">Chọn model cho mục đích đầu tiên</span><span th:if="${configuredBindingCount > 0 and enabledBindingCount < 6}">Hoàn thiện các mục đích còn lại</span><span th:if="${enabledBindingCount == 6}">Kiểm tra định kỳ từng mục đích</span></h2>
+                <p th:if="${enabledProfileCount == 0}">Khóa chỉ được gửi khi lưu; trang danh sách không chứa secret.</p>
+                <p th:if="${enabledProfileCount > 0 and enabledBindingCount < 6}">Mỗi mục đích phải chọn đúng profile và model trước khi bật.</p>
+                <p th:if="${enabledBindingCount == 6}">Cả sáu binding đã bật. Chạy kiểm tra khi bạn chủ động yêu cầu.</p>
             </div>
-            <div class="admin-list-table-scroll">
-                <table class="admin-list-table">
-                    <thead><tr><th>Code</th><th>Tên</th><th>Family</th><th>Base URL</th><th>Revision</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-                    <tbody>
-                    <tr th:if="${#lists.isEmpty(profiles)}"><td colspan="7">Chưa có Practice provider profile.</td></tr>
-                    <tr th:each="profile : ${profiles}">
-                        <td th:text="${profile.profileCode}">PRACTICE_PRIMARY</td>
-                        <td th:text="${profile.displayName}">Primary</td>
-                        <td th:text="${profile.providerFamily}">OPENAI_COMPATIBLE</td>
-                        <td th:text="${profile.baseUrl}">https://example.invalid/v1</td>
-                        <td th:text="${profile.revision}">0</td>
-                        <td th:text="${profile.enabled ? 'ACTIVE' : 'DISABLED'}">DISABLED</td>
-                        <td>
+            <a th:if="${enabledProfileCount == 0}" class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Bắt đầu bước 1</a>
+            <a th:if="${enabledProfileCount > 0 and nextBinding != null}" class="btn btn-primary"
+               th:href="@{'/admin/settings/practice-ai/bindings/' + ${nextBinding.purpose} + '/edit'}">Tiếp tục thiết lập</a>
+        </section>
+
+        <section class="settings-content-section" aria-labelledby="practice-providers-title">
+            <div class="settings-section-head">
+                <div><span class="settings-step-label">Bước 1</span><h2 id="practice-providers-title">Nhà cung cấp và khóa</h2>
+                    <p>Profile chỉ phục vụ Practice; secret luôn được che trên trang này.</p></div>
+                <a class="btn-ghost" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm nhà cung cấp</a>
+            </div>
+            <div th:if="${#lists.isEmpty(profiles)}" class="settings-empty" role="status">
+                <strong>Chưa thiết lập nhà cung cấp</strong>
+                <p>Thêm endpoint tương thích OpenAI và khóa truy cập để bắt đầu.</p>
+                <a class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm nhà cung cấp đầu tiên</a>
+            </div>
+            <div class="settings-card-list" th:unless="${#lists.isEmpty(profiles)}">
+                <article class="settings-provider-card" th:each="profile : ${profiles}">
+                    <div class="settings-card-main">
+                        <span class="settings-provider-mark" aria-hidden="true">AI</span>
+                        <div>
+                            <h3 th:text="${profile.displayName}">Nhà cung cấp chính</h3>
+                            <p th:text="${profile.baseUrl}">https://example.invalid/v1</p>
+                            <code class="settings-meta-code" th:text="${profile.profileCode}">PRACTICE_PRIMARY</code>
+                        </div>
+                    </div>
+                    <div class="settings-card-side">
+                        <span class="settings-status" th:classappend="${profile.enabled} ? ' settings-status-ready' : ' settings-status-paused'"
+                              th:text="${profile.enabled} ? 'Sẵn sàng' : 'Tạm tắt'">Tạm tắt</span>
+                        <div class="settings-actions">
                             <a class="btn-ghost" th:href="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/edit'}">Sửa</a>
-                            <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/toggle'}" style="display:inline">
+                            <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/toggle'}">
                                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                                <button class="btn-ghost" type="submit" th:text="${profile.enabled ? 'Tắt' : 'Bật'}">Bật</button>
+                                <button class="btn-ghost" type="submit" th:text="${profile.enabled} ? 'Tạm tắt' : 'Bật lại'">Bật lại</button>
                             </form>
-                            <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/delete'}" style="display:inline">
+                            <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/delete'}">
                                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                                <button class="btn-ghost" type="submit">Xóa nếu chưa bind</button>
+                                <button class="btn-ghost settings-danger-action" type="submit">Xóa nếu chưa gán</button>
                             </form>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+                        </div>
+                        <small>Revision <span th:text="${profile.revision}">0</span></small>
+                    </div>
+                </article>
             </div>
         </section>
 
-        <section class="admin-list-panel">
-            <div class="admin-list-head"><div><h2>Exact purpose bindings</h2><p>Capability test chỉ chạy khi Admin bấm Test.</p></div></div>
-            <div class="admin-list-table-scroll">
-                <table class="admin-list-table">
-                    <thead><tr><th>Purpose</th><th>Capability bắt buộc</th><th>Profile / model</th><th>Revision</th><th>Retention</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-                    <tbody>
-                    <tr th:each="binding : ${bindings}">
-                        <td><strong th:text="${binding.purpose}">PURPOSE</strong><br><span th:text="${binding.purposeLabel}">Label</span>
-                            <div th:each="run : ${binding.recentRuns}" class="field-hint"
-                                 th:text="${'test r' + run.bindingRevision + ': ' + (run.status ?: 'RUNNING') + ' · ' + (run.durationMs ?: 0) + ' ms' + (run.errorCode != null ? ' · ' + run.errorCode : '')}">test audit</div>
-                        </td>
-                        <td th:text="${binding.requiredCapabilities}">STRICT_JSON_SCHEMA</td>
-                        <td th:text="${binding.configured ? binding.providerProfileCode + ' / ' + binding.model : 'MISSING'}">MISSING</td>
-                        <td th:text="${binding.configured ? binding.revision : '—'}">—</td>
-                        <td th:text="${binding.retentionCode ?: '—'}">—</td>
-                        <td th:text="${binding.configured ? (binding.enabled ? 'ACTIVE' : 'DISABLED') : 'MISSING'}">MISSING</td>
-                        <td>
-                            <a class="btn-ghost" th:href="@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/edit'}">Cấu hình</a>
-                            <form th:if="${binding.configured}" method="post" th:action="@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/toggle'}" style="display:inline">
-                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                                <button class="btn-ghost" type="submit" th:text="${binding.enabled ? 'Tắt' : 'Bật'}">Bật</button>
-                            </form>
-                            <button th:if="${binding.configured and binding.enabled}"
-                                    class="btn-ghost js-practice-ai-test" type="button"
-                                    th:attr="data-url=@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/test'},data-purpose=${binding.purpose}">Test capability</button>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
+        <section class="settings-content-section" aria-labelledby="practice-purposes-title">
+            <div class="settings-section-head">
+                <div><span class="settings-step-label">Bước 2–3</span><h2 id="practice-purposes-title">Model và sáu mục đích</h2>
+                    <p>Trạng thái phản ánh cấu hình của từng mục đích; không có fallback ngầm.</p></div>
+                <span class="settings-count" th:text="${enabledBindingCount + ' / 6 sẵn sàng'}">0 / 6 sẵn sàng</span>
+            </div>
+            <div class="settings-status-legend" aria-label="Ý nghĩa trạng thái"><span><i class="settings-status-dot settings-status-missing"></i>Chưa thiết lập</span><span><i class="settings-status-dot settings-status-ready"></i>Sẵn sàng</span><span><i class="settings-status-dot settings-status-paused"></i>Tạm tắt</span><span><i class="settings-status-dot settings-status-check"></i>Cần kiểm tra</span></div>
+            <div class="settings-purpose-grid">
+                <article class="settings-purpose-card" th:each="binding : ${bindings}">
+                    <div class="settings-purpose-head">
+                        <div><span class="settings-meta-code" th:text="${binding.purpose}">PURPOSE</span>
+                            <h3 th:text="${binding.purposeLabel}">Mục đích</h3></div>
+                        <span class="settings-status" th:classappend="${' settings-status-' + binding.statusCode}"
+                              th:text="${binding.statusLabel}">Chưa thiết lập</span>
+                    </div>
+                    <div class="settings-purpose-model" th:if="${binding.configured}">
+                        <span>Model đang chọn</span>
+                        <strong th:text="${binding.model}">model</strong>
+                        <small th:text="${binding.providerProfileCode}">PROFILE</small>
+                    </div>
+                    <div class="settings-purpose-model is-empty" th:unless="${binding.configured}">
+                        <span>Chưa chọn model</span><small>Chọn nhà cung cấp và model để tiếp tục.</small>
+                    </div>
+                    <details class="settings-technical">
+                        <summary>Chi tiết kỹ thuật</summary>
+                        <dl>
+                            <div><dt>Capability</dt><dd th:text="${binding.requiredCapabilities}">STRICT_JSON_SCHEMA</dd></div>
+                            <div><dt>Revision</dt><dd th:text="${binding.configured ? binding.revision : '—'}">—</dd></div>
+                            <div><dt>Retention</dt><dd th:text="${binding.retentionCode ?: '—'}">—</dd></div>
+                            <div><dt>Kiểm tra gần nhất</dt><dd th:text="${#lists.isEmpty(binding.recentRuns) ? 'Chưa kiểm tra' : (binding.recentRuns[0].status ?: 'Đang chạy')}">Chưa kiểm tra</dd></div>
+                        </dl>
+                    </details>
+                    <div class="settings-actions">
+                        <a class="btn btn-primary" th:href="@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/edit'}"
+                           th:text="${binding.configured} ? 'Đổi model / cấu hình' : 'Chọn model'">Chọn model</a>
+                        <form th:if="${binding.configured}" method="post" th:action="@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/toggle'}">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                            <button class="btn-ghost" type="submit" th:text="${binding.enabled} ? 'Tạm tắt' : 'Bật lại'">Bật lại</button>
+                        </form>
+                        <button th:if="${binding.configured and binding.enabled}" class="btn-ghost js-practice-ai-test" type="button"
+                                th:attr="data-url=@{'/admin/settings/practice-ai/bindings/' + ${binding.purpose} + '/test'},data-purpose=${binding.purposeLabel}">Kiểm tra</button>
+                    </div>
+                </article>
             </div>
         </section>
     </main>

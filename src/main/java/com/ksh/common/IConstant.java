@@ -226,6 +226,8 @@ public interface IConstant {
             "Khi chọn R2, Access Key, Secret, Bucket và Endpoint là bắt buộc.";
     String MSG_STORAGE_UPLOAD_FAILED =
             "Không lưu được tệp lên kho lưu trữ. Vui lòng thử lại.";
+    String MSG_STORAGE_PROFILE_UNAVAILABLE =
+            "Kho lưu trữ toàn hệ thống chưa sẵn sàng. Quản trị viên cần kiểm tra Cài đặt hệ thống > Lưu trữ toàn hệ thống.";
     String MSG_STORAGE_R2_CONNECT_FAILED =
             "Không kết nối được tới Cloudflare R2";
 

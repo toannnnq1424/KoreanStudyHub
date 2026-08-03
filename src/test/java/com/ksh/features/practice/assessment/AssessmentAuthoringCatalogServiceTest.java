@@ -24,14 +24,17 @@ class AssessmentAuthoringCatalogServiceTest {
         AssessmentAuthoringCatalogService.ExamTemplatePolicy template = service.defaultTemplate();
 
         assertThat(template.requireSkill("READING").questionTypes())
-                .containsExactly("SINGLE_CHOICE", "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN");
+                .containsExactly("SINGLE_CHOICE", "MULTIPLE_ANSWER", "MATCHING",
+                        "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN");
         assertThat(template.requireSkill("LISTENING").questionTypes())
-                .containsExactly("SINGLE_CHOICE", "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN");
+                .containsExactly("SINGLE_CHOICE", "MULTIPLE_ANSWER", "MATCHING",
+                        "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN");
         assertThat(template.requireSkill("WRITING").questionTypes()).containsExactly("ESSAY");
         assertThat(template.requireSkill("SPEAKING").questionTypes()).containsExactly("SPEAKING");
         assertThat(template.skills()).containsOnlyKeys("READING", "LISTENING", "WRITING", "SPEAKING");
         assertThat(template.requireSkill("READING").questionPolicies()).containsOnlyKeys(
-                "SINGLE_CHOICE", "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN");
+                "SINGLE_CHOICE", "MULTIPLE_ANSWER", "MATCHING",
+                "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN");
         AssessmentAuthoringCatalogService.SkillAuthoringPolicy writing =
                 template.requireSkill("WRITING");
         assertThat(writing.pointsEditable()).isFalse();

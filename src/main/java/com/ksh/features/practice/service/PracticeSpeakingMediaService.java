@@ -228,12 +228,9 @@ public class PracticeSpeakingMediaService {
         PracticeSpeakingMedia media = mediaRepository.findByIdAndAttemptIdAndQuestionId(mediaId, attemptId, questionId)
                 .orElseThrow(this::uploadTargetNotFound);
         media.markDeletionPending();
-        Long cleanupTaskId = media.getStorageProfileCode() == null
-                ? cleanupTaskService.enqueueLogicalDelete(
-                        media.getStorageProvider(), media.getStorageKey())
-                : cleanupTaskService.enqueueLogicalDelete(
-                        media.getId(), media.getStorageProvider(),
-                        media.getStorageProfileCode(), media.getStorageKey());
+        Long cleanupTaskId = cleanupTaskService.enqueueLogicalDelete(
+                media.getId(), media.getStorageProvider(),
+                media.getStorageProfileCode(), media.getStorageKey());
         mediaRepository.flush();
         return new SpeakingMediaDeletionResult(
                 media.getId(),
@@ -339,12 +336,9 @@ public class PracticeSpeakingMediaService {
     }
 
     private Long enqueueSupersededCleanup(PracticeSpeakingMedia media) {
-        return media.getStorageProfileCode() == null
-                ? cleanupTaskService.enqueueSupersededRetention(
-                        media.getStorageProvider(), media.getStorageKey())
-                : cleanupTaskService.enqueueSupersededRetention(
-                        media.getId(), media.getStorageProvider(),
-                        media.getStorageProfileCode(), media.getStorageKey());
+        return cleanupTaskService.enqueueSupersededRetention(
+                media.getId(), media.getStorageProvider(),
+                media.getStorageProfileCode(), media.getStorageKey());
     }
 
     private EntityNotFoundException uploadTargetNotFound() {

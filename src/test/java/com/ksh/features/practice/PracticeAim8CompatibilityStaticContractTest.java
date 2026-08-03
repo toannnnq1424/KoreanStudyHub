@@ -26,7 +26,7 @@ class PracticeAim8CompatibilityStaticContractTest {
             "V(\\d+)__.+\\.sql");
 
     @Test
-    void migrationChainIsUniqueContinuousAndByteLockedThroughV85()
+    void migrationChainIsContinuousThroughV87AndHistoricalBytesStayLockedThroughV85()
             throws Exception {
         List<Path> migrations;
         try (var paths = Files.list(MIGRATIONS)) {
@@ -38,11 +38,11 @@ class PracticeAim8CompatibilityStaticContractTest {
                             PracticeAim8CompatibilityStaticContractTest::version))
                     .toList();
         }
-        assertThat(migrations).hasSize(85);
+        assertThat(migrations).hasSize(87);
         assertThat(migrations.stream().map(
                 PracticeAim8CompatibilityStaticContractTest::version).toList())
                 .containsExactlyElementsOf(
-                        java.util.stream.IntStream.rangeClosed(1, 85)
+                        java.util.stream.IntStream.rangeClosed(1, 87)
                                 .boxed().toList());
 
         List<String> manifestEntries = new ArrayList<>();
@@ -83,8 +83,6 @@ class PracticeAim8CompatibilityStaticContractTest {
                 + read("src/main/java/com/ksh/features/practice/manage/service/"
                 + "PracticeAssessmentExcelService.java")
                 + read("src/main/java/com/ksh/features/practice/manage/service/"
-                + "PracticeAssessmentExcelV2Codec.java")
-                + read("src/main/java/com/ksh/features/practice/manage/service/"
                 + "PracticeAssessmentQuickExcelCodec.java");
         assertThat(excel)
                 .contains("candidateService.createOrReuse", "reviewUrl")
@@ -101,9 +99,9 @@ class PracticeAim8CompatibilityStaticContractTest {
         assertThat(pdf)
                 .contains(
                         "/pdf-authoring/candidates",
-                        "/import-sessions/{sessionId}/generate",
                         "candidateService.createOrReuse", "reviewUrl")
                 .doesNotContain(
+                        "/import-sessions/",
                         "PracticeDraftRepository", "setDraftJson(",
                         "PracticePdfDraftAssembler", "PracticeImportDraftService");
         assertThat(Files.exists(javaPath(
@@ -178,8 +176,8 @@ class PracticeAim8CompatibilityStaticContractTest {
         assertThat(privateAdapters)
                 .doesNotContain(
                         "GENERAL_UPLOADS", "GeneralUploadsObjectStorage",
-                        "presign", "publicUrl", "public URL")
-                .contains("storageProfileCode == null");
+                        "presign", "publicUrl", "public URL",
+                        "storageProfileCode == null");
     }
 
     @Test
@@ -225,8 +223,6 @@ class PracticeAim8CompatibilityStaticContractTest {
                 "src/main/resources/templates/practice/manage/excel-import.html");
         String basicTemplate = read(
                 "src/main/resources/templates/practice/manage/import-wizard.html");
-        String advancedTemplate = read(
-                "src/main/resources/templates/practice/manage/import-workspace.html");
         String reviewTemplate = read(
                 "src/main/resources/templates/practice/manage/"
                         + "candidate-review.html");
@@ -235,11 +231,14 @@ class PracticeAim8CompatibilityStaticContractTest {
                 "@PostMapping(value = \"/import\"", "reviewUrl");
         assertThat(pdfController).contains(
                 "@PostMapping(value = \"/pdf-authoring/candidates\"",
-                "@PostMapping(\"/import-sessions/{sessionId}/generate\")",
-                "reviewUrl");
-        assertThat(excelTemplate + basicTemplate + advancedTemplate)
+                "reviewUrl")
+                .doesNotContain("/import-sessions/");
+        assertThat(excelTemplate + basicTemplate)
                 .contains("payload.reviewUrl")
                 .doesNotContain("create-manual-draft", "attach-to-draft");
+        assertThat(Files.exists(ROOT.resolve(
+                "src/main/resources/templates/practice/manage/import-workspace.html")))
+                .isFalse();
         assertThat(reviewTemplate).contains(
                 "practice/manage/fragments/draft-preview :: modal",
                 "/js/practice/manage-draft-preview.js");

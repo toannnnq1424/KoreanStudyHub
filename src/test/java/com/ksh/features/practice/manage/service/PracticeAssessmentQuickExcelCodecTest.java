@@ -18,7 +18,6 @@ import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCand
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateNormalizer;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateService;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateValidator;
-import com.ksh.features.practice.manage.validator.PracticeDraftValidator;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
@@ -71,11 +70,6 @@ class PracticeAssessmentQuickExcelCodecTest {
                             PracticeAssessmentQuickExcelCodec.headers());
         }
 
-        try (Workbook advanced = WorkbookFactory.create(
-                new ByteArrayInputStream(fixture.service.buildTemplate()))) {
-            assertThat(advanced.getSheet("01_THONG_TIN_SET")).isNotNull();
-            assertThat(advanced.getSheet("QUICK_QUESTIONS")).isNull();
-        }
     }
 
     @Test
@@ -106,7 +100,9 @@ class PracticeAssessmentQuickExcelCodecTest {
         }
 
         assertCode(
-                () -> fixture.service.preview(workbookFile(bytes)),
+                () -> fixture.service.preview(
+                        workbookFile(bytes),
+                        targetContext(fixture, "READING", false)),
                 "WORKBOOK_SCHEMA_UNSUPPORTED");
     }
 
@@ -331,7 +327,7 @@ class PracticeAssessmentQuickExcelCodecTest {
                 "MATCHING", "", "연결하십시오.", List.of("A", "B"),
                 "A", "", "", "", "", "", ""));
         assertCode(() -> previewReading(fixture, matching),
-                "ADVANCED_AUTHORING_REQUIRED");
+                "CANONICAL_EDITOR_REQUIRED");
 
         byte[] complexBlank = quickWorkbook(fixture, sheet -> quickRow(
                 sheet, 3, "group", "Nhóm", "", "글", "q1", 1,
@@ -339,19 +335,19 @@ class PracticeAssessmentQuickExcelCodecTest {
                 "{{blank:blank_1}} {{blank:blank_2}}",
                 List.of(), "", "하나", "둘", "", "", "", ""));
         assertCode(() -> previewReading(fixture, complexBlank),
-                "ADVANCED_AUTHORING_REQUIRED");
+                "CANONICAL_EDITOR_REQUIRED");
 
         byte[] mediaHeader = mutateQuick(fixture, workbook -> workbook
                 .getSheet("QUICK_QUESTIONS").getRow(2)
                 .createCell(24).setCellValue("audio_reference"));
         assertCode(() -> previewReading(fixture, mediaHeader),
-                "ADVANCED_AUTHORING_REQUIRED");
+                "CANONICAL_EDITOR_REQUIRED");
 
         byte[] mediaValue = mutate(readingWorkbook(fixture), workbook ->
                 workbook.getSheet("QUICK_QUESTIONS").getRow(3).getCell(3)
                         .setCellValue("https://cdn.example.test/listening.mp3"));
         assertCode(() -> previewReading(fixture, mediaValue),
-                "ADVANCED_AUTHORING_REQUIRED");
+                "CANONICAL_EDITOR_REQUIRED");
     }
 
     @Test
@@ -369,8 +365,7 @@ class PracticeAssessmentQuickExcelCodecTest {
         CandidateView actual = fixture.service.createCandidate(
                 workbookFile(readingWorkbook(fixture)),
                 context,
-                77L,
-                null);
+                77L);
 
         assertThat(actual).isSameAs(returned);
         ArgumentCaptor<CreateCommand> command =
@@ -475,7 +470,7 @@ class PracticeAssessmentQuickExcelCodecTest {
                         "CANDIDATE_SCHEMA_FIELD_UNKNOWN",
                         "CANDIDATE_TARGET_IDENTITY_MISMATCH",
                         "QUESTION_TYPE_NOT_SUPPORTED_BY_QUICK",
-                        "ADVANCED_AUTHORING_REQUIRED");
+                        "CANONICAL_EDITOR_REQUIRED");
     }
 
     private static PracticeAssessmentQuickExcelCodec.QuickParseResult parseQuick(
@@ -693,12 +688,8 @@ class PracticeAssessmentQuickExcelCodecTest {
                 new PracticeAssessmentExcelService(
                         catalog,
                         contract,
-                        new PracticeDraftValidator(objectMapper),
                         repository,
-                        codec,
-                        resolver,
                         objectMapper,
-                        null,
                         null,
                         candidateService);
         return new Fixture(

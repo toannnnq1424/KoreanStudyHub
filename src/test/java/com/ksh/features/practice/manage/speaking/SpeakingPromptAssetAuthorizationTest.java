@@ -261,23 +261,26 @@ class SpeakingPromptAssetAuthorizationTest {
         when(file.getBytes()).thenReturn(bytes);
         when(file.getOriginalFilename()).thenReturn("original.mp3");
         when(storage.providerCode()).thenReturn("LOCAL");
+        when(storage.profileCode()).thenReturn("PRACTICE_AUTHORING");
         when(storage.store(any(), any(), any()))
                 .thenAnswer(invocation -> {
                     String namespace = invocation.getArgument(2);
                     String key = namespace + "/" + hash + ".mp3";
                     freshUploadKey.set(key);
                     return new AssetStorageService.StoredAsset(
-                            key, bytes.length, hash, true);
+                            key, bytes.length, hash, true,
+                            "PRACTICE_AUTHORING", "LOCAL");
                 });
-        when(storage.load(publishedStorageKey))
+        when(storage.load("PRACTICE_AUTHORING", publishedStorageKey))
                 .thenReturn(new ByteArrayResource(bytes));
         when(assets
                 .findByOwnerLecturerIdAndSha256AndStatusAndDeletedAtIsNull(
                         ownerId, hash, "ACTIVE"))
                 .thenReturn(List.of(published));
-        when(lifecycleTasks.findActiveBySourceStorageKeyForUpdate(
-                publishedStorageKey)).thenReturn(List.of());
-        when(assets.findByStorageKeyForUpdate(publishedStorageKey))
+        when(lifecycleTasks.findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey)).thenReturn(List.of());
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey))
                 .thenReturn(List.of(published));
         when(assets.save(any(LecturerAsset.class)))
                 .thenAnswer(invocation -> {
@@ -343,9 +346,10 @@ class SpeakingPromptAssetAuthorizationTest {
         assertThat(binding.getValue().getAssetId()).isEqualTo(privateAssetId);
         assertThat(binding.getValue().getPlacement())
                 .isEqualTo(SpeakingPromptAssetService.ORIGINAL_PLACEMENT);
-        verify(lifecycleTasks).findActiveBySourceStorageKeyForUpdate(
-                publishedStorageKey);
-        verify(assets).findByStorageKeyForUpdate(publishedStorageKey);
+        verify(lifecycleTasks).findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey);
+        verify(assets).findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", publishedStorageKey);
         verify(lifecycleTasks).save(
                 org.mockito.ArgumentMatchers.argThat(task ->
                         PracticeAssetLifecycleTask.ORPHAN_RECONCILE.equals(
@@ -665,132 +669,6 @@ class SpeakingPromptAssetAuthorizationTest {
     }
 
     @Test
-    void excelStagingIsResolvedInternallyAndVerifiedWithoutPublicAssetInput()
-            throws Exception {
-        Long ownerId = 81L;
-        Long draftId = 91L;
-        Long assetId = 101L;
-        String clientId = "speaking-question-a";
-        byte[] bytes = "verified-private-original".getBytes(
-                StandardCharsets.UTF_8);
-        String hash = SpeakingPromptAiContract.exactBytesSha256(bytes);
-        LecturerAsset asset = usableOriginalAsset(
-                ownerId, assetId, hash, bytes.length);
-        PracticeMaterialReference staging = PracticeMaterialReference.draft(
-                assetId,
-                draftId,
-                com.ksh.features.practice.manage.service
-                        .PracticeAssessmentExcelService
-                        .EXCEL_SPEAKING_STAGING,
-                clientId,
-                null);
-        LecturerAssetRepository assets = mock(LecturerAssetRepository.class);
-        PracticeMaterialReferenceRepository references =
-                mock(PracticeMaterialReferenceRepository.class);
-        LecturerAssetService lecturerAssets = mock(LecturerAssetService.class);
-        SpeakingPromptAudioVerifier verifier =
-                mock(SpeakingPromptAudioVerifier.class);
-        SpeakingPromptAiContract.VerifiedAudio verified =
-                new SpeakingPromptAiContract.VerifiedAudio(
-                        bytes, "private.mp3", "audio/mpeg", hash, 3_000L);
-        when(references.findByDraftIdAndPlacementAndReferenceKey(
-                draftId,
-                com.ksh.features.practice.manage.service
-                        .PracticeAssessmentExcelService
-                        .EXCEL_SPEAKING_STAGING,
-                clientId)).thenReturn(List.of(staging));
-        when(assets.findByIdAndOwnerLecturerId(assetId, ownerId))
-                .thenReturn(Optional.of(asset));
-        when(lecturerAssets.loadOwnedAssetBytes(
-                org.mockito.ArgumentMatchers.eq(assetId),
-                org.mockito.ArgumentMatchers.eq(ownerId),
-                org.mockito.ArgumentMatchers.anyLong()))
-                .thenReturn(bytes);
-        when(verifier.verifySttInput(
-                bytes, "private.mp3", "audio/mpeg", hash))
-                .thenReturn(verified);
-        SpeakingPromptAssetService service = new SpeakingPromptAssetService(
-                assets,
-                references,
-                lecturerAssets,
-                new PracticeMaterialReferenceService(references, assets),
-                verifier,
-                new SpeakingPromptAuthoringAiProperties());
-
-        SpeakingPromptAssetService.VerifiedOriginalUpload proof =
-                service.verifyExcelStaging(draftId, ownerId, clientId);
-
-        assertThat(proof.toString())
-                .isEqualTo("VerifiedOriginalUpload{verified=true}")
-                .doesNotContain("101", clientId, hash);
-        verify(lecturerAssets).loadOwnedAssetBytes(
-                org.mockito.ArgumentMatchers.eq(assetId),
-                org.mockito.ArgumentMatchers.eq(ownerId),
-                org.mockito.ArgumentMatchers.anyLong());
-    }
-
-    @Test
-    void excelStagingBindRechecksExactLockedReferenceBeforeConversion() {
-        Long ownerId = 81L;
-        Long draftId = 91L;
-        Long assetId = 101L;
-        String clientId = "speaking-question-a";
-        byte[] bytes = "verified-private-original".getBytes(
-                StandardCharsets.UTF_8);
-        String hash = SpeakingPromptAiContract.exactBytesSha256(bytes);
-        LecturerAsset asset = usableOriginalAsset(
-                ownerId, assetId, hash, bytes.length);
-        PracticeMaterialReference staging = PracticeMaterialReference.draft(
-                assetId,
-                draftId,
-                com.ksh.features.practice.manage.service
-                        .PracticeAssessmentExcelService
-                        .EXCEL_SPEAKING_STAGING,
-                clientId,
-                null);
-        LecturerAssetRepository assets = mock(LecturerAssetRepository.class);
-        PracticeMaterialReferenceRepository references =
-                mock(PracticeMaterialReferenceRepository.class);
-        when(assets.findByIdForUpdate(assetId))
-                .thenReturn(Optional.of(asset));
-        when(references.findDraftPlacementAndReferenceKeyForUpdate(
-                draftId,
-                com.ksh.features.practice.manage.service
-                        .PracticeAssessmentExcelService
-                        .EXCEL_SPEAKING_STAGING,
-                clientId)).thenReturn(List.of(staging));
-        SpeakingPromptAssetService service = new SpeakingPromptAssetService(
-                assets,
-                references,
-                mock(LecturerAssetService.class),
-                new PracticeMaterialReferenceService(references, assets),
-                mock(SpeakingPromptAudioVerifier.class),
-                new SpeakingPromptAuthoringAiProperties());
-        SpeakingPromptAiContract.VerifiedAudio verified =
-                new SpeakingPromptAiContract.VerifiedAudio(
-                        bytes, "private.mp3", "audio/mpeg", hash, 3_000L);
-
-        assertThat(service.bindVerifiedExcelStagingAsset(
-                draftId, ownerId, assetId, clientId, verified))
-                .isSameAs(asset);
-
-        verify(references).findDraftPlacementAndReferenceKeyForUpdate(
-                draftId,
-                com.ksh.features.practice.manage.service
-                        .PracticeAssessmentExcelService
-                        .EXCEL_SPEAKING_STAGING,
-                clientId);
-        verify(references)
-                .deleteByAssetIdAndDraftIdAndPlacementAndReferenceKey(
-                        assetId,
-                        draftId,
-                        com.ksh.features.practice.manage.service
-                                .PracticeAssessmentExcelService
-                                .EXCEL_SPEAKING_STAGING,
-                        clientId);
-    }
-
-    @Test
     void uploadStagesAnUnboundAssetBeforeLockedBinding() throws Exception {
         String assetService = Files.readString(Path.of(
                 "src/main/java/com/ksh/features/practice/manage/speaking/"
@@ -836,6 +714,7 @@ class SpeakingPromptAssetAuthorizationTest {
         LecturerAsset asset = new LecturerAsset();
         asset.setId(assetId);
         asset.setOwnerLecturerId(ownerId);
+        asset.setStorageProfileCode("PRACTICE_AUTHORING");
         asset.setContentVerified(true);
         asset.setStatus("ACTIVE");
         asset.setVisibility("PRIVATE");

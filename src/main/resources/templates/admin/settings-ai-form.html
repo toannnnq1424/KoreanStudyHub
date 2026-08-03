@@ -6,8 +6,9 @@
     <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin-settings-hub.css}">
 </head>
-<body>
+<body class="settings-body">
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 
 <div class="class-detail-layout">
@@ -17,7 +18,7 @@
         <nav class="settings-breadcrumb" aria-label="Breadcrumb">
             <a th:href="@{/admin/settings}">Cài đặt hệ thống</a>
             <span class="sep" aria-hidden="true">/</span>
-            <a th:href="@{/admin/settings/ai}">AI Providers</a>
+            <a th:href="@{/admin/settings/ai}">AI toàn hệ thống</a>
             <span class="sep" aria-hidden="true">/</span>
             <span aria-current="page"
                   th:text="${mode == 'create'} ? 'Thêm provider' : 'Sửa provider'">Thêm provider</span>
@@ -50,7 +51,7 @@
                 <div class="meta-badges">
                     <span class="status-pill"
                           th:classappend="${provider.enabled} ? 'status-active' : 'status-inactive'"
-                          th:text="${provider.enabled} ? 'ACTIVE' : 'INACTIVE'">ACTIVE</span>
+                          th:text="${provider.enabled} ? 'Sẵn sàng' : 'Tạm tắt'">Sẵn sàng</span>
                 </div>
                 <span>Model:
                     <em th:text="${provider.model}">gpt-4o-mini</em>
@@ -74,9 +75,16 @@
         </th:block>
 
         <th:block th:if="${mode == 'create'}">
-            <h1 class="detail-page-title">Thêm AI provider</h1>
+            <h1 class="detail-page-title">Thêm provider toàn hệ thống</h1>
             <p class="detail-sub">Provider mới luôn được thêm vào cuối chuỗi fallback.</p>
         </th:block>
+
+        <aside class="settings-official-links" aria-label="Nơi lấy API key chính thức"
+               th:if="${mode == 'create' or activeDetailTab == null or activeDetailTab == 'info'}">
+            <div><strong>Cần tạo API key?</strong><span>Chỉ dùng các trang chính thức cố định; KSH không tạo link từ Base URL bạn nhập.</span></div>
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">Lấy key OpenAI <span aria-hidden="true">↗</span></a>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Lấy key Google Gemini <span aria-hidden="true">↗</span></a>
+        </aside>
 
         <!-- Tab body — swapped in place by detail-tabs.js on tab switch. -->
         <div id="tabPanel">
@@ -88,11 +96,11 @@
             <input type="hidden" th:field="*{id}">
 
             <section class="detail-card">
-                <h2 class="detail-card-title">Thông tin provider</h2>
+                <h2 class="detail-card-title">Nhà cung cấp, model và khóa</h2>
                 <div class="detail-form-grid">
 
                     <div class="form-row">
-                        <label for="name">Tên <span class="required" aria-hidden="true">*</span></label>
+                        <label for="name">Tên dễ nhận biết <span class="required" aria-hidden="true">*</span></label>
                         <input type="text" id="name" th:field="*{name}"
                                placeholder="OpenAI" autocomplete="off"
                                maxlength="100" required aria-required="true"
@@ -143,7 +151,7 @@
                             <input type="checkbox" id="enabled" th:field="*{enabled}">
                             <span>Bật provider</span>
                         </label>
-                        <p class="field-help">Provider đang tắt sẽ bị bỏ qua hoàn toàn khi gọi AI.</p>
+                        <p class="field-help">Provider tạm tắt sẽ bị bỏ qua trong chuỗi fallback toàn hệ thống.</p>
                     </div>
 
                 </div>

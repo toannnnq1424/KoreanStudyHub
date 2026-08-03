@@ -106,8 +106,7 @@ class PracticePdfAuthoringCandidateAssemblerTest {
                         "trust", "UNTRUSTED_SOURCE_CONTENT",
                         "assetReferences", Map.of(
                                 "asset-ref-1", "/practice/materials/700/content")),
-                List.of(),
-                100L);
+                List.of());
     }
 
     private String outputJson() {

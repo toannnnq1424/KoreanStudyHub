@@ -3,7 +3,6 @@ package com.ksh.features.practice.service;
 import com.ksh.entities.CleanupProcessingSnapshot;
 import com.ksh.entities.PracticeSpeakingMediaCleanupErrorCode;
 import com.ksh.entities.PracticeSpeakingMediaCleanupStatus;
-import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,8 +64,7 @@ public class PracticeSpeakingMediaCleanupProcessor {
                 || snapshot.claimToken() == null) {
             return CleanupTaskProcessingResult.skipped();
         }
-        if (snapshot.storageProfileCode() == null
-                && snapshot.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
+        if (!"PRACTICE_SPEAKING".equals(snapshot.storageProfileCode())) {
             return terminalOrSkipped(
                     snapshot,
                     PracticeSpeakingMediaCleanupErrorCode.PROVIDER_UNSUPPORTED);

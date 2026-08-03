@@ -117,6 +117,7 @@ class PracticeAssetOrphanReconcilerTest {
         asset.setStatus("TEMPORARY");
         asset.setVisibility("PRIVATE");
         asset.setSourceType(sourceType);
+        asset.setStorageProfileCode("PRACTICE_AUTHORING");
         asset.setStorageKey("private/upload.mp3");
         asset.setRetentionUntil(retentionUntil);
         return asset;

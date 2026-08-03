@@ -197,30 +197,6 @@ public class SpeakingPromptAuthoringService {
         properties.requireOperational(SpeakingPromptAiContract.Operation.STT);
     }
 
-    @Transactional(readOnly = true)
-    public Long requireExcelStagingAdoptionAllowed(SourceCommand command) {
-        SpeakingPromptDraftAuthority.AuthorizedDraft authorized =
-                draftAuthority.authorize(
-                        command.draftId(),
-                        command.questionClientId(),
-                        command.actorId(),
-                        PracticeAction.MATERIAL_MANAGE);
-        draftAuthority.requireExpectedVersion(
-                authorized, command.expectedDraftVersion());
-        SpeakingPromptSource current = sourceRepository
-                .findByDraftIdAndQuestionClientId(
-                        command.draftId(), command.questionClientId())
-                .orElse(null);
-        if (current == null) {
-            requireInitialRevision(command.expectedSourceRevision());
-        } else {
-            requireSourceAuthority(current, authorized.ownerId());
-            current.requireExpectedRevision(command.expectedSourceRevision());
-        }
-        properties.requireOperational(SpeakingPromptAiContract.Operation.STT);
-        return authorized.ownerId();
-    }
-
     @Transactional
     public EnqueueResult bindVerifiedOriginalUpload(
             UploadOriginalAudio command,
@@ -238,29 +214,7 @@ public class SpeakingPromptAuthoringService {
                         command.actorId(),
                         command.expectedSourceRevision(),
                         command.expectedDraftVersion(),
-                        proof,
-                        false));
-    }
-
-    @Transactional
-    public EnqueueResult bindVerifiedExcelStaging(
-            SourceCommand command,
-            SpeakingPromptAssetService.VerifiedOriginalUpload upload) {
-        VerifiedOriginalAudioProof proof = new VerifiedOriginalAudioProof(
-                upload.draftId(),
-                upload.questionClientId(),
-                upload.ownerId(),
-                upload.assetId(),
-                upload.verifiedAudio());
-        return bindOriginalAudioAndEnqueueStt(
-                new BindOriginalAudio(
-                        command.draftId(),
-                        command.questionClientId(),
-                        command.actorId(),
-                        command.expectedSourceRevision(),
-                        command.expectedDraftVersion(),
-                        proof,
-                        true));
+                        proof));
     }
 
     /**
@@ -352,19 +306,12 @@ public class SpeakingPromptAuthoringService {
                 authorized.ownerId());
         SpeakingPromptAiContract.VerifiedAudio verifiedAudio =
                 proof.verifiedAudio();
-        LecturerAsset asset = command.requireExcelStaging()
-                ? assetService.bindVerifiedExcelStagingAsset(
-                        command.draftId(),
-                        authorized.ownerId(),
-                        proof.assetId(),
-                        command.questionClientId(),
-                        verifiedAudio)
-                : assetService.bindVerifiedOriginalAsset(
-                        command.draftId(),
-                        authorized.ownerId(),
-                        proof.assetId(),
-                        command.questionClientId(),
-                        verifiedAudio);
+        LecturerAsset asset = assetService.bindVerifiedOriginalAsset(
+                command.draftId(),
+                authorized.ownerId(),
+                proof.assetId(),
+                command.questionClientId(),
+                verifiedAudio);
         properties.requireOperational(SpeakingPromptAiContract.Operation.STT);
         if (source == null) {
             source = SpeakingPromptSource.audioUpload(
@@ -1176,24 +1123,7 @@ public class SpeakingPromptAuthoringService {
             Long actorId,
             long expectedSourceRevision,
             long expectedDraftVersion,
-            VerifiedOriginalAudioProof proof,
-            boolean requireExcelStaging) {
-        public BindOriginalAudio(
-                Long draftId,
-                String questionClientId,
-                Long actorId,
-                long expectedSourceRevision,
-                long expectedDraftVersion,
-                VerifiedOriginalAudioProof proof) {
-            this(
-                    draftId,
-                    questionClientId,
-                    actorId,
-                    expectedSourceRevision,
-                    expectedDraftVersion,
-                    proof,
-                    false);
-        }
+            VerifiedOriginalAudioProof proof) {
     }
 
     public record GenerateTts(

@@ -24,7 +24,7 @@ public class PracticeAssetLifecycleTask {
     @Column(name = "asset_id")
     private Long assetId;
 
-    @Column(name = "storage_profile_code", length = 40)
+    @Column(name = "storage_profile_code", nullable = false, length = 40)
     private String storageProfileCode;
 
     @Column(nullable = false, length = 40)
@@ -60,15 +60,13 @@ public class PracticeAssetLifecycleTask {
     protected PracticeAssetLifecycleTask() {
     }
 
-    public PracticeAssetLifecycleTask(Long assetId, String operation,
-                                      String sourceStorageKey, String targetStorageKey) {
-        this(assetId, null, operation, sourceStorageKey, targetStorageKey);
-    }
-
     public PracticeAssetLifecycleTask(Long assetId, String storageProfileCode,
                                       String operation, String sourceStorageKey,
                                       String targetStorageKey) {
         this.assetId = assetId;
+        if (!"PRACTICE_AUTHORING".equals(storageProfileCode)) {
+            throw new IllegalArgumentException("storageProfileCode is invalid.");
+        }
         this.storageProfileCode = storageProfileCode;
         this.operation = operation;
         this.sourceStorageKey = sourceStorageKey;

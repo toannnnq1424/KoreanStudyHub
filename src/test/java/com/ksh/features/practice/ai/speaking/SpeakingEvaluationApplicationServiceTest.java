@@ -331,9 +331,10 @@ class SpeakingEvaluationApplicationServiceTest {
         when(repository.findAuthorizedTranscriptionCandidates(77L, 10L, 11L, PracticeSpeakingMediaStatus.READY))
                 .thenReturn(firstRows, secondRows);
         for (PracticeSpeakingMediaRepository.TranscriptionAuthorizationProjection row : concat(firstRows, secondRows)) {
-            when(storage.exists(row.getStorageKey())).thenReturn(true);
+            when(storage.exists(row.getStorageProfileCode(), row.getStorageKey())).thenReturn(true);
             try {
-                when(storage.open(row.getStorageKey())).thenReturn(new ByteArrayInputStream(new byte[]{1, 2, 3}));
+                when(storage.open(row.getStorageProfileCode(), row.getStorageKey()))
+                        .thenReturn(new ByteArrayInputStream(new byte[]{1, 2, 3}));
             } catch (Exception ex) {
                 throw new IllegalStateException(ex);
             }
@@ -583,6 +584,7 @@ class SpeakingEvaluationApplicationServiceTest {
         @Override public Long getQuestionId() { return 11L; }
         @Override public Long getLockVersion() { return lockVersion; }
         @Override public PracticeSpeakingStorageProvider getStorageProvider() { return PracticeSpeakingStorageProvider.LOCAL; }
+        @Override public String getStorageProfileCode() { return "PRACTICE_SPEAKING"; }
         @Override public String getStorageKey() { return "learner-speaking/test-" + mediaId + ".webm"; }
         @Override public String getMimeType() { return mimeType; }
         @Override public Long getByteSize() { return 100L; }

@@ -1384,8 +1384,6 @@ class PracticeFunctionalUiContractTest {
                 PRACTICE_TEMPLATES.resolve("manage/editor.html"));
         String editorCss = Files.readString(Path.of(
                 "src/main/resources/static/css/practice/manage-editor.css"));
-        String importWorkspace = Files.readString(
-                PRACTICE_TEMPLATES.resolve("manage/import-workspace.html"));
         String importWizard = Files.readString(
                 PRACTICE_TEMPLATES.resolve("manage/import-wizard.html"));
         String excel = Files.readString(
@@ -1423,46 +1421,22 @@ class PracticeFunctionalUiContractTest {
                 ".audio-upload-box:focus-visible",
                 "@media (prefers-reduced-motion: reduce)")
                 .doesNotContain("color: transparent !important");
-        assertThat(importWorkspace).contains(
-                "createKeyboardRegion()",
-                "openFocusOverlay(",
-                "closeFocusOverlay(",
-                "aria-modal=\"true\"",
-                "role=\"tabpanel\"",
-                "id=\"ai-status-update\" role=\"status\"",
-                "aria-live=\"polite\" aria-atomic=\"true\"",
-                "function announceAiStatusUpdate(message)",
-                "id=\"ai-status-announcement\" role=\"alert\"",
-                "function announceAiStatus(message)",
-                "announceAiStatusUpdate(\n"
-                        + "      'Phân tích AI đã bắt đầu.",
-                "announceAiStatusUpdate(\n"
-                        + "        'Phân tích AI đã hoàn tất.",
-                "announceAiStatus(`Phân tích AI thất bại.",
-                "openAiStatusPopover({ focus: true })",
-                "const workspaceReducedMotion = window.matchMedia(",
-                "'(prefers-reduced-motion: reduce)'",
-                "behavior: workspaceReducedMotion.matches ? 'auto' : 'smooth'")
-                .doesNotContain(
-                        "box.scrollIntoView({ behavior: 'smooth'");
         assertThat(importWizard).contains(
-                "background: #3B57D4; color: #fff;",
-                "font-weight:700; color:#3B57D4; text-decoration:none;",
-                "background:rgba(79,110,247,0.1); color:#3B57D4;",
-                "background:rgba(217,144,0,0.1); color:#8A5700;",
-                "background:rgba(34,160,107,0.1); color:#087A4F;")
+                "role=\"status\" aria-live=\"polite\"",
+                "@media (max-width:760px)",
+                "submit.disabled = true",
+                "showStatus(")
                 .doesNotContain(
-                        "background: #4F6EF7; color: #fff;",
-                        "font-weight:700; color:#4F6EF7; text-decoration:none;",
-                        "background:rgba(79,110,247,0.1); color:#4F6EF7;",
-                        "background:rgba(217,144,0,0.1); color:#D99000;",
-                        "background:rgba(34,160,107,0.1); color:#22A06B;");
+                        "import-sessions", "pdfjsLib", "advanced-authoring");
+        assertThat(Files.exists(
+                PRACTICE_TEMPLATES.resolve("manage/import-workspace.html")))
+                .isFalse();
         assertThat(excel).contains(
                 "aria-live=\"assertive\" tabindex=\"-1\"",
-                "scope=\"col\"",
-                "ArrowLeft",
-                "aria-pressed",
-                "prefers-reduced-motion:reduce");
+                "aria-labelledby=\"excel-preview-title\"",
+                "@media(max-width:720px)",
+                "returnFocus.focus()",
+                "textContent = String(value)");
         assertThat(detailObjective).contains(
                 "data-option-state",
                 "aria-label=${'Phương án '",
@@ -1522,9 +1496,9 @@ class PracticeFunctionalUiContractTest {
         String editor = Files.readString(
                 PRACTICE_TEMPLATES.resolve(
                         "manage/editor.html"));
-        String importWorkspace = Files.readString(
+        String importWizard = Files.readString(
                 PRACTICE_TEMPLATES.resolve(
-                        "manage/import-workspace.html"));
+                        "manage/import-wizard.html"));
 
         assertThat(player).contains(
                 "data-deadline-epoch-ms",
@@ -1558,14 +1532,11 @@ class PracticeFunctionalUiContractTest {
         assertThat(editor).contains(
                 "content.textContent = String(msg.content || '')")
                 .doesNotContain("<div>${msg.content}</div>");
-        assertThat(importWorkspace).contains(
-                "title.textContent = String(a.title",
-                "title.title = String(a.title",
-                "attach.addEventListener",
-                "remove.addEventListener")
+        assertThat(importWizard).contains(
+                "textContent = message",
+                "window.location.assign(payload.reviewUrl)")
                 .doesNotContain(
-                        "title=\"${a.title}\">${a.title}</div>",
-                        "onclick=\"associateAssetToSelectedRegion(${a.id})\"");
+                        "innerHTML = payload", "import-sessions");
     }
 
     private static int countOccurrences(String text, String token) {

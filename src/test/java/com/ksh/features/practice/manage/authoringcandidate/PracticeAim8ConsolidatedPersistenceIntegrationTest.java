@@ -175,14 +175,14 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
     private void assertCurrentIntegratedSchema() {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1",
-                Integer.class)).isEqualTo(85);
+                Integer.class)).isEqualTo(87);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0",
                 Integer.class)).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) "
                         + "FROM flyway_schema_history",
-                Integer.class)).isEqualTo(85);
+                Integer.class)).isEqualTo(87);
         assertThat(storageProfiles.findAll()).hasSize(3)
                 .extracting(profile -> profile.getProfileCode())
                 .containsExactlyInAnyOrder(StorageProfileCode.values());

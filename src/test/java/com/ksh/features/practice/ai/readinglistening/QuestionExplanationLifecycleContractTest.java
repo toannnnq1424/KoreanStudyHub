@@ -45,7 +45,7 @@ class QuestionExplanationLifecycleContractTest {
             throws IOException {
         String migration = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V63__practice_explanation_binding_supersession.sql"));
+                        + "V69__practice_explanation_binding_supersession.sql"));
 
         assertThat(migration).contains(
                 "ADD COLUMN binding_status",

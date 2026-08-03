@@ -531,6 +531,19 @@
     previewReturnFocus = null;
   };
 
+  window.returnFromPreviewToEditor = function returnFromPreviewToEditor() {
+    window.closePreviewModal();
+    window.requestAnimationFrame(function () {
+      var target = document.querySelector('.candidate-content textarea:not([disabled])')
+        || document.querySelector(
+          '.candidate-content input:not([type="checkbox"]):not([disabled])')
+        || document.querySelector('.candidate-content select:not([disabled])');
+      if (!(target instanceof HTMLElement)) return;
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      target.focus({ preventScroll: true });
+    });
+  };
+
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape'
         && document.getElementById('preview-modal')?.getAttribute('aria-hidden') === 'false') {

@@ -262,8 +262,8 @@ final class PracticeAssessmentQuickExcelCodec {
                     if (row.getRowNum() == 2
                             && looksAdvancedHeader(
                             formatter.formatCellValue(cell))) {
-                        throw advanced(
-                                "Quick Excel có cột media/layout phải dùng Advanced.");
+                        throw canonicalEditor(
+                                "Quick Excel là text-only; hãy thêm media/layout trong Editor sau khi apply candidate.");
                     }
                     throw error("QUICK_COLUMN_UNSUPPORTED",
                             "Quick Excel có dữ liệu ngoài 24 cột contract tại "
@@ -285,7 +285,8 @@ final class PracticeAssessmentQuickExcelCodec {
                     row.getCell(index, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL));
             if (!HEADERS.get(index).equals(actual)) {
                 if (looksAdvancedHeader(actual)) {
-                    throw advanced("Quick Excel có cột media/layout không được hỗ trợ.");
+                    throw canonicalEditor(
+                            "Quick Excel là text-only; hãy thêm media/layout trong Editor sau khi apply candidate.");
                 }
                 throw error("QUICK_HEADER_INVALID",
                         "Header dòng 3 phải đúng 24 cột và đúng thứ tự contract.");
@@ -310,12 +311,12 @@ final class PracticeAssessmentQuickExcelCodec {
                 || looksLikeMediaReference(row.prompt())
                 || row.options().stream().anyMatch(
                 PracticeAssessmentQuickExcelCodec::looksLikeMediaReference)) {
-            throw advanced(
-                    "Quick Excel không hỗ trợ image/audio/media reference.");
+            throw canonicalEditor(
+                    "Quick Excel là text-only; hãy thêm image/audio/media trong Editor sau khi apply candidate.");
         }
         String type = row.questionType();
         if ("MATCHING".equals(type)) {
-            throw advanced("MATCHING phải dùng Advanced Excel.");
+            throw canonicalEditor("MATCHING phải được biên soạn trong Editor.");
         }
         Set<String> supported = switch (skill) {
             case "READING", "LISTENING" -> QUICK_RL_TYPES;
@@ -324,8 +325,8 @@ final class PracticeAssessmentQuickExcelCodec {
             default -> Set.of();
         };
         if (!supported.contains(type)) {
-            throw advanced("Dạng " + type
-                    + " không thuộc support matrix Quick cho " + skill + ".");
+            throw canonicalEditor("Dạng " + type
+                    + " phải được biên soạn trong Editor cho " + skill + ".");
         }
         if (row.prompt().isBlank()) {
             throw error("QUESTION_PROMPT_REQUIRED",
@@ -469,8 +470,8 @@ final class PracticeAssessmentQuickExcelCodec {
         if (!row.blank2Answers().isBlank()
                 || count(row.prompt(), "{{blank:") != 1
                 || count(row.prompt(), "{{blank:blank_1}}") != 1) {
-            throw advanced(
-                    "Quick FILL_BLANK chỉ hỗ trợ đúng một {{blank:blank_1}}.");
+            throw canonicalEditor(
+                    "Complex blanks phải được biên soạn trong Editor; Quick chỉ hỗ trợ đúng một {{blank:blank_1}}.");
         }
         List<String> accepted = splitAnswers(row.blank1Answers(), excelRow);
         if (accepted.isEmpty()) {
@@ -801,8 +802,9 @@ final class PracticeAssessmentQuickExcelCodec {
         return new PracticeAssessmentExcelException(code, message);
     }
 
-    private static PracticeAssessmentExcelException advanced(String message) {
-        return error("ADVANCED_AUTHORING_REQUIRED", message);
+    private static PracticeAssessmentExcelException canonicalEditor(
+            String message) {
+        return error("CANONICAL_EDITOR_REQUIRED", message);
     }
 
     record PackageInspection(
@@ -857,7 +859,8 @@ final class PracticeAssessmentQuickExcelCodec {
         private ObjectNode toCandidate(String skill) {
             if (("WRITING".equals(skill) || "SPEAKING".equals(skill))
                     && stimulus != null && !stimulus.isBlank()) {
-                throw advanced("Quick Writing/Speaking không hỗ trợ stimulus dùng chung.");
+                throw canonicalEditor(
+                        "Stimulus dùng chung của Writing/Speaking phải được biên soạn trong Editor.");
             }
             ObjectNode group = objectMapper.createObjectNode();
             group.put("candidateGroupId", id);

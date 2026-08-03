@@ -34,21 +34,4 @@ public class SpeakingPromptOriginalAudioUploadCoordinator {
         return authoringService.bindVerifiedOriginalUpload(command, verified);
     }
 
-    /**
-     * Explicit Editor-only handoff for an upload already staged by Excel.
-     * The API supplies no asset identity: exact reference resolution and byte
-     * verification happen here, outside the locked bind/enqueue transaction.
-     */
-    public SpeakingPromptAuthoringService.EnqueueResult
-            adoptExcelStagingAndEnqueueStt(
-                    SpeakingPromptAuthoringService.SourceCommand command) {
-        Long ownerId =
-                authoringService.requireExcelStagingAdoptionAllowed(command);
-        SpeakingPromptAssetService.VerifiedOriginalUpload verified =
-                assetService.verifyExcelStaging(
-                        command.draftId(),
-                        ownerId,
-                        command.questionClientId());
-        return authoringService.bindVerifiedExcelStaging(command, verified);
-    }
 }

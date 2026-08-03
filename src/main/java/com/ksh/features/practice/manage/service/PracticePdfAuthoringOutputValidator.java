@@ -536,7 +536,7 @@ public class PracticePdfAuthoringOutputValidator {
                 if (requested.pageNumber() == null
                         || requested.pageNumber() != page
                         || ref.has("start") || ref.has("end")) {
-                    fail("PDF_SOURCE_REFERENCE_UNKNOWN", "Page/region reference không khớp.");
+                    fail("PDF_SOURCE_REFERENCE_UNKNOWN", "Page reference không khớp.");
                 }
             }
         }

@@ -54,14 +54,9 @@ public class PracticeAttemptDiscardTransactionService {
                 mediaRepository.findByAttemptIdForUpdateOrderByIdAsc(attemptId);
         for (PracticeSpeakingMedia media : mediaRows) {
             media.markDeletionPending();
-            if (media.getStorageProfileCode() == null) {
-                cleanupTaskService.enqueueDiscardAttempt(
-                        media.getStorageProvider(), media.getStorageKey(), discardedAt);
-            } else {
-                cleanupTaskService.enqueueDiscardAttempt(
-                        media.getId(), media.getStorageProvider(),
-                        media.getStorageProfileCode(), media.getStorageKey(), discardedAt);
-            }
+            cleanupTaskService.enqueueDiscardAttempt(
+                    media.getId(), media.getStorageProvider(),
+                    media.getStorageProfileCode(), media.getStorageKey(), discardedAt);
         }
 
         attemptRepository.flush();

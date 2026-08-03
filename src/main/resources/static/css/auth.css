@@ -11,7 +11,13 @@ header {
   position: sticky; top: 0; background: var(--bg); z-index: 30;
 }
 .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; color: var(--primary); }
-.logo svg { flex: none; }
+.logo img {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
 
 main { flex: 1; display: flex; align-items: stretch; }
 
@@ -78,7 +84,7 @@ main { flex: 1; display: flex; align-items: stretch; }
   display: flex; align-items: center; justify-content: space-between;
 }
 .page-forgot header .logo { font-size: 22px; }
-.page-forgot header .logo svg { width: 36px; height: 36px; }
+.page-forgot header .logo img { width: 38px; height: 38px; }
 
 /* "Đăng nhập" outlined button in header */
 .btn-outlined {

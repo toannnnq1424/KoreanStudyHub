@@ -1,39 +1,136 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Admin | Practice AI binding', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Admin | Chọn model cho Practice', ~{::link.page-css})}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin-settings-hub.css}">
 </head>
-<body>
+<body class="settings-body">
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 <div class="class-detail-layout">
     <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
-    <main class="col">
-        <nav class="settings-breadcrumb"><a th:href="@{/admin/settings/practice-ai}">Practice AI</a><span class="sep">/</span><span th:text="${purpose}">Purpose</span></nav>
-        <h1 class="detail-title" th:text="${purpose}">Purpose binding</h1>
-        <p class="detail-sub" th:text="${purpose.displayName() + ' — required: ' + requiredCapabilities}">Capabilities</p>
-        <div class="alert alert-warning" th:if="${#lists.isEmpty(profiles)}">Tạo provider profile trước khi lưu binding.</div>
-        <form method="post" th:action="@{'/admin/settings/practice-ai/bindings/' + ${purpose}}" th:object="${form}" class="users-form">
+    <main class="col settings-page settings-form-page">
+        <nav class="settings-breadcrumb" aria-label="Breadcrumb"><a th:href="@{/admin/settings}">Cài đặt hệ thống</a><span class="sep">/</span><a th:href="@{/admin/settings/practice-ai}">AI cho Practice</a><span class="sep">/</span><span th:text="${purpose.displayName()}">Mục đích</span></nav>
+        <header class="settings-page-header">
+            <span class="settings-eyebrow">Bước 2–3 / 3</span>
+            <h1 class="detail-title">Chọn model cho <span th:text="${purpose.displayName()}">mục đích</span></h1>
+            <p class="detail-sub">Chọn đúng profile và model cho mục đích này. Practice không thử provider toàn hệ thống nếu binding không sẵn sàng.</p>
+        </header>
+        <div class="alert alert-warning settings-inline-alert" role="alert" th:if="${#lists.isEmpty(profiles)}">
+            <span><strong>Chưa có nhà cung cấp.</strong> Thêm và bật một profile trước khi chọn model.</span>
+            <a class="btn-ghost" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm nhà cung cấp</a>
+        </div>
+        <form method="post" th:action="@{'/admin/settings/practice-ai/bindings/' + ${purpose}}" th:object="${form}" class="users-form settings-form-card" novalidate>
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
             <input type="hidden" th:field="*{purpose}"><input type="hidden" th:field="*{revision}">
-            <div class="alert alert-danger" th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}">Error</div>
-            <section class="detail-card">
-                <div class="form-row"><label for="providerProfileId">Provider profile</label><select id="providerProfileId" th:field="*{providerProfileId}" required><option value="">-- Chọn --</option><option th:each="profile : ${profiles}" th:value="${profile.id}" th:text="${profile.profileCode + ' — ' + profile.displayName}"></option></select><p class="field-error" th:errors="*{providerProfileId}"></p></div>
-                <div class="form-row"><label for="model">Model</label><input id="model" th:field="*{model}" maxlength="150" required><p class="field-error" th:errors="*{model}"></p></div>
-                <div class="form-row" th:if="${purpose.name() == 'PRACTICE_PDF_AUTHORING'}"><label><input type="checkbox" th:field="*{pdfImageInput}"> Khai báo và kiểm thử image input</label></div>
-                <div class="form-row"><label for="retentionCode">Retention code</label><input id="retentionCode" th:field="*{retentionCode}" maxlength="64" required><p class="field-error" th:errors="*{retentionCode}"></p></div>
-                <div class="form-row"><label for="connectTimeoutMs">Connect timeout ms</label><input id="connectTimeoutMs" type="number" th:field="*{connectTimeoutMs}" min="100" max="30000"></div>
-                <div class="form-row"><label for="readTimeoutMs">Read timeout ms</label><input id="readTimeoutMs" type="number" th:field="*{readTimeoutMs}" min="1000" max="120000"></div>
-                <div class="form-row"><label for="maxRetries">Retries cùng binding</label><input id="maxRetries" type="number" th:field="*{maxRetries}" min="0" max="3"></div>
-                <div class="form-row"><label for="maxRequestBytes">Max request bytes</label><input id="maxRequestBytes" type="number" th:field="*{maxRequestBytes}" min="1" max="26214400"></div>
-                <div class="form-row"><label for="maxResponseBytes">Max response bytes</label><input id="maxResponseBytes" type="number" th:field="*{maxResponseBytes}" min="16384" max="8388608"></div>
-                <div class="form-row"><label><input type="checkbox" th:field="*{enabled}"> Enabled</label></div>
-                <button class="btn btn-primary" type="submit" th:disabled="${#lists.isEmpty(profiles)}">Lưu binding</button>
-                <a class="btn-ghost" th:href="@{/admin/settings/practice-ai}">Hủy</a>
+            <div class="alert alert-danger settings-form-error-summary" role="alert" th:if="${#fields.hasAnyErrors()}"><strong>Chưa thể lưu mục đích.</strong><span>Kiểm tra nhà cung cấp, model và các trường được đánh dấu.</span></div>
+            <div class="alert alert-danger" role="alert" th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}">Lỗi cấu hình</div>
+            <section aria-labelledby="binding-main-title">
+                <h2 id="binding-main-title">Model sử dụng</h2>
+                <div class="settings-form-grid">
+                    <div class="form-row">
+                        <span id="provider-profile-label" class="form-row-label">Nhà cung cấp <span class="req">*</span></span>
+                        <div class="settings-combobox" data-settings-combobox>
+                            <button id="provider-profile-trigger" class="settings-combobox-trigger" type="button"
+                                    aria-haspopup="listbox" aria-controls="provider-profile-options" aria-expanded="false"
+                                    aria-labelledby="provider-profile-label provider-profile-value"
+                                    th:disabled="${#lists.isEmpty(profiles)}">
+                                <span id="provider-profile-value" data-combobox-label>Chọn nhà cung cấp</span>
+                                <svg class="settings-combobox-chevron" aria-hidden="true" viewBox="0 0 24 24">
+                                    <path d="m7 10 5 5 5-5"/>
+                                </svg>
+                            </button>
+                            <div id="provider-profile-options" class="settings-combobox-options" role="listbox"
+                                 aria-labelledby="provider-profile-label" tabindex="-1" hidden>
+                                <button th:each="profile : ${profiles}" type="button" role="option" tabindex="-1"
+                                        th:attr="data-value=${profile.id},data-base-url=${profile.baseUrl},aria-selected=${form.providerProfileId != null and form.providerProfileId == profile.id}"
+                                        th:text="${profile.displayName + (profile.enabled ? '' : ' — đang tạm tắt')}">Profile</button>
+                            </div>
+                            <select id="providerProfileId" class="settings-combobox-native" th:field="*{providerProfileId}"
+                                    th:disabled="${#lists.isEmpty(profiles)}" hidden required>
+                                <option value="">Chọn nhà cung cấp</option>
+                                <option th:each="profile : ${profiles}" th:value="${profile.id}"
+                                        th:text="${profile.displayName + (profile.enabled ? '' : ' — đang tạm tắt')}"
+                                        th:attr="data-base-url=${profile.baseUrl}">Profile</option>
+                            </select>
+                        </div>
+                        <p class="field-hint">Chỉ profile của Practice xuất hiện tại đây.</p><p class="field-error" role="alert" th:errors="*{providerProfileId}"></p>
+                    </div>
+                    <div class="form-row settings-model-row">
+                        <label for="model">Tên model <span class="req">*</span></label>
+                        <div class="settings-model-picker">
+                            <input id="model" th:field="*{model}" th:disabled="${#lists.isEmpty(profiles)}" maxlength="150" required aria-required="true" autocomplete="off"
+                                   role="combobox" aria-autocomplete="list" aria-controls="model-suggestions" aria-expanded="false"
+                                   placeholder="Chọn nhà cung cấp rồi tìm model" aria-describedby="model-hint model-catalog-note">
+                            <div id="model-suggestions" class="settings-model-suggestions" th:attr="data-purpose=${purpose.name()}"
+                                 role="listbox" aria-label="Danh sách model đã xác minh" hidden>
+                                <div class="settings-model-suggestions-head"><span>Danh mục đã xác minh</span><small data-model-count></small></div>
+                                <div class="settings-model-suggestion-group" data-suggestion-provider="openai">
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gpt-5-nano" data-keywords="openai rẻ nhất tiết kiệm nano"><strong>gpt-5-nano</strong><small>Rẻ nhất trong nhóm phù hợp · $0.05 input / $0.40 output</small><span>Rẻ nhất</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gpt-5.4-nano" data-keywords="openai rẻ tiết kiệm nano"><strong>gpt-5.4-nano</strong><small>Thế hệ mới, chi phí thấp · $0.20 input / $1.25 output</small><span>Tiết kiệm</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gpt-5-mini" data-keywords="openai rẻ cân bằng mini"><strong>gpt-5-mini</strong><small>Cân bằng chi phí và chất lượng · $0.25 input / $2.00 output</small><span>Giá tốt</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gpt-5.4-mini" data-keywords="openai rẻ cân bằng mini"><strong>gpt-5.4-mini</strong><small>Cân bằng cho lưu lượng lớn · $0.75 / $4.50</small><span>Phổ dụng</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gpt-5.6-luna" data-keywords="openai cost sensitive luna"><strong>gpt-5.6-luna</strong><small>GPT-5.6 ưu tiên chi phí · $1 / $6</small><span>Cân bằng</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gpt-5.6-terra" data-keywords="openai chất lượng terra"><strong>gpt-5.6-terra</strong><small>Chất lượng cao hơn · $2.50 / $15</small><span>Cao cấp</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gpt-5.6-sol" data-keywords="openai flagship sol"><strong>gpt-5.6-sol</strong><small>Flagship cho tác vụ khó · $5 / $30</small><span>Đắt nhất</span></button>
+                                    <button th:if="${purpose.name() == 'PRACTICE_SPEAKING_STT'}" type="button" role="option" data-model="gpt-4o-mini-transcribe" data-keywords="openai stt rẻ mini"><strong>gpt-4o-mini-transcribe</strong><small>STT tiết kiệm cho lưu lượng lớn</small><span>Tiết kiệm</span></button>
+                                    <button th:if="${purpose.name() == 'PRACTICE_SPEAKING_STT'}" type="button" role="option" data-model="gpt-4o-transcribe" data-keywords="openai stt quality"><strong>gpt-4o-transcribe</strong><small>STT ưu tiên chất lượng</small><span>Chất lượng</span></button>
+                                    <button th:if="${purpose.name() == 'PRACTICE_SPEAKING_STT'}" type="button" role="option" data-model="whisper-1" data-keywords="openai stt whisper"><strong>whisper-1</strong><small>STT phổ biến, tương thích endpoint hiện tại</small><span>Ổn định</span></button>
+                                    <button th:if="${purpose.name() == 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="tts-1" data-keywords="openai tts tốc độ"><strong>tts-1</strong><small>Tạo giọng đọc, ưu tiên tốc độ</small><span>Nhanh</span></button>
+                                    <button th:if="${purpose.name() == 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="tts-1-hd" data-keywords="openai tts chất lượng hd"><strong>tts-1-hd</strong><small>Tạo giọng đọc, ưu tiên chất lượng</small><span>HD</span></button>
+                                </div>
+                                <div class="settings-model-suggestion-group" data-suggestion-provider="gemini">
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gemini-3.5-flash-lite" data-keywords="google gemini rẻ lite"><strong>gemini-3.5-flash-lite</strong><small>Chi phí thấp, high-throughput, multimodal</small><span>Tiết kiệm</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gemini-3.1-flash-lite" data-keywords="google gemini rẻ stable lite"><strong>gemini-3.1-flash-lite</strong><small>Stable, nhanh và tiết kiệm</small><span>Ổn định</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gemini-3.5-flash" data-keywords="google gemini cân bằng"><strong>gemini-3.5-flash</strong><small>Stable, thông minh hơn cho tác vụ dài</small><span>Cân bằng</span></button>
+                                    <button th:if="${purpose.name() != 'PRACTICE_SPEAKING_STT' and purpose.name() != 'PRACTICE_SPEAKING_TTS'}" type="button" role="option" data-model="gemini-3.6-flash" data-keywords="google gemini mới multimodal"><strong>gemini-3.6-flash</strong><small>Mới nhất, multimodal và OpenAI-compatible</small><span>Mới nhất</span></button>
+                                    <p th:if="${purpose.name() == 'PRACTICE_SPEAKING_STT' or purpose.name() == 'PRACTICE_SPEAKING_TTS'}">Endpoint audio của Gemini không khớp <code>/audio/transcriptions</code> hoặc <code>/audio/speech</code> mà backend đang dùng.</p>
+                                </div>
+                                <div class="settings-model-suggestion-group settings-model-format-only" data-suggestion-provider="deepseek">
+                                    <p><strong>OpenAI-compatible chưa đồng nghĩa tương thích Practice.</strong> DeepSeek V4 chỉ xác nhận JSON Object, trong khi Practice bắt buộc strict <code>json_schema</code>.</p>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="deepseek-v4-flash" data-keywords="deepseek rẻ flash"><strong>deepseek-v4-flash</strong><small>Rất rẻ, nhưng chưa đạt strict schema của Practice</small><span>Chưa dùng được</span></button>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="deepseek-v4-pro" data-keywords="deepseek pro"><strong>deepseek-v4-pro</strong><small>Giá thấp, nhưng chưa đạt strict schema của Practice</small><span>Chưa dùng được</span></button>
+                                </div>
+                                <div class="settings-model-suggestion-group settings-model-format-only" data-suggestion-provider="alibaba">
+                                    <p><strong>Model Studio tương thích định dạng OpenAI nhưng structured output hiện là JSON Object.</strong> Practice không hạ chuẩn strict schema.</p>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="qwen3.6-flash" data-keywords="qwen rẻ flash"><strong>qwen3.6-flash</strong><small>Rẻ và nhanh; cần adapter strict schema</small><span>Chưa dùng được</span></button>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="qwen3.7-plus" data-keywords="qwen plus"><strong>qwen3.7-plus</strong><small>Cân bằng; cần adapter strict schema</small><span>Chưa dùng được</span></button>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="qwen3.7-max" data-keywords="qwen max"><strong>qwen3.7-max</strong><small>Cao cấp; cần adapter strict schema</small><span>Chưa dùng được</span></button>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="deepseek-v4-flash" data-keywords="model studio deepseek"><strong>deepseek-v4-flash</strong><small>Qua Model Studio; chưa đạt strict schema</small><span>Chưa dùng được</span></button>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="glm-5.2" data-keywords="glm china"><strong>glm-5.2</strong><small>Structured output nhưng chưa xác minh strict json_schema</small><span>Cần kiểm tra</span></button>
+                                    <button type="button" role="option" aria-disabled="true" disabled data-model="kimi-k2.7-code" data-keywords="kimi moonshot"><strong>kimi-k2.7-code</strong><small>OpenAI-compatible; structured output chưa phù hợp contract</small><span>Chưa dùng được</span></button>
+                                </div>
+                                <p class="settings-model-custom" data-suggestion-provider="custom">Endpoint tùy chỉnh: nhập chính xác model do nhà cung cấp cấp. Nút kiểm tra capability sẽ xác nhận trước khi có thể dùng.</p>
+                                <p class="settings-model-empty" data-model-empty hidden>Không có model trong danh mục khớp từ khóa. Bạn vẫn có thể nhập chính xác model của provider.</p>
+                                <p class="settings-model-compatibility" th:if="${purpose.name() == 'PRACTICE_SPEAKING_TTS'}">Backend hiện dùng hợp đồng OpenAI-compatible <code>/audio/speech</code>. Model ElevenLabs native như <code>eleven_multilingual_v2</code> cần adapter riêng, không chỉ đổi tên model.</p>
+                            </div>
+                        </div>
+                        <p id="model-hint" class="field-hint">Mở ô để xem toàn bộ model đã xác minh phù hợp mục đích; gõ để lọc theo tên, chi phí hoặc công việc.</p>
+                        <p id="model-catalog-note" class="field-hint">Giá tham khảo trên 1 triệu token, đối chiếu tháng 08/2026. Trang không gọi API provider; hãy kiểm tra quyền model trước khi bật.</p>
+                        <p class="field-error" role="alert" th:errors="*{model}"></p>
+                    </div>
+                    <label class="settings-switch" th:classappend="${#lists.isEmpty(profiles)} ? 'is-disabled'" for="enabled"><input id="enabled" type="checkbox" th:field="*{enabled}" th:disabled="${#lists.isEmpty(profiles)}"><span><strong>Bật cho mục đích này</strong><small>Nếu tắt, tính năng sẽ dừng an toàn và không fallback global.</small></span></label>
+                </div>
             </section>
+            <details class="settings-technical settings-form-advanced">
+                <summary>Chi tiết kỹ thuật / Nâng cao</summary>
+                <p class="field-hint">Giữ giá trị mặc định trừ khi bạn đã đánh giá giới hạn của provider.</p>
+                <div class="settings-technical-summary"><span>Mã mục đích <code th:text="${purpose}">PURPOSE</code></span><span>Capability <code th:text="${requiredCapabilities}">STRICT_JSON_SCHEMA</code></span><span th:if="${form.revision != null}">Revision <code th:text="${form.revision}">0</code></span></div>
+                <div class="settings-form-grid settings-form-grid-compact">
+                    <label class="settings-switch" for="pdfImageInput" th:if="${purpose.name() == 'PRACTICE_PDF_AUTHORING'}"><input id="pdfImageInput" type="checkbox" th:field="*{pdfImageInput}"><span><strong>Cho phép ảnh đầu vào PDF</strong><small>Capability này vẫn phải qua kiểm tra rõ ràng.</small></span></label>
+                    <div class="form-row"><label for="retentionCode">Chính sách lưu giữ</label><input id="retentionCode" th:field="*{retentionCode}" maxlength="64" required><p class="field-error" th:errors="*{retentionCode}"></p></div>
+                    <div class="form-row"><label for="connectTimeoutMs">Thời gian chờ kết nối (ms)</label><input id="connectTimeoutMs" type="number" th:field="*{connectTimeoutMs}" min="100" max="30000"></div>
+                    <div class="form-row"><label for="readTimeoutMs">Thời gian chờ phản hồi (ms)</label><input id="readTimeoutMs" type="number" th:field="*{readTimeoutMs}" min="1000" max="120000"></div>
+                    <div class="form-row"><label for="maxRetries">Số lần thử lại</label><input id="maxRetries" type="number" th:field="*{maxRetries}" min="0" max="3"></div>
+                    <div class="form-row"><label for="maxRequestBytes">Dung lượng request tối đa (bytes)</label><input id="maxRequestBytes" type="number" th:field="*{maxRequestBytes}" min="1" max="26214400"></div>
+                    <div class="form-row"><label for="maxResponseBytes">Dung lượng response tối đa (bytes)</label><input id="maxResponseBytes" type="number" th:field="*{maxResponseBytes}" min="16384" max="8388608"></div>
+                </div>
+            </details>
+            <div class="settings-form-actions"><a class="btn-ghost" th:href="@{/admin/settings/practice-ai}">Hủy</a><button class="btn btn-primary" type="submit" th:disabled="${#lists.isEmpty(profiles)}">Lưu mục đích</button></div>
         </form>
     </main>
 </div>
+<script th:src="@{/js/admin-settings-practice-ai.js}"></script>
 </body>
 </html>

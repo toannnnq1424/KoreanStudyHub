@@ -20,7 +20,8 @@
   <meta name="_csrf" th:content="${_csrf?.token}"/>
   <meta name="_csrf_header" th:content="${_csrf?.headerName}"/>
   <title th:text="${title} + ' | KSH — Korean Study Hub'">KSH</title>
-  <link rel="icon" th:href="@{/favicon.svg}" type="image/svg+xml">
+  <link rel="icon" th:href="@{/images/brand/ksh-logo.png}" type="image/png">
+  <link rel="apple-touch-icon" th:href="@{/images/brand/ksh-logo.png}">
   <link rel="stylesheet" th:href="@{/css/main.css}">
   <link rel="stylesheet" th:href="@{/css/korean-dictionary.css(v='1')}">
   <script defer th:src="@{/js/app.js}"></script>

@@ -19,6 +19,7 @@ class HomeRoleBadgeFrontendContractTest {
                 .contains("hasRole('STUDENT')")
                 .contains("hasRole('LECTURER')")
                 .contains("hasRole('LEADER')")
-                .contains("hasRole('ADMIN')");
+                .contains("hasRole('ADMIN')")
+                .doesNotContain("Sprint ");
     }
 }

@@ -1,7 +1,6 @@
 package com.ksh.features.practice.service;
 
 import com.ksh.entities.PracticeSpeakingMediaStatus;
-import com.ksh.entities.PracticeSpeakingStorageProvider;
 import com.ksh.features.practice.service.audio.PreparedSpeakingAudio;
 import com.ksh.features.practice.service.audio.SpeakingAudioPreparationService;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
@@ -47,21 +46,7 @@ public class SpeakingAudioUploadService {
         mediaService.validateUploadTargetForOwner(userId, attemptId, questionId);
         PreparedSpeakingAudio prepared = preparationService.prepare(input, declaredSize, clientMime);
 
-        if (prepared.requiresProfilePromotion()) {
-            return uploadProfiledTemporary(
-                    userId, attemptId, questionId, prepared);
-        }
-
-        SpeakingMediaActivationResult activated;
-        try {
-            activated = mediaService.activateValidatedMediaForOwner(
-                    userId, attemptId, questionId, prepared.toDescriptor());
-        } catch (RuntimeException activationFailure) {
-            compensatePreparedObject(prepared);
-            throw activationFailure;
-        }
-
-        return safeUploadResult(attemptId, activated);
+        return uploadProfiledTemporary(userId, attemptId, questionId, prepared);
     }
 
     private SpeakingAudioUploadResult uploadProfiledTemporary(
@@ -123,13 +108,8 @@ public class SpeakingAudioUploadService {
     }
 
     private void compensatePreparedObject(PreparedSpeakingAudio prepared) {
-        if (prepared.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
-            log.warn(COMPENSATION_FAILURE_EVENT);
-            enqueueCompensationOrphanBestEffort(prepared);
-            return;
-        }
         try {
-            storage.delete(prepared.storageKey());
+            storage.delete(prepared.storageProfileCode(), prepared.storageKey());
         } catch (RuntimeException ignored) {
             log.warn(COMPENSATION_FAILURE_EVENT);
             enqueueCompensationOrphanBestEffort(prepared);
@@ -153,14 +133,9 @@ public class SpeakingAudioUploadService {
 
     private void enqueueCompensationOrphanBestEffort(PreparedSpeakingAudio prepared) {
         try {
-            if (prepared.storageProfileCode() == null) {
-                cleanupTaskService.enqueueCompensationOrphan(
-                        prepared.storageProvider(), prepared.storageKey());
-            } else {
-                cleanupTaskService.enqueueCompensationOrphan(
-                        prepared.storageProvider(), prepared.storageProfileCode(),
-                        prepared.storageKey());
-            }
+            cleanupTaskService.enqueueCompensationOrphan(
+                    prepared.storageProvider(), prepared.storageProfileCode(),
+                    prepared.storageKey());
         } catch (RuntimeException ignored) {
             log.warn(CLEANUP_INTENT_FAILURE_EVENT);
         }

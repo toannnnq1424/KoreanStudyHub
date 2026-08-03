@@ -4,27 +4,27 @@ import java.util.Set;
 
 public enum PracticeAiPurpose {
     PRACTICE_PDF_AUTHORING(
-            "PDF authoring",
+            "Biên soạn từ PDF",
             "AUTHORING_SOURCE",
             Set.of("STRICT_JSON_SCHEMA")),
     PRACTICE_RL_EXPLANATION(
-            "R/L explanation",
+            "Giải thích Đọc / Nghe",
             "PUBLISHED_QUESTION_EVIDENCE",
             Set.of("STRICT_JSON_SCHEMA", "IMAGE_INPUT")),
     PRACTICE_WRITING_EVALUATION(
-            "Writing evaluation",
+            "Chấm bài Viết",
             "LEARNER_WRITING_RESPONSE",
             Set.of("STRICT_JSON_SCHEMA", "IMAGE_INPUT")),
     PRACTICE_SPEAKING_EVALUATION(
-            "Speaking evaluation",
+            "Chấm bài Nói",
             "LEARNER_SPEAKING_TRANSCRIPT",
             Set.of("STRICT_JSON_SCHEMA", "IMAGE_INPUT", "TRANSCRIPT_TEXT_INPUT")),
     PRACTICE_SPEAKING_STT(
-            "Speaking STT",
+            "Chuyển giọng nói thành văn bản",
             "SPEAKING_AUDIO",
             Set.of("BATCH_TRANSCRIPTION")),
     PRACTICE_SPEAKING_TTS(
-            "Speaking TTS",
+            "Tạo giọng đọc đề bài",
             "LECTURER_PROMPT_AUDIO",
             Set.of("SPEECH_SYNTHESIS"));
 

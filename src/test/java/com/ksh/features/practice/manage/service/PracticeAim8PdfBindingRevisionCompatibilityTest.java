@@ -8,7 +8,6 @@ import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationPort;
 import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationResponse;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
-import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -39,9 +38,7 @@ class PracticeAim8PdfBindingRevisionCompatibilityTest {
                         "stop",
                         "aim8-fake-request"));
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                new ObjectMapper(),
-                mock(PracticeAiRequestAuditRepository.class),
-                port);
+                new ObjectMapper(), port);
 
         PracticePdfAiOrchestrator.GenerationResult result =
                 orchestrator.generate(request());
@@ -57,9 +54,7 @@ class PracticeAim8PdfBindingRevisionCompatibilityTest {
         when(port.identity(PracticeAiPurpose.PRACTICE_PDF_AUTHORING))
                 .thenReturn(identity(-1L));
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                new ObjectMapper(),
-                mock(PracticeAiRequestAuditRepository.class),
-                port);
+                new ObjectMapper(), port);
 
         PracticeAiContractException failure = assertThrows(
                 PracticeAiContractException.class,
@@ -93,7 +88,6 @@ class PracticeAim8PdfBindingRevisionCompatibilityTest {
                 List.of(new PracticePdfAuthoringRequest.SourceEvidence(
                         "TEXT_SPAN", "source-1", null, source.length(), source)),
                 Map.of("trust", "UNTRUSTED_SOURCE_CONTENT", "text", source),
-                List.of(),
-                null);
+                List.of());
     }
 }

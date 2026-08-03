@@ -18,23 +18,8 @@ public interface LecturerAssetRepository extends JpaRepository<LecturerAsset, Lo
     List<LecturerAsset> findByOwnerLecturerIdAndStatusAndDeletedAtIsNull(Long ownerLecturerId, String status);
     List<LecturerAsset> findByOwnerLecturerIdAndDeletedAtIsNullOrderByUpdatedAtDesc(
             Long ownerLecturerId, Pageable pageable);
-    List<LecturerAsset> findBySourceImportSessionId(Long sessionId);
-    List<LecturerAsset> findBySourceImportSessionIdAndOwnerLecturerId(Long sessionId, Long ownerLecturerId);
-    List<LecturerAsset> findBySourceImportSessionIdAndStatus(Long sessionId, String status);
     Optional<LecturerAsset> findByIdAndOwnerLecturerId(Long id, Long ownerLecturerId);
     List<LecturerAsset> findByOwnerLecturerIdAndSha256AndStatusAndDeletedAtIsNull(Long ownerLecturerId, String sha256, String status);
-    void deleteBySourceImportSessionId(Long sessionId);
-
-    @Query("""
-            select a.id from LecturerAsset a
-            where a.sourceImportSessionId = :sessionId
-              and a.ownerLecturerId = :ownerId
-            order by a.id asc
-            """)
-    List<Long> findIdsBySourceImportSessionIdAndOwnerLecturerId(
-            @Param("sessionId") Long sessionId,
-            @Param("ownerId") Long ownerId);
-
     @Query("""
             select a.id from LecturerAsset a
             where a.status = 'TEMPORARY'
@@ -51,16 +36,6 @@ public interface LecturerAssetRepository extends JpaRepository<LecturerAsset, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from LecturerAsset a where a.id = :id")
     Optional<LecturerAsset> findByIdForUpdate(@Param("id") Long id);
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-            select a from LecturerAsset a
-            where a.storageProfileCode is null
-              and a.storageKey = :storageKey
-            order by a.id asc
-            """)
-    List<LecturerAsset> findByStorageKeyForUpdate(
-            @Param("storageKey") String storageKey);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

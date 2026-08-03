@@ -4,14 +4,15 @@
     <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
     <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/admin-settings-hub.css}">
 </head>
-<body>
+<body class="settings-body">
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 
 <div class="class-detail-layout">
     <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('settings')}"></aside>
 
-    <main class="col">
+    <main class="col settings-page">
         <nav class="settings-breadcrumb" aria-label="Breadcrumb">
             <a th:href="@{/admin/settings}">Cài đặt hệ thống</a>
             <span class="sep" aria-hidden="true">/</span>
@@ -134,7 +135,7 @@
         </section>
 
         <!-- ===== Add / edit panel ===== -->
-        <section class="settings-form-panel" id="aiPromptForm">
+        <section class="settings-form-panel settings-prompt-panel" id="aiPromptForm">
             <h2 class="panel-title"
                 th:text="${form.id} != null ? 'Sửa system prompt' : 'Thêm system prompt'">Thêm system prompt</h2>
             <p class="panel-sub">Tạo và quản lý nội dung system message. Prompt chỉ có hiệu lực
@@ -180,7 +181,7 @@
 
                     <div class="form-row">
                         <label for="content">Nội dung prompt <span class="req" aria-hidden="true">*</span></label>
-                        <textarea id="content" th:field="*{content}" rows="10"
+                        <textarea id="content" class="settings-prompt-textarea" th:field="*{content}" rows="10"
                                   placeholder="Bạn là trợ giảng của một trường đại học..."
                                   maxlength="20000" required aria-required="true"
                                   th:attr="aria-invalid=${#fields.hasErrors('content')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('content')} ? 'content-error' : 'content-hint'"></textarea>

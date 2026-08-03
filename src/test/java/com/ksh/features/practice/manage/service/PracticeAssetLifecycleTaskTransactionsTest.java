@@ -43,23 +43,13 @@ class PracticeAssetLifecycleTaskTransactionsTest {
 
         verify(assets).findByStorageProfileCodeAndStorageKeyForUpdate(
                 "PRACTICE_AUTHORING", "lecturer-assets/shared.png");
-        verify(assets, never()).findByStorageKeyForUpdate(
-                "lecturer-assets/shared.png");
     }
 
     @Test
-    void legacyLifecycleReservationQueryCannotMatchProfileCodedTasks()
-            throws Exception {
-        org.springframework.data.jpa.repository.Query query =
-                PracticeAssetLifecycleTaskRepository.class
-                        .getMethod("findActiveBySourceStorageKeyForUpdate", String.class)
-                        .getAnnotation(org.springframework.data.jpa.repository.Query.class);
-
-        org.junit.jupiter.api.Assertions.assertNotNull(query);
-        org.junit.jupiter.api.Assertions.assertTrue(query.value()
-                .replaceAll("\\s+", " ")
-                .toLowerCase(java.util.Locale.ROOT)
-                .contains("t.storageprofilecode is null"));
+    void legacyLifecycleReservationQueryIsRetired() {
+        org.junit.jupiter.api.Assertions.assertThrows(NoSuchMethodException.class, () ->
+                PracticeAssetLifecycleTaskRepository.class.getMethod(
+                        "findActiveBySourceStorageKeyForUpdate", String.class));
     }
 
     @Test
@@ -94,7 +84,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         PracticeAssetLifecycleTask task = task("private/audio.mp3");
         LecturerAsset asset = asset("private/audio.mp3");
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/audio.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/audio.mp3"))
                 .thenReturn(List.of(asset));
         when(guard.isRetained(9L)).thenReturn(true);
 
@@ -105,7 +95,8 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         org.junit.jupiter.api.Assertions.assertEquals(
                 "PENDING", task.getStatus());
         org.junit.jupiter.api.Assertions.assertNotNull(task.getNextAttemptAt());
-        verify(assets).findByStorageKeyForUpdate("private/audio.mp3");
+        verify(assets).findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", "private/audio.mp3");
         verify(assets, never()).save(asset);
         verify(tasks).save(task);
     }
@@ -125,13 +116,14 @@ class PracticeAssetLifecycleTaskTransactionsTest {
                 LocalDateTime.now().plusMinutes(5));
         LecturerAsset asset = asset("private/audio.mp3");
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/audio.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/audio.mp3"))
                 .thenReturn(List.of(asset));
         when(guard.isRetained(9L)).thenReturn(true);
         PracticeAssetLifecycleTaskTransactions.ClaimedDelete claim =
                 new PracticeAssetLifecycleTaskTransactions.ClaimedDelete(
                         1L,
                         9L,
+                        "PRACTICE_AUTHORING",
                         PracticeAssetLifecycleTask.DELETE,
                         "private/audio.mp3",
                         "claim-a");
@@ -159,7 +151,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
                 new PracticeAssetLifecycleTaskTransactions(tasks, assets, guard);
         PracticeAssetLifecycleTask task = task("private/stale.mp3");
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/stale.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/stale.mp3"))
                 .thenReturn(List.of());
 
         assertNull(transactions.claim(1L));
@@ -184,7 +176,8 @@ class PracticeAssetLifecycleTaskTransactionsTest {
 
         assertNull(transactions.claim(1L));
 
-        verify(assets, never()).findByStorageKeyForUpdate(
+        verify(assets, never()).findByStorageProfileCodeAndStorageKeyForUpdate(
+                org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());
     }
 
@@ -203,7 +196,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         set(task, "claimToken", "old-claim");
         set(task, "nextAttemptAt", LocalDateTime.now().minusMinutes(1));
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/audio.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/audio.mp3"))
                 .thenReturn(List.of(asset));
 
         PracticeAssetLifecycleTaskTransactions.ClaimedDelete reclaimed =
@@ -217,6 +210,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
                 new PracticeAssetLifecycleTaskTransactions.ClaimedDelete(
                         1L,
                         9L,
+                        "PRACTICE_AUTHORING",
                         PracticeAssetLifecycleTask.DELETE,
                         "private/audio.mp3",
                         "old-claim"));
@@ -240,7 +234,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         retainedSibling.setStatus("DELETED");
         retainedSibling.setDeletedAt(LocalDateTime.now());
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/shared.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/shared.mp3"))
                 .thenReturn(List.of(candidate, retainedSibling));
         when(guard.isRetained(9L)).thenReturn(false);
         when(guard.isRetained(10L)).thenReturn(true);
@@ -273,7 +267,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         LecturerAsset activeSibling = asset(10L, "private/shared.mp3");
         activeSibling.setStatus("ACTIVE");
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/shared.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/shared.mp3"))
                 .thenReturn(List.of(candidate, activeSibling));
         when(guard.isRetained(9L)).thenReturn(false);
         when(guard.isRetained(10L)).thenReturn(false);
@@ -310,7 +304,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         retainedSibling.setStatus("DELETED");
         retainedSibling.setDeletedAt(LocalDateTime.now());
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/shared.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/shared.mp3"))
                 .thenReturn(List.of(candidate, retainedSibling));
         when(guard.isRetained(9L)).thenReturn(false);
         when(guard.isRetained(10L)).thenReturn(true);
@@ -318,6 +312,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
                 new PracticeAssetLifecycleTaskTransactions.ClaimedDelete(
                         1L,
                         9L,
+                        "PRACTICE_AUTHORING",
                         PracticeAssetLifecycleTask.DELETE,
                         "private/shared.mp3",
                         "claim-a");
@@ -351,7 +346,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         LecturerAsset sibling = asset(10L, "private/shared.mp3");
         sibling.setStatus("TEMPORARY");
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/shared.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/shared.mp3"))
                 .thenReturn(
                         List.of(candidate, sibling),
                         List.of(candidate),
@@ -399,14 +394,15 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         LecturerAsset current = asset("private/reused.mp3");
         current.setStatus("ACTIVE");
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/reused.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/reused.mp3"))
                 .thenReturn(List.of(current));
 
         assertNull(transactions.claim(1L));
 
         org.junit.jupiter.api.Assertions.assertEquals(
                 "COMPLETED", task.getStatus());
-        verify(assets).findByStorageKeyForUpdate("private/reused.mp3");
+        verify(assets).findByStorageProfileCodeAndStorageKeyForUpdate(
+                "PRACTICE_AUTHORING", "private/reused.mp3");
     }
 
     @Test
@@ -425,7 +421,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         LecturerAsset current = asset("private/reused.mp3");
         current.setStatus("TEMPORARY");
         when(tasks.findByIdForUpdate(1L)).thenReturn(Optional.of(task));
-        when(assets.findByStorageKeyForUpdate("private/reused.mp3"))
+        when(assets.findByStorageProfileCodeAndStorageKeyForUpdate("PRACTICE_AUTHORING", "private/reused.mp3"))
                 .thenReturn(List.of(), List.of(current));
 
         PracticeAssetLifecycleTaskTransactions.ClaimedDelete claim =
@@ -446,7 +442,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
     private static PracticeAssetLifecycleTask task(
             Long assetId, String operation, String key) throws Exception {
         PracticeAssetLifecycleTask task = new PracticeAssetLifecycleTask(
-                assetId, operation, key, null);
+                assetId, "PRACTICE_AUTHORING", operation, key, null);
         Field id = PracticeAssetLifecycleTask.class.getDeclaredField("id");
         id.setAccessible(true);
         id.set(task, 1L);
@@ -468,6 +464,7 @@ class PracticeAssetLifecycleTaskTransactionsTest {
         LecturerAsset asset = new LecturerAsset();
         asset.setId(id);
         asset.setStatus("DELETION_PENDING");
+        asset.setStorageProfileCode("PRACTICE_AUTHORING");
         asset.setStorageKey(key);
         return asset;
     }

@@ -14,7 +14,9 @@
 -->
 <header th:fragment="appHeader(active)" class="header">
   <a th:href="@{/}" class="header-logo">
-    <div class="logo-mark">K</div>
+    <span class="logo-mark" aria-hidden="true">
+      <img th:src="@{/images/brand/ksh-logo.png}" alt="">
+    </span>
     <div class="logo-text">KSH</div>
   </a>
 
@@ -176,7 +178,13 @@
       <button class="user-chip" data-toggle="dropdown" type="button"
               aria-label="Mở menu tài khoản" aria-haspopup="menu"
               aria-expanded="false">
-        <div class="avatar" sec:authentication="name" style="text-transform:uppercase;">?</div>
+        <span class="avatar" aria-hidden="true">
+          <img th:if="${#authentication.principal.avatarUrl != null and !#strings.isEmpty(#authentication.principal.avatarUrl)}"
+               th:src="${#authentication.principal.avatarUrl}" alt="">
+          <span class="avatar-initial"
+                th:unless="${#authentication.principal.avatarUrl != null and !#strings.isEmpty(#authentication.principal.avatarUrl)}"
+                sec:authentication="name">?</span>
+        </span>
         <span class="name" sec:authentication="principal.fullName">Người dùng</span>
         <svg class="ico ico-sm caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
       </button>

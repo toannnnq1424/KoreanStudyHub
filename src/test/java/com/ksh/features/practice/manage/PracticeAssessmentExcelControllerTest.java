@@ -53,7 +53,7 @@ class PracticeAssessmentExcelControllerTest {
                 .thenThrow(new AccessDeniedException("forbidden"));
 
         ResponseEntity<?> response = controller.createCandidate(
-                file, 7L, 1, "READING", "R1", null, user);
+                file, 7L, 1, "READING", "R1", user);
 
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals("Bạn không có quyền nhập dữ liệu vào bản nháp này.", error(response));
@@ -70,7 +70,7 @@ class PracticeAssessmentExcelControllerTest {
         when(excelService.requireExcelImportContext(
                 7L, 9L, 1, "READING", "R1"))
                 .thenReturn(context);
-        when(excelService.createCandidate(file, context, 9L, null))
+        when(excelService.createCandidate(file, context, 9L))
                 .thenReturn(new CandidateView(
                         "11111111-1111-4111-8111-111111111111",
                         CandidateState.REVIEWING,
@@ -80,7 +80,7 @@ class PracticeAssessmentExcelControllerTest {
                         List.of()));
 
         ResponseEntity<?> response = controller.createCandidate(
-                file, 7L, 1, "READING", "R1", null, user);
+                file, 7L, 1, "READING", "R1", user);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         Map<?, ?> body = (Map<?, ?>) response.getBody();

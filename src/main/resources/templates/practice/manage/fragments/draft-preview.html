@@ -24,11 +24,16 @@
     <div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">
       <div>
         <h3 id="preview-modal-title" style="margin:0;font-size:1.15rem;color:#0f172a">Xem trước đề thi</h3>
-        <span style="font-size:.75rem;color:#64748b">Giao diện learner dùng projection chuẩn, không lưu bản nháp</span>
+        <span style="font-size:.75rem;color:#64748b">Bản xem trước chỉ để kiểm tra; chọn “Chỉnh sửa nội dung” để quay lại vùng biên soạn trực tiếp.</span>
       </div>
       <button type="button" id="preview-modal-close" onclick="closePreviewModal()"
               aria-label="Đóng bản xem trước"
-              style="background:none;border:0;color:#64748b;cursor:pointer;padding:8px;font-size:1.2rem">×</button>
+              style="background:none;border:0;color:#64748b;cursor:pointer;padding:8px">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M18 6 6 18M6 6l12 12"></path>
+        </svg>
+      </button>
     </div>
     <div class="preview-group-nav">
       <span>Nhóm câu hỏi</span>
@@ -55,6 +60,7 @@
     </div>
     <div style="padding:14px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;background:#fff;gap:12px;align-items:center">
       <span id="preview-total-points-label" style="font-size:.8rem;color:#64748b;font-weight:600">Tổng điểm: 0đ</span>
+      <button type="button" onclick="returnFromPreviewToEditor()" class="btn-action btn-pri">Chỉnh sửa nội dung</button>
       <button type="button" onclick="closePreviewModal()" class="btn-action btn-sec">Đóng xem trước</button>
     </div>
   </div>

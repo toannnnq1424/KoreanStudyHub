@@ -21,6 +21,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
     private final Long id;
     private final String fullName;
     private final String username;
+    private final String avatarUrl;
     private final Collection<GrantedAuthority> authorities;
 
     public CustomOidcUserPrincipal(OidcUser delegate, User user) {
@@ -28,6 +29,7 @@ public class CustomOidcUserPrincipal implements OidcUser {
         this.id = user.getId();
         this.fullName = user.getFullName();
         this.username = user.getEmail();
+        this.avatarUrl = user.getAvatarUrl();
         this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
     }
 
@@ -50,6 +52,11 @@ public class CustomOidcUserPrincipal implements OidcUser {
      */
     public String getUsername() {
         return username;
+    }
+
+    /** Exposes the persisted KSH avatar rather than the provider profile image. */
+    public String getAvatarUrl() {
+        return avatarUrl;
     }
 
     // â”€â”€ OidcUser delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

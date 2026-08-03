@@ -27,14 +27,11 @@ public class ProfiledPracticeSpeakingAudioStorage implements SpeakingAudioStorag
     private static final String READY_PREFIX = "learner-speaking/ready/";
 
     private final StorageProfileObjectStore profiles;
-    private final LocalPrivateSpeakingAudioStorage legacyLocal;
     private final long maxAudioBytes;
 
     public ProfiledPracticeSpeakingAudioStorage(StorageProfileObjectStore profiles,
-                                                LocalPrivateSpeakingAudioStorage legacyLocal,
                                                 SpeakingAudioProperties properties) {
         this.profiles = profiles;
-        this.legacyLocal = legacyLocal;
         this.maxAudioBytes = properties.getMaxAudioBytes();
     }
 
@@ -87,11 +84,6 @@ public class ProfiledPracticeSpeakingAudioStorage implements SpeakingAudioStorag
     }
 
     @Override
-    public String promoteTemporary(String temporaryKey) {
-        return legacyLocal.promoteTemporary(temporaryKey);
-    }
-
-    @Override
     public String promoteTemporary(String storageProfileCode, String temporaryKey) {
         requireExact(storageProfileCode);
         String temporary = requireKey(temporaryKey, TEMPORARY_PREFIX);
@@ -111,13 +103,7 @@ public class ProfiledPracticeSpeakingAudioStorage implements SpeakingAudioStorag
     }
 
     @Override
-    public InputStream open(String storageKey) {
-        return legacyLocal.open(storageKey);
-    }
-
-    @Override
     public InputStream open(String storageProfileCode, String storageKey) {
-        if (storageProfileCode == null) return legacyLocal.open(storageKey);
         requireExact(storageProfileCode);
         try {
             StoredObject object = profiles.open(PROFILE, requireKey(storageKey, "learner-speaking/"));
@@ -130,28 +116,13 @@ public class ProfiledPracticeSpeakingAudioStorage implements SpeakingAudioStorag
     }
 
     @Override
-    public boolean exists(String storageKey) {
-        return legacyLocal.exists(storageKey);
-    }
-
-    @Override
     public boolean exists(String storageProfileCode, String storageKey) {
-        if (storageProfileCode == null) return legacyLocal.exists(storageKey);
         requireExact(storageProfileCode);
         return profiles.exists(PROFILE, requireKey(storageKey, "learner-speaking/"));
     }
 
     @Override
-    public void delete(String storageKey) {
-        legacyLocal.delete(storageKey);
-    }
-
-    @Override
     public void delete(String storageProfileCode, String storageKey) {
-        if (storageProfileCode == null) {
-            legacyLocal.delete(storageKey);
-            return;
-        }
         requireExact(storageProfileCode);
         try {
             profiles.delete(PROFILE, requireKey(storageKey, "learner-speaking/"));

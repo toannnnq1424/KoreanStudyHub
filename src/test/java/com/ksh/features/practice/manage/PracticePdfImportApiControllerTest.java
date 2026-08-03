@@ -1,53 +1,39 @@
 package com.ksh.features.practice.manage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.entities.PracticePdfImportSession;
-import com.ksh.entities.User;
-import com.ksh.features.messaging.service.MessagingService;
-import com.ksh.features.notifications.service.NotificationService;
-import com.ksh.features.practice.governance.PracticeAction;
-import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CandidateState;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.CandidateView;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
 import com.ksh.features.practice.manage.controller.PracticePdfImportApiController;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
-import com.ksh.features.practice.manage.service.PracticeImportSnapshotService;
-import com.ksh.features.practice.manage.service.PracticePdfAiGenerationService;
+import com.ksh.features.practice.manage.service.PracticeImportTargetService;
 import com.ksh.features.practice.manage.service.PracticePdfAiOrchestrator;
 import com.ksh.features.practice.manage.service.PracticePdfAiPayloadBuilder;
 import com.ksh.features.practice.manage.service.PracticePdfAuthoringCandidateAssembler;
 import com.ksh.features.practice.manage.service.PracticePdfAuthoringRequest;
-import com.ksh.features.practice.manage.service.PracticePdfPageExtractionService;
-import com.ksh.features.practice.manage.service.PracticePdfPayloadPreviewService;
-import com.ksh.features.practice.manage.service.PracticePdfPreviewService;
-import com.ksh.features.practice.manage.service.PracticePdfRegionService;
-import com.ksh.features.practice.manage.service.PracticePdfImportSessionService;
-import com.ksh.features.practice.preferences.PracticeKoreanFontPreferenceService;
-import com.ksh.security.AuthenticatedUserIdResolver;
+import com.ksh.features.practice.ai.transport.PracticeAiContractException;
 import com.ksh.security.KshUserDetails;
-import com.ksh.security.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 
-import java.time.LocalDateTime;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -55,45 +41,29 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = PracticePdfImportApiController.class)
-@Import(PracticePdfImportApiControllerTest.MethodSecurityConfiguration.class)
 class PracticePdfImportApiControllerTest {
 
-    @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
-
-    @MockitoBean private PracticePdfImportSessionService sessionService;
-    @MockitoBean private PracticePdfPreviewService previewService;
-    @MockitoBean private PracticePdfRegionService regionService;
-    @MockitoBean private PracticePdfPageExtractionService pageExtractionService;
-    @MockitoBean private LecturerAssetService assetService;
-    @MockitoBean private PracticePdfPayloadPreviewService payloadPreviewService;
-    @MockitoBean private PracticePdfAiPayloadBuilder payloadBuilder;
-    @MockitoBean private PracticePdfAiOrchestrator aiOrchestrator;
-    @MockitoBean private PracticePdfAuthoringCandidateAssembler candidateAssembler;
-    @MockitoBean private PracticePdfAiGenerationService generationService;
-    @MockitoBean private PracticeAuthorizationService authorizationService;
-    @MockitoBean private PracticeImportSnapshotService snapshotService;
-
-    // Security slice collaborators.
-    @MockitoBean private MessagingService messagingService;
-    @MockitoBean private NotificationService notificationService;
-    @MockitoBean private AuthenticatedUserIdResolver authenticatedUserIdResolver;
-    @MockitoBean private PracticeKoreanFontPreferenceService koreanFontPreferenceService;
-
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final LecturerAssetService assetService = mock(LecturerAssetService.class);
+    private final PracticeImportTargetService targetService =
+            mock(PracticeImportTargetService.class);
+    private final PracticePdfAiPayloadBuilder payloadBuilder =
+            mock(PracticePdfAiPayloadBuilder.class);
+    private final PracticePdfAiOrchestrator aiOrchestrator =
+            mock(PracticePdfAiOrchestrator.class);
+    private final PracticePdfAuthoringCandidateAssembler candidateAssembler =
+            mock(PracticePdfAuthoringCandidateAssembler.class);
+    private PracticePdfImportApiController controller;
     private KshUserDetails lecturer;
 
     @BeforeEach
     void setUp() {
-        lecturer = userDetails(1L, Role.LECTURER);
+        controller = new PracticePdfImportApiController(
+                assetService, targetService, payloadBuilder,
+                aiOrchestrator, candidateAssembler);
+        lecturer = mock(KshUserDetails.class);
+        when(lecturer.getId()).thenReturn(1L);
     }
 
     @Test
@@ -104,260 +74,135 @@ class PracticePdfImportApiControllerTest {
     }
 
     @Test
-    void learnerCannotEnterBasicAuthoringBoundary() throws Exception {
-        mockMvc.perform(multipart("/practice/manage/pdf-authoring/candidates")
-                        .param("sourceType", "TEXT")
-                        .param("operation", "EXTRACT")
-                        .param("sourceText", "private text")
-                        .param("draftId", "91")
-                        .param("testNo", "1")
-                        .param("skill", "READING")
-                        .param("lessonCode", "R1")
-                        .with(user(userDetails(2L, Role.STUDENT)))
-                        .with(csrf()))
-                .andExpect(status().isForbidden());
-
-        verifyNoInteractions(payloadBuilder, aiOrchestrator, candidateAssembler);
-    }
-
-    @Test
-    void getSessionNeverExposesGenerationClaimToken() throws Exception {
-        PracticePdfImportSession session = session(1L);
-        ReflectionTestUtils.setField(session, "generationClaimToken", "secret-token");
-        when(sessionService.getSession(100L, 1L)).thenReturn(session);
-
-        mockMvc.perform(get("/practice/manage/import-sessions/100")
-                        .with(user(lecturer)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(100))
-                .andExpect(jsonPath("$.generationClaimToken").doesNotExist());
-    }
-
-    @Test
-    void basicTextExtractCreatesCandidateAndReturnsReviewRouteOnly() throws Exception {
+    void basicTextCreatesCandidateAndReturnsReviewRouteOnly() {
         TargetRoute target = new TargetRoute(91L, 1, "READING", "R1");
         PracticePdfAuthoringRequest authoring = request(
                 PracticePdfAuthoringRequest.SourceType.TEXT,
-                SourceOperation.EXTRACT, target, null);
+                SourceOperation.EXTRACT, target);
         PracticePdfAiOrchestrator.GenerationResult generation = generation();
-        CandidateView candidate = candidate("candidate-7");
-        when(sessionService.resolveStartContext(91L, 1, "R1", 1L))
-                .thenReturn(new PracticePdfImportSessionService.PdfImportStartContext(
-                        new PracticePdfImportSessionService.TargetSectionOption(
-                                1, "R1", "READING", "Reading"), List.of()));
+        when(targetService.requireExactTarget(
+                91L, 1, "READING", "R1", 1L)).thenReturn(target);
         when(payloadBuilder.buildBasicText(
                 "Nguồn câu hỏi", SourceOperation.EXTRACT,
                 "Giữ nguyên đáp án", target)).thenReturn(authoring);
         when(aiOrchestrator.generate(authoring)).thenReturn(generation);
         when(candidateAssembler.assemble(authoring, generation, 1L))
-                .thenReturn(candidate);
+                .thenReturn(candidate("candidate-7"));
 
-        mockMvc.perform(multipart("/practice/manage/pdf-authoring/candidates")
-                        .param("sourceType", "TEXT")
-                        .param("operation", "EXTRACT")
-                        .param("sourceText", "Nguồn câu hỏi")
-                        .param("lecturerRequest", "Giữ nguyên đáp án")
-                        .param("draftId", "91")
-                        .param("testNo", "1")
-                        .param("skill", "READING")
-                        .param("lessonCode", "R1")
-                        .with(user(lecturer))
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.candidateId").value("candidate-7"))
-                .andExpect(jsonPath("$.state").value("REVIEWING"))
-                .andExpect(jsonPath("$.reviewUrl")
-                        .value("/practice/manage/authoring-candidates/candidate-7"))
-                .andExpect(jsonPath("$.id").doesNotExist())
-                .andExpect(jsonPath("$.draftId").doesNotExist());
+        ResponseEntity<?> response = controller.createBasicCandidate(
+                "TEXT", "EXTRACT", "Nguồn câu hỏi", null,
+                "Giữ nguyên đáp án", 91L, 1, "READING", "R1",
+                null, null, lecturer);
 
-        verify(candidateAssembler).assemble(authoring, generation, 1L);
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).isInstanceOf(Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body).containsEntry("candidateId", "candidate-7")
+                .containsEntry("state", "REVIEWING")
+                .containsEntry("reviewUrl",
+                        "/practice/manage/authoring-candidates/candidate-7")
+                .doesNotContainKeys("draftId", "sessionId", "publishedId");
     }
 
     @Test
-    void basicPdfGenerateCreatesPrivateSessionThenCandidate() throws Exception {
+    void basicPdfIsPassedDirectlyToRequestLocalBuilder() {
         TargetRoute target = new TargetRoute(91L, 1, "READING", "R1");
-        PracticePdfImportSession uploaded = session(1L);
-        uploaded.setLinkedDraftId(91L);
-        uploaded.setTargetTestNo(1);
-        uploaded.setTargetSkill("READING");
-        uploaded.setTargetLessonCode("R1");
-        uploaded.setSelectedStartPage(1);
-        uploaded.setSelectedEndPage(1);
         PracticePdfAuthoringRequest authoring = request(
                 PracticePdfAuthoringRequest.SourceType.PDF,
-                SourceOperation.GENERATE, target, 100L);
+                SourceOperation.GENERATE, target);
         PracticePdfAiOrchestrator.GenerationResult generation = generation();
-        when(sessionService.resolveStartContext(91L, 1, "R1", 1L))
-                .thenReturn(new PracticePdfImportSessionService.PdfImportStartContext(
-                        new PracticePdfImportSessionService.TargetSectionOption(
-                                1, "R1", "READING", "Reading"), List.of()));
-        when(sessionService.createSession(
-                eq(1L), any(), eq(null), eq(91L), eq(1),
-                eq("READING"), eq("R1"))).thenReturn(uploaded);
-        when(sessionService.updatePageRange(100L, 1, 1, 1L))
-                .thenReturn(uploaded);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "private.pdf", MediaType.APPLICATION_PDF_VALUE,
+                "%PDF-fake".getBytes(StandardCharsets.US_ASCII));
+        when(targetService.requireExactTarget(
+                91L, 1, "READING", "R1", 1L)).thenReturn(target);
         when(payloadBuilder.buildBasicPdf(
-                uploaded, SourceOperation.GENERATE, "Tạo câu mới"))
-                .thenReturn(authoring);
+                file, 2, 3, SourceOperation.GENERATE,
+                "Tạo câu mới", target)).thenReturn(authoring);
         when(aiOrchestrator.generate(authoring)).thenReturn(generation);
         when(candidateAssembler.assemble(authoring, generation, 1L))
                 .thenReturn(candidate("candidate-pdf"));
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "private.pdf", MediaType.APPLICATION_PDF_VALUE,
-                "%PDF-fake-bounded-test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-        mockMvc.perform(multipart("/practice/manage/pdf-authoring/candidates")
-                        .file(file)
-                        .param("sourceType", "PDF")
-                        .param("operation", "GENERATE")
-                        .param("lecturerRequest", "Tạo câu mới")
-                        .param("draftId", "91")
-                        .param("testNo", "1")
-                        .param("skill", "READING")
-                        .param("lessonCode", "R1")
-                        .param("startPage", "1")
-                        .param("endPage", "1")
-                        .with(user(lecturer)).with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.candidateId").value("candidate-pdf"))
-                .andExpect(jsonPath("$.reviewUrl")
-                        .value("/practice/manage/authoring-candidates/candidate-pdf"));
+        ResponseEntity<?> response = controller.createBasicCandidate(
+                "PDF", "GENERATE", null, file, "Tạo câu mới",
+                91L, 1, "READING", "R1", 2, 3, lecturer);
 
-        verify(sessionService).createSession(
-                eq(1L), any(), eq(null), eq(91L), eq(1),
-                eq("READING"), eq("R1"));
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         verify(payloadBuilder).buildBasicPdf(
-                uploaded, SourceOperation.GENERATE, "Tạo câu mới");
+                file, 2, 3, SourceOperation.GENERATE, "Tạo câu mới", target);
     }
 
     @Test
-    void mismatchedBasicTargetStopsBeforePdfStorageOrProvider() throws Exception {
-        when(sessionService.resolveStartContext(91L, 1, "R1", 1L))
-                .thenReturn(new PracticePdfImportSessionService.PdfImportStartContext(
-                        new PracticePdfImportSessionService.TargetSectionOption(
-                                2, "R2", "READING", "Reading 2"), List.of()));
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "private.pdf", MediaType.APPLICATION_PDF_VALUE,
-                "%PDF-fake-bounded-test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-
-        mockMvc.perform(multipart("/practice/manage/pdf-authoring/candidates")
-                        .file(file)
-                        .param("sourceType", "PDF")
-                        .param("operation", "EXTRACT")
-                        .param("draftId", "91")
-                        .param("testNo", "1")
-                        .param("skill", "READING")
-                        .param("lessonCode", "R1")
-                        .with(user(lecturer)).with(csrf()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code")
-                        .value("PDF_AUTHORING_REQUEST_INVALID"));
-
-        verify(sessionService, org.mockito.Mockito.never()).createSession(
-                any(), any(), any(), any(), any(), any(), any());
-        verifyNoInteractions(payloadBuilder, aiOrchestrator, candidateAssembler);
-    }
-
-    @Test
-    void duplicateAdvancedGenerationDoesNotCallProvider() throws Exception {
-        when(generationService.claim(100L, 1L)).thenReturn(
-                new PracticePdfAiGenerationService.ClaimResult(
-                        PracticePdfAiGenerationService.Outcome.IN_PROGRESS,
-                        null, null,
-                        LocalDateTime.parse("2026-07-28T08:00:00"), null));
-
-        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
-                        .with(user(lecturer)).with(csrf()))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value("PROCESSING"));
-
-        verifyNoInteractions(payloadBuilder, aiOrchestrator, candidateAssembler);
-    }
-
-    @Test
-    void legacyCompletedAdvancedSessionCannotReturnOrMergeDraft() throws Exception {
-        when(generationService.claim(100L, 1L)).thenReturn(
-                new PracticePdfAiGenerationService.ClaimResult(
-                        PracticePdfAiGenerationService.Outcome.COMPLETED,
-                        null, 91L, null, null));
-
-        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
-                        .with(user(lecturer)).with(csrf()))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code")
-                        .value("LEGACY_PDF_GENERATION_ALREADY_COMPLETED"));
-
-        verifyNoInteractions(payloadBuilder, aiOrchestrator, candidateAssembler,
-                authorizationService);
-    }
-
-    @Test
-    void claimedAdvancedGenerationUsesFencedSessionAndCreatesCandidate() throws Exception {
-        PracticePdfImportSession claimed = session(1L);
-        claimed.setLinkedDraftId(91L);
-        claimed.setTargetTestNo(1);
-        claimed.setTargetSkill("READING");
-        claimed.setTargetLessonCode("R1");
-        PracticePdfAiPayloadBuilder.PayloadInfo payload =
-                new PracticePdfAiPayloadBuilder.PayloadInfo(
-                        null, "", List.of(), Map.of(), List.of());
+    void unavailablePurposeReturnsStableActionableCodeWithoutCallingItForbidden() {
         TargetRoute target = new TargetRoute(91L, 1, "READING", "R1");
         PracticePdfAuthoringRequest authoring = request(
-                PracticePdfAuthoringRequest.SourceType.ADVANCED_PDF,
-                SourceOperation.GENERATE, target, 100L);
-        PracticePdfAiOrchestrator.GenerationResult generation = generation();
-        when(generationService.claim(100L, 1L)).thenReturn(
-                new PracticePdfAiGenerationService.ClaimResult(
-                        PracticePdfAiGenerationService.Outcome.CLAIMED,
-                        "claim-token", null,
-                        LocalDateTime.parse("2026-07-28T08:00:00"), claimed));
-        when(payloadBuilder.buildPayload(claimed)).thenReturn(payload);
-        when(payloadBuilder.buildAdvancedAuthoringRequest(
-                claimed, payload, SourceOperation.GENERATE, "Tạo biến thể"))
+                PracticePdfAuthoringRequest.SourceType.TEXT,
+                SourceOperation.EXTRACT, target);
+        when(targetService.requireExactTarget(
+                91L, 1, "READING", "R1", 1L)).thenReturn(target);
+        when(payloadBuilder.buildBasicText(
+                "Nguồn câu hỏi", SourceOperation.EXTRACT, "", target))
                 .thenReturn(authoring);
-        when(aiOrchestrator.generate(authoring)).thenReturn(generation);
-        when(candidateAssembler.assemble(authoring, generation, 1L))
-                .thenReturn(candidate("candidate-advanced"));
+        when(aiOrchestrator.generate(authoring)).thenThrow(
+                new PracticeAiContractException("PROVIDER_PURPOSE_UNAVAILABLE", false));
 
-        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"operation\":\"GENERATE\",\"lecturerRequest\":\"Tạo biến thể\"}")
-                        .with(user(lecturer)).with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.candidateId").value("candidate-advanced"));
+        ResponseEntity<?> response = controller.createBasicCandidate(
+                "TEXT", "EXTRACT", "Nguồn câu hỏi", null, "",
+                91L, 1, "READING", "R1", null, null, lecturer);
 
-        verify(authorizationService).requireDraft(91L, 1L, PracticeAction.EDIT);
-        verify(generationService).release(100L, 1L, "claim-token", "REVIEWING");
-        verifyNoInteractions(sessionService);
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body)
+                .containsEntry("code", "PRACTICE_PDF_AUTHORING_UNAVAILABLE")
+                .containsEntry("causeCode", "PROVIDER_PURPOSE_UNAVAILABLE");
+        assertThat(body.get("error").toString()).contains("PDF không bị chặn")
+                .doesNotContain("bị cấm");
+        verifyNoInteractions(candidateAssembler);
     }
 
     @Test
-    void revokedAdvancedTargetStopsBeforeProviderAndReleasesClaim() throws Exception {
-        PracticePdfImportSession claimed = session(1L);
-        claimed.setLinkedDraftId(91L);
-        when(generationService.claim(100L, 1L)).thenReturn(
-                new PracticePdfAiGenerationService.ClaimResult(
-                        PracticePdfAiGenerationService.Outcome.CLAIMED,
-                        "claim-token", null,
-                        LocalDateTime.parse("2026-07-28T08:00:00"), claimed));
+    void revokedTargetStopsBeforeSourceOrProviderProcessing() {
         doThrow(new AccessDeniedException("revoked"))
-                .when(authorizationService)
-                .requireDraft(91L, 1L, PracticeAction.EDIT);
+                .when(targetService)
+                .requireExactTarget(91L, 1, "READING", "R1", 1L);
 
-        mockMvc.perform(post("/practice/manage/import-sessions/100/generate")
-                        .with(user(lecturer)).with(csrf()))
-                .andExpect(status().isForbidden());
+        assertThrows(AccessDeniedException.class,
+                () -> controller.createBasicCandidate(
+                        "TEXT", "EXTRACT", "private text", null, "",
+                        91L, 1, "READING", "R1", null, null, lecturer));
 
-        verify(generationService).release(
-                100L, 1L, "claim-token", "READY_FOR_AI");
         verifyNoInteractions(payloadBuilder, aiOrchestrator, candidateAssembler);
+    }
+
+    @Test
+    void exposedRoutesContainNoPdfSessionWorkspaceSurface() {
+        List<String> routes = Arrays.stream(
+                        PracticePdfImportApiController.class.getDeclaredMethods())
+                .flatMap(method -> Arrays.stream(routeValues(method)))
+                .toList();
+
+        assertThat(routes).containsExactlyInAnyOrder(
+                "/pdf-authoring/candidates",
+                "/assets",
+                "/assets/{assetId}",
+                "/drafts/{draftId}/assets");
+        assertThat(routes).noneMatch(route -> route.contains("import-sessions"));
+    }
+
+    private static String[] routeValues(Method method) {
+        PostMapping post = method.getAnnotation(PostMapping.class);
+        if (post != null) return post.value();
+        GetMapping get = method.getAnnotation(GetMapping.class);
+        if (get != null) return get.value();
+        DeleteMapping delete = method.getAnnotation(DeleteMapping.class);
+        return delete == null ? new String[0] : delete.value();
     }
 
     private PracticePdfAiOrchestrator.GenerationResult generation() {
         return new PracticePdfAiOrchestrator.GenerationResult(
-                objectMapper.createObjectNode(),
-                objectMapper.createObjectNode(),
+                objectMapper.createObjectNode(), objectMapper.createObjectNode(),
                 "authoring-v1", "request-1", "provider-request-1");
     }
 
@@ -369,40 +214,13 @@ class PracticePdfImportApiControllerTest {
     private static PracticePdfAuthoringRequest request(
             PracticePdfAuthoringRequest.SourceType sourceType,
             SourceOperation operation,
-            TargetRoute target,
-            Long sessionId) {
+            TargetRoute target) {
         String text = "Nguồn câu hỏi";
         return new PracticePdfAuthoringRequest(
                 sourceType, operation, "source.txt",
                 "sha256:" + "a".repeat(64), target, "",
                 List.of(new PracticePdfAuthoringRequest.SourceEvidence(
                         "TEXT_SPAN", "source-1", null, text.length(), text)),
-                Map.of("trust", "UNTRUSTED_SOURCE_CONTENT"), List.of(), sessionId);
-    }
-
-    private static PracticePdfImportSession session(Long ownerId) {
-        PracticePdfImportSession session = new PracticePdfImportSession(
-                ownerId, "test.pdf", "path/to/test.pdf", 1, "UPLOADED",
-                LocalDateTime.now(), LocalDateTime.now(),
-                LocalDateTime.now().plusHours(1));
-        session.setId(100L);
-        return session;
-    }
-
-    private static KshUserDetails userDetails(Long id, Role role) {
-        User user = mock(User.class);
-        when(user.getId()).thenReturn(id);
-        when(user.getRole()).thenReturn(role);
-        when(user.getEmail()).thenReturn(role.name().toLowerCase() + "@ksh.edu.vn");
-        when(user.getPasswordHash()).thenReturn("encodedPassword");
-        when(user.getFullName()).thenReturn(role.name());
-        when(user.isActive()).thenReturn(true);
-        when(user.isLocked()).thenReturn(false);
-        return new KshUserDetails(user);
-    }
-
-    @TestConfiguration
-    @EnableMethodSecurity
-    static class MethodSecurityConfiguration {
+                Map.of("trust", "UNTRUSTED_SOURCE_CONTENT"), List.of());
     }
 }

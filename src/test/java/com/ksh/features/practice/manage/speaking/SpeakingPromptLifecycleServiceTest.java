@@ -1,7 +1,6 @@
 package com.ksh.features.practice.manage.speaking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.features.practice.manage.service.PracticeMaterialReferenceService;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
 import org.junit.jupiter.api.Test;
@@ -97,83 +96,6 @@ class SpeakingPromptLifecycleServiceTest {
     }
 
     @Test
-    void sameClientChangedToNonSpeakingRemovesStagingAndQueuesAsset() {
-        com.ksh.entities.PracticeMaterialReference staging =
-                PracticeMaterialReference.draft(
-                        44L,
-                        20L,
-                        com.ksh.features.practice.manage.service
-                                .PracticeAssessmentExcelService
-                                .EXCEL_SPEAKING_STAGING,
-                        "same-client",
-                        null);
-        setReferenceId(staging, 90L);
-        when(sources.findByDraftIdForUpdate(20L)).thenReturn(List.of());
-        when(references.referencesForDraft(20L))
-                .thenReturn(List.of(staging));
-
-        service.reconcileDraftQuestions(
-                20L,
-                7L,
-                7L,
-                """
-                {"sections":[{"groups":[{"questions":[
-                  {"clientId":"same-client","questionType":"ESSAY"}
-                ]}]}]}
-                """);
-
-        verify(references).unlinkDraftReference(20L, 90L);
-        verify(lecturerAssets).queuePrivatePromptAssetIfUnreferenced(44L);
-    }
-
-    @Test
-    void sameSpeakingClientWithReplacementAudioRemovesOldStaging() {
-        com.ksh.entities.PracticeMaterialReference staging =
-                PracticeMaterialReference.draft(
-                        44L,
-                        20L,
-                        com.ksh.features.practice.manage.service
-                                .PracticeAssessmentExcelService
-                                .EXCEL_SPEAKING_STAGING,
-                        "same-client",
-                        null);
-        setReferenceId(staging, 91L);
-        SpeakingPromptSource current =
-                source(10L, 20L, "same-client", 7L, null);
-        when(sources.findByDraftIdForUpdate(20L))
-                .thenReturn(List.of(current));
-        when(references.referencesForDraft(20L))
-                .thenReturn(List.of(staging));
-        when(tasks.findBySourceIdsForUpdate(List.of(10L)))
-                .thenReturn(List.of());
-
-        service.reconcileDraftQuestions(
-                20L,
-                7L,
-                7L,
-                """
-                {"sections":[{"groups":[{"questions":[{
-                  "clientId":"same-client",
-                  "questionType":"SPEAKING",
-                  "questionContent":{"speakingDelivery":{
-                    "promptAudioReference":"/practice/materials/55/content"
-                  }}
-                }]}]}]}
-                """);
-
-        verify(references).unlinkDraftReference(20L, 91L);
-        verify(references).unlinkDraft(
-                20L,
-                40L,
-                SpeakingPromptAssetService.ORIGINAL_PLACEMENT,
-                "same-client");
-        verify(sources).deleteAll(List.of(current));
-        verify(sources).flush();
-        verify(lecturerAssets).queuePrivatePromptAssetIfUnreferenced(44L);
-        verify(lecturerAssets).queuePrivatePromptAssetIfUnreferenced(40L);
-    }
-
-    @Test
     void sameSpeakingClientWithoutManagedReplacementRetainsCurrentSource() {
         SpeakingPromptSource current =
                 source(10L, 20L, "same-client", 7L, null);
@@ -202,20 +124,6 @@ class SpeakingPromptLifecycleServiceTest {
         verify(lecturerAssets, never())
                 .queuePrivatePromptAssetIfUnreferenced(
                         org.mockito.ArgumentMatchers.anyLong());
-    }
-
-    private static void setReferenceId(
-            com.ksh.entities.PracticeMaterialReference reference,
-            Long id) {
-        try {
-            java.lang.reflect.Field field =
-                    com.ksh.entities.PracticeMaterialReference.class
-                            .getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(reference, id);
-        } catch (ReflectiveOperationException exception) {
-            throw new AssertionError(exception);
-        }
     }
 
     private static SpeakingPromptSource source(

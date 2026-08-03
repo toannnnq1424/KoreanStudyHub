@@ -45,17 +45,12 @@ public class PracticeSpeakingMediaPlaybackService {
                 .map(PlaybackDescriptor::from)
                 .orElseThrow(PracticeSpeakingMediaPlaybackNotFoundException::new);
         descriptor.validate(properties.getMaxAudioBytes());
-        if (descriptor.storageProfileCode() == null
-                && descriptor.storageProvider() != PracticeSpeakingStorageProvider.LOCAL) {
-            throw new PracticeSpeakingMediaPlaybackNotFoundException();
-        }
         try {
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
                 throw new IllegalStateException("Playback storage open must not run in a transaction.");
             }
-            InputStream input = descriptor.storageProfileCode() == null
-                    ? storage.open(descriptor.storageKey())
-                    : storage.open(descriptor.storageProfileCode(), descriptor.storageKey());
+            InputStream input = storage.open(
+                    descriptor.storageProfileCode(), descriptor.storageKey());
             return new PlaybackStream(descriptor.mimeType(), descriptor.byteSize(), input);
         } catch (SpeakingAudioValidationException ex) {
             throw new PracticeSpeakingMediaPlaybackNotFoundException();
@@ -81,8 +76,7 @@ public class PracticeSpeakingMediaPlaybackService {
 
         private void validate(long maxAudioBytes) {
             if (storageProvider == null || storageKey == null || storageKey.isBlank()
-                    || (storageProfileCode != null
-                        && !"PRACTICE_SPEAKING".equals(storageProfileCode))) {
+                    || !"PRACTICE_SPEAKING".equals(storageProfileCode)) {
                 throw new PracticeSpeakingMediaPlaybackNotFoundException();
             }
             if (byteSize <= 0L || byteSize > maxAudioBytes) {

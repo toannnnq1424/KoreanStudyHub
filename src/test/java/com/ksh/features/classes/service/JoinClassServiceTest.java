@@ -521,6 +521,7 @@ class JoinClassServiceTest {
     private static ClassEntity buildClass() {
         ClassEntity c = new ClassEntity("Demo", OWNER_ID, OWNER_ID, null, null, null, 100);
         ReflectionTestUtils.setField(c, "id", CLASS_ID);
+        c.approve(OWNER_ID, LocalDateTime.now());
         return c;
     }
 

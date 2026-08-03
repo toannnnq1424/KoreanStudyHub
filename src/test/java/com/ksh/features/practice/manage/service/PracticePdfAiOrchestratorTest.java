@@ -5,7 +5,6 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.AiSystemPrompt;
-import com.ksh.entities.PracticeAiRequestAudit;
 import com.ksh.features.admin.settings.repository.AiSystemPromptRepository;
 import com.ksh.features.practice.ai.controlplane.PracticeAiPurpose;
 import com.ksh.features.practice.ai.transport.PracticeAiContractException;
@@ -15,7 +14,6 @@ import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationReques
 import com.ksh.features.practice.ai.transport.PracticeStructuredGenerationResponse;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceOperation;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.TargetRoute;
-import com.ksh.features.practice.repository.PracticeAiRequestAuditRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
@@ -45,11 +43,11 @@ class PracticePdfAiOrchestratorTest {
                         "", "", PracticeModelCapabilityProfile.openAiAssessmentV1(),
                         false, 0L, -1L, ""));
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                objectMapper, mock(PracticeAiRequestAuditRepository.class), port);
+                objectMapper, port);
 
         PracticeAiContractException failure = assertThrows(
                 PracticeAiContractException.class,
-                () -> orchestrator.generate(request(123L, SourceOperation.EXTRACT)));
+                () -> orchestrator.generate(request(SourceOperation.EXTRACT)));
 
         assertThat(failure.category()).isEqualTo("PROVIDER_PURPOSE_UNAVAILABLE");
         verify(port, never()).generate(any());
@@ -67,10 +65,10 @@ class PracticePdfAiOrchestratorTest {
                 objectMapper.readTree("{\"schemaVersion\":\"practice-pdf-authoring-output-v1\"}"),
                 "PRACTICE_PRIMARY", "safe-model", "stop", "fake-request"));
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                objectMapper, mock(PracticeAiRequestAuditRepository.class), port, prompts);
+                objectMapper, port, prompts);
 
         PracticePdfAiOrchestrator.GenerationResult result = orchestrator.generate(
-                request(null, SourceOperation.GENERATE));
+                request(SourceOperation.GENERATE));
 
         ArgumentCaptor<PracticeStructuredGenerationRequest> captor =
                 ArgumentCaptor.forClass(PracticeStructuredGenerationRequest.class);
@@ -107,11 +105,11 @@ class PracticePdfAiOrchestratorTest {
                 objectMapper.readTree("{}"), "PRACTICE_PRIMARY", "safe-model",
                 "stop", "provider-request"));
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                objectMapper, mock(PracticeAiRequestAuditRepository.class), port);
+                objectMapper, port);
 
         PracticeAiContractException failure = assertThrows(
                 PracticeAiContractException.class,
-                () -> orchestrator.generate(request(null, SourceOperation.EXTRACT)));
+                () -> orchestrator.generate(request(SourceOperation.EXTRACT)));
 
         assertThat(failure.category()).isEqualTo("PROVIDER_BINDING_CHANGED");
     }
@@ -124,12 +122,12 @@ class PracticePdfAiOrchestratorTest {
                 objectMapper.readTree("{}"), "PRACTICE_PRIMARY", "safe-model",
                 "stop", "provider-request"));
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                objectMapper, mock(PracticeAiRequestAuditRepository.class), port);
+                objectMapper, port);
 
         PracticePdfAiOrchestrator.GenerationResult first = orchestrator.generate(
-                request(null, SourceOperation.GENERATE, "Tạo ba câu"));
+                request(SourceOperation.GENERATE, "Tạo ba câu"));
         PracticePdfAiOrchestrator.GenerationResult second = orchestrator.generate(
-                request(null, SourceOperation.GENERATE, "Tạo năm câu"));
+                request(SourceOperation.GENERATE, "Tạo năm câu"));
 
         ArgumentCaptor<PracticeStructuredGenerationRequest> sent =
                 ArgumentCaptor.forClass(PracticeStructuredGenerationRequest.class);
@@ -141,30 +139,21 @@ class PracticePdfAiOrchestratorTest {
     }
 
     @Test
-    void providerFailureAuditAndLogsOmitSourcePromptAndProviderBody() {
-        PracticeAiRequestAuditRepository audits =
-                mock(PracticeAiRequestAuditRepository.class);
+    void providerFailureLogsOmitSourcePromptAndProviderBody() {
         PracticeStructuredGenerationPort port = availablePort();
         when(port.generate(any())).thenThrow(
                 new PracticeAiContractException("PROVIDER_HTTP_ERROR", false));
         PracticePdfAiOrchestrator orchestrator = new PracticePdfAiOrchestrator(
-                objectMapper, audits, port);
+                objectMapper, port);
 
         String logs = captureLogs(PracticePdfAiOrchestrator.class, () ->
                 assertThrows(PracticeAiContractException.class, () ->
-                        orchestrator.generate(request(123L, SourceOperation.EXTRACT))));
+                        orchestrator.generate(request(SourceOperation.EXTRACT))));
 
-        assertThat(logs).contains("sessionId=123");
+        assertThat(logs).contains("sourceType=TEXT");
         assertThat(logs).doesNotContain(
                 "PRIVATE_PROVIDER_RESPONSE", "PRIVATE_PDF_DOCUMENT_TEXT",
                 "SECRET_API_KEY_VALUE", "PRIVATE_LECTURER_REQUEST");
-        ArgumentCaptor<PracticeAiRequestAudit> audit =
-                ArgumentCaptor.forClass(PracticeAiRequestAudit.class);
-        verify(audits).save(audit.capture());
-        assertThat(audit.getValue().getErrorCode()).isEqualTo("PROVIDER_HTTP_ERROR");
-        assertThat(audit.getValue().getPayloadSummaryJson())
-                .contains("PRACTICE_PDF_AUTHORING", "bindingRevision")
-                .doesNotContain("PRIVATE_PDF_DOCUMENT_TEXT", "PRIVATE_LECTURER_REQUEST");
     }
 
     private PracticeStructuredGenerationPort availablePort() {
@@ -181,30 +170,25 @@ class PracticePdfAiOrchestratorTest {
                 revision, 2L, "PRACTICE_PRIMARY");
     }
 
-    private static PracticePdfAuthoringRequest request(
-            Long sessionId,
-            SourceOperation operation) {
-        return request(sessionId, operation, "PRIVATE_LECTURER_REQUEST");
+    private static PracticePdfAuthoringRequest request(SourceOperation operation) {
+        return request(operation, "PRIVATE_LECTURER_REQUEST");
     }
 
     private static PracticePdfAuthoringRequest request(
-            Long sessionId,
             SourceOperation operation,
             String lecturerRequest) {
         String source = "PRIVATE_PDF_DOCUMENT_TEXT";
         return new PracticePdfAuthoringRequest(
-                sessionId == null ? PracticePdfAuthoringRequest.SourceType.TEXT
-                        : PracticePdfAuthoringRequest.SourceType.PDF,
+                PracticePdfAuthoringRequest.SourceType.TEXT,
                 operation,
-                sessionId == null ? "pasted-text.txt" : "private.pdf",
+                "pasted-text.txt",
                 "sha256:" + "6".repeat(64),
                 new TargetRoute(91L, 1, "READING", "R1"),
                 lecturerRequest,
                 List.of(new PracticePdfAuthoringRequest.SourceEvidence(
                         "TEXT_SPAN", "source-1", null, source.length(), source)),
                 Map.of("trust", "UNTRUSTED_SOURCE_CONTENT", "text", source),
-                List.of(),
-                sessionId);
+                List.of());
     }
 
     private static String captureLogs(Class<?> loggerClass, Runnable action) {

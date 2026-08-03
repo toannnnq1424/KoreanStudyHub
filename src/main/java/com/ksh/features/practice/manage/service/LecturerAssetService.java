@@ -78,69 +78,6 @@ public class LecturerAssetService {
     }
 
     @Transactional
-    public LecturerAsset createTemporaryAsset(Long ownerId, Long sessionId, Long regionId, InputStream content,
-                                              String originalFilename, String mimeType, Integer w, Integer h, Long sizeBytes,
-                                              Integer sourcePageNumber, Double cropX, Double cropY, Double cropWidth, Double cropHeight,
-                                              String lecturerNote) throws IOException {
-        String relativePath = freshStorageNamespace(
-                "lecturer-assets/" + ownerId + "/imports/" + sessionId
-                        + "/temporary");
-        
-        // Store physically via AssetStorageService (which computes SHA-256 and saves as SHA-256.ext)
-        AssetStorageService.StoredAsset stored = assetStorage.store(content, originalFilename, relativePath);
-        requireFreshStorageResult(relativePath, stored);
-        registerRollbackCleanup(stored.storageKey(), stored.newlyCreated());
-
-        // Deduplication: Check if lecturer already owns active asset with same SHA-256
-        List<LecturerAsset> duplicate = assetRepository.findByOwnerLecturerIdAndSha256AndStatusAndDeletedAtIsNull(ownerId, stored.sha256(), "ACTIVE");
-        if (!duplicate.isEmpty()) {
-            LecturerAsset existing = duplicate.get(0);
-            log.info("[AssetService] Reusing active assetId={} after content deduplication", existing.getId());
-            if (stored.newlyCreated()
-                    && !stored.storageKey().equals(existing.getStorageKey())) {
-                enqueueLifecycle(
-                        null,
-                        PracticeAssetLifecycleTask.ORPHAN_RECONCILE,
-                        stored.storageKey(),
-                        null);
-            }
-            return existing;
-        }
-
-        // Create new LecturerAsset entity
-        LecturerAsset asset = new LecturerAsset();
-        asset.setOwnerLecturerId(ownerId);
-        asset.setSourceImportSessionId(sessionId);
-        asset.setSourceRegionId(regionId);
-        asset.setStorageProvider(stored.storageProvider());
-        asset.setStorageProfileCode(stored.storageProfileCode());
-        asset.setStorageKey(stored.storageKey());
-        asset.setOriginalFilename(originalFilename);
-        asset.setMimeType(mimeType);
-        asset.setContentVerified(true);
-        asset.setWidth(w);
-        asset.setHeight(h);
-        asset.setFileSize(stored.sizeBytes());
-        asset.setSha256(stored.sha256());
-        asset.setAssetType("IMAGE");
-        asset.setTitle(validatedAssetTitle(
-                originalFilename, "Imported Crop"));
-        asset.setSourcePageNumber(sourcePageNumber);
-        asset.setCropX(cropX);
-        asset.setCropY(cropY);
-        asset.setCropWidth(cropWidth);
-        asset.setCropHeight(cropHeight);
-        asset.setLecturerNote(lecturerNote);
-        asset.setStatus("TEMPORARY");
-        asset.setVisibility("PRIVATE");
-        asset.setCreatedAt(LocalDateTime.now());
-        asset.setUpdatedAt(LocalDateTime.now());
-
-        reserveStorageKeyForAsset(stored.storageKey());
-        return assetRepository.save(asset);
-    }
-
-    @Transactional
     public LecturerAsset createDraftUploadAsset(
             Long draftId, Long actorId,
             org.springframework.web.multipart.MultipartFile file,
@@ -285,10 +222,8 @@ public class LecturerAssetService {
             asset.setCreatedAt(LocalDateTime.now());
             asset.setUpdatedAt(LocalDateTime.now());
             if ("IMAGE".equalsIgnoreCase(assetType)) {
-                AssetStorageService.AssetMetadata metadata =
-                        registeredStorageProfile == null
-                                ? assetStorage.inspect(registeredStorageKey)
-                                : assetStorage.inspect(registeredStorageProfile, registeredStorageKey);
+                AssetStorageService.AssetMetadata metadata = assetStorage.inspect(
+                        registeredStorageProfile, registeredStorageKey);
                 asset.setWidth(metadata.width());
                 asset.setHeight(metadata.height());
             }
@@ -332,9 +267,8 @@ public class LecturerAssetService {
              * takes the same order before sharing an existing physical key.
              */
             reserveStorageKeyForAsset(candidate.getStorageProfileCode(), storageKey);
-            List<LecturerAsset> lockedRows = candidate.getStorageProfileCode() == null
-                    ? assetRepository.findByStorageKeyForUpdate(storageKey)
-                    : assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
+            List<LecturerAsset> lockedRows =
+                    assetRepository.findByStorageProfileCodeAndStorageKeyForUpdate(
                             candidate.getStorageProfileCode(), storageKey);
             LecturerAsset locked = lockedRows
                     .stream()
@@ -401,149 +335,8 @@ public class LecturerAssetService {
             LecturerAsset storageSource) {
     }
 
-    @Transactional
-    public LecturerAsset promoteToActiveLibrary(Long assetId, Long ownerId) {
-        return promoteOwnedAsset(requireOwnedAsset(assetId, ownerId), ownerId);
-    }
-
-    @Transactional
-    public LecturerAsset promoteSessionRegionAsset(Long sessionId, Long regionId,
-                                                    Long assetId, Long ownerId) {
-        LecturerAsset asset = requireOwnedAsset(assetId, ownerId);
-        if (!sessionId.equals(asset.getSourceImportSessionId())
-                || !regionId.equals(asset.getSourceRegionId())) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Asset không thuộc vùng import đã chọn.");
-        }
-        return promoteOwnedAsset(asset, ownerId);
-    }
-
-    private LecturerAsset promoteOwnedAsset(LecturerAsset asset, Long ownerId) {
-        if ("ACTIVE".equalsIgnoreCase(asset.getStatus())) {
-            return asset;
-        }
-
-        try {
-            String oldKey = asset.getStorageKey();
-            String oldProfileCode = asset.getStorageProfileCode();
-            AssetStorageService.StoredAsset promoted;
-            try (InputStream in = (oldProfileCode == null
-                    ? assetStorage.load(oldKey)
-                    : assetStorage.load(oldProfileCode, oldKey)).getInputStream()) {
-                String relativePath = freshStorageNamespace(
-                        "lecturer-assets/" + ownerId + "/imports/"
-                                + asset.getSourceImportSessionId()
-                                + "/library");
-                promoted = assetStorage.store(in, asset.getOriginalFilename(), relativePath);
-                requireFreshStorageResult(relativePath, promoted);
-                registerRollbackCleanup(
-                        promoted.storageKey(), promoted.newlyCreated());
-                reserveStorageKeyForAsset(promoted.storageKey());
-                asset.setStorageKey(promoted.storageKey());
-                asset.setStorageProvider(promoted.storageProvider());
-                asset.setStorageProfileCode(promoted.storageProfileCode());
-            }
-            
-            asset.setStatus("ACTIVE");
-            asset.setUpdatedAt(LocalDateTime.now());
-            log.info("[AssetService] Promoted assetId={} to library status", asset.getId());
-            LecturerAsset saved = assetRepository.save(asset);
-            enqueueLifecycle(asset.getId(), oldProfileCode,
-                    PracticeAssetLifecycleTask.PROMOTE_CLEANUP,
-                    oldKey, asset.getStorageKey());
-            return saved;
-        } catch (IOException e) {
-            log.error("[AssetService] Failed to promote assetId={}", asset.getId(), e);
-            throw new RuntimeException("Lỗi lưu trữ khi chuyển ảnh vào thư viện.", e);
-        }
-    }
-
-    private LecturerAsset requireOwnedAsset(Long assetId, Long ownerId) {
-        LecturerAsset asset = assetRepository.findByIdForUpdate(assetId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
-        if (!"ACTIVE".equalsIgnoreCase(asset.getStatus())
-                && !"TEMPORARY".equalsIgnoreCase(asset.getStatus())) {
-            throw new IllegalStateException("Asset không còn ở trạng thái có thể liên kết.");
-        }
-        if (!ownerId.equals(asset.getOwnerLecturerId())) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Bạn không có quyền quản lý asset này.");
-        }
-        return asset;
-    }
-
     public List<LecturerAsset> getLibraryAssets(Long ownerId) {
         return assetRepository.findByOwnerLecturerIdAndStatusAndDeletedAtIsNull(ownerId, "ACTIVE");
-    }
-
-    public List<LecturerAsset> getSessionAssets(Long sessionId) {
-        return assetRepository.findBySourceImportSessionId(sessionId);
-    }
-
-    public List<LecturerAsset> getSessionAssets(Long sessionId, Long ownerId) {
-        return assetRepository.findBySourceImportSessionIdAndOwnerLecturerId(sessionId, ownerId);
-    }
-
-    /**
-     * Applies display-only lecturer metadata while holding the exact asset row
-     * lock. Asset type and lifecycle status are semantic authorization inputs,
-     * so this generic PATCH route may confirm their current value but may not
-     * transition either one. Retained draft, task, artifact or immutable
-     * publication evidence is never mutable through an ID-based request.
-     */
-    @Transactional
-    public LecturerAsset updateAssetMetadata(
-            Long assetId,
-            Long ownerId,
-            String title,
-            String tagsJson,
-            String assetType,
-            String lecturerNote,
-            String status) {
-        LecturerAsset asset = assetRepository.findByIdForUpdate(assetId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
-                        "Không tìm thấy asset."));
-        if (ownerId == null || !ownerId.equals(asset.getOwnerLecturerId())) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Bạn không có quyền chỉnh sửa asset này.");
-        }
-        if (asset.getDeletedAt() != null
-                || (!"ACTIVE".equalsIgnoreCase(asset.getStatus())
-                    && !"TEMPORARY".equalsIgnoreCase(asset.getStatus()))) {
-            throw new IllegalStateException(
-                    "Asset không còn ở trạng thái có thể chỉnh sửa.");
-        }
-
-        /*
-         * Reference creators and cleanup paths take this same row lock. The
-         * central guard therefore answers against one serialized asset state,
-         * before even display metadata or updatedAt can be changed.
-         */
-        if (hasAnyReference(assetId)) {
-            throw new IllegalStateException(
-                    "Asset đang được bản nháp, tác vụ hoặc phiên bản đã xuất bản sử dụng. "
-                            + "Hãy gỡ đúng liên kết trước khi chỉnh sửa.");
-        }
-
-        requireUnchangedPatchValue(
-                "loại tài nguyên",
-                asset.getAssetType(),
-                assetType,
-                "Loại tài nguyên được xác định từ nội dung đã xác minh và không thể đổi "
-                        + "qua endpoint chỉnh sửa.");
-        requireUnchangedPatchValue(
-                "trạng thái",
-                asset.getStatus(),
-                status,
-                "Trạng thái asset chỉ được thay đổi qua thao tác promote hoặc xóa chuyên biệt.");
-
-        if (title != null) {
-            asset.setTitle(validatedAssetTitle(title, null));
-        }
-        if (tagsJson != null) asset.setTagsJson(tagsJson);
-        if (lecturerNote != null) asset.setLecturerNote(lecturerNote);
-        asset.setUpdatedAt(LocalDateTime.now());
-        return assetRepository.save(asset);
     }
 
     @Transactional
@@ -579,49 +372,13 @@ public class LecturerAssetService {
         log.info("[AssetService] Queued physical delete for unreferenced assetId={}", assetId);
     }
 
-    @Transactional
-    public void cleanupTemporaryAssets(Long sessionId, Long ownerId) {
-        List<Long> candidateIds = assetRepository
-                .findIdsBySourceImportSessionIdAndOwnerLecturerId(
-                        sessionId, ownerId);
-        for (Long assetId : candidateIds) {
-            try {
-                LecturerAsset asset = assetRepository
-                        .findByIdForUpdate(assetId)
-                        .orElse(null);
-                if (asset == null
-                        || !ownerId.equals(asset.getOwnerLecturerId())
-                        || !sessionId.equals(asset.getSourceImportSessionId())
-                        || !"TEMPORARY".equalsIgnoreCase(asset.getStatus())) {
-                    continue;
-                }
-                if (hasAnyReference(assetId)) {
-                    log.info("[AssetService] Retained referenced temporary assetId={} unchanged",
-                            assetId);
-                    continue;
-                }
-                LocalDateTime now = LocalDateTime.now();
-                asset.setDeletedAt(now);
-                asset.setUpdatedAt(now);
-                asset.setStatus("DELETION_PENDING");
-                assetRepository.save(asset);
-                enqueueLifecycle(assetId, asset.getStorageProfileCode(), PracticeAssetLifecycleTask.DELETE,
-                        asset.getStorageKey(), null);
-            } catch (RuntimeException e) {
-                log.warn("[AssetService] Failed to queue temporary assetId={}", assetId, e);
-            }
-        }
-    }
-
     public Resource loadAssetResource(Long assetId, Long ownerId) throws IOException {
         LecturerAsset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy asset."));
         if (!asset.getOwnerLecturerId().equals(ownerId)) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền truy cập asset này.");
         }
-        return asset.getStorageProfileCode() == null
-                ? assetStorage.load(asset.getStorageKey())
-                : assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey());
+        return assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey());
     }
 
     /**
@@ -647,9 +404,8 @@ public class LecturerAssetService {
             throw new IllegalArgumentException(
                     "Kích thước asset không hợp lệ.");
         }
-        try (InputStream input = (asset.getStorageProfileCode() == null
-                ? assetStorage.load(asset.getStorageKey())
-                : assetStorage.load(asset.getStorageProfileCode(), asset.getStorageKey()))
+        try (InputStream input = assetStorage.load(
+                asset.getStorageProfileCode(), asset.getStorageKey())
                 .getInputStream()) {
             byte[] bytes = input.readNBytes(
                     Math.toIntExact(maximumBytes + 1L));
@@ -924,137 +680,6 @@ public class LecturerAssetService {
     }
 
     /**
-     * Excel Speaking is deliberately upload-only. This check resolves a
-     * lecturer-owned stored object without creating prompt source, task,
-     * artifact, transcript or provider state.
-     */
-    @Transactional
-    public LecturerAsset requireVerifiedPrivateManualAudioForExcel(
-            Long assetId,
-            Long ownerId,
-            Long draftId,
-            String questionClientId) {
-        LecturerAsset asset = assetRepository.findByIdForUpdate(assetId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
-                        "Không tìm thấy audio Speaking thuộc giảng viên."));
-        if (!ownerId.equals(asset.getOwnerLecturerId())
-                || !asset.isContentVerified()
-                || asset.getDeletedAt() != null
-                || !"ACTIVE".equalsIgnoreCase(asset.getStatus())
-                || !"PRIVATE".equalsIgnoreCase(asset.getVisibility())
-                || !"AUDIO".equalsIgnoreCase(asset.getAssetType())
-                || !"MANUAL_UPLOAD".equalsIgnoreCase(asset.getSourceType())
-                || asset.getStorageKey() == null
-                || asset.getStorageKey().isBlank()
-                || materialReferenceService == null
-                || !(materialReferenceService.hasDraftReference(
-                            draftId,
-                            assetId,
-                            "MANUAL_AUDIO",
-                            "")
-                    || materialReferenceService.hasDraftReference(
-                            draftId,
-                            assetId,
-                            PracticeMaterialPlacements
-                                    .SPEAKING_PROMPT_EXCEL_STAGING,
-                            questionClientId)
-                    || materialReferenceService.hasDraftReference(
-                            draftId,
-                            assetId,
-                            PracticeMaterialPlacements
-                                    .SPEAKING_PROMPT_ORIGINAL,
-                            questionClientId))) {
-            throw new IllegalArgumentException(
-                    "Audio Speaking trong Excel phải là tệp riêng tư đã xác minh, "
-                            + "đã được tải và liên kết với đúng bản nháp hiện tại.");
-        }
-        return asset;
-    }
-
-    /**
-     * Converts the draft-level upload authorization into the exact Excel
-     * question staging reference. Other exact media placements are preserved.
-     */
-    @Transactional
-    public void consumeExcelSpeakingUploadReference(
-            Long draftId,
-            Long assetId,
-            Long actorId,
-            String questionClientId) {
-        Long draftOwnerId = requireManageableDraft(draftId, actorId);
-        LecturerAsset asset = assetRepository.findByIdForUpdate(assetId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
-                        "Không tìm thấy audio Speaking."));
-        if (!draftOwnerId.equals(asset.getOwnerLecturerId())) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Audio Speaking không thuộc chủ sở hữu bản nháp.");
-        }
-        if (!materialReferenceService.hasDraftReference(
-                draftId,
-                assetId,
-                PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING,
-                questionClientId)) {
-            throw new IllegalStateException(
-                    "Audio Speaking chưa được liên kết với đúng câu hỏi Excel.");
-        }
-        materialReferenceService.unlinkDraft(
-                draftId,
-                assetId,
-                "MANUAL_AUDIO",
-                "");
-    }
-
-    /**
-     * Generic Excel media uses only a private verified upload already attached
-     * to the exact draft. Extra override IDs cannot manufacture authority.
-     */
-    @Transactional
-    public PracticeMaterialReference linkExcelManagedUploadToDraft(
-            Long draftId,
-            Long assetId,
-            Long actorId) {
-        Long draftOwnerId = requireManageableDraft(draftId, actorId);
-        LecturerAsset asset = assetRepository.findByIdForUpdate(assetId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
-                        "Không tìm thấy tài nguyên Excel."));
-        String assetType = asset.getAssetType() == null
-                ? ""
-                : asset.getAssetType().trim().toUpperCase(Locale.ROOT);
-        String uploadPlacement = "MANUAL_" + assetType;
-        String excelKey = referenceKey(
-                null, null, null, "EXCEL_MEDIA");
-        boolean exactUpload = materialReferenceService.hasDraftReference(
-                draftId, assetId, uploadPlacement, "");
-        boolean exactExcel = materialReferenceService.hasDraftReference(
-                draftId, assetId, "EXCEL_MEDIA", excelKey);
-        if (!draftOwnerId.equals(asset.getOwnerLecturerId())
-                || !asset.isContentVerified()
-                || asset.getDeletedAt() != null
-                || !"ACTIVE".equalsIgnoreCase(asset.getStatus())
-                || !"PRIVATE".equalsIgnoreCase(asset.getVisibility())
-                || !"MANUAL_UPLOAD".equalsIgnoreCase(asset.getSourceType())
-                || !Set.of("AUDIO", "IMAGE").contains(assetType)
-                || (!exactUpload && !exactExcel)) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "Tài nguyên Excel chưa được tải lên đúng bản nháp.");
-        }
-        PracticeMaterialReference linked = materialReferenceService.linkDraft(
-                draftId,
-                assetId,
-                "EXCEL_MEDIA",
-                excelKey,
-                null);
-        if (exactUpload) {
-            materialReferenceService.unlinkDraft(
-                    draftId,
-                    assetId,
-                    uploadPlacement,
-                    "");
-        }
-        return linked;
-    }
-
-    /**
      * Internal prompt-retention handoff. It is not an ID-authorized public
      * delete route; exact repository references are rechecked under the asset
      * row lock before a physical lifecycle task is made eligible.
@@ -1084,17 +709,6 @@ public class LecturerAssetService {
                 null);
     }
 
-    @Transactional
-    public void unlinkAssetFromDraft(Long draftId, Long referenceId, Long ownerId) {
-        requireManageableDraft(draftId, ownerId);
-        PracticeMaterialReference reference = materialReferenceService.referencesForDraft(draftId).stream()
-                .filter(value -> referenceId.equals(value.getId()))
-                .findFirst()
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy liên kết asset."));
-        materialReferenceService.unlinkDraftReference(draftId, referenceId);
-        queueArchivedAssetIfUnreferenced(reference.getAssetId());
-    }
-
     private void requireOwnedDraft(Long draftId, Long ownerId) {
         if (draftRepository == null || draftRepository.findByIdAndOwnerId(draftId, ownerId).isEmpty()) {
             throw new jakarta.persistence.EntityNotFoundException("Bản nháp không tồn tại.");
@@ -1122,32 +736,8 @@ public class LecturerAssetService {
         return assetReferenceGuard.isRetained(assetId);
     }
 
-    private static void requireUnchangedPatchValue(
-            String field,
-            String currentValue,
-            String requestedValue,
-            String message) {
-        if (requestedValue == null) {
-            return;
-        }
-        String normalizedRequested = requestedValue.trim();
-        if (normalizedRequested.isEmpty()
-                || currentValue == null
-                || !currentValue.equalsIgnoreCase(normalizedRequested)) {
-            throw new IllegalArgumentException(field + " không hợp lệ. " + message);
-        }
-    }
-
     private static String referenceKey(String sectionRef, String groupRef,
                                        String questionRef, String placement) {
-        if (PracticeMaterialPlacements.SPEAKING_PROMPT_EXCEL_STAGING.equals(
-                    placement)
-                && questionRef != null
-                && !questionRef.isBlank()) {
-            return questionRef.length() <= 100
-                    ? questionRef
-                    : questionRef.substring(0, 100);
-        }
         String value = String.join("|",
                 sectionRef == null ? "" : sectionRef,
                 groupRef == null ? "" : groupRef,
@@ -1165,21 +755,6 @@ public class LecturerAssetService {
         if (questionRef != null) metadata.put("questionRef", questionRef);
         if (altText != null) metadata.put("altText", altText);
         return metadata.isEmpty() ? null : metadata.toString();
-    }
-
-    private void queueArchivedAssetIfUnreferenced(Long assetId) {
-        LecturerAsset asset = assetRepository.findByIdForUpdate(assetId)
-                .orElse(null);
-        if (asset == null
-                || !"ARCHIVED".equalsIgnoreCase(asset.getStatus())
-                || hasAnyReference(assetId)) {
-            return;
-        }
-        asset.setStatus("DELETION_PENDING");
-        asset.setUpdatedAt(LocalDateTime.now());
-        assetRepository.save(asset);
-        enqueueLifecycle(assetId, asset.getStorageProfileCode(), PracticeAssetLifecycleTask.DELETE,
-                asset.getStorageKey(), null);
     }
 
     private void enqueueLifecycle(Long assetId, String operation, String sourceKey,
@@ -1218,13 +793,12 @@ public class LecturerAssetService {
                 || storageKey.isBlank()) {
             return;
         }
-        List<PracticeAssetLifecycleTask> active =
-                storageProfileCode == null
-                        ? lifecycleTaskRepository
-                            .findActiveBySourceStorageKeyForUpdate(storageKey)
-                        : lifecycleTaskRepository
-                            .findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
-                                    storageProfileCode, storageKey);
+        if (!"PRACTICE_AUTHORING".equals(storageProfileCode)) {
+            throw new IllegalStateException("Practice authoring storage profile is invalid.");
+        }
+        List<PracticeAssetLifecycleTask> active = lifecycleTaskRepository
+                .findActiveByStorageProfileCodeAndSourceStorageKeyForUpdate(
+                        storageProfileCode, storageKey);
         if (active.stream().anyMatch(task ->
                 "RUNNING".equals(task.getStatus()))) {
             throw new IllegalStateException(
@@ -1344,11 +918,7 @@ public class LecturerAssetService {
             return;
         }
         try {
-            if (assetStorage.profileCode() == null) {
-                assetStorage.delete(storageKey);
-            } else {
-                assetStorage.delete(assetStorage.profileCode(), storageKey);
-            }
+            assetStorage.delete(assetStorage.profileCode(), storageKey);
         } catch (IOException exception) {
             enqueueLifecycle(
                     null,

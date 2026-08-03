@@ -62,14 +62,14 @@ class PracticeSpeakingMediaPlaybackServiceTest {
     }
 
     @Test
-    void unsupportedProviderIsBoundedAndDoesNotOpenStorage() {
+    void exactProfileOwnsDispatchEvenWhenProviderEvidenceIsObjectStorage() throws Exception {
         whenAuthorized(projection(PracticeSpeakingStorageProvider.OBJECT_STORAGE, SECRET_KEY, "audio/webm", 3L));
+        storage.next = new ByteArrayInputStream(new byte[]{9, 8, 7});
 
-        assertThatThrownBy(() -> service.openForOwner(77L, 10L, 20L, 30L))
-                .isInstanceOf(PracticeSpeakingMediaPlaybackNotFoundException.class)
-                .hasMessageNotContaining(SECRET_KEY);
+        var stream = service.openForOwner(77L, 10L, 20L, 30L);
 
-        assertThat(storage.openCalled).isFalse();
+        assertThat(storage.openCalled).isTrue();
+        assertThat(stream.inputStream().read()).isEqualTo(9);
     }
 
     @Test
@@ -180,6 +180,11 @@ class PracticeSpeakingMediaPlaybackServiceTest {
             }
 
             @Override
+            public String getStorageProfileCode() {
+                return "PRACTICE_SPEAKING";
+            }
+
+            @Override
             public String getStorageKey() {
                 return key;
             }
@@ -224,12 +229,15 @@ class PracticeSpeakingMediaPlaybackServiceTest {
         }
 
         @Override
-        public String promoteTemporary(String temporaryKey) {
+        public String promoteTemporary(String storageProfileCode, String temporaryKey) {
             throw new AssertionError("promotion is outside playback scope");
         }
 
         @Override
-        public InputStream open(String storageKey) {
+        public InputStream open(String storageProfileCode, String storageKey) {
+            if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+                throw new IllegalArgumentException("unexpected profile");
+            }
             openCalled = true;
             openTransactionActive = TransactionSynchronizationManager.isActualTransactionActive();
             if (failure != null) {
@@ -239,12 +247,12 @@ class PracticeSpeakingMediaPlaybackServiceTest {
         }
 
         @Override
-        public boolean exists(String storageKey) {
+        public boolean exists(String storageProfileCode, String storageKey) {
             return true;
         }
 
         @Override
-        public void delete(String storageKey) {
+        public void delete(String storageProfileCode, String storageKey) {
             throw new AssertionError("delete is outside playback scope");
         }
     }

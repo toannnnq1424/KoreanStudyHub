@@ -7,7 +7,6 @@ import com.ksh.features.practice.manage.service.PracticeAssessmentExcelService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -57,22 +56,11 @@ public class PracticeAssessmentExcelController {
         return "practice/manage/excel-import";
     }
 
-    @GetMapping("/template")
-    public ResponseEntity<byte[]> template() {
-        byte[] bytes = excelService.buildTemplate();
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=ksh-practice-import-template.xlsx")
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(bytes);
-    }
-
     @GetMapping("/template/quick-v1")
     public ResponseEntity<byte[]> quickTemplate() {
         byte[] bytes = excelService.buildQuickTemplate();
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=ksh-practice-quick-v1.xlsx")
                 .contentType(MediaType.parseMediaType(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
@@ -119,15 +107,13 @@ public class PracticeAssessmentExcelController {
             @RequestParam("testNo") Integer testNo,
             @RequestParam("skill") String skill,
             @RequestParam("lessonCode") String lessonCode,
-            @RequestParam(value = "mediaOverrides", required = false)
-            String mediaOverrides,
             @AuthenticationPrincipal KshUserDetails user) {
         try {
             PracticeAssessmentExcelService.ExcelImportContext context =
                     excelService.requireExcelImportContext(
                             draftId, user.getId(), testNo, skill, lessonCode);
             CandidateView candidate = excelService.createCandidate(
-                    file, context, user.getId(), mediaOverrides);
+                    file, context, user.getId());
             return ResponseEntity.ok(Map.of(
                     "candidateId", candidate.candidateId(),
                     "state", candidate.state().name(),

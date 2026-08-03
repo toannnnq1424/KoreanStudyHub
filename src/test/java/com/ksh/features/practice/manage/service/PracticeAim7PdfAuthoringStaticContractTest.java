@@ -78,41 +78,39 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     }
 
     @Test
-    void basicAndAdvancedUiShareTheExistingCandidateReviewJourney()
+    void requestLocalBasicUiOwnsTheOnlyPdfCandidateJourney()
             throws Exception {
         String wizard = read(ROOT.resolve(
                 "src/main/resources/templates/practice/manage/import-wizard.html"));
-        String workspace = read(ROOT.resolve(
-                "src/main/resources/templates/practice/manage/import-workspace.html"));
         assertThat(wizard)
                 .contains(
                         "Text/PDF → candidate có thể chỉnh sửa",
                         "id=\"basic-source-type\"",
                         "id=\"basic-operation\"",
-                        "id=\"advanced-authoring\"",
                         "/practice/manage/pdf-authoring/candidates",
-                        "window.location.href = payload.reviewUrl");
-        assertThat(workspace)
-                .contains(
-                        "candidate review hiện có",
-                        "operation: 'EXTRACT'",
-                        "window.location.href = payload.reviewUrl")
+                        "window.location.assign(payload.reviewUrl)",
+                        "Không lưu PDF")
                 .doesNotContain(
+                        "advanced-authoring", "import-sessions",
                         "create-manual-draft", "attach-to-draft",
                         "convertDraftToManual");
+        assertThat(Files.exists(ROOT.resolve(
+                "src/main/resources/templates/practice/manage/import-workspace.html")))
+                .isFalse();
     }
 
     @Test
-    void aim7AddsNoMigrationBeyondAim6StorageBaseline() throws Exception {
+    void c4AddsOnlyTheSingleForwardCompactionMigration() throws Exception {
         Path migrations = ROOT.resolve("src/main/resources/db/migration");
         try (var paths = Files.list(migrations)) {
             List<String> names = paths.map(path -> path.getFileName().toString())
                     .filter(name -> name.matches("V\\d+__.*\\.sql"))
                     .toList();
             assertThat(names).anyMatch(name -> name.startsWith("V85__"));
+            assertThat(names).anyMatch(name -> name.startsWith("V87__"));
             assertThat(names).noneMatch(name -> {
                 int separator = name.indexOf("__");
-                return Integer.parseInt(name.substring(1, separator)) > 85;
+                return Integer.parseInt(name.substring(1, separator)) > 87;
             });
         }
     }

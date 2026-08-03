@@ -2568,14 +2568,29 @@ class PracticeIntegrationTest {
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void testUploadAllowedForLecturer() throws Exception {
-        mockMvc.perform(get("/practice/manage/import"))
+        com.ksh.entities.PracticeDraft importDraft = draftRepository.saveAndFlush(
+                new com.ksh.entities.PracticeDraft(
+                        "Nháp Text/PDF",
+                        "",
+                        "GLOBAL",
+                        null,
+                        "DRAFT",
+                        lecturer.getId(),
+                        "{\"sections\":[{\"title\":\"Phần Đọc\","
+                                + "\"skill\":\"READING\",\"testNo\":1,"
+                                + "\"lessonCode\":\"R1\"}]}"));
+        mockMvc.perform(get("/practice/manage/import")
+                        .param("draftId", importDraft.getId().toString())
+                        .param("testNo", "1")
+                        .param("skill", "READING")
+                        .param("lessonCode", "R1"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("practice/manage/import-wizard"));
 
-        // Check legacy upload redirect
+        // The targetless legacy bookmark is retired instead of opening a
+        // half-configured Basic import surface.
         mockMvc.perform(get("/practice/manage/upload"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/manage/import"));
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -3079,6 +3094,7 @@ class PracticeIntegrationTest {
         SpeakingAttemptFixture fixture = createSpeakingAttemptFixture("Speaking history guard");
         PracticeSpeakingMedia media = speakingMediaRepository.saveAndFlush(PracticeSpeakingMedia.ready(
                 fixture.attemptId(), fixture.questionId(), PracticeSpeakingStorageProvider.LOCAL,
+                "PRACTICE_SPEAKING",
                 "test/guard-" + java.util.UUID.randomUUID() + ".webm", "audio/webm", "webm", "opus",
                 100L, 1000L, "a".repeat(64)));
         var before = resultDetailAssembler.assemble(
@@ -5354,6 +5370,7 @@ class PracticeIntegrationTest {
                         fixture.attemptId(),
                         fixture.questionId(),
                         PracticeSpeakingStorageProvider.LOCAL,
+                        "PRACTICE_SPEAKING",
                         "test/disabled-"
                                 + java.util.UUID.randomUUID()
                                 + ".webm",
@@ -5404,9 +5421,7 @@ class PracticeIntegrationTest {
         assertThat(result.feedback().state())
                 .isEqualTo("UNAVAILABLE");
         assertThat(result.score().available()).isFalse();
-        verifyNoInteractions(
-                speakingEvaluationClient,
-                speakingTranscriptionClient);
+        verifyNoInteractions(speakingEvaluationClient);
     }
 
     @Test

@@ -15,7 +15,7 @@ class PracticeEvaluationContractIdentityMigrationTest {
                     + "V62__practice_attempt_integrity_gate.sql");
     private static final Path V67 = Path.of(
             "src/main/resources/db/migration/"
-                    + "V67__practice_evaluation_contract_identity_capacity.sql");
+                    + "V76__practice_evaluation_contract_identity_capacity.sql");
 
     @Test
     void forwardMigrationExpandsIdentityWithoutRewritingAppliedV62()

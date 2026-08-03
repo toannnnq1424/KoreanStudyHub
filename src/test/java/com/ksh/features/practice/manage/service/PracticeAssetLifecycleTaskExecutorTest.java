@@ -28,7 +28,8 @@ class PracticeAssetLifecycleTaskExecutorTest {
             throws Exception {
         PracticeAssetLifecycleTaskTransactions.ClaimedDelete claim =
                 new PracticeAssetLifecycleTaskTransactions.ClaimedDelete(
-                        1L, 9L, "DELETE", "private/source.bin", "claim-1");
+                        1L, 9L, "PRACTICE_AUTHORING", "DELETE",
+                        "private/source.bin", "claim-1");
         when(transactions.claim(1L)).thenReturn(claim);
         when(transactions.confirmPhysicalDeleteAllowed(claim))
                 .thenReturn(true);
@@ -36,7 +37,7 @@ class PracticeAssetLifecycleTaskExecutorTest {
         executor.processOne(1L);
 
         verify(transactions).claim(1L);
-        verify(storageService).delete("private/source.bin");
+        verify(storageService).delete("PRACTICE_AUTHORING", "private/source.bin");
         verify(transactions).complete(claim);
         verify(transactions, never()).retry(
                 org.mockito.ArgumentMatchers.eq(claim),
@@ -48,14 +49,14 @@ class PracticeAssetLifecycleTaskExecutorTest {
             throws Exception {
         PracticeAssetLifecycleTaskTransactions.ClaimedDelete claim =
                 new PracticeAssetLifecycleTaskTransactions.ClaimedDelete(
-                        1L, null, "ORPHAN_RECONCILE", "private/source.bin",
+                        1L, null, "PRACTICE_AUTHORING", "ORPHAN_RECONCILE", "private/source.bin",
                         "claim-1");
         IOException failure = new IOException("storage unavailable");
         when(transactions.claim(1L)).thenReturn(claim);
         when(transactions.confirmPhysicalDeleteAllowed(claim))
                 .thenReturn(true);
         org.mockito.Mockito.doThrow(failure)
-                .when(storageService).delete("private/source.bin");
+                .when(storageService).delete("PRACTICE_AUTHORING", "private/source.bin");
 
         executor.processOne(1L);
 
@@ -71,6 +72,7 @@ class PracticeAssetLifecycleTaskExecutorTest {
         executor.processOne(1L);
 
         verify(storageService, never()).delete(
+                org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());
     }
 
@@ -80,6 +82,7 @@ class PracticeAssetLifecycleTaskExecutorTest {
                 new PracticeAssetLifecycleTaskTransactions.ClaimedDelete(
                         1L,
                         null,
+                        "PRACTICE_AUTHORING",
                         "ORPHAN_RECONCILE",
                         "private/reused.bin",
                         "claim-1");
@@ -90,6 +93,7 @@ class PracticeAssetLifecycleTaskExecutorTest {
         executor.processOne(1L);
 
         verify(storageService, never()).delete(
+                org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());
         verify(transactions, never()).complete(claim);
         verify(transactions, never()).retry(
@@ -103,6 +107,7 @@ class PracticeAssetLifecycleTaskExecutorTest {
                 new PracticeAssetLifecycleTaskTransactions.ClaimedDelete(
                         1L,
                         9L,
+                        "PRACTICE_AUTHORING",
                         "DELETE",
                         "private/shared.bin",
                         "claim-1");
@@ -113,6 +118,7 @@ class PracticeAssetLifecycleTaskExecutorTest {
         executor.processOne(1L);
 
         verify(storageService, never()).delete(
+                org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());
         verify(transactions, never()).complete(claim);
         verify(transactions, never()).retry(

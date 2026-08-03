@@ -11,11 +11,6 @@ public final class StoredSpeakingAudioObject {
     private final String storageProfileCode;
     private final PracticeSpeakingStorageProvider storageProvider;
 
-    public StoredSpeakingAudioObject(String storageKey, long byteSize, String sha256, Path privatePath) {
-        this(storageKey, byteSize, sha256, privatePath, null,
-                PracticeSpeakingStorageProvider.LOCAL);
-    }
-
     public StoredSpeakingAudioObject(String storageKey, long byteSize, String sha256,
                                      Path privatePath, String storageProfileCode,
                                      PracticeSpeakingStorageProvider storageProvider) {
@@ -23,6 +18,9 @@ public final class StoredSpeakingAudioObject {
         this.byteSize = byteSize;
         this.sha256 = sha256;
         this.privatePath = privatePath;
+        if (!"PRACTICE_SPEAKING".equals(storageProfileCode)) {
+            throw new IllegalArgumentException("storageProfileCode is invalid.");
+        }
         this.storageProfileCode = storageProfileCode;
         this.storageProvider = storageProvider;
     }
@@ -44,7 +42,7 @@ public final class StoredSpeakingAudioObject {
     }
 
     void discardInspectionCopy() {
-        if (storageProfileCode == null || privatePath == null) return;
+        if (privatePath == null) return;
         try {
             java.nio.file.Files.deleteIfExists(privatePath);
         } catch (java.io.IOException ignored) {

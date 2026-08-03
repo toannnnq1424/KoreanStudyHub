@@ -21,22 +21,19 @@ public class SpeakingAudioPreparationService {
     }
 
     /**
-     * Produces a private final object. The caller must either activate DB metadata
-     * with this result or delete the returned storage key as compensation.
+     * Produces an exact-profile temporary object. The caller must promote and
+     * activate it, or delete the returned storage key as compensation.
      */
     public PreparedSpeakingAudio prepare(InputStream content, Long declaredContentLength, String clientMimeType) {
         StoredSpeakingAudioObject temporary = storage.writeTemporary(content, declaredContentLength);
         try {
             SpeakingAudioInspection inspection = inspector.inspect(temporary.getPrivatePath());
             validateMimeHint(clientMimeType, inspection.canonicalMimeType());
-            String finalKey = temporary.getStorageProfileCode() == null
-                    ? storage.promoteTemporary(null, temporary.getStorageKey())
-                    : temporary.getStorageKey();
             return new PreparedSpeakingAudio(
                     temporary.getStorageProvider(),
                     temporary.getStorageProfileCode(),
                     temporary.getStorageKey(),
-                    finalKey,
+                    temporary.getStorageKey(),
                     inspection.canonicalMimeType(),
                     inspection.container(),
                     inspection.codec(),

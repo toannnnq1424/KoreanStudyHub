@@ -5,7 +5,7 @@
   <link class="page-css" rel="stylesheet" href="../../../static/css/practice/manage-editor.css" th:href="@{/css/practice/manage-editor.css}">
   <link class="page-css" rel="stylesheet" href="../../../static/css/practice/manage-speaking-prompt-authoring.css" th:href="@{/css/practice/manage-speaking-prompt-authoring.css}">
 </head>
-<body class="pi-body">
+<body class="pi-body practice-editor-body">
 
 <div id="editor-toast-region" class="editor-toast" role="status"
      aria-live="assertive" aria-atomic="true" hidden></div>
@@ -37,9 +37,9 @@
 
   <div class="toolbar-right">
     <div class="toolbar-actions-scroll">
-    <a id="pdf-import-action" th:href="@{/practice/manage/import}" class="btn-action btn-sec" onclick="handleEditorToolNavigation(event)" aria-label="Nhập lại từ PDF" title="Nhập lại từ PDF">
+    <a id="pdf-import-action" href="#" class="btn-action btn-sec" style="display:none;" onclick="handleEditorToolNavigation(event)" aria-label="Biên soạn từ Text hoặc PDF" title="Biên soạn từ Text hoặc PDF">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <span class="toolbar-action-label">Nhập lại từ PDF</span>
+      <span class="toolbar-action-label">Text/PDF</span>
     </a>
     <a id="excel-import-action" th:href="@{/practice/manage/excel(draftId=${draft.id})}" class="btn-action btn-sec" style="display:none;" onclick="handleEditorToolNavigation(event)" aria-label="Nhập Excel" title="Nhập Excel">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>
@@ -130,7 +130,7 @@
       </button>
       <span class="panel-title">Cấu trúc đề</span>
       <div class="structure-add-controls" style="position:relative;">
-        <button id="add-structure-trigger" type="button" data-action="toggle-add-menu" onclick="toggleAddMenu(event)" aria-expanded="false" aria-controls="add-structure-menu" style="background:none; border:none; color:var(--pp-accent); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:4px;" title="Thêm mục cấu trúc">
+        <button id="add-structure-trigger" type="button" data-action="toggle-add-menu" aria-expanded="false" aria-controls="add-structure-menu" style="background:none; border:none; color:var(--pp-accent); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:4px;" title="Thêm mục cấu trúc">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         <div id="add-structure-menu" class="practice-add-menu" hidden style="position:absolute; right:0; top:32px; background:#fff; border:1px solid var(--pp-border); border-radius:10px; box-shadow:0 8px 24px -4px rgba(0,0,0,0.12); z-index:2000; width:220px; padding:6px;">
@@ -647,12 +647,6 @@
             <div id="speaking-prompt-audio-upload-status" class="sp-upload-status" aria-live="polite" hidden></div>
             <progress id="speaking-prompt-upload-progress" class="sp-upload-progress"
                       aria-label="Tiến độ tải tệp âm thanh đề bài" max="100" value="0" hidden></progress>
-            <div id="speaking-excel-staging-callout" class="sp-review-callout" hidden>
-              <p>Tệp âm thanh riêng tư từ Excel đã sẵn sàng. Excel chỉ nhập tệp đã tải lên; không tự gọi STT/TTS hoặc phát sinh chi phí AI.</p>
-              <button type="button" id="speaking-adopt-excel-audio" class="btn-action btn-sec">
-                Xác minh và dùng tệp âm thanh từ Excel
-              </button>
-            </div>
             <div id="speaking-prompt-audio-preview-container" class="sp-audio-preview" hidden></div>
             <p class="sp-required-copy">Học viên nghe tệp âm thanh gốc này. Bản chép lời chỉ giúp AI hiểu đề bài; KSH không tạo lại hoặc thay thế âm thanh của giảng viên.</p>
             <div class="sp-actions">
@@ -752,6 +746,22 @@
           </div>
         </div>
 
+        <!-- Question-level audio (Listening only; distinct from group audio) -->
+        <div id="question-audio-area" style="margin-bottom:20px; display:none;">
+          <label class="form-label">Âm thanh riêng của câu hỏi</label>
+          <div class="audio-upload-box" id="question-audio-dropzone" role="button" tabindex="0"
+               aria-controls="question-audio-file-input"
+               onclick="if (event.target.id !== 'question-audio-file-input') document.getElementById('question-audio-file-input').click()"
+               onkeydown="activateUploadZone(event, 'question-audio-file-input')">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--pp-text-muted)" stroke-width="2" style="margin-bottom:8px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <p style="margin:0; font-size:0.85rem; font-weight:600;">Nhấp hoặc kéo thả audio cho riêng câu này</p>
+            <span style="font-size:0.75rem; color:var(--pp-text-muted);">Dùng khi câu Nghe có audio riêng, không thay thế audio cấp nhóm</span>
+            <input type="file" id="question-audio-file-input" style="display:none;" accept="audio/*" onchange="handleQuestionAudioSelect(this)">
+          </div>
+          <div id="question-audio-upload-status" style="display:none; font-size:0.8rem; font-weight:600; margin-top:8px;"></div>
+          <div id="question-audio-preview-container" style="display:none; margin-top:12px; border:1px solid var(--pp-border); border-radius:8px; padding:10px; background:#f8fafc;"></div>
+        </div>
+
         <!-- Translation & Explanations -->
         <div class="form-section-title">Giải thích & Dịch</div>
         <div id="q-explanation-strategy-row"
@@ -843,6 +853,7 @@
             aria-label="Mở bảng kiểm tra chất lượng đề"
             aria-controls="editor-validation-panel"
             aria-expanded="false"
+            onpointerdown="markValidationPanelPointerActivation()"
             onclick="toggleValidationPanel(event)">Kiểm tra</button>
     <div id="editor-validation-panel" class="validation-panel-surface"
          role="region" aria-labelledby="validation-panel-title"
@@ -963,6 +974,7 @@
   let previewReturnFocus = null;
   let validationPanelReturnFocus = null;
   let validationPanelPinned = false;
+  let validationPanelPointerActivation = false;
 
   function activateUploadZone(event, inputId) {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -1783,6 +1795,7 @@
           q.explanationVi = q.explanationVi || '';
           q.points = parseFloat(q.points) || 2.0;
           q.answerKey = q.answerKey || '';
+          q.audioUrl = q.audioUrl || q.questionContent?.audioReference || '';
           const canonicalOptions = q.questionContent && Array.isArray(q.questionContent.options)
             ? q.questionContent.options
             : null;
@@ -2586,6 +2599,12 @@
       // Image preview
       updateImagePreview(q.imageUrl || '', 'question');
       document.getElementById('question-image-upload-status').style.display = 'none';
+      const supportsQuestionAudio = DRAFT_DATA.sections[sIdx].skill === 'LISTENING'
+        && q.questionType !== 'SPEAKING';
+      document.getElementById('question-audio-area').style.display =
+        supportsQuestionAudio ? 'block' : 'none';
+      updateQuestionAudioPreview(supportsQuestionAudio ? (q.audioUrl || '') : '');
+      document.getElementById('question-audio-upload-status').style.display = 'none';
       
       // Load specific fields
       await handleQuestionTypeChange();
@@ -2622,11 +2641,15 @@
         + `&lessonCode=${encodeURIComponent(section.lessonCode)}`;
     }
     if (pdfAction) {
-      pdfAction.href = section
-        ? `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`
+      pdfAction.style.display = section ? 'flex' : 'none';
+      if (section) {
+        pdfAction.href = `/practice/manage/import?draftId=${encodeURIComponent(DRAFT_ID)}`
           + `&testNo=${encodeURIComponent(section.testNo)}`
-          + `&lessonCode=${encodeURIComponent(section.lessonCode)}`
-        : '/practice/manage/import';
+          + `&skill=${encodeURIComponent(section.skill)}`
+          + `&lessonCode=${encodeURIComponent(section.lessonCode)}`;
+      } else {
+        pdfAction.removeAttribute('href');
+      }
     }
   }
 
@@ -2675,6 +2698,11 @@
     const questionImgDropzone = document.getElementById('question-image-dropzone');
     if (questionImgDropzone) {
       setupDropzoneEvents(questionImgDropzone, (file) => uploadImageFile(file, 'question'));
+    }
+
+    const questionAudioDropzone = document.getElementById('question-audio-dropzone');
+    if (questionAudioDropzone) {
+      setupDropzoneEvents(questionAudioDropzone, uploadQuestionAudioFile);
     }
 
   }
@@ -2741,6 +2769,13 @@
   function handleAudioSelect(input) {
     if (input.files && input.files[0]) {
       uploadAudioFile(input.files[0]);
+    }
+  }
+
+  function handleQuestionAudioSelect(input) {
+    if (input.files && input.files[0]) {
+      uploadQuestionAudioFile(input.files[0]);
+      input.value = '';
     }
   }
 
@@ -2933,6 +2968,66 @@
         updateAudioPreview(data.url);
       }
     }, () => isCurrentEditorTarget('group', group));
+  }
+
+  function uploadQuestionAudioFile(file) {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const section = DRAFT_DATA.sections[currentNode.sIdx];
+    const group = section && section.groups[currentNode.gIdx];
+    const question = group && group.questions[currentNode.qIdx];
+    if (!question || section.skill !== 'LISTENING'
+        || question.questionType === 'SPEAKING') {
+      showEditorToast('Audio cấp câu chỉ áp dụng cho câu hỏi phần Nghe.', 'warning');
+      return;
+    }
+    uploadDraftAudio(file, 'question-audio-upload-status', (data) => {
+      setQuestionAudioUrl(question, data.url);
+      if (isCurrentEditorTarget('question', question)) {
+        updateQuestionAudioPreview(data.url);
+      }
+    }, () => isCurrentEditorTarget('question', question));
+  }
+
+  function setQuestionAudioUrl(question, url) {
+    question.audioUrl = url || '';
+    if (!question.questionContent || typeof question.questionContent !== 'object') {
+      question.questionContent = {};
+    }
+    question.questionContent.audioReference = url || null;
+    window.PracticeAuthoringContract.syncQuestionContract(question);
+  }
+
+  function updateQuestionAudioPreview(url) {
+    const container = document.getElementById('question-audio-preview-container');
+    if (!container) return;
+    container.replaceChildren();
+    if (!isPrivatePracticeMaterialUrl(url)) {
+      container.style.display = 'none';
+      return;
+    }
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.preload = 'metadata';
+    audio.src = url;
+    audio.style.width = '100%';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn-action btn-sec';
+    remove.textContent = 'Gỡ audio câu hỏi';
+    remove.style.marginTop = '8px';
+    remove.addEventListener('click', removeQuestionAudio);
+    container.append(audio, remove);
+    container.style.display = 'block';
+  }
+
+  function removeQuestionAudio() {
+    if (!currentNode || currentNode.type !== 'question') return;
+    const question = DRAFT_DATA.sections[currentNode.sIdx]
+      .groups[currentNode.gIdx].questions[currentNode.qIdx];
+    setQuestionAudioUrl(question, '');
+    updateQuestionAudioPreview('');
+    document.getElementById('question-audio-upload-status').style.display = 'none';
+    triggerAutosave();
   }
 
   function handleListeningCheckAudioSelect(input) {
@@ -6265,11 +6360,24 @@
     setValidationPanelOpen(false);
   }
 
+  function markValidationPanelPointerActivation() {
+    validationPanelPointerActivation = true;
+  }
+
   function toggleValidationPanel(event) {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
+    // A pointer click is a peek: leave closes the panel. Keyboard activation
+    // pins it and moves focus inside so the complete inspector stays usable.
+    if (validationPanelPointerActivation || event?.detail > 0) {
+      validationPanelPointerActivation = false;
+      validationPanelPinned = false;
+      setValidationPanelOpen(true);
+      return;
+    }
+    validationPanelPointerActivation = false;
     if (validationPanelPinned) {
       closeValidationPanel(true);
       return;
@@ -6723,6 +6831,21 @@
     }
     previewReturnFocus = null;
   }
+
+  window.returnFromPreviewToEditor = function returnFromPreviewToEditor() {
+    closePreviewModal();
+    requestAnimationFrame(() => {
+      const activeCard = Array.from(document.querySelectorAll('.editor-card'))
+        .find(card => getComputedStyle(card).display !== 'none');
+      const editTarget = activeCard?.querySelector('textarea:not([disabled])')
+        || activeCard?.querySelector(
+          'input:not([type="hidden"]):not([readonly]):not([disabled])')
+        || activeCard?.querySelector('select:not([disabled])');
+      if (!(editTarget instanceof HTMLElement)) return;
+      editTarget.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      editTarget.focus({ preventScroll: true });
+    });
+  };
 </script>
 
 <!-- Context Menu for Tree Items -->
@@ -6764,22 +6887,6 @@
 
 <!-- ═══ ASSET LIBRARY DRAWER ═══ -->
 <style>
-  .asset-tab-btn {
-    flex: 1;
-    padding: 12px;
-    text-align: center;
-    background: none;
-    border: none;
-    font-weight: 700;
-    font-size: 0.78rem;
-    color: #687389;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-  }
-  .asset-tab-btn.active {
-    color: #4F6EF7;
-    border-bottom-color: #4F6EF7;
-  }
   .asset-card {
     background: #ffffff;
     border: 1px solid #E5EAF2;
@@ -6811,18 +6918,8 @@
        <svg th:replace="~{practice/fragments/icons :: close}"></svg>
      </button>
    </div>
-   <!-- Tabs -->
-   <div role="tablist" aria-label="Nguồn ảnh"
-        style="display: flex; background: #F8FAFD; border-bottom: 1px solid #E5EAF2;">
-     <button type="button" role="tab" class="asset-tab-btn active" id="asset-tab-active"
-             aria-selected="true" tabindex="0" aria-controls="asset-list-container"
-             onclick="switchAssetTab('active')">Ảnh của tôi</button>
-     <button type="button" role="tab" class="asset-tab-btn" id="asset-tab-session"
-             aria-selected="false" tabindex="-1" aria-controls="asset-list-container"
-             onclick="switchAssetTab('session')">Từ tệp PDF này</button>
-   </div>
    <!-- Content / List -->
-   <div id="asset-list-container" role="tabpanel" aria-labelledby="asset-tab-active"
+   <div id="asset-list-container" aria-labelledby="asset-library-title"
         style="flex: 1; overflow-y: auto; padding: 16px; background: #F6F8FC; display: flex; flex-direction: column; gap: 12px;">
      <!-- Populated by JS -->
    </div>
@@ -6830,7 +6927,6 @@
 
 <script>
   let isAssetLibraryOpen = false;
-  let activeAssetTab = 'active'; // active, session
   let assetLibraryReturnFocus = null;
 
   function toggleAssetLibraryDrawer(forceOpen) {
@@ -6865,39 +6961,13 @@
     }
   }
 
-  function switchAssetTab(tab) {
-    activeAssetTab = tab;
-    document.querySelectorAll('.asset-tab-btn').forEach(btn => {
-      const selected = btn.id === 'asset-tab-' + tab;
-      btn.classList.toggle('active', selected);
-      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
-      btn.tabIndex = selected ? 0 : -1;
-    });
-    document.getElementById('asset-list-container')
-      .setAttribute('aria-labelledby', 'asset-tab-' + tab);
-    loadAssetLibrary();
-  }
-
   async function loadAssetLibrary() {
     const container = document.getElementById('asset-list-container');
     container.setAttribute('aria-busy', 'true');
     container.innerHTML = '<div role="status" style="text-align:center; padding:20px; color:#687389; font-size:0.8rem;">Đang tải...</div>';
     
-    // We can extract sessionId from draft metadata if available, else fetch general
-    let url = '/practice/manage/assets';
-    if (activeAssetTab === 'session') {
-      const sesId = window.currentSessionId || '';
-      if (sesId) {
-        url += '?sessionId=' + sesId;
-      } else {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:#687389; font-size:0.8rem;">Bản nháp này chưa liên kết với phiên nhập PDF.</div>';
-        container.setAttribute('aria-busy', 'false');
-        return;
-      }
-    }
- 
     try {
-      const assets = await editorJsonFetch(url, {
+      const assets = await editorJsonFetch('/practice/manage/assets', {
         method: 'GET',
         headers: editorApiHeaders()
       }, 'Không tải được kho ảnh.');
