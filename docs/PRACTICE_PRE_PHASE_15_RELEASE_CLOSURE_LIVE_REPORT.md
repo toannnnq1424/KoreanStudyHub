@@ -607,3 +607,20 @@ adapter was made proxy-compatible and the retry passed `KshApplicationTests`
 migrations and its dedicated auto-remove container was stopped. This failed
 startup is not counted as green evidence. Provider/storage calls remained
 `0/0`; no shared database was contacted.
+
+The B2 runtime coordinator is now implemented behind
+`app.practice.speaking-direct-audio.authorization.enabled=false`. Enabling it
+requires a nonblank disclosure version and an explicit numeric grant-manager
+user-ID allowlist; missing or role-shaped values fail startup. Consent authority
+queries exact learner ownership plus Speaking skill. Reviewer grants require a
+named allowlisted manager, forbid self-grant/reviewer ownership of the attempt,
+and default to a maximum `P7D` lifetime. Every write is transaction-bound. No
+web route or evaluator/provider adapter consumes this coordinator yet.
+
+Coordinator evidence: the expanded focused gate passed `23/23`; tests pin
+missing-config rejection, configured disclosure binding, owned-attempt scope,
+named manager enforcement and bounded expiry. Fresh V1..V88 Spring/Hibernate
+startup passed `4/4` and explicitly proved the coordinator bean is absent under
+default configuration. The isolated catalog/container was then stopped and
+auto-removed. Real provider/storage calls remained `0/0` and score release is
+still structurally unavailable.

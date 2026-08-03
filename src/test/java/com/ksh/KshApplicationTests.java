@@ -2,6 +2,7 @@ package com.ksh;
 
 import com.ksh.features.practice.controller.PracticeSpeakingMediaController;
 import com.ksh.features.practice.controller.PracticeSpeakingMediaPlaybackController;
+import com.ksh.features.practice.ai.speaking.DirectAudioAuthorizationCoordinator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,6 +28,11 @@ class KshApplicationTests {
 	@Test
 	void speakingMediaPlaybackApiControllerIsAbsentByDefault() {
 		assertThat(applicationContext.getBeansOfType(PracticeSpeakingMediaPlaybackController.class)).isEmpty();
+	}
+
+	@Test
+	void directAudioAuthorizationCoordinatorIsAbsentByDefault() {
+		assertThat(applicationContext.getBeansOfType(DirectAudioAuthorizationCoordinator.class)).isEmpty();
 	}
 
 }
