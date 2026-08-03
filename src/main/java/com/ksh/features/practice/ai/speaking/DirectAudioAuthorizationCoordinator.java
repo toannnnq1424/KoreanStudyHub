@@ -1,6 +1,8 @@
 package com.ksh.features.practice.ai.speaking;
 
 import com.ksh.features.practice.ai.speaking.acoustic.DirectAudioDarkObservationJdbcStore;
+import com.ksh.features.practice.service.DirectAudioWithdrawalMediaService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,11 +26,14 @@ public class DirectAudioAuthorizationCoordinator {
 
     private final DirectAudioAuthorizationLifecycleService lifecycle;
     private final DirectAudioDarkObservationJdbcStore darkObservations;
+    private final DirectAudioWithdrawalMediaService withdrawalMedia;
     private final String disclosureVersion;
 
+    @Autowired
     public DirectAudioAuthorizationCoordinator(
             DirectAudioAuthorizationJdbcStore store,
             DirectAudioDarkObservationJdbcStore darkObservations,
+            DirectAudioWithdrawalMediaService withdrawalMedia,
             JdbcTemplate jdbc,
             @Value("${app.practice.speaking-direct-audio.authorization.disclosure-version:}")
             String disclosureVersion,
@@ -36,13 +41,14 @@ public class DirectAudioAuthorizationCoordinator {
             Duration maximumReviewerGrant,
             @Value("${app.practice.speaking-direct-audio.authorization.grant-manager-authorities:}")
             String grantManagerAuthorities) {
-        this(store, darkObservations, jdbc, disclosureVersion, maximumReviewerGrant,
+        this(store, darkObservations, withdrawalMedia, jdbc, disclosureVersion, maximumReviewerGrant,
                 grantManagerAuthorities, Clock.systemUTC());
     }
 
     DirectAudioAuthorizationCoordinator(
             DirectAudioAuthorizationJdbcStore store,
             DirectAudioDarkObservationJdbcStore darkObservations,
+            DirectAudioWithdrawalMediaService withdrawalMedia,
             JdbcTemplate jdbc,
             String disclosureVersion,
             Duration maximumReviewerGrant,
@@ -59,6 +65,7 @@ public class DirectAudioAuthorizationCoordinator {
         }
         this.disclosureVersion = disclosureVersion.trim();
         this.darkObservations = java.util.Objects.requireNonNull(darkObservations);
+        this.withdrawalMedia = java.util.Objects.requireNonNull(withdrawalMedia);
         this.lifecycle = new DirectAudioAuthorizationLifecycleService(
                 store,
                 (learnerId, attemptId) -> exists(jdbc, """
@@ -91,6 +98,7 @@ public class DirectAudioAuthorizationCoordinator {
                 learnerId, attemptId, eventKey, evidenceId);
         darkObservations.deleteForWithdrawal(
                 learnerId, attemptId, evidenceId, event.occurredAt());
+        withdrawalMedia.enqueueForWithdrawal(learnerId, attemptId, evidenceId);
         return event;
     }
 

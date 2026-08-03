@@ -3,6 +3,7 @@ package com.ksh.features.practice.service;
 import com.ksh.features.practice.service.audio.SpeakingAudioProperties;
 import com.ksh.features.practice.service.audio.SpeakingAudioStorage;
 import com.ksh.features.practice.service.audio.SpeakingAudioValidationException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -25,6 +26,7 @@ public class DirectAudioReviewerPlaybackService {
     private final SpeakingAudioProperties properties;
     private final Clock clock;
 
+    @Autowired
     public DirectAudioReviewerPlaybackService(
             DirectAudioReviewerPlaybackStore store,
             SpeakingAudioStorage storage,

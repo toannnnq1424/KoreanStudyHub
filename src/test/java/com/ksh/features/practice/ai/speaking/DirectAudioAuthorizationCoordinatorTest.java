@@ -1,6 +1,7 @@
 package com.ksh.features.practice.ai.speaking;
 
 import com.ksh.features.practice.ai.speaking.acoustic.DirectAudioDarkObservationJdbcStore;
+import com.ksh.features.practice.service.DirectAudioWithdrawalMediaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -67,6 +68,8 @@ class DirectAudioAuthorizationCoordinatorTest {
         DirectAudioAuthorizationJdbcStore store = mock(DirectAudioAuthorizationJdbcStore.class);
         DirectAudioDarkObservationJdbcStore darkObservations =
                 mock(DirectAudioDarkObservationJdbcStore.class);
+        DirectAudioWithdrawalMediaService withdrawalMedia =
+                mock(DirectAudioWithdrawalMediaService.class);
         when(store.latestConsent(11L, 22L,
                 DirectAudioAuthorizationLifecycleService.PURPOSE)).thenReturn(Optional.of(
                 new DirectAudioAuthorizationLifecycleService.ConsentEvent(
@@ -75,12 +78,15 @@ class DirectAudioAuthorizationCoordinatorTest {
                         "TEST-DISCLOSURE-V1", "TEST-CONSENT", NOW.minusSeconds(1))));
         when(store.appendConsent(any())).thenAnswer(invocation -> invocation.getArgument(0));
         DirectAudioAuthorizationCoordinator coordinator = coordinator(
-                store, darkObservations, "TEST-DISCLOSURE-V1", "ACADEMIC_LEADER");
+                store, darkObservations, withdrawalMedia,
+                "TEST-DISCLOSURE-V1", "ACADEMIC_LEADER");
 
         coordinator.withdrawConsent(11L, 22L, "event-0002", "TEST-WITHDRAWAL");
 
         verify(darkObservations).deleteForWithdrawal(11L, 22L,
                 "TEST-WITHDRAWAL", NOW);
+        verify(withdrawalMedia).enqueueForWithdrawal(11L, 22L,
+                "TEST-WITHDRAWAL");
     }
 
     private static DirectAudioAuthorizationCoordinator coordinator(
@@ -88,6 +94,8 @@ class DirectAudioAuthorizationCoordinatorTest {
         DirectAudioAuthorizationJdbcStore store = mock(DirectAudioAuthorizationJdbcStore.class);
         DirectAudioDarkObservationJdbcStore darkObservations =
                 mock(DirectAudioDarkObservationJdbcStore.class);
+        DirectAudioWithdrawalMediaService withdrawalMedia =
+                mock(DirectAudioWithdrawalMediaService.class);
         when(store.appendConsent(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(store.createReviewerGrant(any())).thenAnswer(invocation -> invocation.getArgument(0));
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
@@ -101,19 +109,22 @@ class DirectAudioAuthorizationCoordinatorTest {
                     return 1L;
                 });
         return new DirectAudioAuthorizationCoordinator(
-                store, darkObservations, jdbc, disclosure, Duration.ofDays(7), managers,
+                store, darkObservations, withdrawalMedia, jdbc, disclosure,
+                Duration.ofDays(7), managers,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static DirectAudioAuthorizationCoordinator coordinator(
             DirectAudioAuthorizationJdbcStore store,
             DirectAudioDarkObservationJdbcStore darkObservations,
+            DirectAudioWithdrawalMediaService withdrawalMedia,
             String disclosure, String managers) {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.queryForObject(anyString(), any(Class.class), any(Object[].class)))
                 .thenReturn(1L);
         return new DirectAudioAuthorizationCoordinator(
-                store, darkObservations, jdbc, disclosure, Duration.ofDays(7), managers,
+                store, darkObservations, withdrawalMedia, jdbc, disclosure,
+                Duration.ofDays(7), managers,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 }

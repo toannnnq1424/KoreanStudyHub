@@ -1305,3 +1305,43 @@ The targeted JDK `17.0.19` withdrawal/authorization/inspection/playback gate
 passed `22/22` with mocks/static fixtures only:
 
 `mvnw -Dtest=DirectAudioAuthorizationCoordinatorTest,DirectAudioAuthorizationLifecycleServiceTest,DirectAudioAuthorizationJdbcStoreTest,DirectAudioDarkObservationPersistenceStaticTest,DirectAudioDarkObservationServiceTest,DirectAudioReviewerPlaybackServiceTest,DirectAudioReviewerPlaybackControllerTest test`
+
+### 6.22 Consent-withdrawal private-audio cleanup
+
+Status: `V94_FORWARD_ONLY / DURABLE_CLEANUP_ENQUEUED / WORKER_DEFAULT_OFF / NO_PROVIDER_CALL`.
+
+The raw private-audio audit found that withdrawal already blocked all future
+reviewer reads, but physical objects depended on unrelated owner/discard paths.
+Forward-only V94 adds the exact `CONSENT_WITHDRAWAL` cleanup reason and a bounded
+`authorization_evidence_id` to the existing durable Speaking cleanup task. It
+does not add audio bytes, URLs, provider identifiers, credentials or score
+fields. V1–V93 bytes remain unchanged.
+
+`DirectAudioAuthorizationCoordinator.withdrawConsent` now performs three steps
+inside one transaction: append the immutable `WITHDRAWN` event, logical-delete
+the attempt's dark observations using the learner/evidence identity, then lock
+the owned Speaking attempt and every associated media row, move live media to
+`DELETION_PENDING`, and enqueue immediate exact-profile cleanup. The existing
+worker owns retry/lease/terminal behavior and marks a media row `DELETED` only
+after physical storage deletion is confirmed. Wrong owner/skill, malformed
+evidence and non-transactional enqueue fail closed. A previously deleted media
+row is not re-enqueued.
+
+A fresh disposable MySQL 8.4 container/database named
+`ksh_test_pre15_v94_20260803` applied and validated exactly `94` Flyway
+migrations. The Spring cleanup integration gate passed `18/18`, including the
+new persisted reason/evidence assertion. The container used a `768 MiB` memory
+limit and was stopped with `--rm`; the disposable database and synthetic test
+credential were removed with it. No shared database or real storage/provider
+was accessed.
+
+The non-DB JDK `17.0.19` branch-B authorization/acoustic/alignment/cleanup gate
+passed `77/77`; `mvnw -DskipTests package` also passed. The migration rehearsal
+detected and closed a Spring constructor
+selection defect in the default-off reviewer playback service by marking its
+production constructor explicitly for injection.
+
+Operational enablement remains red: the existing cleanup worker and reviewer
+playback endpoint are default-off; real provider-side deletion acknowledgment,
+provider deletion SLA evidence and production monitoring/escalation have not
+been fabricated. Learner acoustic score release remains unavailable.

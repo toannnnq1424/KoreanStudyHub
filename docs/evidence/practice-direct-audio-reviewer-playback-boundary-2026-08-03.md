@@ -44,6 +44,8 @@ environment guard verdict, not permission to use a shared database.
   default.
 - Provider capture, immutable provider policy evidence and Korean acoustic
   corpus/calibration/fairness/repeatability evidence are still red.
-- Reviewer inspection UI, audit event presentation and deletion worker remain
-  separate non-score-bearing slices. No learner acoustic score or playback UI
-  is authorized by this work.
+- Reviewer inspection UI and audit event presentation remain separate
+  non-score-bearing slices. V94 now enqueues exact consent-withdrawal cleanup
+  through the existing private-media worker, which remains default-off until
+  an operational release configuration is approved. No learner acoustic score
+  or playback UI is authorized by this work.
