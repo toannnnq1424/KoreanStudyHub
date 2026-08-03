@@ -27,7 +27,7 @@ class DirectAudioDarkObservationServiceTest {
 
     @Test
     void captureStoresOnlyBoundedProjectionAndOpaqueFingerprints() {
-        var captured = service.capture(44L, "dark-observation-0001", valid(),
+        var captured = service.capture(44L, 55L, 66L, "dark-observation-0001", valid(),
                 NOW.plusSeconds(3600));
 
         assertThat(captured.receiptFingerprint()).hasSize(64)
@@ -45,7 +45,7 @@ class DirectAudioDarkObservationServiceTest {
 
     @Test
     void inspectionRequiresStoreEnforcedReviewerGrantAndNeverReturnsScores() {
-        service.capture(44L, "dark-observation-0001", valid(),
+        service.capture(44L, 55L, 66L, "dark-observation-0001", valid(),
                 NOW.plusSeconds(3600));
 
         assertThat(service.inspect(77L, 44L)).isEmpty();
@@ -64,11 +64,11 @@ class DirectAudioDarkObservationServiceTest {
 
     @Test
     void rejectedResultAndOutOfPolicyRetentionNeverReachStore() {
-        assertThatThrownBy(() -> service.capture(44L, "dark-observation-0001",
+        assertThatThrownBy(() -> service.capture(44L, 55L, 66L, "dark-observation-0001",
                 DirectAudioAcousticObservationResult.rejected("TEST"),
                 NOW.plusSeconds(3600)))
                 .hasMessage("DIRECT_AUDIO_DARK_OBSERVATION_INVALID");
-        assertThatThrownBy(() -> service.capture(44L, "dark-observation-0002",
+        assertThatThrownBy(() -> service.capture(44L, 55L, 66L, "dark-observation-0002",
                 valid(), NOW.plus(DirectAudioDarkObservationService.RETENTION_CEILING)
                         .plusSeconds(1)))
                 .hasMessage("DIRECT_AUDIO_DARK_RETENTION_INVALID");
@@ -77,7 +77,7 @@ class DirectAudioDarkObservationServiceTest {
 
     @Test
     void reviewerCanInspectPersistedPartialDiagnosticsWithoutAnyScoreRelease() {
-        service.capture(44L, "dark-observation-partial", partial(),
+        service.capture(44L, 55L, 66L, "dark-observation-partial", partial(),
                 NOW.plusSeconds(3600));
         reviewerAuthorized = true;
 

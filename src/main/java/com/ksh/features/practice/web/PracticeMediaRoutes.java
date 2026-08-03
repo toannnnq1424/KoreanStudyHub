@@ -10,6 +10,9 @@ public final class PracticeMediaRoutes {
             "/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}";
     public static final String SPEAKING_MEDIA_CONTENT =
             "/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}/content";
+    public static final String DIRECT_AUDIO_REVIEW_MEDIA_CONTENT =
+            "/direct-audio/review/attempts/{attemptId}/questions/{questionId}"
+                    + "/speaking-media/{mediaId}/content";
 
     private PracticeMediaRoutes() {
     }

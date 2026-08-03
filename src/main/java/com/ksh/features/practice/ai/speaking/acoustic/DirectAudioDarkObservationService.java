@@ -37,12 +37,14 @@ public final class DirectAudioDarkObservationService {
     }
 
     public StoredObservation capture(
-            Long attemptId,
+            Long attemptId, Long questionId, Long mediaId,
             String observationKey,
             DirectAudioAcousticObservationResult result,
             Instant deleteAfter) {
         Instant capturedAt = clock.instant();
         requireIdentity(attemptId);
+        requireIdentity(questionId);
+        requireIdentity(mediaId);
         requireToken(observationKey, "observationKey");
         if (deleteAfter == null || !deleteAfter.isAfter(capturedAt)
                 || deleteAfter.isAfter(capturedAt.plus(RETENTION_CEILING))) {
@@ -70,7 +72,8 @@ public final class DirectAudioDarkObservationService {
             throw rejected("DIRECT_AUDIO_DARK_PAYLOAD_SERIALIZATION_FAILED");
         }
         StoredObservation stored = new StoredObservation(
-                observationKey, attemptId, result.contractVersion(), result.language(),
+                observationKey, attemptId, questionId, mediaId,
+                result.contractVersion(), result.language(),
                 result.evaluatorId(), result.model(), result.calibrationProfileId(),
                 result.calibrationVersion(), sha256(result.providerRequestId()),
                 sha256(result.providerCacheIdentity()),
@@ -88,7 +91,8 @@ public final class DirectAudioDarkObservationService {
         return store.findInspectable(reviewerId, attemptId, clock.instant())
                 .flatMap(stored -> validatedCompleteness(stored.payloadJson())
                 .map(completeness -> new ReviewerView(
-                        stored.observationKey(), stored.attemptId(),
+                        stored.observationKey(), stored.attemptId(), stored.questionId(),
+                        stored.mediaId(),
                         stored.contractVersion(), stored.language(),
                         stored.evaluatorId(), stored.model(),
                         stored.calibrationProfileId(), stored.calibrationVersion(),
@@ -185,6 +189,8 @@ public final class DirectAudioDarkObservationService {
     public record StoredObservation(
             String observationKey,
             Long attemptId,
+            Long questionId,
+            Long mediaId,
             String contractVersion,
             String language,
             String evaluatorId,
@@ -204,6 +210,8 @@ public final class DirectAudioDarkObservationService {
     public record ReviewerView(
             String observationKey,
             Long attemptId,
+            Long questionId,
+            Long mediaId,
             String contractVersion,
             String language,
             String evaluatorId,

@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.concurrent.TimeUnit;
 
 @Order(0)
-@RestControllerAdvice(assignableTypes = PracticeSpeakingMediaPlaybackController.class)
+@RestControllerAdvice(assignableTypes = {
+        PracticeSpeakingMediaPlaybackController.class,
+        DirectAudioReviewerPlaybackController.class
+})
 public class PracticeSpeakingMediaPlaybackControllerAdvice {
     private static final CacheControl NO_STORE = CacheControl.maxAge(0, TimeUnit.SECONDS)
             .noStore()

@@ -1236,3 +1236,48 @@ The remaining safe boundary is reviewer-only dark-result inspection plus
 authorized ranged playback. It must reuse the named active reviewer grant,
 consent/withdrawal/deletion state and the original private audio object; no raw
 URL, storage key, per-word audio file or learner acoustic score may be exposed.
+
+### 6.20 Reviewer-only dark audio range playback
+
+Status: `V93_FORWARD_ONLY / REVIEWER_RANGE_PLAYBACK_GREEN / DEFAULT_OFF / NO_LEARNER_SCORE`.
+
+The dated boundary evidence
+`practice-direct-audio-reviewer-playback-boundary-2026-08-03.md` closes the
+previously audited service/transport gap without adding a learner route or UI.
+Forward-only V93 binds every newly captured V92-style dark observation to its
+exact `attempt_id`, `question_id` and `media_id`. V1–V92 bytes remain unchanged;
+historical V92 rows without that binding remain non-playable rather than being
+guessed into a current authorization state.
+
+The separately named, default-off direct-audio reviewer route does not reuse
+the STUDENT owner endpoint. On every open it resolves a descriptor only when
+all independent factors match: the requester's named, exact-purpose reviewer
+grant is unrevoked and unexpired; the latest consent event is `GRANTED` (so a
+later withdrawal wins); the linked dark observation is unexpired and undeleted;
+the exact media is still private `READY` Speaking media; and the stored
+attempt/question/media binding agrees. Any missing or malformed factor becomes
+the existing bounded not-found response before storage is opened. The controller
+permits only HTTP byte ranges over the original private object with no-store,
+private cache headers; it returns neither URL/presign, storage key, audio token
+nor a score field.
+
+JDK `17.0.19` focused service/controller/authorization/migration test command
+passed `25/25` with no provider, storage or DB call:
+
+`mvnw -Dtest=DirectAudioDarkObservationServiceTest,DirectAudioDarkObservationPersistenceStaticTest,DirectAudioReviewerPlaybackServiceTest,DirectAudioReviewerPlaybackControllerTest,PracticeAim8CompatibilityStaticContractTest,PracticeAim7PdfAuthoringStaticContractTest test`
+
+The wider non-network branch-B authorization/acoustic/alignment selector also
+passed `55/55` on the same JDK17:
+
+`mvnw -Dtest=DirectAudio*Test,KoreanDirectAudio*Test,GeminiEnterpriseDirectAudioEvaluationAdapterTest,PracticeAiResultCompletenessStaticTest test`
+
+The wider existing Spring MVC media selector was also invoked but stopped at
+the repository's `DisposableTestDatabaseEnvironmentGuard` because `TEST_DB_URL`
+is unset. It made no DB connection; this is correctly an environment setup
+failure, not a reason to select a shared database. A disposable-DB V93 migration
+rehearsal remains required before enablement.
+
+No reviewer UI, audit-event presenter, real provider/storage call, secret,
+direct-audio score release or learner playback exposure was added. Provider
+policy evidence, captured provider consumption, Korean corpus/calibration/
+fairness/repeatability evidence and explicit dark-rollout approval remain red.

@@ -46,6 +46,35 @@ class DirectAudioDarkObservationPersistenceStaticTest {
     }
 
     @Test
+    void v93BindsEachNewObservationToExactQuestionAndPrivateMediaForReviewerPlayback()
+            throws Exception {
+        String sql = Files.readString(Path.of(
+                "src/main/resources/db/migration/"
+                        + "V93__practice_speaking_direct_audio_observation_media_binding.sql"));
+        String store = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/service/"
+                        + "DirectAudioReviewerPlaybackStore.java"));
+
+        assertThat(sql).contains("question_id", "media_id", "fk_psdado_media")
+                .doesNotContain("audio_bytes", "storage_key", "playback_url", "access_token");
+        assertThat(store).contains("c.event_type = 'GRANTED'", "g.reviewer_id = ?",
+                        "g.revoked_at IS NULL AND g.expires_at > ?",
+                        "o.question_id = m.question_id", "o.media_id = m.id",
+                        "o.deleted_at IS NULL", "o.delete_after > ?")
+                .doesNotContain("SELECT *", "playback_url", "access_token");
+
+        String controller = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/practice/controller/"
+                        + "DirectAudioReviewerPlaybackController.java"));
+        String properties = Files.readString(Path.of("src/main/resources/application.properties"));
+        assertThat(controller).contains("DIRECT_AUDIO_REVIEW_MEDIA_CONTENT", "isAuthenticated()",
+                        "noStore()", "PracticeByteRange")
+                .doesNotContain("openForOwner", "playbackUrl", "scoreRelease");
+        assertThat(properties).contains(
+                "PRACTICE_SPEAKING_DIRECT_AUDIO_REVIEWER_PLAYBACK_API_ENABLED:false");
+    }
+
+    @Test
     void learnerResultSurfacesDoNotConsumeDarkPersistenceTypes() throws Exception {
         String[] paths = {
                 "src/main/java/com/ksh/features/practice/result/SpeakingResultPresenter.java",
@@ -57,6 +86,8 @@ class DirectAudioDarkObservationPersistenceStaticTest {
             assertThat(Files.readString(Path.of(path)))
                     .as(path)
                     .doesNotContain("DirectAudioDarkObservation",
+                            "DirectAudioReviewerPlayback",
+                            "DIRECT_AUDIO_REVIEW_MEDIA_CONTENT",
                             "practice_speaking_direct_audio_dark_observations");
         }
     }
