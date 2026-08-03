@@ -20,7 +20,8 @@ public class PracticeAiControlPlaneCodec {
             "imageInput",
             "transcriptTextInput",
             "batchTranscription",
-            "speechSynthesis");
+            "speechSynthesis",
+            "directAudioInput");
     private static final Set<String> LIMIT_FIELDS = Set.of(
             "connectTimeoutMs",
             "readTimeoutMs",
@@ -44,7 +45,8 @@ public class PracticeAiControlPlaneCodec {
                 bool(root, "imageInput"),
                 bool(root, "transcriptTextInput"),
                 bool(root, "batchTranscription"),
-                bool(root, "speechSynthesis"));
+                bool(root, "speechSynthesis"),
+                bool(root, "directAudioInput"));
         if (!capabilities.supportsAll(purpose.requiredCapabilities())) {
             throw new PracticeAiControlPlaneException(
                     "PROVIDER_CAPABILITY_INCOMPATIBLE", false);
@@ -69,6 +71,13 @@ public class PracticeAiControlPlaneCodec {
     }
 
     public String capabilityJson(PracticeAiPurpose purpose, boolean pdfImageInput) {
+        return capabilityJson(purpose, pdfImageInput, false);
+    }
+
+    public String capabilityJson(
+            PracticeAiPurpose purpose,
+            boolean pdfImageInput,
+            boolean directAudioInput) {
         boolean structured = purpose.structuredJson();
         boolean image = switch (purpose) {
             case PRACTICE_PDF_AUTHORING -> pdfImageInput;
@@ -86,6 +95,9 @@ public class PracticeAiControlPlaneCodec {
                 purpose == PracticeAiPurpose.PRACTICE_SPEAKING_STT);
         root.put("speechSynthesis",
                 purpose == PracticeAiPurpose.PRACTICE_SPEAKING_TTS);
+        root.put("directAudioInput",
+                purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                        && directAudioInput);
         return write(root);
     }
 

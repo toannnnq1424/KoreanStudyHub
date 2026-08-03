@@ -273,6 +273,7 @@ public class PracticeAiControlPlaneController {
         model.addAttribute("enabledProfileCount", enabledProfileCount);
         model.addAttribute("configuredBindingCount", configuredBindingCount);
         model.addAttribute("enabledBindingCount", enabledBindingCount);
+        model.addAttribute("purposeCount", bindings.size());
         model.addAttribute("nextBinding", nextBinding);
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_SETTINGS);
     }

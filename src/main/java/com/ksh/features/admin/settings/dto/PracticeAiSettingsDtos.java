@@ -67,6 +67,11 @@ public final class PracticeAiSettingsDtos {
             @Min(16384) @Max(8388608) int maxResponseBytes,
             @NotBlank @Size(max = 64)
             @Pattern(regexp = "^[A-Z][A-Z0-9_]{1,63}$") String retentionCode,
+            boolean directAudioInput,
+            @Size(max = 160) String regionEvidenceId,
+            @Size(max = 160) String nonTrainingEvidenceId,
+            @Size(max = 160) String retentionEvidenceId,
+            @Size(max = 160) String deletionSlaEvidenceId,
             boolean enabled,
             Long revision
     ) {
@@ -86,6 +91,8 @@ public final class PracticeAiSettingsDtos {
                     2_097_152,
                     defaultRetention(purpose),
                     false,
+                    "", "", "", "",
+                    false,
                     null);
         }
 
@@ -101,6 +108,11 @@ public final class PracticeAiSettingsDtos {
                     maxRequestBytes,
                     maxResponseBytes,
                     retentionCode,
+                    directAudioInput,
+                    regionEvidenceId,
+                    nonTrainingEvidenceId,
+                    retentionEvidenceId,
+                    deletionSlaEvidenceId,
                     enabled,
                     revision);
         }
@@ -111,6 +123,8 @@ public final class PracticeAiSettingsDtos {
                 case PRACTICE_RL_EXPLANATION -> "PUBLISHED_EXPLANATION_V1";
                 case PRACTICE_WRITING_EVALUATION -> "WRITING_EVALUATION_V1";
                 case PRACTICE_SPEAKING_EVALUATION -> "SPEAKING_TRANSCRIPT_EVAL_V1";
+                case PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION ->
+                        "SPEAKING_DIRECT_AUDIO_EVAL_V1";
                 case PRACTICE_SPEAKING_STT -> "SPEAKING_AUDIO_STT_V1";
                 case PRACTICE_SPEAKING_TTS -> "LECTURER_PROMPT_TTS_V1";
             };
@@ -128,6 +142,7 @@ public final class PracticeAiSettingsDtos {
             long revision,
             String retentionCode,
             LocalDateTime updatedAt,
+            boolean policyEvidenceComplete,
             List<CapabilityRunRow> recentRuns
     ) {
         public boolean configured() {
@@ -137,6 +152,10 @@ public final class PracticeAiSettingsDtos {
         public String statusCode() {
             if (!configured()) {
                 return "missing";
+            }
+            if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                    && !policyEvidenceComplete) {
+                return "check";
             }
             if (!enabled) {
                 return "paused";

@@ -35,13 +35,13 @@ class AdminSettingsInformationArchitectureStaticContractTest {
     }
 
     @Test
-    void practiceAiIsSimpleFirstThreeStepControlPlaneWithSixPurposeStates() throws Exception {
+    void practiceAiIsSimpleFirstThreeStepCapabilityAwareControlPlane() throws Exception {
         String list = read("settings-practice-ai.html");
         String profile = read("settings-practice-ai-profile-form.html");
         String binding = read("settings-practice-ai-binding-form.html");
         assertThat(list)
                 .contains("Chọn nhà cung cấp", "Chọn model", "Gán cho mục đích")
-                .contains("enabledBindingCount == 6", "0 / 6 sẵn sàng")
+                .contains("enabledBindingCount == purposeCount", "purposeCount + ' đã bật'")
                 .contains("Chưa thiết lập", "Sẵn sàng", "Tạm tắt", "Cần kiểm tra")
                 .contains("không fallback sang AI toàn hệ thống")
                 .doesNotContain("<table", ">ACTIVE<", ">DISABLED<", ">MISSING<");
@@ -55,6 +55,10 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("Chi tiết kỹ thuật / Nâng cao")
                 .contains("connectTimeoutMs", "readTimeoutMs", "maxRetries")
                 .contains("maxRequestBytes", "maxResponseBytes", "retentionCode")
+                .contains("directAudioInput", "regionEvidenceId",
+                        "nonTrainingEvidenceId", "retentionEvidenceId",
+                        "deletionSlaEvidenceId")
+                .contains("Chưa có preset direct-audio được xác minh")
                 .contains("không fallback global")
                 .contains("th:href=\"@{/admin/settings/practice-ai/profiles/new}\"")
                 .contains("Thêm nhà cung cấp")

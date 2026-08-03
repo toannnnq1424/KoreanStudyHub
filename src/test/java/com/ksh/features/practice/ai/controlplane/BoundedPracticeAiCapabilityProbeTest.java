@@ -19,7 +19,7 @@ class BoundedPracticeAiCapabilityProbeTest {
             new PracticeAiControlPlaneCodec(objectMapper);
 
     @Test
-    void sixPurposeFixturesUseOnlyBoundedPracticeTransportContracts() {
+    void existingPurposesUseBoundedTransportAndDirectAudioStopsBeforeTransport() {
         List<String> paths = new ArrayList<>();
         List<String> structuredBodies = new ArrayList<>();
         PracticeAiProviderTransport fakeTransport =
@@ -58,7 +58,16 @@ class BoundedPracticeAiCapabilityProbeTest {
                         new StrictOpenAiStructuredResponseDecoder());
 
         for (PracticeAiPurpose purpose : PracticeAiPurpose.values()) {
-            probe.probe(binding(purpose));
+            if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION) {
+                org.assertj.core.api.Assertions.assertThatThrownBy(
+                                () -> probe.probe(binding(purpose)))
+                        .isInstanceOf(PracticeAiControlPlaneException.class)
+                        .extracting(error -> ((PracticeAiControlPlaneException) error)
+                                .errorCode())
+                        .isEqualTo("DIRECT_AUDIO_DARK_ROLLOUT_REQUIRED");
+            } else {
+                probe.probe(binding(purpose));
+            }
         }
 
         assertThat(paths).containsExactly(
@@ -76,7 +85,9 @@ class BoundedPracticeAiCapabilityProbeTest {
     }
 
     private PracticeAiResolvedBinding binding(PracticeAiPurpose purpose) {
-        String capabilityJson = codec.capabilityJson(purpose, false);
+        String capabilityJson = codec.capabilityJson(
+                purpose, false,
+                purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION);
         String limitsJson = codec.limitsJson(
                 1_000, 5_000, 1, 1_048_576, 1_048_576);
         return new PracticeAiResolvedBinding(

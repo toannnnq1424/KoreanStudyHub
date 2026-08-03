@@ -43,6 +43,9 @@ public class BoundedPracticeAiCapabilityProbe implements PracticeAiCapabilityPro
                  PRACTICE_RL_EXPLANATION,
                  PRACTICE_WRITING_EVALUATION,
                  PRACTICE_SPEAKING_EVALUATION -> probeStructured(binding);
+            case PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION ->
+                    throw new PracticeAiControlPlaneException(
+                            "DIRECT_AUDIO_DARK_ROLLOUT_REQUIRED", false);
             case PRACTICE_SPEAKING_STT -> probeStt(binding);
             case PRACTICE_SPEAKING_TTS -> probeTts(binding);
         }

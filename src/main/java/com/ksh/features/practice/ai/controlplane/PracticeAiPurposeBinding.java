@@ -38,6 +38,18 @@ public class PracticeAiPurposeBinding {
     @Column(name = "retention_code", nullable = false, length = 64)
     private String retentionCode;
 
+    @Column(name = "region_evidence_id", length = 160)
+    private String regionEvidenceId;
+
+    @Column(name = "non_training_evidence_id", length = 160)
+    private String nonTrainingEvidenceId;
+
+    @Column(name = "retention_evidence_id", length = 160)
+    private String retentionEvidenceId;
+
+    @Column(name = "deletion_sla_evidence_id", length = 160)
+    private String deletionSlaEvidenceId;
+
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
 
@@ -91,6 +103,17 @@ public class PracticeAiPurposeBinding {
         this.updatedBy = updatedBy;
     }
 
+    public void updatePolicyEvidence(
+            String regionEvidenceId,
+            String nonTrainingEvidenceId,
+            String retentionEvidenceId,
+            String deletionSlaEvidenceId) {
+        this.regionEvidenceId = blankToNull(regionEvidenceId);
+        this.nonTrainingEvidenceId = blankToNull(nonTrainingEvidenceId);
+        this.retentionEvidenceId = blankToNull(retentionEvidenceId);
+        this.deletionSlaEvidenceId = blankToNull(deletionSlaEvidenceId);
+    }
+
     public void toggle(Long actorId) {
         enabled = !enabled;
         updatedBy = actorId;
@@ -103,9 +126,17 @@ public class PracticeAiPurposeBinding {
     public String getCapabilityJson() { return capabilityJson; }
     public String getLimitsJson() { return limitsJson; }
     public String getRetentionCode() { return retentionCode; }
+    public String getRegionEvidenceId() { return regionEvidenceId; }
+    public String getNonTrainingEvidenceId() { return nonTrainingEvidenceId; }
+    public String getRetentionEvidenceId() { return retentionEvidenceId; }
+    public String getDeletionSlaEvidenceId() { return deletionSlaEvidenceId; }
     public boolean isEnabled() { return enabled; }
     public long getRevision() { return revision; }
     public Long getUpdatedBy() { return updatedBy; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
 }

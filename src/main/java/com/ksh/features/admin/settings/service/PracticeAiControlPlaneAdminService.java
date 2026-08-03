@@ -107,6 +107,11 @@ public class PracticeAiControlPlaneAdminService {
                             limits.maxRequestBytes(),
                             limits.maxResponseBytes(),
                             binding.getRetentionCode(),
+                            capabilities.directAudioInput(),
+                            binding.getRegionEvidenceId(),
+                            binding.getNonTrainingEvidenceId(),
+                            binding.getRetentionEvidenceId(),
+                            binding.getDeletionSlaEvidenceId(),
                             binding.isEnabled(),
                             binding.getRevision());
                 })
@@ -190,8 +195,16 @@ public class PracticeAiControlPlaneAdminService {
         PracticeAiProviderProfile profile = profileRepository
                 .findById(form.providerProfileId())
                 .orElseThrow(() -> new IllegalArgumentException("PROFILE_NOT_FOUND"));
+        boolean directAudio = form.purpose()
+                == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION;
+        if (directAudio && !form.directAudioInput()) {
+            throw new IllegalArgumentException("DIRECT_AUDIO_INPUT_CAPABILITY_REQUIRED");
+        }
+        if (directAudio && form.enabled() && !policyEvidenceComplete(form)) {
+            throw new IllegalArgumentException("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
+        }
         String capabilityJson = codec.capabilityJson(
-                form.purpose(), form.pdfImageInput());
+                form.purpose(), form.pdfImageInput(), form.directAudioInput());
         String limitsJson = codec.limitsJson(
                 form.connectTimeoutMs(),
                 form.readTimeoutMs(),
@@ -216,12 +229,15 @@ public class PracticeAiControlPlaneAdminService {
                     form.retentionCode().trim(),
                     form.enabled(),
                     actorId);
+            binding.updatePolicyEvidence(
+                    form.regionEvidenceId(), form.nonTrainingEvidenceId(),
+                    form.retentionEvidenceId(), form.deletionSlaEvidenceId());
             bindingRepository.save(binding);
         } else {
             if (form.revision() != null) {
                 throw new IllegalStateException("BINDING_REVISION_CONFLICT");
             }
-            bindingRepository.save(new PracticeAiPurposeBinding(
+            PracticeAiPurposeBinding created = new PracticeAiPurposeBinding(
                     form.purpose(),
                     profile,
                     form.model().trim(),
@@ -230,7 +246,11 @@ public class PracticeAiControlPlaneAdminService {
                     limitsJson,
                     form.retentionCode().trim(),
                     form.enabled(),
-                    actorId));
+                    actorId);
+            created.updatePolicyEvidence(
+                    form.regionEvidenceId(), form.nonTrainingEvidenceId(),
+                    form.retentionEvidenceId(), form.deletionSlaEvidenceId());
+            bindingRepository.save(created);
         }
         log.info("Practice AI purpose {} binding updated by admin {}",
                 form.purpose(), actorId);
@@ -241,6 +261,11 @@ public class PracticeAiControlPlaneAdminService {
         PracticeAiPurposeBinding binding = bindingRepository
                 .findDetailedForUpdate(purpose.name())
                 .orElseThrow(() -> new IllegalArgumentException("BINDING_NOT_FOUND"));
+        if (!binding.isEnabled()
+                && purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                && !policyEvidenceComplete(binding)) {
+            throw new IllegalStateException("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
+        }
         binding.toggle(actorId);
         bindingRepository.save(binding);
         return binding.isEnabled();
@@ -266,7 +291,8 @@ public class PracticeAiControlPlaneAdminService {
                     purpose,
                     purpose.displayName(),
                     requiredCapabilities(purpose),
-                    null, null, null, false, -1L, null, null, runs);
+                    null, null, null, false, -1L, null, null,
+                    false, runs);
         }
         return new BindingRow(
                 purpose,
@@ -279,6 +305,7 @@ public class PracticeAiControlPlaneAdminService {
                 binding.getRevision(),
                 binding.getRetentionCode(),
                 binding.getUpdatedAt(),
+                policyEvidenceComplete(binding),
                 runs);
     }
 
@@ -290,5 +317,23 @@ public class PracticeAiControlPlaneAdminService {
         return purpose.requiredCapabilities().stream()
                 .sorted()
                 .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private static boolean policyEvidenceComplete(BindingForm form) {
+        return present(form.regionEvidenceId())
+                && present(form.nonTrainingEvidenceId())
+                && present(form.retentionEvidenceId())
+                && present(form.deletionSlaEvidenceId());
+    }
+
+    private static boolean policyEvidenceComplete(PracticeAiPurposeBinding binding) {
+        return present(binding.getRegionEvidenceId())
+                && present(binding.getNonTrainingEvidenceId())
+                && present(binding.getRetentionEvidenceId())
+                && present(binding.getDeletionSlaEvidenceId());
+    }
+
+    private static boolean present(String value) {
+        return value != null && !value.isBlank();
     }
 }

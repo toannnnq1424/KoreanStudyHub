@@ -100,7 +100,7 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     }
 
     @Test
-    void c4AddsOnlyTheSingleForwardCompactionMigration() throws Exception {
+    void c4CompactionRemainsAndAuthorizedForwardMigrationsStopAtV90() throws Exception {
         Path migrations = ROOT.resolve("src/main/resources/db/migration");
         try (var paths = Files.list(migrations)) {
             List<String> names = paths.map(path -> path.getFileName().toString())
@@ -110,7 +110,7 @@ class PracticeAim7PdfAuthoringStaticContractTest {
             assertThat(names).anyMatch(name -> name.startsWith("V87__"));
             assertThat(names).noneMatch(name -> {
                 int separator = name.indexOf("__");
-                return Integer.parseInt(name.substring(1, separator)) > 87;
+                return Integer.parseInt(name.substring(1, separator)) > 90;
             });
         }
     }

@@ -39,20 +39,20 @@
                 <span class="settings-step-number">2</span>
                 <span><strong>Chọn model</strong><small>Chọn model phù hợp cho tính năng.</small></span>
             </li>
-            <li class="settings-step" th:classappend="${enabledBindingCount == 6} ? ' is-complete' : (${configuredBindingCount > 0} ? ' is-current' : '')"
-                th:attr="aria-current=${configuredBindingCount > 0 and enabledBindingCount < 6} ? 'step' : null">
+            <li class="settings-step" th:classappend="${enabledBindingCount == purposeCount} ? ' is-complete' : (${configuredBindingCount > 0} ? ' is-current' : '')"
+                th:attr="aria-current=${configuredBindingCount > 0 and enabledBindingCount < purposeCount} ? 'step' : null">
                 <span class="settings-step-number">3</span>
-                <span><strong>Gán cho mục đích</strong><small>Hoàn tất đủ sáu mục đích riêng.</small></span>
+                <span><strong>Gán cho mục đích</strong><small>Hoàn tất từng mục đích riêng.</small></span>
             </li>
         </ol>
 
         <section class="settings-next-action" aria-labelledby="practice-next-action">
             <div>
                 <span class="settings-zone-kicker">Việc cần làm tiếp theo</span>
-                <h2 id="practice-next-action"><span th:if="${enabledProfileCount == 0}">Thêm và bật nhà cung cấp đầu tiên</span><span th:if="${enabledProfileCount > 0 and configuredBindingCount == 0}">Chọn model cho mục đích đầu tiên</span><span th:if="${configuredBindingCount > 0 and enabledBindingCount < 6}">Hoàn thiện các mục đích còn lại</span><span th:if="${enabledBindingCount == 6}">Kiểm tra định kỳ từng mục đích</span></h2>
+                <h2 id="practice-next-action"><span th:if="${enabledProfileCount == 0}">Thêm và bật nhà cung cấp đầu tiên</span><span th:if="${enabledProfileCount > 0 and configuredBindingCount == 0}">Chọn model cho mục đích đầu tiên</span><span th:if="${configuredBindingCount > 0 and enabledBindingCount < purposeCount}">Hoàn thiện các mục đích còn lại</span><span th:if="${enabledBindingCount == purposeCount}">Kiểm tra định kỳ từng mục đích</span></h2>
                 <p th:if="${enabledProfileCount == 0}">Khóa chỉ được gửi khi lưu; trang danh sách không chứa secret.</p>
-                <p th:if="${enabledProfileCount > 0 and enabledBindingCount < 6}">Mỗi mục đích phải chọn đúng profile và model trước khi bật.</p>
-                <p th:if="${enabledBindingCount == 6}">Cả sáu binding đã bật. Chạy kiểm tra khi bạn chủ động yêu cầu.</p>
+                <p th:if="${enabledProfileCount > 0 and enabledBindingCount < purposeCount}">Mỗi mục đích phải chọn đúng profile và model trước khi bật.</p>
+                <p th:if="${enabledBindingCount == purposeCount}">Mọi binding đã bật. Chạy kiểm tra khi bạn chủ động yêu cầu.</p>
             </div>
             <a th:if="${enabledProfileCount == 0}" class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Bắt đầu bước 1</a>
             <a th:if="${enabledProfileCount > 0 and nextBinding != null}" class="btn btn-primary"
@@ -102,9 +102,9 @@
 
         <section class="settings-content-section" aria-labelledby="practice-purposes-title">
             <div class="settings-section-head">
-                <div><span class="settings-step-label">Bước 2–3</span><h2 id="practice-purposes-title">Model và sáu mục đích</h2>
+                <div><span class="settings-step-label">Bước 2–3</span><h2 id="practice-purposes-title">Model và các mục đích</h2>
                     <p>Trạng thái phản ánh cấu hình của từng mục đích; không có fallback ngầm.</p></div>
-                <span class="settings-count" th:text="${enabledBindingCount + ' / 6 sẵn sàng'}">0 / 6 sẵn sàng</span>
+                <span class="settings-count" th:text="${enabledBindingCount + ' / ' + purposeCount + ' đã bật'}">0 / 7 đã bật</span>
             </div>
             <div class="settings-status-legend" aria-label="Ý nghĩa trạng thái"><span><i class="settings-status-dot settings-status-missing"></i>Chưa thiết lập</span><span><i class="settings-status-dot settings-status-ready"></i>Sẵn sàng</span><span><i class="settings-status-dot settings-status-paused"></i>Tạm tắt</span><span><i class="settings-status-dot settings-status-check"></i>Cần kiểm tra</span></div>
             <div class="settings-purpose-grid">
@@ -129,6 +129,7 @@
                             <div><dt>Capability</dt><dd th:text="${binding.requiredCapabilities}">STRICT_JSON_SCHEMA</dd></div>
                             <div><dt>Revision</dt><dd th:text="${binding.configured ? binding.revision : '—'}">—</dd></div>
                             <div><dt>Retention</dt><dd th:text="${binding.retentionCode ?: '—'}">—</dd></div>
+                            <div th:if="${binding.purpose.name() == 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'}"><dt>Policy evidence</dt><dd th:text="${binding.policyEvidenceComplete ? 'Đủ ID' : 'Thiếu ID'}">Thiếu ID</dd></div>
                             <div><dt>Kiểm tra gần nhất</dt><dd th:text="${#lists.isEmpty(binding.recentRuns) ? 'Chưa kiểm tra' : (binding.recentRuns[0].status ?: 'Đang chạy')}">Chưa kiểm tra</dd></div>
                         </dl>
                     </details>

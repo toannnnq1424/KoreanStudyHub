@@ -13,18 +13,21 @@ class PracticeAiControlPlaneStaticContractTest {
 
     @Test
     void migrationUsesOnePrimaryKeyRowPerExactPurpose() throws Exception {
-        String sql = Files.readString(Path.of(
+        String foundation = Files.readString(Path.of(
                 "src/main/resources/db/migration/V84__practice_ai_control_plane.sql"));
-        assertThat(sql)
+        String current = foundation + Files.readString(Path.of(
+                "src/main/resources/db/migration/"
+                        + "V90__practice_speaking_direct_audio_control_plane.sql"));
+        assertThat(foundation)
                 .contains("purpose_code VARCHAR(64) PRIMARY KEY")
                 .contains("practice_ai_provider_profiles")
                 .contains("practice_ai_purpose_bindings")
                 .contains("practice_ai_capability_test_runs")
                 .contains("practice_ai_execution_audits");
         for (PracticeAiPurpose purpose : PracticeAiPurpose.values()) {
-            assertThat(sql).contains("'" + purpose.name() + "'");
+            assertThat(current).contains("'" + purpose.name() + "'");
         }
-        assertThat(sql).doesNotContain(
+        assertThat(current).doesNotContain(
                 "GENERAL_UPLOADS",
                 "storage_profiles",
                 "R2",

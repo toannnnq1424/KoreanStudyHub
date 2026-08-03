@@ -25,8 +25,8 @@ class PracticeAiBindingStatusPresentationTest {
     }
 
     @Test
-    void allSixPurposeLabelsAreClearVietnameseWhileCodesRemainStable() {
-        assertThat(PracticeAiPurpose.values()).hasSize(6);
+    void allPurposeLabelsAreClearVietnameseWhileCodesRemainStable() {
+        assertThat(PracticeAiPurpose.values()).hasSize(7);
         assertThat(List.of(PracticeAiPurpose.values()).stream()
                 .map(PracticeAiPurpose::displayName))
                 .containsExactly(
@@ -35,9 +35,29 @@ class PracticeAiBindingStatusPresentationTest {
                         "Chấm bài Viết",
                         "Chấm bài Nói",
                         "Chuyển giọng nói thành văn bản",
-                        "Tạo giọng đọc đề bài");
+                        "Tạo giọng đọc đề bài",
+                        "Đánh giá âm thanh bài Nói");
         assertThat(PracticeAiPurpose.PRACTICE_PDF_AUTHORING.name())
                 .isEqualTo("PRACTICE_PDF_AUTHORING");
+    }
+
+    @Test
+    void directAudioStaysCheckEvenWhenConfiguredButPolicyEvidenceIsIncomplete() {
+        BindingRow row = new BindingRow(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
+                "Đánh giá âm thanh bài Nói",
+                "DIRECT_AUDIO_INPUT, STRICT_JSON_SCHEMA",
+                7L,
+                "PRACTICE_AUDIO",
+                "explicit-audio-model",
+                false,
+                0L,
+                "SPEAKING_DIRECT_AUDIO_EVAL_V1",
+                null,
+                false,
+                List.of());
+
+        assertThat(row.statusLabel()).isEqualTo("Cần kiểm tra");
     }
 
     private static BindingRow row(Long profileId, boolean enabled, long revision,
@@ -45,7 +65,7 @@ class PracticeAiBindingStatusPresentationTest {
         return new BindingRow(PracticeAiPurpose.PRACTICE_PDF_AUTHORING,
                 "Biên soạn từ PDF", "STRICT_JSON_SCHEMA", profileId,
                 profileId == null ? null : "PRACTICE_PRIMARY", "model", enabled,
-                revision, "PRACTICE_AUTHORING_V1", null, runs);
+                revision, "PRACTICE_AUTHORING_V1", null, true, runs);
     }
 
     private static CapabilityRunRow run(Long revision, String status) {

@@ -672,3 +672,61 @@ applied continuous `V1..V89`, max version `89`, zero failed migrations and zero
 grant-manager rows; Spring/Hibernate default-off startup passed `4/4`. The
 container was stopped and auto-removed. V1..V88 bytes were not edited; provider
 and storage calls remained `0/0`.
+
+### 6.10 B3 direct-audio purpose in the existing Practice AI control plane
+
+Status: `GENERIC_BINDING_IMPLEMENTED / CAPABILITY_TEST_RED / NO_PROVIDER_SELECTED`.
+
+B3 reuses the existing Admin Practice AI provider-profile → model → purpose
+binding flow. It does not introduce a second provider registry, global-AI
+fallback, credential property or provider discovery request. The six existing
+purposes remain unchanged and a seventh separately named purpose,
+`PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION`, owns data class
+`LEARNER_SPEAKING_AUDIO` and requires both `STRICT_JSON_SCHEMA` and the new
+explicit `DIRECT_AUDIO_INPUT` capability.
+
+Forward-only V90 extends the existing binding table with four exact policy
+evidence identifiers: processing region, non-training, retention and deletion
+SLA. It backfills `directAudioInput=false` into existing capability documents,
+adds no profile/model/binding/credential row and preserves V1..V89 bytes. Both
+the service and database reject a direct-audio binding without explicit audio
+input capability. An enabled binding additionally requires every non-blank
+policy evidence ID. The resolver repeats those checks before exposing a
+runtime snapshot.
+
+The Admin form remains simple-first: select an existing Practice-only profile,
+enter the exact model and explicitly attest documented direct-audio input,
+then bind the purpose. Existing text/STT/TTS presets are not presented as
+direct-audio proof. No vendor/model is preselected and the page performs no
+`/models` fetch. Region/non-training/retention/deletion-SLA evidence IDs stay
+under advanced details. Missing evidence renders `Cần kiểm tra`; enabling is
+rejected. Secrets are not added to either binding page or list response, and
+the existing controller permission, CSRF forms, routes and no-global-fallback
+contract remain intact.
+
+This slice intentionally cannot make direct audio ready. The bounded
+capability probe returns `DIRECT_AUDIO_DARK_ROLLOUT_REQUIRED` before transport,
+so no generic button test can create a false green status or release a score.
+The existing B1 data-plane gates for consent/disclosure, named reviewer access,
+provider policy bundle, captured authorized audio consumption, calibration,
+fairness, repeatability and dark rollout remain authoritative.
+
+Dated evidence (`2026-08-03`, JDK 17):
+
+- the focused codec/resolver/admin-service/presenter/template/static/migration
+  suite passed `49/49` with zero failures/errors/skips;
+- the broader source scan found no remaining six-purpose UI count and confirmed
+  the central provider transport still rejects `/models`;
+- fresh isolated MySQL 8.4 catalogs `ksh_test_pre15_b3_v90_ai` and
+  `ksh_test_pre15_b3_v90_aim8` each validated and applied continuous
+  `V1..V90`, max version `90`, zero failed Flyway rows;
+- the AI control-plane persistence plus default-off Spring startup gate passed
+  `5/5`, and the consolidated AIM-8 persistence gate passed `1/1`; and
+- real provider/storage calls remained `0/0`. No shared database/object was
+  mutated and no score-release path was added.
+
+The remaining external B3 decision is deliberately narrow: choose a provider
+profile and exact model only after official model documentation proves direct
+audio input, then attach immutable evidence IDs for processing region,
+non-training, retention and deletion SLA. Provider-family presets and model
+names are convenience only, never readiness evidence.

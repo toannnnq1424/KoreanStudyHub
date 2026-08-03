@@ -26,7 +26,11 @@ public enum PracticeAiPurpose {
     PRACTICE_SPEAKING_TTS(
             "Tạo giọng đọc đề bài",
             "LECTURER_PROMPT_AUDIO",
-            Set.of("SPEECH_SYNTHESIS"));
+            Set.of("SPEECH_SYNTHESIS")),
+    PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION(
+            "Đánh giá âm thanh bài Nói",
+            "LEARNER_SPEAKING_AUDIO",
+            Set.of("STRICT_JSON_SCHEMA", "DIRECT_AUDIO_INPUT"));
 
     private final String displayName;
     private final String dataClass;

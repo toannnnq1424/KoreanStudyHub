@@ -81,6 +81,14 @@ public class PracticeAiBindingResolver {
         URI baseUrl = validateBaseUrl(profile.getBaseUrl());
         PracticeAiCapabilitySet capabilities = codec.parseCapabilities(
                 purpose, binding.getCapabilityJson());
+        if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                && (!requiredEvidence(binding.getRegionEvidenceId())
+                || !requiredEvidence(binding.getNonTrainingEvidenceId())
+                || !requiredEvidence(binding.getRetentionEvidenceId())
+                || !requiredEvidence(binding.getDeletionSlaEvidenceId()))) {
+            throw new PracticeAiControlPlaneException(
+                    "DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE", false);
+        }
         PracticeAiLimits limits = codec.parseLimits(binding.getLimitsJson());
         PracticeAiExecutionSnapshot snapshot = new PracticeAiExecutionSnapshot(
                 purpose,
@@ -133,6 +141,10 @@ public class PracticeAiBindingResolver {
             throw unavailable();
         }
         return raw.trim();
+    }
+
+    private static boolean requiredEvidence(String value) {
+        return value != null && !value.isBlank();
     }
 
     private static PracticeAiControlPlaneException unavailable() {
