@@ -540,7 +540,7 @@ legal, corpus or calibration record was fabricated.
 
 ### 6.8 Branch-B lifecycle/ACL schema audit and decision boundary
 
-Status: `AUDITED / FORWARD_MIGRATION_NOT_YET_AUTHORIZED_BY_COMPLETE_VALUES`.
+Status: `B2_SCHEMA_AND_DOMAIN_CONTRACT_IMPLEMENTED / RUNTIME_UNWIRED`.
 
 The post-B1 read-only audit found reusable controls but no persisted branch-B
 authority. `practice_speaking_media` already carries immutable attempt/question
@@ -551,15 +551,23 @@ binds user, attempt, question, media, READY status and allowed attempt status.
 The transcription resolver has the stronger canonical set/section/group/skill
 join recorded under COMP-21.
 
-The missing boundaries are material: V87 has no purpose-specific learner
-consent/withdrawal journal, no explicit named reviewer-audio grant, and no
-direct-audio provider purpose/profile whose verified region, non-training,
-retention and deletion-SLA evidence can be resolved. Existing
-`PRACTICE_SPEAKING_EVALUATION` is the transcript purpose and must not be
-repurposed. Therefore no V1..V87 migration was edited and no speculative V88
-was created.
+V87 had no purpose-specific learner consent/withdrawal journal or explicit
+named reviewer-audio grant. Forward-only V88 now adds only those two
+metadata-only authorities. Existing `PRACTICE_SPEAKING_EVALUATION` remains the
+transcript purpose and was not repurposed. V1..V87 bytes remain unchanged.
+V88 stores no audio bytes, storage keys, provider request IDs or credentials.
 
-Exact values/ownership required before the forward-only B2 migration:
+`DirectAudioAuthorizationLifecycleService` implements the matching fail-closed
+domain contract without a Spring/controller/provider binding. Consent is
+append-only and scoped to learner + attempt + the exact direct-audio purpose;
+withdrawal immediately makes the latest authority inactive. Reviewer access
+requires a separately injected grant authority, a named reviewer and attempt,
+a bounded future expiry, and explicit revocation evidence. Self-grant is
+rejected and there is no role-only fallback. Persistence adapters must
+serialize writes per attempt; they are intentionally deferred until the
+remaining runtime authority values below are supplied.
+
+Exact values/ownership required before B2 runtime wiring and B3 provider work:
 
 | Boundary | Required choice | Impact/risk | Recommended default |
 | --- | --- | --- | --- |
@@ -569,7 +577,16 @@ Exact values/ownership required before the forward-only B2 migration:
 | provider profile | Supply direct-audio profile code, region/non-training/retention/deletion evidence IDs and numeric deletion SLA. | Invented values would make readiness appear green and hard-code an unsupported legal claim. | New direct-audio purpose binding; disabled by default; exact evidence bundle and SLA come from approved runtime configuration. |
 | audit retention | Supply the retention term for consent/grant/transfer/deletion metadata. | Keeping raw handles/provider IDs leaks linkage; deleting all metadata prevents SLA and consent proof. | Append-only metadata audit with opaque digests and bounded error codes; never store bytes, raw storage keys, secrets or raw provider request IDs. |
 
-These are the minimum external values needed to make a correct forward-only
-schema. Until supplied, B1 remains the executable fail-closed boundary:
-no production bean wires its port, no audio is transferred, and score release
-is structurally unavailable.
+JDK 17 focused evidence: lifecycle, B1 evaluator, V88 static and AIM migration
+contracts passed `18/18` with no failure, error or skip. The static V88 contract
+pins both tables, the separately named purpose and forward-only/metadata-only
+constraints; the migration-chain contract is advanced to continuous `V1..V88`
+while its historical digest locks remain unchanged. A fresh isolated MySQL 8.4
+catalog named `ksh_test_pre15_b2_v88` then applied all `88` migrations with max
+version `88`, zero failed rows, created exactly both B2 tables, and passed the
+three-test Hibernate/Spring startup gate. Its dedicated container was stopped
+and auto-removed after the read-only verdict query.
+
+Until the remaining values are supplied, B1/B2 remain unwired production
+contracts: no controller or provider adapter can transfer audio, and score
+release is structurally unavailable.
