@@ -64,11 +64,13 @@
   border: 1px dashed var(--border, #d0d7de); border-radius: 12px; }
 
 /* Lecturer table. */
-.tst-table { width: 100%; border-collapse: collapse; background: #fff; }
+.tst-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border: 1px solid #e1e7f0; border-radius: 12px; overflow: hidden; }
 .tst-table th, .tst-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f2; font-size: 14px; }
 .tst-table th { color: #6b7280; font-weight: 600; }
-.tst-row-actions a { margin-right: 10px; color: #2563eb; text-decoration: none; }
-.tst-row-actions a:hover { text-decoration: underline; }
+.tst-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.tst-icon-action { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid #d8e1f0; border-radius: 8px; color: #326ccf; background: #fff; }
+.tst-icon-action:hover { color: #1f55b0; background: #edf4ff; border-color: #a8c6f6; }
+.tst-icon-action svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Practice-new form. */
 .pr-card { background: #fff; border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 24px; }

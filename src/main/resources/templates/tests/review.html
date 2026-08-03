@@ -23,7 +23,7 @@
 
   <main class="col rv-page">
   <div class="rv-back">
-    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="@{/my/tests}">Quay lại</a>
+    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Quay lại</a>
     <a class="tst-btn" th:if="${review.lecturerView()}"
        th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">Quay lại</a>
   </div>
@@ -62,7 +62,7 @@
   </ol>
 
   <div class="rv-actions">
-    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="@{/my/tests}">Về danh sách</a>
+    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Về danh sách</a>
     <a class="tst-btn" th:if="${review.lecturerView()}"
        th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">Về danh sách bài nộp</a>
   </div>

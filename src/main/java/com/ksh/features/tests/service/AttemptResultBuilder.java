@@ -49,7 +49,7 @@ public class AttemptResultBuilder {
         BigDecimal passing = test.getPassingScore();
         boolean hasThreshold = passing != null;
         boolean passed = hasThreshold && score.compareTo(passing) >= 0;
-        return new ResultView(test.getId(), attempt.getId(), test.getTitle(),
+        return new ResultView(test.getId(), test.getClassId(), attempt.getId(), test.getTitle(),
                 score, nz(attempt.getTotalPoints()), hasThreshold, passed, passing,
                 nzInt(attempt.getCorrectCount()), nzInt(attempt.getTotalQuestions()),
                 nzInt(attempt.getTimeSpentSeconds()), attempt.getStatus());

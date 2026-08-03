@@ -23,7 +23,7 @@ public final class TestDtos {
             Long id, String title, String type, String status, String className,
             boolean practice, Integer durationMinutes, String timeMode,
             LocalDateTime startAt, LocalDateTime endAt, int totalQuestions,
-            String lastAttemptStatus, Integer bestScorePercent) {
+            String lastAttemptStatus, Integer bestScorePercent, Long lastCompletedAttemptId) {
     }
 
     /** The paginated student exam list. */
@@ -77,7 +77,7 @@ public final class TestDtos {
     }
 
     /** The full taking view: attempt, exam meta, remaining seconds, questions. */
-    public record TakeView(Long attemptId, Long testId, String title, String description,
+    public record TakeView(Long attemptId, Long testId, Long classId, String title, String description,
                            String timeMode, long remainingSeconds, long deadlineEpochMillis,
                            String mediaType, String mediaUrl, String mediaEmbedUrl,
                            List<TakeQuestionView> questions) {
@@ -110,7 +110,7 @@ public final class TestDtos {
     // ── Result summary ───────────────────────────────────────────────
 
     /** The post-submit result summary. */
-    public record ResultView(Long testId, Long attemptId, String title,
+    public record ResultView(Long testId, Long classId, Long attemptId, String title,
                              BigDecimal score, BigDecimal totalPoints,
                              boolean hasThreshold, boolean passed, BigDecimal passingScore,
                              int correctCount, int totalQuestions,

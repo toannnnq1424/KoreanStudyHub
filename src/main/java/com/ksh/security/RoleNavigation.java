@@ -46,6 +46,13 @@ public final class RoleNavigation {
             return false;
         }
 
+        // Header polling/API endpoints are not destinations. This is a
+        // second guard for requests saved before the request-cache matcher
+        // was introduced.
+        if (path.endsWith("/unread-count") || path.endsWith("/recent")) {
+            return false;
+        }
+
         if (matchesArea(path, "/admin")) {
             return hasRole(authentication, Roles.ADMIN);
         }
