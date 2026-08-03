@@ -1,5 +1,7 @@
 package com.ksh.features.practice.manage.seed;
 
+import com.ksh.features.practice.ai.readinglistening.ObjectiveExplanationEditorialService;
+import com.ksh.features.practice.manage.service.PracticePublisherService;
 import com.ksh.features.practice.manage.service.LecturerAssetService;
 import com.ksh.features.practice.manage.service.PracticeMaterialAccessService;
 import org.junit.jupiter.api.Test;
@@ -35,11 +37,17 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
     @Autowired PracticeTopik35CheckAudioBinder checkAudioBinder;
     @Autowired PracticeMaterialAccessService materialAccess;
     @Autowired LecturerAssetService assetService;
+    @Autowired ObjectiveExplanationEditorialService explanationEditorial;
+    @Autowired PracticePublisherService publisher;
     @Autowired JdbcTemplate jdbc;
 
     @Test
     void currentCanonicalPackagesCreateThenReuseOneDisabledCandidate()
             throws Exception {
+        Long ownerId = authorizedPublisher();
+        Long differentOwnerId = jdbc.queryForObject(
+                "SELECT id FROM users WHERE id <> ? ORDER BY id LIMIT 1",
+                Long.class, ownerId);
         String catalog = jdbc.queryForObject("SELECT DATABASE()", String.class);
         assertThat(catalog).startsWith("ksh_test_topik35_candidate_");
         assertThat(jdbc.queryForObject(
@@ -51,8 +59,8 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
                 Integer.class)).isZero();
 
         Map<String, Long> before = dataPlaneCounts();
-        var first = importer.importCandidate(OPERATIONS, 1L);
-        var second = importer.importCandidate(OPERATIONS, 1L);
+        var first = importer.importCandidate(OPERATIONS, ownerId);
+        var second = importer.importCandidate(OPERATIONS, ownerId);
         Map<String, Long> afterCandidate = dataPlaneCounts();
 
         assertThat(first.blockers()).isEmpty();
@@ -92,14 +100,14 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
                 .doesNotContain("/Users/", "file://", "r2://");
 
         assertThatThrownBy(() -> checkAudioBinder.bind(
-                first.candidateDraftId(), 2L))
+                first.candidateDraftId(), differentOwnerId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("TOPIK35_CHECK_AUDIO_OWNER_MISMATCH");
 
         PracticeTopik35CheckAudioBinder.BindResult audioCreated =
-                checkAudioBinder.bind(first.candidateDraftId(), 1L);
+                checkAudioBinder.bind(first.candidateDraftId(), ownerId);
         PracticeTopik35CheckAudioBinder.BindResult audioReplay =
-                checkAudioBinder.bind(first.candidateDraftId(), 1L);
+                checkAudioBinder.bind(first.candidateDraftId(), ownerId);
 
         assertThat(audioCreated.status()).isEqualTo(
                 PracticeTopik35CheckAudioBinder.BindStatus.CREATED);
@@ -122,7 +130,7 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
                         "practice_material_references", 1L)));
 
         PracticeMaterialAccessService.MaterialContent ownerContent =
-                materialAccess.load(audioCreated.assetId(), 1L);
+                materialAccess.load(audioCreated.assetId(), ownerId);
         byte[] delivered = ownerContent.resource().getInputStream()
                 .readAllBytes();
         assertThat(delivered).hasSize(
@@ -133,31 +141,31 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
                 audioCreated.assetId(), 999_999L))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> assetService.deleteAsset(
-                audioCreated.assetId(), 2L))
+                audioCreated.assetId(), differentOwnerId))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> assetService.deleteAsset(
-                audioCreated.assetId(), 1L))
+                audioCreated.assetId(), ownerId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("đang được");
 
         PracticeTopik35CheckAudioBinder.WithdrawResult withdrawn =
-                checkAudioBinder.withdraw(first.candidateDraftId(), 1L);
+                checkAudioBinder.withdraw(first.candidateDraftId(), ownerId);
         assertThat(withdrawn.assetId()).isEqualTo(audioCreated.assetId());
         assertThat(withdrawn.candidateCheckAudioState())
                 .isEqualTo("WITHDRAWN_MATERIAL_REQUIRED");
-        assetService.deleteAsset(audioCreated.assetId(), 1L);
+        assetService.deleteAsset(audioCreated.assetId(), ownerId);
         assertThat(jdbc.queryForObject(
                 "SELECT status FROM lecturer_assets WHERE id = ?",
                 String.class, audioCreated.assetId()))
                 .isEqualTo("DELETION_PENDING");
         assertThatThrownBy(() -> materialAccess.load(
-                audioCreated.assetId(), 1L))
+                audioCreated.assetId(), ownerId))
                 .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
 
         PracticeTopik35CheckAudioBinder.BindResult rebound =
-                checkAudioBinder.bind(first.candidateDraftId(), 1L);
+                checkAudioBinder.bind(first.candidateDraftId(), ownerId);
         PracticeTopik35CheckAudioBinder.BindResult reboundReplay =
-                checkAudioBinder.bind(first.candidateDraftId(), 1L);
+                checkAudioBinder.bind(first.candidateDraftId(), ownerId);
         assertThat(rebound.status()).isEqualTo(
                 PracticeTopik35CheckAudioBinder.BindStatus.CREATED);
         assertThat(rebound.assetId()).isNotEqualTo(audioCreated.assetId());
@@ -183,7 +191,7 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
                         "practice_asset_lifecycle_tasks", 1L)));
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM lecturer_assets "
-                        + "WHERE id = ? AND owner_lecturer_id = 1 "
+                        + "WHERE id = ? AND owner_lecturer_id = ? "
                         + "AND source_type = 'MANUAL_UPLOAD' "
                         + "AND asset_type = 'AUDIO' "
                         + "AND mime_type = 'audio/wav' "
@@ -191,7 +199,7 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
                         + "AND status = 'ACTIVE' AND visibility = 'PRIVATE' "
                         + "AND sha256 = ? AND storage_provider = 'LOCAL' "
                         + "AND storage_profile_code = 'PRACTICE_AUTHORING'",
-                Integer.class, rebound.assetId(),
+                Integer.class, rebound.assetId(), ownerId,
                 PracticeTopik35CheckAudioBinder.FULL_SHA256)).isEqualTo(1);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM storage_profiles "
@@ -208,6 +216,57 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM practice_ai_capability_test_runs",
                 Integer.class)).isZero();
+
+        var publicationBlockers = explanationEditorial.publishBlockers(
+                first.candidateDraftId(), ownerId, reboundDraft);
+        assertThat(publicationBlockers).hasSize(100);
+        assertThat(publicationBlockers)
+                .allSatisfy(blocker -> assertThat(blocker.code())
+                        .isEqualTo("OBJECTIVE_EXPLANATION_APPROVAL_MISSING"));
+        Map<String, Long> beforePublishAttempt = dataPlaneCounts();
+        for (int attempt = 0; attempt < 2; attempt++) {
+            assertThatThrownBy(() -> publisher.publish(
+                    first.candidateDraftId(), ownerId))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("chưa có lời giải typed đã duyệt");
+            assertThat(dataPlaneCounts()).isEqualTo(beforePublishAttempt);
+            assertThat(jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM practice_drafts "
+                            + "WHERE id = ? AND status = 'DRAFT' "
+                            + "AND published_set_id IS NULL",
+                    Integer.class, first.candidateDraftId())).isEqualTo(1);
+        }
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM practice_sets "
+                        + "WHERE CONCAT_WS(' ', title, description) LIKE '%TOPIK 35%'",
+                Integer.class)).isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM practice_published_versions",
+                Long.class)).isEqualTo(
+                        beforePublishAttempt.get("practice_published_versions"));
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM practice_question_versions",
+                Long.class)).isEqualTo(
+                        beforePublishAttempt.get("practice_question_versions"));
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM practice_ai_execution_audits",
+                Integer.class)).isZero();
+    }
+
+    private Long authorizedPublisher() {
+        return jdbc.queryForObject("""
+                SELECT DISTINCT u.id
+                FROM users u
+                JOIN v_user_effective_permissions permission
+                  ON permission.user_id = u.id
+                WHERE u.role = 'LECTURER'
+                  AND u.is_active = 1
+                  AND u.is_locked = 0
+                  AND permission.feature_key = 'practice.publish'
+                  AND permission.is_granted = 1
+                ORDER BY u.id
+                LIMIT 1
+                """, Long.class);
     }
 
     private Map<String, Long> dataPlaneCounts() {
@@ -217,6 +276,7 @@ class PracticeTopik35CandidateImporterPersistenceIntegrationTest {
                 "lecturer_assets",
                 "practice_material_references",
                 "practice_asset_lifecycle_tasks",
+                "practice_explanation_editorial_revisions",
                 "practice_authoring_candidates",
                 "practice_sets",
                 "practice_tests",
