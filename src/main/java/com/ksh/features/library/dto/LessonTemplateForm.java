@@ -11,10 +11,15 @@ import org.springframework.web.multipart.MultipartFile;
 public class LessonTemplateForm {
 
     private Long id;
+    private Long subjectId;
+
+    private int chapterNumber = 1;
 
     @NotBlank(message = "Tên chương không được để trống")
     @Size(max = 200, message = "Tên chương tối đa 200 ký tự")
     private String chapterTitle = "Chương 1";
+
+    private int lessonNumber = 1;
 
     @NotBlank(message = "Tên bài học không được để trống")
     @Size(max = 300, message = "Tên bài học tối đa 300 ký tự")
@@ -35,8 +40,14 @@ public class LessonTemplateForm {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getSubjectId() { return subjectId; }
+    public void setSubjectId(Long subjectId) { this.subjectId = subjectId; }
+    public int getChapterNumber() { return chapterNumber; }
+    public void setChapterNumber(int chapterNumber) { this.chapterNumber = chapterNumber; }
     public String getChapterTitle() { return chapterTitle; }
     public void setChapterTitle(String chapterTitle) { this.chapterTitle = chapterTitle; }
+    public int getLessonNumber() { return lessonNumber; }
+    public void setLessonNumber(int lessonNumber) { this.lessonNumber = lessonNumber; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getContentType() { return contentType; }

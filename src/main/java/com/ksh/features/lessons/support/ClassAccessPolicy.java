@@ -35,10 +35,11 @@ public class ClassAccessPolicy {
         this.classRoleAccessPolicy = classRoleAccessPolicy;
     }
 
-    /** ADMIN is global; LEADER is privileged only inside their department. */
+    /** ADMIN is global; leaders and teaching staff use the canonical class scope. */
     public boolean isPrivileged(ClassEntity clazz, Long userId, Role role) {
         return role == Role.ADMIN
-                || (role == Role.LEADER && classRoleAccessPolicy.canAccess(clazz, userId, role));
+                || ((role == Role.LEADER || role == Role.LECTURER)
+                    && classRoleAccessPolicy.canAccess(clazz, userId, role));
     }
 
     /**
@@ -54,12 +55,11 @@ public class ClassAccessPolicy {
         if (isPrivileged(clazz, userId, role)) {
             return;
         }
-        boolean lecturer = clazz.getLecturerId().equals(userId);
         boolean enrolled = enrollmentRepository
                 .findByUserIdAndClassId(userId, clazz.getId())
                 .filter(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
                 .isPresent();
-        if (!lecturer && !enrolled) {
+        if (!enrolled) {
             throw new EntityNotFoundException(NF_MSG);
         }
     }

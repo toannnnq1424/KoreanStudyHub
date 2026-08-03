@@ -142,14 +142,14 @@ public class DepartmentService {
     /**
      * Assigns or clears the department leader with promote/demote side effects.
      *
-     * @param departmentId target department
+     * @param subjectId target department
      * @param leaderUserId   new leader, or null to unassign
      * @param actorId      admin performing the action (audit)
      */
     @Transactional
-    public void assignLeader(Long departmentId, Long leaderUserId, Long actorId) {
+    public void assignLeader(Long subjectId, Long leaderUserId, Long actorId) {
         lockLeaderAssignmentAnchor();
-        Department entity = departmentRepository.findByIdForUpdate(departmentId)
+        Department entity = departmentRepository.findByIdForUpdate(subjectId)
                 .orElseThrow(() -> new DepartmentValidationException(MSG_NOT_FOUND));
         applyLeaderAssignment(entity, leaderUserId, actorId);
         departmentRepository.save(entity);
@@ -171,10 +171,7 @@ public class DepartmentService {
                     || !DepartmentQueryService.LEADER_ELIGIBLE.contains(candidate.getRole())) {
                 throw new DepartmentValidationException(MSG_LEADER_INELIGIBLE);
             }
-            if (departmentRepository.existsByLeaderUserIdAndIdNot(
-                    newLeaderUserId, entity.getId())) {
-                throw new DepartmentValidationException(MSG_LEADER_ALREADY_ASSIGNED);
-            }
+            // One Korean department leader may curate multiple subject-code rows.
         }
 
         if (Objects.equals(oldLeaderId, newLeaderUserId)) {
@@ -183,7 +180,7 @@ public class DepartmentService {
             // out-of-band user role/department edit.
             if (candidate != null
                     && (candidate.getRole() != Role.LEADER
-                    || !Objects.equals(candidate.getDepartmentId(), entity.getId()))) {
+                    || !Objects.equals(candidate.getSubjectId(), entity.getId()))) {
                 candidate.promoteToLeader(entity.getId());
                 userRepository.save(candidate);
             }

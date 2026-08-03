@@ -4,6 +4,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/library.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('library')}"></header>
@@ -11,13 +12,30 @@
 <main class="library-shell library-canonical-shell">
   <aside class="library-kinds" aria-label="Thông tin Library">
     <div class="kinds-head">
-      <h1>Library</h1>
-      <p>Kho bài học theo mã môn</p>
+      <h1>Kho học liệu</h1>
+      <p>Mã môn → Chương → Bài học → File</p>
     </div>
+    <label class="library-subject-search">
+      <span class="sr-only">Tìm mã môn trong Library</span>
+      <input type="search" placeholder="Gõ mã môn, ví dụ KOR311…"
+             autocomplete="off" data-link-filter="#library-subject-list">
+    </label>
+    <nav class="library-subject-list" id="library-subject-list" aria-label="Chọn mã môn">
+      <a th:each="subject : ${librarySubjectOptions}"
+         th:href="@{/lecturer/library/templates(subjectId=${subject.id()})}"
+         th:classappend="${subject.id() == librarySubjectId} ? 'is-active'"
+         th:attr="aria-current=${subject.id() == librarySubjectId} ? 'page' : null,
+                  data-search-text=${subject.code() + ' ' + subject.name()}">
+        <strong th:text="${subject.code()}">KOR311</strong>
+        <span th:text="${subject.name()}">Tiếng Hàn</span>
+      </a>
+    </nav>
     <div class="library-subject-card">
-      <span>Mã môn</span>
+      <span>Đang xem</span>
       <strong th:text="${librarySubjectCode}">KOR311</strong>
       <p th:text="${librarySubjectName}">Tiếng Hàn</p>
+      <small th:if="${librarySubjectDescription != null}"
+             th:text="${librarySubjectDescription}">Chương trình đào tạo</small>
     </div>
     <p class="kinds-hint">
       Tạo bài học theo chương, thêm materials ngay trong bài học, rồi phân phối tới lớp cùng mã môn.
@@ -35,7 +53,8 @@
         <h2 class="content-title" id="libraryTitle">Bài học</h2>
         <p class="content-sub" th:text="${libraryTemplateCount} + ' bài học trong mã môn'">0 bài học</p>
       </div>
-      <a class="content-create-btn" th:href="@{/lecturer/library/templates/new}">Tạo bài học</a>
+      <a class="content-create-btn"
+         th:href="@{/lecturer/library/templates/new(subjectId=${librarySubjectId})}">Tạo bài học</a>
     </div>
 
     <form class="content-search" method="get" th:action="@{/lecturer/library/templates}" role="search">
@@ -46,73 +65,103 @@
       <input type="search" id="librarySearchInput" name="q" th:value="${libraryQuery}"
              placeholder="Tìm theo tên bài học hoặc chương…" autocomplete="off">
       <input type="hidden" name="size" th:value="${librarySize}">
+      <input type="hidden" name="subjectId" th:value="${librarySubjectId}">
       <button type="submit" class="content-search-submit">Tìm</button>
     </form>
+
+    <section class="library-subject-distribution" th:if="${libraryTemplateCount > 0}"
+             aria-labelledby="subjectDistributionTitle">
+      <div>
+        <span class="library-eyebrow">Phân phối trọn bộ</span>
+        <h3 id="subjectDistributionTitle"
+            th:text="'Toàn bộ học liệu ' + ${librarySubjectCode}">Toàn bộ học liệu KOR311</h3>
+        <p>Gửi một lần toàn bộ chương, bài học và file hiện có tới các lớp cùng mã môn.</p>
+      </div>
+      <form method="post" class="library-subject-distribution-form"
+            th:action="@{|/lecturer/library/templates/subjects/${librarySubjectId}/distribute|}">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+        <fieldset class="ksh-search-checklist" data-search-checklist>
+          <legend>Chọn lớp nhận học liệu</legend>
+          <label class="sr-only" for="libraryClassSearch">Tìm lớp theo tên hoặc mã môn</label>
+          <input id="libraryClassSearch" class="ksh-checklist-search" type="search"
+                 placeholder="Gõ tên lớp hoặc mã môn…" autocomplete="off">
+          <div class="ksh-checklist-options" role="group" aria-label="Lớp cùng mã môn">
+            <label class="library-class-choice" th:each="clazz : ${libraryClassOptions}"
+                   th:attr="data-search-text=${clazz.name() + ' ' + clazz.code()}">
+              <input type="checkbox" name="classIds" th:value="${clazz.id()}">
+              <span>
+                <strong th:text="${clazz.name()}">KOR311 · Lớp A</strong>
+                <small th:text="${clazz.code()}">KOR311</small>
+              </span>
+            </label>
+          </div>
+          <span class="library-class-empty" th:if="${libraryClassOptions.isEmpty()}">
+            Chưa có lớp ACTIVE cùng mã môn trong phạm vi của bạn.
+          </span>
+        </fieldset>
+        <button type="submit" class="content-create-btn"
+                th:disabled="${libraryClassOptions.isEmpty()}">Phân phối toàn bộ học liệu</button>
+      </form>
+    </section>
 
     <div class="content-empty" th:if="${libraryPage == null or libraryPage.empty}">
       <h3 th:text="${libraryQuery != null and !#strings.isEmpty(libraryQuery)}
                     ? 'Không tìm thấy bài học phù hợp' : 'Chưa có bài học nào'">Chưa có bài học</h3>
       <p>Tạo bài học trong Library; không cần tạo chương hoặc upload trực tiếp bên trong lớp.</p>
-      <a class="content-create-btn" th:href="@{/lecturer/library/templates/new}">Tạo bài học đầu tiên</a>
+      <a class="content-create-btn"
+         th:href="@{/lecturer/library/templates/new(subjectId=${librarySubjectId})}">Tạo bài học đầu tiên</a>
     </div>
 
-    <div class="asset-table" th:if="${libraryPage != null and !libraryPage.empty}">
-      <div class="asset-list-head" role="row">
-        <div class="col-name">Bài học</div>
-        <div class="col">Mã môn</div>
-        <div class="col">Chương</div>
-        <div class="col">Loại</div>
-        <div class="col">Materials</div>
-        <div class="col">Phân phối</div>
-        <div class="col col-actions">Thao tác</div>
-      </div>
-      <div class="asset-list" role="list">
-        <article th:each="item : ${libraryPage.content}" class="asset-row lesson-row" role="listitem">
-          <div class="col-name">
-            <a class="asset-title" th:href="@{|/lecturer/library/templates/${item.id()}/edit|}"
-               th:text="${item.title()}">Bài 1</a>
+    <div class="library-subject-tree" th:if="${libraryPage != null and !libraryPage.empty}">
+      <section class="library-chapter" th:each="chapter : ${libraryChapters}">
+        <header class="library-chapter-head">
+          <span class="library-chapter-index" th:text="${chapter.number()}">1</span>
+          <div>
+            <span>Chương</span>
+            <h3 th:text="${chapter.title()}">Chương 1 · Nhập môn</h3>
           </div>
-          <div class="col col-file" th:text="${item.subjectCode()}">KOR311</div>
-          <div class="col col-file" th:text="${item.chapterTitle()}">Chương 1</div>
-          <div class="col col-kind">
-            <span class="kind-pill" th:text="${item.contentType() == 'PDF'} ? 'PDF'
-                    : (${item.contentType() == 'VIDEO'} ? 'Video' : 'Văn bản')">Văn bản</span>
-          </div>
-          <div class="col col-kind" th:text="${item.attachmentCount()}">0</div>
-          <div class="col col-file">
-            <form method="post" class="library-distribute-form"
-                  th:action="@{|/lecturer/library/templates/${item.id()}/distribute|}">
-              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-              <label th:for="${'classes-' + item.id()}">Lớp cùng mã môn</label>
-              <select multiple size="3" name="classIds" th:id="${'classes-' + item.id()}" required>
-                <option th:each="clazz : ${libraryClassOptions}" th:value="${clazz.id()}"
-                        th:text="${clazz.name() + ' · ' + clazz.code()}">Lớp</option>
-              </select>
-              <button type="submit" class="btn-primary btn-sm">Phân phối</button>
-            </form>
-          </div>
-          <div class="col col-actions">
-            <a class="btn-ghost btn-sm" th:href="@{|/lecturer/library/templates/${item.id()}/edit|}">Sửa</a>
-            <form method="post" th:action="@{|/lecturer/library/templates/${item.id()}/delete|}">
-              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-              <button type="submit" class="btn-ghost btn-sm">Xoá</button>
-            </form>
-          </div>
-        </article>
-      </div>
+          <small th:text="${chapter.lessons().size()} + ' bài học'">2 bài học</small>
+        </header>
+        <div class="library-lesson-list" role="list">
+          <article class="library-lesson-row" th:each="item : ${chapter.lessons()}" role="listitem">
+            <span class="library-lesson-number" th:text="${item.lessonNumber()}">1</span>
+            <div class="library-lesson-main">
+              <a class="asset-title" th:if="${item.canManage()}"
+                 th:href="@{|/lecturer/library/templates/${item.id()}/edit|}"
+                 th:text="${item.title()}">Bài 1</a>
+              <strong class="asset-title" th:if="${!item.canManage()}"
+                      th:text="${item.title()}">Bài 1</strong>
+              <small>Quản lý nội dung và tài liệu của bài học này.</small>
+            </div>
+            <div class="library-lesson-meta">
+              <span class="kind-pill" th:text="${item.contentType() == 'PDF'} ? 'PDF'
+                      : (${item.contentType() == 'VIDEO'} ? 'Video' : 'Bài đọc')">Bài đọc</span>
+              <span th:text="${item.attachmentCount()} + ' file'">0 file</span>
+            </div>
+            <div class="library-lesson-actions" th:if="${item.canManage()}">
+              <a class="btn-ghost btn-sm" th:href="@{|/lecturer/library/templates/${item.id()}/edit|}">Sửa bài học</a>
+              <form method="post" th:action="@{|/lecturer/library/templates/${item.id()}/delete|}">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button type="submit" class="btn-ghost btn-sm">Xoá</button>
+              </form>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
 
     <nav th:if="${libraryPage != null and libraryPage.totalPages > 1}"
          class="library-pagination" aria-label="Phân trang bài học">
       <a class="page-link" th:if="${!libraryPage.first}"
-         th:href="@{/lecturer/library/templates(page=${libraryPage.number - 1},size=${libraryPage.size},q=${libraryQuery})}">‹ Trước</a>
+         th:href="@{/lecturer/library/templates(subjectId=${librarySubjectId},page=${libraryPage.number - 1},size=${libraryPage.size},q=${libraryQuery})}">‹ Trước</a>
       <span class="page-current" th:text="'Trang ' + (${libraryPage.number + 1}) + ' / ' + ${libraryPage.totalPages}">Trang 1 / 1</span>
       <a class="page-link" th:if="${!libraryPage.last}"
-         th:href="@{/lecturer/library/templates(page=${libraryPage.number + 1},size=${libraryPage.size},q=${libraryQuery})}">Sau ›</a>
+         th:href="@{/lecturer/library/templates(subjectId=${librarySubjectId},page=${libraryPage.number + 1},size=${libraryPage.size},q=${libraryQuery})}">Sau ›</a>
     </nav>
   </section>
 </main>
 
 <script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

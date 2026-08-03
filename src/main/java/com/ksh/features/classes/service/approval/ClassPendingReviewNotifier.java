@@ -31,10 +31,10 @@ public class ClassPendingReviewNotifier {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void notifyLeader(ClassPendingReviewEvent event) {
         try {
-            if (event.departmentId() == null) {
+            if (event.subjectId() == null) {
                 return;
             }
-            departmentRepository.findById(event.departmentId())
+            departmentRepository.findById(event.subjectId())
                     .map(department -> department.getLeaderUserId())
                     .filter(leaderId -> !leaderId.equals(event.lecturerId()))
                     .ifPresent(leaderId -> notificationService.create(

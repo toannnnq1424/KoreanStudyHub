@@ -41,7 +41,8 @@ public class LeaderQuestionBankController {
     }
 
     @GetMapping
-    public String manage(@RequestParam(name = "status", required = false) String status,
+    public String manage(@RequestParam(name = "subjectId", required = false) Long subjectId,
+                         @RequestParam(name = "status", required = false) String status,
                          @RequestParam(name = "contributorId", required = false) Long contributorId,
                          @RequestParam(name = "q", required = false) String q,
                          @AuthenticationPrincipal KshUserDetails user,
@@ -51,8 +52,16 @@ public class LeaderQuestionBankController {
         boolean empty = !itemService.hasSubject(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, empty);
         if (!empty) {
+            var subjects = itemService.subjectOptions(user.getId(), user.getRole());
+            Long selectedSubjectId = subjectId != null ? subjectId
+                    : subjects.stream().findFirst().map(subject -> subject.id()).orElse(null);
+            String effectiveStatus = status == null ? "REVIEW" : status;
+            model.addAttribute("subjectOptions", subjects);
+            model.addAttribute("selectedSubjectId", selectedSubjectId);
             model.addAttribute("subjectReview",
-                    itemService.reviewView(user.getId(), user.getRole(), status, contributorId, q));
+                    itemService.reviewView(user.getId(), user.getRole(), selectedSubjectId,
+                            effectiveStatus, contributorId, q));
+            status = effectiveStatus;
         }
         model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
         model.addAttribute(ATTR_QB_SELECTED_CONTRIBUTOR_ID, contributorId);
@@ -106,10 +115,16 @@ public class LeaderQuestionBankController {
                 : new DepartmentSummary(subject.getId(), subject.getCode(), subject.getName()));
     }
 
-    public record ReviewFilters(String status, Long contributorId, String q) {
+    public record ReviewFilters(Long subjectId, String status, Long contributorId, String q) {
+        public ReviewFilters(String status, Long contributorId, String q) {
+            this(null, status, contributorId, q);
+        }
     }
 
     static String redirectReview(ReviewFilters filters, RedirectAttributes redirect) {
+        if (filters.subjectId() != null) {
+            redirect.addAttribute("subjectId", filters.subjectId());
+        }
         if (filters.status() != null && !filters.status().isBlank()) {
             redirect.addAttribute("status", filters.status());
         }

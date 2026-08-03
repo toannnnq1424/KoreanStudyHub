@@ -44,7 +44,7 @@ class ExamQuestionBankInsertIntegrationTest {
     @Autowired private LecturerExamService examService;
 
     private Long lecturerId;
-    private Long departmentId;
+    private Long subjectId;
     private Long testId;
     private Long approvedItemId;
 
@@ -52,12 +52,12 @@ class ExamQuestionBankInsertIntegrationTest {
     void setUp() {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         lecturerId = lecturer.getId();
-        departmentId = lecturer.getDepartmentId();
+        subjectId = lecturer.getSubjectId();
 
         ClassEntity clazz = new ClassEntity(
                 "Lớp kiểm thử chèn ngân hàng", lecturerId, lecturerId,
                 null, null, null, 100);
-        clazz.setDepartmentId(departmentId);
+        clazz.setSubjectId(subjectId);
         clazz = classRepository.saveAndFlush(clazz);
         com.ksh.features.tests.entity.Test test =
                 new com.ksh.features.tests.entity.Test(lecturerId, com.ksh.features.tests.entity.Test.TYPE_MOCK);
@@ -66,7 +66,7 @@ class ExamQuestionBankInsertIntegrationTest {
         testId = testRepository.save(test).getId();
 
         QuestionBankItem item = itemRepository.save(new QuestionBankItem(
-                departmentId, lecturerId,
+                subjectId, lecturerId,
                 QuestionBankItem.TYPE_MCQ, QuestionBankItem.STATUS_APPROVED,
                 "<p>Nội dung gốc</p>", "<p>Giải thích gốc</p>"));
         bankOptionRepository.save(new QuestionBankOption(item.getId(), "<p>Đáp án A</p>", true, 1));

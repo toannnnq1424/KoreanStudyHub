@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${view.className()} + ' — Bảng tin', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-class-detail.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+<main class="student-lessons-shell student-class-detail-shell">
+  <div class="student-lessons-header">
+    <a th:href="@{/my/classes}" class="student-lessons-back">← Quay lại lớp của tôi</a>
+    <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
+  </div>
+  <div class="student-class-detail-grid">
+    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('board', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
+    <section class="student-class-detail-main">
+      <header class="student-class-detail-heading">
+        <p class="student-class-detail-eyebrow">Không gian lớp học</p>
+        <h2>Bảng tin</h2>
+        <p>Thông báo và nội dung chung của lớp sẽ xuất hiện tại đây.</p>
+      </header>
+      <div class="student-class-board-empty">
+        <span class="student-class-board-icon" aria-hidden="true">💬</span>
+        <h3>Chưa có thông báo mới</h3>
+        <p>Khi giảng viên đăng thông báo, bạn sẽ đọc được trực tiếp trên bảng tin lớp.</p>
+      </div>
+    </section>
+  </div>
+</main>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

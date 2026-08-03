@@ -119,8 +119,8 @@ public class TestCatalogService {
 
         String lecturerName = userRepository.findById(clazz.getLecturerId())
                 .map(User::getFullName).orElse(null);
-        String subjectCode = clazz.getDepartmentId() == null ? "—"
-                : subjectRepository.findById(clazz.getDepartmentId())
+        String subjectCode = clazz.getSubjectId() == null ? "—"
+                : subjectRepository.findById(clazz.getSubjectId())
                         .map(com.ksh.entities.Department::getCode).orElse("—");
         return new ClassTestsView(clazz.getId(), clazz.getName(), subjectCode,
                 lecturerName, normalized, rows);

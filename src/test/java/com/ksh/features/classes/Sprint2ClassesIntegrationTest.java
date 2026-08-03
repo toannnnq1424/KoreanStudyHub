@@ -4,7 +4,9 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.ClassCoLecturer;
 import com.ksh.features.classes.repository.ClassActivityRepository;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -46,6 +48,7 @@ class Sprint2ClassesIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ClassRepository classRepository;
     @Autowired private ClassActivityRepository activityRepository;
+    @Autowired private ClassCoLecturerRepository coLecturerRepository;
     @Autowired private UserRepository userRepository;
     @PersistenceContext private EntityManager em;
 
@@ -143,7 +146,7 @@ class Sprint2ClassesIntegrationTest {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "Java cơ bản")
                         .param("description", "Khoá nhập môn")
-                        .param("departmentId", String.valueOf(lecturer.getDepartmentId()))
+                        .param("subjectId", String.valueOf(lecturer.getSubjectId()))
                         .param("startDate", "2026-07-01")
                         .param("endDate", "2026-12-31")
                         .param("maxStudents", "50"))
@@ -155,7 +158,7 @@ class Sprint2ClassesIntegrationTest {
 
         ClassEntity saved = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lecturer.getId())
                 .stream().filter(c -> "Java cơ bản".equals(c.getName())).findFirst().orElseThrow();
-        assertThat(saved.getDepartmentId()).isEqualTo(lecturer.getDepartmentId());
+        assertThat(saved.getSubjectId()).isEqualTo(lecturer.getSubjectId());
         assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
     }
@@ -217,7 +220,7 @@ class Sprint2ClassesIntegrationTest {
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "New")
                         .param("description", "Updated")
-                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
+                        .param("subjectId", String.valueOf(entity.getSubjectId())))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/lecturer/classes"));
 
@@ -239,7 +242,7 @@ class Sprint2ClassesIntegrationTest {
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "Hijacked")
-                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
+                        .param("subjectId", String.valueOf(entity.getSubjectId())))
                 .andExpect(status().isForbidden());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
@@ -249,16 +252,16 @@ class Sprint2ClassesIntegrationTest {
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void edit_by_leader_succeeds_for_same_department_class() throws Exception {
+    void edit_by_leader_is_forbidden_because_assignment_must_not_transfer_ownership() throws Exception {
         ClassEntity entity = saveClass("Lect class", lecturer.getId(), "LCEDT");
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "Leader edited")
-                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
-                .andExpect(status().is3xxRedirection());
+                        .param("subjectId", String.valueOf(entity.getSubjectId())))
+                .andExpect(status().isForbidden());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
-        assertThat(reloaded.getName()).isEqualTo("Leader edited");
+        assertThat(reloaded.getName()).isEqualTo("Lect class");
     }
 
     @Test
@@ -268,7 +271,7 @@ class Sprint2ClassesIntegrationTest {
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "Admin edited")
-                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
+                        .param("subjectId", String.valueOf(entity.getSubjectId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
@@ -387,7 +390,7 @@ class Sprint2ClassesIntegrationTest {
     void create_with_max_students_omitted_defaults_to_100() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "Default max test")
-                        .param("departmentId", String.valueOf(lecturer.getDepartmentId())))
+                        .param("subjectId", String.valueOf(lecturer.getSubjectId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity saved = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lecturer.getId())
@@ -402,7 +405,7 @@ class Sprint2ClassesIntegrationTest {
     void create_by_leader_assigns_leader_as_lecturer() throws Exception {
         mockMvc.perform(post("/lecturer/classes").with(csrf())
                         .param("name", "Created by leader")
-                        .param("departmentId", String.valueOf(leader.getDepartmentId())))
+                        .param("subjectId", String.valueOf(leader.getSubjectId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity saved = classRepository.findAllByOrderByCreatedAtDesc().stream()
@@ -416,15 +419,15 @@ class Sprint2ClassesIntegrationTest {
     @WithUserDetails("lecturer@ksh.edu.vn")
     void edit_does_not_change_subject() throws Exception {
         ClassEntity entity = saveClass("CodeStays", lecturer.getId(), "CDST1");
-        Long originalSubjectId = entity.getDepartmentId();
+        Long originalSubjectId = entity.getSubjectId();
 
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "Renamed")
-                        .param("departmentId", String.valueOf(entity.getDepartmentId())))
+                        .param("subjectId", String.valueOf(entity.getSubjectId())))
                 .andExpect(status().is3xxRedirection());
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
-        assertThat(reloaded.getDepartmentId()).isEqualTo(originalSubjectId);
+        assertThat(reloaded.getSubjectId()).isEqualTo(originalSubjectId);
     }
 
     @Test
@@ -455,9 +458,13 @@ class Sprint2ClassesIntegrationTest {
     @WithUserDetails("lecturer@ksh.edu.vn")
     void detail_members_renders_empty_state() throws Exception {
         ClassEntity c = saveClass("DetailMem", lecturer.getId(), "DTMM1");
+        coLecturerRepository.saveAndFlush(new ClassCoLecturer(c.getId(), leader.getId(), leader.getId()));
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/members"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Thành viên lớp học")))
+                .andExpect(content().string(containsString("GV chủ lớp")))
+                .andExpect(content().string(containsString("Giảng viên đồng giảng")))
+                .andExpect(content().string(containsString(leader.getEmail())))
                 .andExpect(content().string(containsString("Chưa có học sinh nào")));
     }
 
@@ -502,8 +509,8 @@ class Sprint2ClassesIntegrationTest {
     private ClassEntity saveClass(String name, Long lecturerId, String code) {
         ClassEntity e = new ClassEntity(name, lecturerId, lecturerId, null, null, null, 100);
         userRepository.findById(lecturerId)
-                .map(User::getDepartmentId)
-                .ifPresent(e::setDepartmentId);
+                .map(User::getSubjectId)
+                .ifPresent(e::setSubjectId);
         e.setCode(code);
         try {
             return classRepository.saveAndFlush(e);

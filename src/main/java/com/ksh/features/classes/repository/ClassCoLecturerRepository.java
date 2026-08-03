@@ -11,4 +11,6 @@ public interface ClassCoLecturerRepository extends JpaRepository<ClassCoLecturer
     boolean existsByClassIdAndLecturerId(Long classId, Long lecturerId);
 
     List<ClassCoLecturer> findAllByClassIdIn(Collection<Long> classIds);
+
+    List<ClassCoLecturer> findAllByClassId(Long classId);
 }

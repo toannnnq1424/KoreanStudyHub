@@ -39,20 +39,20 @@ final class ClassCreator {
     }
 
     ClassEntity create(ClassForm form, Long userId) {
-        Department subject = subjectRepository.findById(form.departmentId())
+        Department subject = subjectRepository.findById(form.subjectId())
                 .filter(Department::isActive)
                 .orElseThrow(() -> new IllegalArgumentException("Mã môn không tồn tại hoặc đã ngừng sử dụng"));
         ClassEntity entity = new ClassEntity(
                 form.name(), userId, userId,
                 form.description(), null, form.endDate(),
                 form.maxStudents());
-        entity.setDepartmentId(subject.getId());
+        entity.setSubjectId(subject.getId());
         ClassEntity saved = classRepository.saveAndFlush(entity);
         activityWriter.write(saved.getId(), ClassActivity.TYPE_CREATED,
                 "Tạo lớp " + saved.getName(), userId);
         try {
             eventPublisher.publishEvent(new ClassPendingReviewEvent(
-                    saved.getId(), saved.getDepartmentId(), saved.getLecturerId(),
+                    saved.getId(), saved.getSubjectId(), saved.getLecturerId(),
                     saved.getName(), subject.getCode()));
         } catch (RuntimeException exception) {
             log.warn("Không đăng ký được thông báo chờ duyệt cho lớp {}",

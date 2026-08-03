@@ -2,6 +2,7 @@ package com.ksh.features.classes.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.features.classes.repository.ClassRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ public class ClassAutoArchiveWorker {
     private final ClassRepository classRepository;
     private final Clock clock;
 
+    @Autowired
     public ClassAutoArchiveWorker(ClassRepository classRepository) {
         this(classRepository, Clock.systemDefaultZone());
     }

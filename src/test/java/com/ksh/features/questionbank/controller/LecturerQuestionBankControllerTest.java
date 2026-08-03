@@ -1,6 +1,7 @@
 package com.ksh.features.questionbank.controller;
 
 import com.ksh.features.questionbank.service.QuestionBankItemService;
+import com.ksh.features.questionbank.service.QuestionBankTestGenerationService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,10 @@ import static org.mockito.Mockito.when;
 class LecturerQuestionBankControllerTest {
 
     private final QuestionBankItemService itemService = mock(QuestionBankItemService.class);
-    private final LecturerQuestionBankController controller = new LecturerQuestionBankController(itemService);
+    private final QuestionBankTestGenerationService generationService =
+            mock(QuestionBankTestGenerationService.class);
+    private final LecturerQuestionBankController controller =
+            new LecturerQuestionBankController(itemService, generationService);
     private final KshUserDetails user = mock(KshUserDetails.class);
 
     @Test

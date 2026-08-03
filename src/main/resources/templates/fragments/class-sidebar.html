@@ -27,6 +27,22 @@
           <span th:text="${clazz.description != null and !clazz.description.isEmpty()} ? ${clazz.description} : 'Mô tả cho lớp học'">Mô tả cho lớp học</span>
         </div>
       </div>
+
+      <div class="class-teaching-team" th:if="${classTeachingTeam != null}">
+        <div class="class-team-heading">
+          <span>Đội ngũ giảng dạy</span>
+          <small th:text="${classViewerRole}">Vai trò của bạn</small>
+        </div>
+        <div class="class-team-member">
+          <span class="class-team-role">Chủ lớp</span>
+          <strong th:text="${classTeachingTeam.owner().name()}">Giảng viên</strong>
+        </div>
+        <div class="class-team-member" th:each="member : ${classTeachingTeam.coLecturers()}">
+          <span class="class-team-role">Đồng giảng</span>
+          <strong th:text="${member.name()}">Giảng viên</strong>
+        </div>
+        <p class="class-team-empty" th:if="${classTeachingTeam.coLecturers().isEmpty()}">Chưa có giảng viên đồng giảng.</p>
+      </div>
     </div>
 
     <div class="side-sep"></div>
@@ -40,27 +56,9 @@
         </a>
       </li>
       <li>
-        <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/schedule'}"
-           th:classappend="${activeTab == 'schedule'} ? 'active' : ''">
-          <svg class="ico ico-sm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Lịch học
-        </a>
-      </li>
-      <li>
         <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/members'}"
            th:classappend="${activeTab == 'members'} ? 'active' : ''">
           <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Thành viên
-        </a>
-      </li>
-      <li>
-        <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/roles'}"
-           th:classappend="${activeTab == 'roles'} ? 'active' : ''">
-          <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11h-6"/></svg>Vai trò lớp
-        </a>
-      </li>
-      <li>
-        <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/groups'}"
-           th:classappend="${activeTab == 'groups'} ? 'active' : ''">
-          <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>Nhóm học tập
         </a>
       </li>
       <li>
@@ -101,7 +99,7 @@
       </li>
     </ul>
 
-    <div class="side-foot">
+    <div class="side-foot" th:if="${isPrimaryClassOwner}">
       <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/settings'}"
          class="settings-btn"
          th:classappend="${activeTab == 'settings'} ? 'active' : ''">

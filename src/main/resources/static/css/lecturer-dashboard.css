@@ -152,8 +152,7 @@
 
 .ldash-panel {
   overflow: hidden;
-  border: 1px solid #d3e4f2;
-  border-top: 3px solid #78b9ef;
+  border: 1px solid #c9deec;
   border-radius: 11px;
   background: #fff;
   box-shadow: 0 8px 24px rgba(30, 136, 229, .06);

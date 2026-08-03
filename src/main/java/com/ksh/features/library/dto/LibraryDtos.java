@@ -37,21 +37,32 @@ public final class LibraryDtos {
     public record LessonTemplateRow(
             Long id,
             String subjectCode,
+            int chapterNumber,
             String chapterTitle,
+            int lessonNumber,
             String title,
             String contentType,
             LocalDateTime updatedAt,
-            int attachmentCount
+            int attachmentCount,
+            boolean canManage
     ) {
+    }
+
+    /** One chapter in the subject tree, containing its ordered lessons. */
+    public record ChapterView(int number, String title, List<LessonTemplateRow> lessons) {
     }
 
     /** Paginated SSR view for the templates rail. */
     public record LessonTemplatePageView(
             Page<LessonTemplateRow> page,
             String q,
+            Long subjectId,
             String subjectCode,
             String subjectName,
+            String subjectDescription,
+            List<SubjectContext> subjectOptions,
             List<AttachTargetClassRow> classOptions,
+            List<ChapterView> chapters,
             long templateCount
     ) {
     }
@@ -60,8 +71,8 @@ public final class LibraryDtos {
     public record MaterialOption(Long id, String title, String kind, String mimeType) {
     }
 
-    /** Immutable subject identity shown on the Library authoring form. */
-    public record SubjectContext(Long id, String code, String name) {
+    /** Subject identity shown in the Library selector and authoring form. */
+    public record SubjectContext(Long id, String code, String name, String description) {
     }
 
     /** Result of cloning a template or lesson into a destination section. */

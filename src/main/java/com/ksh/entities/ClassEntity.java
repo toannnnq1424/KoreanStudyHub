@@ -52,8 +52,8 @@ public class ClassEntity {
 
     /** Canonical subject catalog row (physical compatibility column name). */
     @Setter
-    @Column(name = "department_id")
-    private Long departmentId;
+    @Column(name = "subject_id")
+    private Long subjectId;
 
     @Column(name = "start_date")
     private LocalDate startDate;

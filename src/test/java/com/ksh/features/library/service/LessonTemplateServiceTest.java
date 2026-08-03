@@ -42,7 +42,7 @@ class LessonTemplateServiceTest {
     @BeforeEach
     void setUp() {
         lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        assertThat(lecturer.getDepartmentId()).as("seeded lecturer subject").isNotNull();
+        assertThat(lecturer.getSubjectId()).as("seeded lecturer subject").isNotNull();
     }
 
     @Test
@@ -51,9 +51,10 @@ class LessonTemplateServiceTest {
                 lecturer.getId(), Role.LECTURER, richtextForm("Chương 2", "Bài kính ngữ"));
 
         LessonTemplate saved = templateRepository.findById(row.id()).orElseThrow();
-        assertThat(saved.getSubjectId()).isEqualTo(lecturer.getDepartmentId());
-        assertThat(saved.getChapterTitle()).isEqualTo("Chương 2");
-        assertThat(saved.getTitle()).isEqualTo("Bài kính ngữ");
+        assertThat(saved.getSubjectId()).isEqualTo(lecturer.getSubjectId());
+        assertThat(saved.getChapterOrder()).isEqualTo(2);
+        assertThat(saved.getChapterTitle()).isEqualTo("Chương 2 · Vận dụng");
+        assertThat(saved.getTitle()).startsWith("Bài ").endsWith(" · Bài kính ngữ");
         assertThat(saved.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_RICHTEXT);
         assertThat(row.subjectCode()).isNotBlank();
     }
@@ -75,7 +76,7 @@ class LessonTemplateServiceTest {
         });
         assertThat(sectionRepository.findByClassIdOrderByDisplayOrderAsc(first.getId()))
                 .extracting(section -> section.getTitle())
-                .containsExactly("Chương 1");
+                .containsExactly("Chương 1 · Nền tảng");
     }
 
     @Test
@@ -93,9 +94,53 @@ class LessonTemplateServiceTest {
                 .hasMessageContaining("đã có bài học cùng tên");
     }
 
+    @Test
+    void library_is_a_subject_wide_canonical_hierarchy_not_an_owner_only_list() {
+        LessonTemplateRow created = templateService.saveForm(
+                lecturer.getId(), Role.LECTURER, richtextForm("Chương 92", "Bài dùng chung"));
+        User admin = userRepository.findByEmailIgnoreCase("admin@ksh.edu.vn").orElseThrow();
+
+        var view = templateService.list(admin.getId(), Role.ADMIN,
+                lecturer.getSubjectId(), "Bài dùng chung", 0, 20);
+
+        assertThat(view.page().getContent())
+                .extracting(LessonTemplateRow::id)
+                .contains(created.id());
+        assertThat(view.page().getContent().stream()
+                .filter(row -> row.id().equals(created.id()))
+                .findFirst().orElseThrow().canManage()).isFalse();
+    }
+
+    @Test
+    void insert_into_earlier_chapter_shifts_global_lesson_numbers() {
+        LessonTemplateRow chapterOneFirst = templateService.saveForm(
+                lecturer.getId(), Role.LECTURER, richtextForm("Chương 90", "Một"));
+        LessonTemplateRow chapterOneSecond = templateService.saveForm(
+                lecturer.getId(), Role.LECTURER, richtextForm("Chương 90", "Hai"));
+        LessonTemplateRow chapterTwoFirst = templateService.saveForm(
+                lecturer.getId(), Role.LECTURER, richtextForm("Chương 91", "Ba"));
+        int beforeInsert = templateRepository.findById(chapterTwoFirst.id()).orElseThrow()
+                .getDisplayOrder();
+
+        LessonTemplateRow inserted = templateService.saveForm(
+                lecturer.getId(), Role.LECTURER, richtextForm("Chương 90", "Chèn sau bài 2"));
+
+        LessonTemplate first = templateRepository.findById(chapterOneFirst.id()).orElseThrow();
+        LessonTemplate second = templateRepository.findById(chapterOneSecond.id()).orElseThrow();
+        LessonTemplate third = templateRepository.findById(inserted.id()).orElseThrow();
+        LessonTemplate shifted = templateRepository.findById(chapterTwoFirst.id()).orElseThrow();
+        assertThat(List.of(first.getDisplayOrder(), second.getDisplayOrder(),
+                third.getDisplayOrder(), shifted.getDisplayOrder()))
+                .containsExactly(beforeInsert - 2, beforeInsert - 1, beforeInsert, beforeInsert + 1);
+        assertThat(third.getTitle()).startsWith("Bài " + beforeInsert + " ·");
+        assertThat(shifted.getTitle()).startsWith("Bài " + (beforeInsert + 1) + " ·");
+    }
+
     private LessonTemplateForm richtextForm(String chapter, String title) {
         LessonTemplateForm form = new LessonTemplateForm();
-        form.setChapterTitle(chapter);
+        int chapterNumber = Integer.parseInt(chapter.replaceAll("\\D+", ""));
+        form.setChapterNumber(chapterNumber);
+        form.setChapterTitle("Nội dung chương " + chapterNumber);
         form.setTitle(title);
         form.setContentType(Lesson.CONTENT_TYPE_RICHTEXT);
         form.setContentRichtext("<p>Nội dung</p>");
@@ -106,7 +151,7 @@ class LessonTemplateServiceTest {
         ClassEntity clazz = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
                 null, null, null, 100);
         clazz.setCode("L" + UUID.randomUUID().toString().substring(0, 7).toUpperCase());
-        clazz.setDepartmentId(lecturer.getDepartmentId());
+        clazz.setSubjectId(lecturer.getSubjectId());
         clazz.approve(lecturer.getId(), LocalDateTime.now());
         return classRepository.saveAndFlush(clazz);
     }

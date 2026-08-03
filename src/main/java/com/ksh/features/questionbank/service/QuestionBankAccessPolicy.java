@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Resolves subject-scoped access for question bank actions.
- * Subject catalog rows are backed by the compatibility {@code departments} table.
+ * Subject catalog rows are backed by the canonical {@code subjects} table.
  */
 @Component
 public class QuestionBankAccessPolicy {
@@ -28,11 +28,10 @@ public class QuestionBankAccessPolicy {
             Department department = leaderDepartmentResolver.resolve(user.getId()).orElse(null);
             return department != null ? department.getId() : null;
         }
-        if (user.getRole() == Role.LECTURER) {
-            return user.getDepartmentId();
-        }
-        if (user.getRole() == Role.ADMIN) {
-            return user.getDepartmentId();
+        // subject_id is a landing-page default only. Access is catalog-wide in
+        // canAccessSubject, so this value is never an authorization gate.
+        if (user.getRole() == Role.LECTURER || user.getRole() == Role.ADMIN) {
+            return user.getSubjectId();
         }
         return null;
     }
@@ -46,8 +45,11 @@ public class QuestionBankAccessPolicy {
         if (role != Role.LEADER && role != Role.LECTURER && role != Role.ADMIN) {
             return false;
         }
-        Long resolvedSubjectId = resolveSubjectId(user);
-        return subjectId.equals(resolvedSubjectId);
+        if (role == Role.LECTURER || role == Role.ADMIN) {
+            return true;
+        }
+        return leaderDepartmentResolver.resolveAll(user.getId()).stream()
+                .anyMatch(subject -> subjectId.equals(subject.getId()));
     }
 
     /** True when the caller may curate shared inventory for the given subject. */
@@ -59,7 +61,10 @@ public class QuestionBankAccessPolicy {
         if (role != Role.LEADER && role != Role.ADMIN) {
             return false;
         }
-        Long resolvedSubjectId = resolveSubjectId(user);
-        return subjectId.equals(resolvedSubjectId);
+        if (role == Role.ADMIN) {
+            return true;
+        }
+        return leaderDepartmentResolver.resolveAll(user.getId()).stream()
+                .anyMatch(subject -> subjectId.equals(subject.getId()));
     }
 }

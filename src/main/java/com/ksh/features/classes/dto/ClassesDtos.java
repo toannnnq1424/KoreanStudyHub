@@ -78,7 +78,7 @@ public class ClassesDtos {
             Integer maxStudents,
 
             @NotNull(message = "Vui lòng chọn mã môn")
-            Long departmentId
+            Long subjectId
     ) {
 
         /** Compatibility constructor for non-web callers while subject selection migrates. */
@@ -104,7 +104,7 @@ public class ClassesDtos {
                     e.getStartDate(),
                     e.getEndDate(),
                     e.getMaxStudents(),
-                    e.getDepartmentId()
+                    e.getSubjectId()
             );
         }
 

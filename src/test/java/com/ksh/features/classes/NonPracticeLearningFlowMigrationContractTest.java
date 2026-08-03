@@ -17,8 +17,13 @@ class NonPracticeLearningFlowMigrationContractTest {
     void subject_seed_and_class_lifecycle_are_explicit() throws IOException {
         String sql = read("V88__subject_catalog_and_class_lifecycle.sql");
 
-        assertThat(sql).contains("'KOR311'", "'KOR321'", "'KOR411'");
-        assertThat(sql).contains("WHERE NOT EXISTS");
+        assertThat(sql).contains(
+                "'KOR311'", "'KOR321'", "'KOR411'",
+                "'KRL112'", "'KRL122'", "'KRL212'", "'KRL222'",
+                "Chương trình Kỹ sư cầu nối Hàn Quốc",
+                "Chương trình Ngôn ngữ Hàn",
+                "ON DUPLICATE KEY UPDATE",
+                "'lecturer@ksh.edu.vn', 'leader@ksh.edu.vn'");
         assertThat(sql).contains("'DRAFT','ACTIVE','ARCHIVED'");
         assertThat(sql).doesNotContain("CREATE TABLE");
     }
@@ -54,7 +59,7 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "ALTER TABLE lesson_templates",
                 "ADD COLUMN subject_id",
                 "ADD COLUMN chapter_title",
-                "REFERENCES departments(id)");
+                "REFERENCES subjects(id)");
         assertThat(sql).doesNotContain("CREATE TABLE", "practice_");
     }
 
@@ -77,7 +82,7 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "DROP TABLE activity_tests",
                 "DROP TABLE user_activities",
                 "DROP TABLE permission_activities",
-                "DROP TABLE subject_activities");
+                "DROP TABLE subjects_activities");
     }
 
     @Test
@@ -117,13 +122,13 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "src/main/java/com/ksh/entities/SubjectActivity.java"));
 
         assertThat(migration).contains(
-                "RENAME TABLE subject_activities TO subjects_activities");
+                "subjects_activities has existed since V41");
         assertThat(migration).doesNotContain("CREATE TABLE", "DROP TABLE", "practice_");
         assertThat(entity).contains("@Table(name = \"subjects_activities\")");
     }
 
     @Test
-    void department_compatibility_routes_render_as_subject_catalog() throws IOException {
+    void subject_catalog_routes_render_subject_vocabulary() throws IOException {
         String list = Files.readString(Path.of(
                 "src/main/resources/templates/admin/departments.html"));
         String form = Files.readString(Path.of(
@@ -144,6 +149,7 @@ class NonPracticeLearningFlowMigrationContractTest {
     void course_and_question_bank_categories_are_removed_without_touching_practice()
             throws IOException {
         String courseCatalog = read("V92__remove_courses_and_general_categories.sql");
+        String questionBankCreation = read("V46__subject_question_bank.sql");
         String questionBank = read("V93__scope_question_bank_by_subject.sql");
 
         assertThat(courseCatalog).contains(
@@ -151,10 +157,14 @@ class NonPracticeLearningFlowMigrationContractTest {
                 "DROP TABLE course_categories",
                 "DROP TABLE courses",
                 "DROP TABLE categories");
+        assertThat(questionBankCreation).contains(
+                "subject_id BIGINT NOT NULL",
+                "REFERENCES subjects(id)");
         assertThat(questionBank).contains(
-                "RENAME COLUMN department_id TO subject_id",
                 "DROP COLUMN category_id",
                 "DROP TABLE question_bank_categories");
+        assertThat(questionBankCreation + questionBank)
+                .doesNotContain("department_id", "departments");
         assertThat(courseCatalog + questionBank).doesNotContain("practice_");
     }
 
@@ -184,17 +194,36 @@ class NonPracticeLearningFlowMigrationContractTest {
     }
 
     @Test
-    void invite_storage_and_only_the_unused_department_activity_table_are_removed()
+    void invite_storage_and_only_the_unused_duplicate_subject_activity_table_are_removed()
             throws IOException {
         String invites = read("V90__remove_class_invites.sql");
         String activities = read("V91__subject_activity_audit.sql");
 
         assertThat(invites).contains("DROP COLUMN invite_code_id", "DROP TABLE class_invite_codes");
-        assertThat(activities).contains(
-                "DROP TABLE activity_departments",
-                "RENAME TABLE department_activities TO subject_activities",
-                "RENAME COLUMN department_id TO subject_id");
-        assertThat(activities).doesNotContain("DROP TABLE department_activities");
+        assertThat(activities).contains("DROP TABLE activity_subjects");
+        assertThat(activities).doesNotContain("DROP TABLE subjects_activities", "department");
+    }
+
+    @Test
+    void fresh_schema_uses_subject_vocabulary_from_v1_without_transitional_rename()
+            throws IOException {
+        String init = read("V1__init_schema.sql");
+        String classes = read("V40__classes_subject_id.sql");
+        String audit = read("V41__subjects_activities.sql");
+        String marker = read("V102__canonical_subject_catalog_schema.sql");
+
+        assertThat(init).contains("CREATE TABLE subjects", "subject_id BIGINT NULL");
+        assertThat(classes).contains("ADD COLUMN subject_id", "REFERENCES subjects(id)");
+        assertThat(audit).contains("CREATE TABLE subjects_activities", "subject_id BIGINT NOT NULL");
+        assertThat(marker).contains("no transitional rename is required");
+
+        try (var paths = Files.list(MIGRATIONS)) {
+            String allMigrations = paths
+                    .filter(path -> path.getFileName().toString().endsWith(".sql"))
+                    .map(this::readPathUnchecked)
+                    .reduce("", String::concat);
+            assertThat(allMigrations.toLowerCase()).doesNotContain("department");
+        }
     }
 
     private String read(String file) throws IOException {
@@ -204,6 +233,14 @@ class NonPracticeLearningFlowMigrationContractTest {
     private String readUnchecked(String file) {
         try {
             return read(file);
+        } catch (IOException exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
+    private String readPathUnchecked(Path path) {
+        try {
+            return Files.readString(path);
         } catch (IOException exception) {
             throw new AssertionError(exception);
         }

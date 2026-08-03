@@ -183,8 +183,7 @@ public class QuestionBankReviewService {
     }
 
     private QuestionBankItem requireCuratedItem(Long itemId, User actor) {
-        Long subjectId = accessPolicy.resolveSubjectId(actor);
-        return itemRepository.findByIdAndSubjectId(itemId, subjectId)
+        return itemRepository.findById(itemId)
                 .filter(item -> accessPolicy.canCurateSubject(actor, item.getSubjectId()))
                 .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
     }

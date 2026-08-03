@@ -8,6 +8,7 @@ import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -22,14 +23,18 @@ class ClassRoleAccessPolicyTest {
             new ClassRoleAccessPolicy(resolver, coLecturerRepository);
 
     @Test
-    void leaderIsLimitedToResolvedDepartment() {
+    void leaderIsLimitedToAllAssignedSubjects() {
         Department department = mock(Department.class);
+        Department secondDepartment = mock(Department.class);
         when(department.getId()).thenReturn(10L);
-        when(resolver.resolve(7L)).thenReturn(Optional.of(department));
+        when(secondDepartment.getId()).thenReturn(12L);
+        when(resolver.resolveAll(7L)).thenReturn(List.of(department, secondDepartment));
         ClassEntity same = classEntity(42L, 10L);
+        ClassEntity second = classEntity(42L, 12L);
         ClassEntity foreign = classEntity(42L, 11L);
 
         assertThat(policy.canAccess(same, 7L, Role.LEADER)).isTrue();
+        assertThat(policy.canAccess(second, 7L, Role.LEADER)).isTrue();
         assertThat(policy.canAccess(foreign, 7L, Role.LEADER)).isFalse();
     }
 
@@ -49,13 +54,27 @@ class ClassRoleAccessPolicyTest {
         when(coLecturerRepository.existsByClassIdAndLecturerId(5L, 99L)).thenReturn(true);
 
         assertThat(policy.canAccess(clazz, 99L, Role.LECTURER)).isTrue();
+        assertThat(policy.canManageClass(clazz, 99L, Role.LECTURER)).isFalse();
+        assertThat(policy.canManageClass(clazz, 42L, Role.LECTURER)).isTrue();
         assertThat(clazz.getLecturerId()).isEqualTo(42L);
     }
 
-    private static ClassEntity classEntity(Long lecturerId, Long departmentId) {
+    @Test
+    void leaderSubjectScopeDoesNotTransferClassOwnership() {
+        Department subject = mock(Department.class);
+        when(subject.getId()).thenReturn(10L);
+        when(resolver.resolveAll(7L)).thenReturn(List.of(subject));
+        ClassEntity clazz = classEntity(42L, 10L);
+
+        assertThat(policy.canAccess(clazz, 7L, Role.LEADER)).isTrue();
+        assertThat(policy.canManageClass(clazz, 7L, Role.LEADER)).isFalse();
+        assertThat(policy.canManageClass(clazz, 1L, Role.ADMIN)).isTrue();
+    }
+
+    private static ClassEntity classEntity(Long lecturerId, Long subjectId) {
         ClassEntity clazz = mock(ClassEntity.class);
         when(clazz.getLecturerId()).thenReturn(lecturerId);
-        when(clazz.getDepartmentId()).thenReturn(departmentId);
+        when(clazz.getSubjectId()).thenReturn(subjectId);
         return clazz;
     }
 }

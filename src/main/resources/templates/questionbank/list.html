@@ -6,6 +6,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('question-bank')}"></header>
@@ -22,23 +23,37 @@
     </div>
     <div class="qb-toolbar-actions">
       <a class="create-btn" th:if="${!emptyDepartment}"
-         th:href="@{/lecturer/question-bank/new}">Thêm câu hỏi</a>
+         th:href="@{/lecturer/question-bank/new(subjectId=${selectedSubjectId})}">Thêm 1 câu</a>
       <a class="toolbar-secondary" th:if="${!emptyDepartment}"
-         th:href="@{/lecturer/question-bank/import/template}" download>Tải file mẫu</a>
+         th:href="@{/lecturer/question-bank/import/template(subjectId=${selectedSubjectId})}" download>Tải file mẫu</a>
       <label class="toolbar-secondary qb-import-trigger"
              th:if="${!emptyDepartment}"
-             for="qb-import-file">Import Excel</label>
+             for="qb-import-file">Thêm nhiều câu (Excel)</label>
       <a class="toolbar-secondary" sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Quản lý &amp; duyệt</a>
     </div>
   </div>
 
   <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
-    Bạn chưa được gán mã môn nên chưa thể đóng góp câu hỏi.
+    Chưa có mã môn đang hoạt động. Vui lòng liên hệ quản trị viên để mở danh mục môn học.
   </div>
 
   <th:block th:if="${!emptyDepartment}">
       <input id="qb-import-file" type="file" accept=".xlsx,.xls" hidden>
-      <section class="admin-list-panel qb-import-panel" id="qb-import-panel" hidden>
+      <div class="qb-bulk-authoring" aria-label="Thiết lập thêm nhiều câu">
+        <label for="qb-import-lesson">Đưa các câu import vào chương/bài</label>
+        <select id="qb-import-lesson" class="qb-input" required
+                data-ksh-select data-ksh-searchable
+                data-ksh-search-placeholder="Gõ tên chương hoặc bài…">
+          <option value="" disabled selected>Chọn bài học trước khi mở file Excel</option>
+          <option th:each="lesson : ${lessonOptions}"
+                  th:if="${lesson.subjectId() == selectedSubjectId}"
+                  th:value="${lesson.id()}"
+                  th:text="${lesson.chapterTitle() + ' · ' + lesson.lessonTitle()}">Chương 1 · Bài 1</option>
+        </select>
+        <small>Mỗi dòng Excel tạo một câu; tất cả câu trong lượt import dùng đúng bài học đã chọn.</small>
+      </div>
+      <section class="admin-list-panel qb-import-panel" id="qb-import-panel" hidden
+               th:attr="data-subject-id=${selectedSubjectId}">
       <div class="qb-import-head">
         <div>
           <h2 class="detail-card-title">Xem trước import Excel</h2>
@@ -70,67 +85,152 @@
       </div>
       </section>
 
-    <section class="admin-list-panel qb-filter-panel">
-      <form method="get" th:action="@{/lecturer/question-bank}" class="qb-filter-grid">
-        <label class="sr-only" for="qbLecturerQuery">Tìm câu hỏi</label>
-        <input class="qb-input" id="qbLecturerQuery" type="text" name="q" th:value="${query}" placeholder="Tìm theo nội dung, mã môn hoặc người tạo">
-        <label class="sr-only" for="qbLecturerStatus">Lọc theo trạng thái</label>
-        <select class="qb-input" id="qbLecturerStatus" name="status">
-          <option value="">Tất cả trạng thái</option>
-          <option value="DRAFT" th:selected="${selectedStatus == 'DRAFT'}">Nháp</option>
-          <option value="REVIEW" th:selected="${selectedStatus == 'REVIEW'}">Chờ duyệt</option>
-          <option value="APPROVED" th:selected="${selectedStatus == 'APPROVED'}">Đã duyệt</option>
-          <option value="REJECTED" th:selected="${selectedStatus == 'REJECTED'}">Bị trả lại</option>
-          <option value="ARCHIVED" th:selected="${selectedStatus == 'ARCHIVED'}">Lưu trữ</option>
-        </select>
-        <div class="qb-filter-actions">
-          <button type="submit" class="btn-primary btn-sm">Lọc</button>
-          <a th:href="@{/lecturer/question-bank}" class="btn-ghost btn-sm">Xoá lọc</a>
-        </div>
-      </form>
-    </section>
+    <label class="qb-subject-search">
+      <span class="sr-only">Tìm mã môn trong ngân hàng câu hỏi</span>
+      <input type="search" placeholder="Gõ mã môn, ví dụ KOR311…"
+             autocomplete="off" data-link-filter="#qbSubjectRail">
+    </label>
+    <nav class="qb-subject-rail" id="qbSubjectRail" aria-label="Mã môn trong ngân hàng câu hỏi">
+      <a th:each="subject : ${subjectOptions}"
+         th:href="@{/lecturer/question-bank(subjectId=${subject.id()})}"
+         th:classappend="${selectedSubjectId == subject.id()} ? 'is-active'"
+         th:attr="aria-current=${selectedSubjectId == subject.id()} ? 'page' : null,
+                  data-search-text=${subject.code() + ' ' + subject.name()}">
+        <strong th:text="${subject.code()}">KOR311</strong>
+        <span th:text="${subject.name()}">Tiếng Hàn</span>
+      </a>
+    </nav>
 
-    <section class="admin-list-panel">
-      <div th:if="${items == null or items.isEmpty()}" class="admin-list-empty">Chưa có câu hỏi phù hợp bộ lọc.</div>
-      <div class="admin-list-table-scroll" th:if="${items != null and !items.isEmpty()}">
-        <table class="admin-list-table qb-table">
-          <thead>
-          <tr>
-            <th>Nội dung</th>
-            <th>Mã môn</th>
-            <th>Loại</th>
-            <th>Trạng thái</th>
-            <th>Người tạo</th>
-            <th>Cập nhật</th>
-            <th>Thao tác</th>
-          </tr>
-          </thead>
-          <tbody>
-          <tr th:each="item : ${items}">
-            <td>
-              <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}" class="qb-title-link"
-                 th:text="${item.contentPreview()}">Nội dung</a>
-            </td>
-            <td th:text="${item.subjectCode()}">KOR311</td>
-            <td><span class="status-pill" th:text="${item.questionType()}">MCQ</span></td>
-            <td><span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.workflowStatus())}"
-                      th:text="${item.workflowStatus()}">DRAFT</span></td>
-            <td th:text="${item.contributorName()}">Người tạo</td>
-            <td th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
-            <td class="qb-row-actions">
-              <a th:href="@{'/lecturer/question-bank/' + ${item.id()}}">Xem</a>
-              <a th:if="${item.editable()}" th:href="@{'/lecturer/question-bank/' + ${item.id()} + '/edit'}">Sửa</a>
-              <a th:if="${item.reviewable()}" sec:authorize="hasRole('LEADER')" th:href="@{/leader/question-bank}">Duyệt</a>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <form method="get" th:action="@{/lecturer/question-bank}" class="qb-workspace-search" role="search">
+      <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
+      <label class="sr-only" for="qbLecturerQuery">Tìm câu hỏi trong mã môn</label>
+      <input class="qb-input" id="qbLecturerQuery" type="search" name="q" th:value="${query}"
+             placeholder="Tìm trong mã môn đang chọn…">
+      <button type="submit" class="btn-primary btn-sm">Tìm</button>
+    </form>
+
+    <div class="qb-bank-columns" th:if="${workspace != null}">
+      <section class="qb-bank-panel qb-bank-approved" aria-labelledby="approvedBankTitle">
+        <header>
+          <div>
+            <span class="qb-bank-kicker">Dùng để tạo đề</span>
+            <h2 id="approvedBankTitle">Bộ chung đã duyệt</h2>
+            <p>Câu hỏi đã được leader duyệt, xếp theo chương và bài học.</p>
+          </div>
+          <strong class="qb-bank-count" th:text="${workspace.approvedCount()}">0</strong>
+        </header>
+        <details class="qb-generator" th:if="${workspace.approvedCount() > 0}">
+          <summary>Tạo đề random từ bộ chung</summary>
+          <form method="post" th:action="@{/lecturer/question-bank/generate-test}">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+            <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
+            <label>
+              <span>Tên đề (có thể để trống)</span>
+              <input class="qb-input" type="text" name="title" maxlength="300"
+                     th:placeholder="${workspace.subject().code() + ' · Đề ôn tập'}">
+            </label>
+            <fieldset class="qb-scope-picker" data-qb-scope-picker>
+              <legend>Chọn đúng một phạm vi random</legend>
+              <label><input type="radio" name="scope" value="SUBJECT" checked>
+                <span><strong>Toàn mã môn</strong><small>Lấy từ tất cả chương và bài</small></span></label>
+              <label><input type="radio" name="scope" value="CHAPTER">
+                <span><strong>Theo chương</strong><small>Lấy từ mọi bài trong một chương</small></span></label>
+              <label><input type="radio" name="scope" value="LESSON">
+                <span><strong>Theo bài</strong><small>Chỉ lấy câu hỏi của một bài</small></span></label>
+            </fieldset>
+            <div class="qb-generator-grid qb-scope-targets">
+              <label data-scope-field="CHAPTER" hidden>
+                <span>Chương</span>
+                <select class="qb-input" name="lessonTemplateId" disabled data-ksh-select data-ksh-searchable>
+                  <option value="">Chọn chương</option>
+                  <option th:each="chapter : ${chapterOptions}"
+                          th:value="${chapter.lessonId()}"
+                          th:text="${chapter.chapterTitle()}">Chương 1</option>
+                </select>
+              </label>
+              <label data-scope-field="LESSON" hidden>
+                <span>Bài học</span>
+                <select class="qb-input" name="lessonTemplateId" disabled data-ksh-select data-ksh-searchable>
+                  <option value="">Gõ để tìm bài học</option>
+                  <option th:each="lesson : ${lessonOptions}"
+                          th:if="${lesson.subjectId() == selectedSubjectId}"
+                          th:value="${lesson.id()}"
+                          th:text="${lesson.lessonTitle()}">Bài 1</option>
+                </select>
+              </label>
+              <label>
+                <span>Số câu</span>
+                <input class="qb-input" type="number" name="questionCount" min="1" max="50" value="10">
+              </label>
+            </div>
+            <fieldset class="qb-generator-classes ksh-search-checklist" data-search-checklist>
+              <legend>Phân phối ngay tới lớp (tuỳ chọn)</legend>
+              <label class="sr-only" for="qbGeneratorClassSearch">Tìm lớp để phân phối</label>
+              <input id="qbGeneratorClassSearch" class="ksh-checklist-search" type="search"
+                     placeholder="Gõ tên lớp hoặc mã môn…" autocomplete="off">
+              <div class="ksh-checklist-options" role="group" aria-label="Lớp nhận đề">
+                <label th:each="clazz : ${generatorClasses}"
+                       th:attr="data-search-text=${clazz.name()}">
+                  <input type="checkbox" name="classIds" th:value="${clazz.id()}">
+                  <span th:text="${clazz.name()}">KOR311 · Lớp A</span>
+                </label>
+              </div>
+              <small th:if="${generatorClasses.isEmpty()}">Chưa có lớp ACTIVE cùng mã môn trong phạm vi của bạn.</small>
+            </fieldset>
+            <button type="submit" class="btn-primary">Tạo và lưu vào Kho bài test</button>
+          </form>
+        </details>
+        <div class="qb-bank-empty" th:if="${workspace.approvedGroups().isEmpty()}">
+          Chưa có câu hỏi đã duyệt trong mã môn này.
+        </div>
+        <article class="qb-question-group" th:each="group : ${workspace.approvedGroups()}">
+          <div class="qb-question-group-head">
+            <span th:text="${group.chapterTitle()}">Chương 1</span>
+            <h3 th:text="${group.lessonTitle()}">Bài 1</h3>
+          </div>
+          <a class="qb-question-card" th:each="item : ${group.items()}"
+             th:href="@{'/lecturer/question-bank/' + ${item.id()}}">
+            <span class="status-pill" th:text="${item.questionType()}">MCQ</span>
+            <strong th:text="${item.contentPreview()}">Câu hỏi</strong>
+            <small th:text="'Tạo bởi ' + ${item.contributorName()}">Tạo bởi giảng viên</small>
+          </a>
+        </article>
+      </section>
+
+      <section class="qb-bank-panel qb-bank-pending" aria-labelledby="pendingBankTitle">
+        <header>
+          <div>
+            <span class="qb-bank-kicker">Quy trình duyệt</span>
+            <h2 id="pendingBankTitle">Chờ leader duyệt</h2>
+            <p>Chỉ hiển thị câu đã gửi duyệt; chưa được dùng để tạo đề.</p>
+          </div>
+          <strong class="qb-bank-count" th:text="${workspace.pendingCount()}">0</strong>
+        </header>
+        <div class="qb-bank-empty" th:if="${workspace.pendingGroups().isEmpty()}">
+          Không có câu hỏi đang chờ duyệt.
+        </div>
+        <article class="qb-question-group" th:each="group : ${workspace.pendingGroups()}">
+          <div class="qb-question-group-head">
+            <span th:text="${group.chapterTitle()}">Chương 1</span>
+            <h3 th:text="${group.lessonTitle()}">Bài 1</h3>
+          </div>
+          <a class="qb-question-card" th:each="item : ${group.items()}"
+             th:href="@{'/lecturer/question-bank/' + ${item.id()}}">
+            <span class="status-pill qb-status-review">Chờ duyệt</span>
+            <strong th:text="${item.contentPreview()}">Câu hỏi</strong>
+            <small th:text="'Gửi bởi ' + ${item.contributorName()}">Gửi bởi giảng viên</small>
+          </a>
+        </article>
+        <a class="toolbar-secondary qb-review-link" sec:authorize="hasRole('LEADER')"
+           th:href="@{/leader/question-bank(subjectId=${selectedSubjectId})}">Mở màn duyệt câu hỏi</a>
+      </section>
+    </div>
   </th:block>
 </div>
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/question-bank-import.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
+<script th:src="@{/js/question-bank-workspace.js}"></script>
 </body>
 </html>

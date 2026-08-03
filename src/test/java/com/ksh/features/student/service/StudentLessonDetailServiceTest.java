@@ -25,6 +25,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -385,7 +387,8 @@ class StudentLessonDetailServiceTest {
     private ClassEntity saveClass(String name, String code) {
         ClassEntity entity = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
                 null, null, null, 100);
-        entity.setDepartmentId(lecturer.getDepartmentId());
+        entity.setSubjectId(lecturer.getSubjectId());
+        entity.approve(lecturer.getId(), LocalDateTime.now());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

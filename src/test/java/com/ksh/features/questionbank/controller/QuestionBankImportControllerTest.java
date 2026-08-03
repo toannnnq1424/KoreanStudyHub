@@ -8,6 +8,7 @@ import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
+import com.ksh.features.library.repository.LessonTemplateRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -53,17 +54,25 @@ class QuestionBankImportControllerTest {
     @Autowired private DepartmentRepository subjectRepository;
     @Autowired private QuestionBankItemRepository itemRepository;
     @Autowired private QuestionBankOptionRepository optionRepository;
+    @Autowired private LessonTemplateRepository lessonRepository;
 
     private Long lecturerId;
     private Long subjectId;
     private String subjectCode;
+    private Long lessonTemplateId;
 
     @BeforeEach
     void setUp() {
         User lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
         lecturerId = lecturer.getId();
-        subjectId = lecturer.getDepartmentId();
+        subjectId = lecturer.getSubjectId();
         subjectCode = subjectRepository.findById(subjectId).orElseThrow().getCode();
+        lessonTemplateId = lessonRepository
+                .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subjectId)
+                .stream()
+                .findFirst()
+                .orElseThrow()
+                .getId();
     }
 
     @Test
@@ -82,7 +91,10 @@ class QuestionBankImportControllerTest {
 
         MockMultipartFile downloaded = new MockMultipartFile(
                 "file", "question-bank-template.xlsx", XLSX_MIME, workbookBytes);
-        mockMvc.perform(multipart("/lecturer/question-bank/import/preview").file(downloaded).with(csrf()))
+        mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
+                        .file(downloaded)
+                        .param("lessonTemplateId", lessonTemplateId.toString())
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acceptedRows").value(2))
                 .andExpect(jsonPath("$.errorRows").value(0))
@@ -96,7 +108,10 @@ class QuestionBankImportControllerTest {
         MockMultipartFile file = workbookFile(subjectCode, "A");
 
         MvcResult previewResult = mockMvc.perform(
-                        multipart("/lecturer/question-bank/import/preview").file(file).with(csrf()))
+                        multipart("/lecturer/question-bank/import/preview")
+                                .file(file)
+                                .param("lessonTemplateId", lessonTemplateId.toString())
+                                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acceptedRows").value(1))
                 .andExpect(jsonPath("$.errorRows").value(0))
@@ -124,6 +139,7 @@ class QuestionBankImportControllerTest {
     void preview_blocks_a_different_subject_code() throws Exception {
         mockMvc.perform(multipart("/lecturer/question-bank/import/preview")
                         .file(workbookFile("OTHER101", "A"))
+                        .param("lessonTemplateId", lessonTemplateId.toString())
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.acceptedRows").value(0))

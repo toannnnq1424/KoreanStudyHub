@@ -18,10 +18,33 @@ public final class QuestionBankViews {
                                long archived, long total) {
     }
 
+    public record SubjectOption(Long id, String code, String name, String description) {
+    }
+
+    public record LessonOption(Long id, Long subjectId, String subjectCode,
+                               String chapterTitle, String lessonTitle) {
+    }
+
+    /** One canonical Library chapter represented by its first lesson id. */
+    public record ChapterOption(Long lessonId, int chapterOrder, String chapterTitle) {
+    }
+
     public record ItemRow(Long id, String contentPreview, String questionType,
                           String workflowStatus, String subjectCode,
+                          Long lessonTemplateId, int chapterOrder, int lessonOrder,
+                          String chapterTitle, String lessonTitle,
                           String contributorName, LocalDateTime updatedAt,
                           boolean editable, boolean reviewable) {
+    }
+
+    public record QuestionGroup(Long lessonTemplateId, String chapterTitle,
+                                String lessonTitle, List<ItemRow> items) {
+    }
+
+    public record WorkspaceView(SubjectOption subject,
+                                List<QuestionGroup> approvedGroups,
+                                List<QuestionGroup> pendingGroups,
+                                long approvedCount, long pendingCount) {
     }
 
     /** Subject-wide review payload used by the leader inbox. */

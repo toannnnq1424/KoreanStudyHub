@@ -153,10 +153,10 @@ INSERT INTO permissions (feature_key, name, description, permission_group) VALUE
 ('user.activate_deactivate',  'Kích hoạt / Vô hiệu hoá', 'Bật/tắt tài khoản', 'USER_MANAGE'),
 ('user.role_assign',          'Phân công vai trò', 'Đổi role của user', 'USER_MANAGE'),
 ('user.lock_unlock',          'Khoá / Mở khoá', 'Lock/unlock tài khoản vì lý do bảo mật', 'USER_MANAGE'),
--- DEPARTMENT
-('department.view',           'Xem bộ môn', 'Xem danh sách bộ môn', 'DEPARTMENT'),
-('department.manage',         'Quản lý bộ môn', 'Tạo/sửa/xoá bộ môn, gán trưởng bộ môn', 'DEPARTMENT'),
-('department.report',         'Báo cáo bộ môn', 'Head xem báo cáo toàn bộ môn', 'DEPARTMENT'),
+-- SUBJECT
+('subject.view',           'Xem mã môn', 'Xem danh sách mã môn', 'SUBJECT'),
+('subject.manage',         'Quản lý mã môn', 'Tạo/sửa/ẩn mã môn, gán người phụ trách', 'SUBJECT'),
+('subject.report',         'Báo cáo mã môn', 'Leader xem báo cáo các mã môn phụ trách', 'SUBJECT'),
 -- CATEGORY
 ('category.view',             'Xem danh mục', 'Xem danh mục khoá học', 'CATEGORY'),
 ('category.manage',           'Quản lý danh mục', 'Tạo/sửa/xoá danh mục khoá học', 'CATEGORY'),
@@ -171,7 +171,7 @@ INSERT INTO permissions (feature_key, name, description, permission_group) VALUE
 -- DASHBOARD
 ('dashboard.student',         'Dashboard sinh viên', 'Tổng quan tiến độ học tập cá nhân', 'DASHBOARD'),
 ('dashboard.teaching',        'Dashboard giảng dạy', 'GV xem thống kê lớp được phân công', 'DASHBOARD'),
-('dashboard.department',      'Dashboard bộ môn', 'Head xem thống kê toàn bộ môn', 'DASHBOARD'),
+('dashboard.subject',      'Dashboard bộ môn', 'Head xem thống kê toàn bộ môn', 'DASHBOARD'),
 ('dashboard.system',          'Dashboard hệ thống', 'Admin xem thống kê toàn hệ thống', 'DASHBOARD'),
 -- SYSTEM SETTINGS
 ('system.settings',           'Cài đặt hệ thống', 'Sửa tên, logo, thông tin liên hệ', 'SYSTEM'),
@@ -243,10 +243,10 @@ SELECT 'LECTURER', id FROM permissions WHERE feature_key IN (
 INSERT INTO role_permissions (role_code, permission_id)
 SELECT 'HEAD', id FROM permissions WHERE feature_key IN (
                                                          'course.create', 'course.edit', 'course.delete', 'course.publish', 'course.archive',
-                                                         'department.report',
+                                                         'subject.report',
                                                          'content.approve', 'content.reject', 'content.request_changes', 'content.version_manage',
                                                          'lecturer.assign',
-                                                         'dashboard.department'
+                                                         'dashboard.subject'
     );
 
 -- Seed: ADMIN permissions (R4) — CHỈ các quyền RIÊNG của Admin
@@ -256,7 +256,7 @@ SELECT 'ADMIN', id FROM permissions WHERE feature_key IN (
                                                           'flashcard.manage_any',
                                                           'user.view', 'user.create', 'user.edit', 'user.activate_deactivate',
                                                           'user.role_assign', 'user.lock_unlock',
-                                                          'department.view', 'department.manage',
+                                                          'subject.view', 'subject.manage',
                                                           'category.view', 'category.manage',
                                                           'comment.moderate',
                                                           'progress.view_all',

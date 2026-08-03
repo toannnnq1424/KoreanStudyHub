@@ -78,18 +78,20 @@ public class StudentLessonsController {
                        @RequestParam(value = "lesson", required = false) Long lessonParam,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
+        if (user.getRole() != Role.STUDENT) {
+            return lecturerLessonsRedirect(classId, sectionParam, lessonParam);
+        }
+
         ClassLessonsView view = studentLessonsService
                 .listClassLessons(classId, user.getId(), user.getRole());
 
         Long activeSectionId = resolveActiveSection(view, sectionParam);
         model.addAttribute(ATTR_VIEW, view);
         model.addAttribute(ATTR_ACTIVE_SECTION_ID, activeSectionId);
-        boolean teachingView = user.getRole() != Role.STUDENT;
-        model.addAttribute("teachingView", teachingView);
+        model.addAttribute("teachingView", false);
+        model.addAttribute("lessonBasePath", "/my/classes/" + classId + "/lessons");
         // Surface flashcard decks shared to this class in the sidebar.
-        model.addAttribute("classSharedDecks",
-                teachingView ? java.util.List.of()
-                        : deckService.listSharedForClass(classId, user.getId()));
+        model.addAttribute("classSharedDecks", deckService.listSharedForClass(classId, user.getId()));
 
         // Inline lesson detail when ?lesson=X is provided AND it belongs to the
         // active section. Invalid lesson id falls back to the hero placeholder
@@ -109,6 +111,20 @@ public class StudentLessonsController {
             }
         }
         return VIEW_STUDENT_CLASS_LESSONS;
+    }
+
+    private static String lecturerLessonsRedirect(Long classId, Long sectionId, Long lessonId) {
+        StringBuilder target = new StringBuilder("redirect:/lecturer/classes/")
+                .append(classId)
+                .append("/lessons");
+        if (sectionId != null) {
+            target.append("?section=").append(sectionId);
+        }
+        if (lessonId != null) {
+            target.append(sectionId == null ? "?" : "&")
+                    .append("lesson=").append(lessonId);
+        }
+        return target.toString();
     }
 
     /**

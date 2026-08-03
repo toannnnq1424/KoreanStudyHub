@@ -65,7 +65,7 @@ class LibraryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("library/lesson-form"))
                 .andExpect(content().string(containsString("multipart/form-data")))
-                .andExpect(content().string(containsString("Tải PDF chính")))
-                .andExpect(content().string(containsString("Tải materials đính kèm")));
+                .andExpect(content().string(containsString("Tải PDF mới")))
+                .andExpect(content().string(containsString("Tải tài liệu mới")));
     }
 }

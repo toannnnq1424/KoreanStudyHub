@@ -11,6 +11,8 @@ import java.util.List;
 public class QuestionBankItemForm {
 
     private Long id;
+    private Long subjectId;
+    private Long lessonTemplateId;
 
     @NotBlank(message = "Loại câu hỏi không hợp lệ")
     private String questionType = "MCQ";
@@ -47,6 +49,18 @@ public class QuestionBankItemForm {
     public void setId(Long id) {
         this.id = id;
     }
+
+    public Long getSubjectId() {
+        return subjectId;
+    }
+
+    public void setSubjectId(Long subjectId) {
+        this.subjectId = subjectId;
+    }
+
+    public Long getLessonTemplateId() { return lessonTemplateId; }
+
+    public void setLessonTemplateId(Long lessonTemplateId) { this.lessonTemplateId = lessonTemplateId; }
 
     public String getQuestionType() {
         return questionType;

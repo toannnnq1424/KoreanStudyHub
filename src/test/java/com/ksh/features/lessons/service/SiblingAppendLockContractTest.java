@@ -25,18 +25,13 @@ class SiblingAppendLockContractTest {
     }
 
     @Test
-    void bothClonePathsLockTargetSectionBeforeMaterializingDraft() throws Exception {
+    void libraryDistributionLocksTargetSectionBeforeMaterializingSnapshot() throws Exception {
         String source = readFeature("library/service/LessonTemplateService.java");
-        int templateClone = source.indexOf("cloneTemplateToSection");
-        int firstLock = source.indexOf("lockSectionForUpdate(sectionId, classId)", templateClone);
-        int firstMaterialize = source.indexOf("materializeDraft(sectionId", firstLock);
-        assertTrue(firstLock > templateClone && firstMaterialize > firstLock);
-
-        int lessonClone = source.indexOf("cloneLessonToSection");
-        int secondLock = source.indexOf(
-                "lockSectionForUpdate(targetSectionId, targetClassId)", lessonClone);
-        int secondMaterialize = source.indexOf("materializeDraft(targetSectionId", secondLock);
-        assertTrue(secondLock > lessonClone && secondMaterialize > secondLock);
+        int snapshot = source.indexOf("snapshotTemplateToSection");
+        int lock = source.indexOf("lockSectionForUpdate(sectionId, classId)", snapshot);
+        int materialize = source.indexOf("materializeDraft(sectionId", lock);
+        assertTrue(snapshot >= 0 && lock > snapshot && materialize > lock);
+        assertTrue(!source.contains("cloneLessonToSection"));
     }
 
     private static void assertBefore(String source, String first, String second) {

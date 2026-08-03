@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,10 +40,11 @@ class QuestionBankReviewServiceTest {
         subject.assignLeader(30L);
         when(userRepository.findById(30L)).thenReturn(Optional.of(leader));
         when(resolver.resolve(30L)).thenReturn(Optional.of(subject));
+        when(resolver.resolveAll(30L)).thenReturn(List.of(subject));
         item = new QuestionBankItem(5L, 20L, QuestionBankItem.TYPE_MCQ,
                 QuestionBankItem.STATUS_REVIEW, "<p>Question</p>", null);
         ReflectionTestUtils.setField(item, "id", 10L);
-        when(itemRepository.findByIdAndSubjectId(10L, 5L)).thenReturn(Optional.of(item));
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(item));
     }
 
     @Test
@@ -64,7 +66,10 @@ class QuestionBankReviewServiceTest {
 
     @Test
     void leader_cannot_review_cross_subject_item() {
-        when(itemRepository.findByIdAndSubjectId(10L, 5L)).thenReturn(Optional.empty());
+        QuestionBankItem crossSubject = new QuestionBankItem(6L, 20L, QuestionBankItem.TYPE_MCQ,
+                QuestionBankItem.STATUS_REVIEW, "<p>Foreign</p>", null);
+        ReflectionTestUtils.setField(crossSubject, "id", 10L);
+        when(itemRepository.findById(10L)).thenReturn(Optional.of(crossSubject));
 
         assertThatThrownBy(() -> service.approve(30L, 10L))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);

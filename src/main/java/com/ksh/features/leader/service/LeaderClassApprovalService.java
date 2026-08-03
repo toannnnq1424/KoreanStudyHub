@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -38,19 +39,23 @@ public class LeaderClassApprovalService {
 
     @Transactional(readOnly = true)
     public ApprovalQueueView load(Long leaderUserId) {
-        Department department = resolver.resolve(leaderUserId).orElse(null);
-        if (department == null) return new ApprovalQueueView(null, List.of(), true);
-        List<ClassEntity> pending = classRepository
-                .findAllByDepartmentIdAndStatusOrderByCreatedAtDesc(
-                        department.getId(), ClassEntity.STATUS_DRAFT);
+        List<Department> subjects = resolver.resolveAll(leaderUserId);
+        if (subjects.isEmpty()) return new ApprovalQueueView(null, List.of(), true);
+        List<ClassEntity> pending = new ArrayList<>();
+        Map<Long, String> subjectCodes = new HashMap<>();
+        for (Department subject : subjects) {
+            subjectCodes.put(subject.getId(), subject.getCode());
+            pending.addAll(classRepository.findAllBySubjectIdAndStatusOrderByCreatedAtDesc(
+                    subject.getId(), ClassEntity.STATUS_DRAFT));
+        }
+        pending.sort((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()));
         Map<Long, String> names = new HashMap<>();
         pending.forEach(clazz -> userRepository.findById(clazz.getLecturerId())
                 .ifPresent(user -> names.put(user.getId(), user.getFullName())));
         List<PendingClassRow> rows = pending.stream().map(clazz -> new PendingClassRow(
-                clazz.getId(), clazz.getName(), department.getCode(),
+                clazz.getId(), clazz.getName(), subjectCodes.get(clazz.getSubjectId()),
                 names.getOrDefault(clazz.getLecturerId(), "—"), clazz.getCreatedAt())).toList();
-        return new ApprovalQueueView(new DepartmentSummary(department.getId(),
-                department.getCode(), department.getName()), rows, false);
+        return new ApprovalQueueView(summary(subjects), rows, false);
     }
 
     @Transactional
@@ -75,14 +80,22 @@ public class LeaderClassApprovalService {
     }
 
     private ClassEntity loadLockedInLeaderDepartment(Long leaderUserId, Long classId) {
-        Department department = resolver.resolve(leaderUserId)
-                .orElseThrow(() -> new AccessDeniedException("Không có bộ môn"));
+        List<Department> subjects = resolver.resolveAll(leaderUserId);
+        if (subjects.isEmpty()) throw new AccessDeniedException("Không có bộ môn");
         ClassEntity clazz = classRepository.findByIdForUpdate(classId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lớp"));
-        if (!department.getId().equals(clazz.getDepartmentId())) {
+        if (subjects.stream().noneMatch(subject -> subject.getId().equals(clazz.getSubjectId()))) {
             throw new AccessDeniedException("Lớp không thuộc bộ môn của bạn");
         }
         return clazz;
+    }
+
+    private static DepartmentSummary summary(List<Department> subjects) {
+        Department first = subjects.get(0);
+        return subjects.size() == 1
+                ? new DepartmentSummary(first.getId(), first.getCode(), first.getName())
+                : new DepartmentSummary(first.getId(), subjects.size() + " mã môn",
+                        "Bộ môn tiếng Hàn");
     }
 
     private void notifyOutcome(ClassEntity clazz, String type, String title, String body) {

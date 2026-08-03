@@ -118,7 +118,7 @@ public class ExamQuestionBankPickerService {
     private Long requireTestSubject(User actor, Long testId) {
         Test test = testAccessResolver.requireManageable(testId, actor.getId(), actor.getRole());
         ClassEntity clazz = classRepository.findById(test.getClassId()).orElseThrow(this::forbidden);
-        Long subjectId = clazz.getDepartmentId();
+        Long subjectId = clazz.getSubjectId();
         if (subjectId == null) throw forbidden();
         if (actor.getRole() != Role.ADMIN && !accessPolicy.canAccessSubject(actor, subjectId)) {
             throw forbidden();

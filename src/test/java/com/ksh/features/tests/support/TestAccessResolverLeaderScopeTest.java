@@ -104,14 +104,15 @@ class TestAccessResolverLeaderScopeTest {
     }
 
     @org.junit.jupiter.api.Test
-    void leaderClassPickerIsLimitedToResolvedDepartment() {
-        ClassEntity sameDepartmentClass = mock(ClassEntity.class);
-        when(classAccessPolicy.leaderDepartmentId(USER_ID)).thenReturn(Optional.of(3L));
-        when(classRepository.findAllByDepartmentIdOrderByCreatedAtDesc(3L))
-                .thenReturn(List.of(sameDepartmentClass));
+    void leaderClassPickerIncludesAllAssignedSubjects() {
+        ClassEntity firstSubjectClass = mock(ClassEntity.class);
+        ClassEntity secondSubjectClass = mock(ClassEntity.class);
+        when(classAccessPolicy.leaderSubjectIds(USER_ID)).thenReturn(List.of(3L, 4L));
+        when(classRepository.findAllBySubjectIdInOrderByCreatedAtDesc(List.of(3L, 4L)))
+                .thenReturn(List.of(firstSubjectClass, secondSubjectClass));
 
         assertThat(resolver.manageableClasses(USER_ID, Role.LEADER))
-                .containsExactly(sameDepartmentClass);
+                .containsExactly(firstSubjectClass, secondSubjectClass);
 
         verify(classRepository, never()).findAllByOrderByCreatedAtDesc();
         verify(classRepository, never()).findAllByLecturerIdOrderByCreatedAtDesc(USER_ID);
@@ -129,7 +130,7 @@ class TestAccessResolverLeaderScopeTest {
     @org.junit.jupiter.api.Test
     void lecturerClassPickerRemainsOwnerScoped() {
         ClassEntity ownedClass = mock(ClassEntity.class);
-        when(classRepository.findAllByLecturerIdOrderByCreatedAtDesc(USER_ID))
+        when(classRepository.findAllAccessibleToLecturerOrderByCreatedAtDesc(USER_ID))
                 .thenReturn(List.of(ownedClass));
 
         assertThat(resolver.manageableClasses(USER_ID, Role.LECTURER))

@@ -2,26 +2,34 @@ package com.ksh.features.questionbank.service;
 
 import com.ksh.common.HtmlSanitizer;
 import com.ksh.entities.Department;
+import com.ksh.entities.LessonTemplate;
 import com.ksh.entities.User;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.questionbank.dto.QuestionBankItemForm;
 import com.ksh.features.questionbank.dto.QuestionBankViews.ContributorOption;
+import com.ksh.features.questionbank.dto.QuestionBankViews.ChapterOption;
 import com.ksh.features.questionbank.dto.QuestionBankViews.ItemDetail;
 import com.ksh.features.questionbank.dto.QuestionBankViews.ItemRow;
+import com.ksh.features.questionbank.dto.QuestionBankViews.LessonOption;
+import com.ksh.features.questionbank.dto.QuestionBankViews.QuestionGroup;
+import com.ksh.features.questionbank.dto.QuestionBankViews.WorkspaceView;
 import com.ksh.features.questionbank.dto.QuestionBankViews.OptionView;
 import com.ksh.features.questionbank.dto.QuestionBankViews.StatusCounts;
 import com.ksh.features.questionbank.dto.QuestionBankViews.SubjectReviewView;
+import com.ksh.features.questionbank.dto.QuestionBankViews.SubjectOption;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.entity.QuestionBankOption;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
+import com.ksh.features.library.repository.LessonTemplateRepository;
 import com.ksh.security.Role;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +43,7 @@ import java.util.stream.Stream;
 public class QuestionBankItemService {
 
     private static final String MSG_EMPTY_SUBJECT =
-            "Bạn chưa được gán mã môn để cộng tác soạn câu hỏi";
+            "Chưa có mã môn đang hoạt động để soạn câu hỏi";
     private static final String MSG_NOT_FOUND = "Không tìm thấy câu hỏi cộng tác";
     private static final String MSG_FORBIDDEN = "Bạn không có quyền thao tác với câu hỏi cộng tác này";
 
@@ -44,45 +52,113 @@ public class QuestionBankItemService {
     private final QuestionBankAccessPolicy accessPolicy;
     private final QuestionBankItemRepository itemRepository;
     private final QuestionBankOptionRepository optionRepository;
+    private final LessonTemplateRepository lessonRepository;
 
     public QuestionBankItemService(UserRepository userRepository,
                                    DepartmentRepository subjectRepository,
                                    QuestionBankAccessPolicy accessPolicy,
                                    QuestionBankItemRepository itemRepository,
-                                   QuestionBankOptionRepository optionRepository) {
+                                   QuestionBankOptionRepository optionRepository,
+                                   LessonTemplateRepository lessonRepository) {
         this.userRepository = userRepository;
         this.subjectRepository = subjectRepository;
         this.accessPolicy = accessPolicy;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.lessonRepository = lessonRepository;
     }
 
     @Transactional(readOnly = true)
     public List<ItemRow> list(Long userId, Role role, String status,
                               Long contributorId, String query) {
+        return list(userId, role, null, status, contributorId, query);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ItemRow> list(Long userId, Role role, Long subjectId, String status,
+                              Long contributorId, String query) {
         User actor = requireActor(userId, role);
-        Department subject = requireSubject(actor);
+        Department subject = requireSubject(actor, subjectId);
         List<QuestionBankItem> items = itemRepository
                 .findBySubjectIdOrderByUpdatedAtDescIdDesc(subject.getId());
         Map<Long, String> userNames = userNames(items);
+        Map<Long, LessonTemplate> lessons = lessonsById(items);
         String normalizedQuery = normalizeQuery(query);
         return items.stream()
                 .filter(item -> matchesStatus(item, status))
                 .filter(item -> contributorId == null || contributorId.equals(item.getContributorId()))
                 .filter(item -> matchesQuery(item, subject.getCode(), userNames, normalizedQuery))
-                .map(item -> new ItemRow(
-                        item.getId(), preview(item.getContent()), item.getQuestionType(),
-                        item.getWorkflowStatus(), subject.getCode(),
-                        userNames.getOrDefault(item.getContributorId(), "—"),
-                        item.getUpdatedAt(), canEdit(actor, item), canReview(actor, item)))
+                .map(item -> toRow(actor, item, subject.getCode(), userNames, lessons))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public WorkspaceView workspace(Long userId, Role role, Long subjectId, String query) {
+        User actor = requireActor(userId, role);
+        Department subject = requireSubject(actor, subjectId);
+        List<QuestionBankItem> items = itemRepository
+                .findBySubjectIdOrderByUpdatedAtDescIdDesc(subject.getId());
+        Map<Long, String> names = userNames(items);
+        Map<Long, LessonTemplate> lessons = lessonsById(items);
+        String normalizedQuery = normalizeQuery(query);
+        List<ItemRow> approved = items.stream()
+                .filter(item -> QuestionBankItem.STATUS_APPROVED.equals(item.getWorkflowStatus()))
+                .filter(item -> matchesQuery(item, subject.getCode(), names, normalizedQuery))
+                .map(item -> toRow(actor, item, subject.getCode(), names, lessons)).toList();
+        List<ItemRow> pending = items.stream()
+                .filter(item -> QuestionBankItem.STATUS_REVIEW.equals(item.getWorkflowStatus()))
+                .filter(item -> matchesQuery(item, subject.getCode(), names, normalizedQuery))
+                .map(item -> toRow(actor, item, subject.getCode(), names, lessons)).toList();
+        SubjectOption option = new SubjectOption(subject.getId(), subject.getCode(),
+                subject.getName(), subject.getDescription());
+        return new WorkspaceView(option, groupRows(approved), groupRows(pending),
+                approved.size(), pending.size());
+    }
+
+    private ItemRow toRow(User actor, QuestionBankItem item, String subjectCode,
+                          Map<Long, String> userNames, Map<Long, LessonTemplate> lessons) {
+        LessonTemplate lesson = lessons.get(item.getLessonTemplateId());
+        return new ItemRow(
+                        item.getId(), preview(item.getContent()), item.getQuestionType(),
+                        item.getWorkflowStatus(), subjectCode, item.getLessonTemplateId(),
+                        lesson == null ? Integer.MAX_VALUE : lesson.getChapterOrder(),
+                        lesson == null ? Integer.MAX_VALUE : lesson.getDisplayOrder(),
+                        lesson == null ? "Chưa phân chương" : lesson.getChapterTitle(),
+                        lesson == null ? "Chưa gắn bài học" : lesson.getTitle(),
+                        userNames.getOrDefault(item.getContributorId(), "—"),
+                        item.getUpdatedAt(), canEdit(actor, item), canReview(actor, item));
+    }
+
+    private static List<QuestionGroup> groupRows(List<ItemRow> rows) {
+        List<ItemRow> orderedRows = rows.stream()
+                .sorted(Comparator.comparingInt(ItemRow::chapterOrder)
+                        .thenComparingInt(ItemRow::lessonOrder)
+                        .thenComparing(ItemRow::id))
+                .toList();
+        Map<String, List<ItemRow>> grouped = new LinkedHashMap<>();
+        for (ItemRow row : orderedRows) {
+            String key = row.chapterTitle() + "\u0000" + row.lessonTitle()
+                    + "\u0000" + (row.lessonTemplateId() == null ? "" : row.lessonTemplateId());
+            grouped.computeIfAbsent(key, ignored -> new ArrayList<>()).add(row);
+        }
+        return grouped.values().stream().map(group -> {
+            ItemRow first = group.get(0);
+            return new QuestionGroup(first.lessonTemplateId(), first.chapterTitle(),
+                    first.lessonTitle(), List.copyOf(group));
+        }).toList();
     }
 
     @Transactional(readOnly = true)
     public SubjectReviewView reviewView(Long userId, Role role, String status,
                                         Long contributorId, String query) {
+        return reviewView(userId, role, null, status, contributorId, query);
+    }
+
+    @Transactional(readOnly = true)
+    public SubjectReviewView reviewView(Long userId, Role role, Long subjectId,
+                                        String status, Long contributorId, String query) {
         User actor = requireActor(userId, role);
-        Department subject = requireSubject(actor);
+        Department subject = requireSubject(actor, subjectId);
         List<QuestionBankItem> all = itemRepository
                 .findBySubjectIdOrderByUpdatedAtDescIdDesc(subject.getId());
         Map<Long, String> names = userNames(all);
@@ -124,6 +200,8 @@ public class QuestionBankItemService {
         }
         QuestionBankItemForm form = new QuestionBankItemForm();
         form.setId(item.getId());
+        form.setSubjectId(item.getSubjectId());
+        form.setLessonTemplateId(item.getLessonTemplateId());
         form.setQuestionType(item.getQuestionType());
         form.setContent(item.getContent());
         form.setExplanation(item.getExplanation());
@@ -144,8 +222,8 @@ public class QuestionBankItemService {
     @Transactional(readOnly = true)
     public ItemDetail detail(Long userId, Role role, Long itemId) {
         User actor = requireActor(userId, role);
-        Department subject = requireSubject(actor);
         QuestionBankItem item = requireVisibleItem(itemId, actor);
+        Department subject = requireSubject(actor, item.getSubjectId());
         Map<Long, String> names = loadNames(Stream.of(item.getContributorId(), item.getReviewedBy())
                 .filter(Objects::nonNull).collect(Collectors.toSet()));
         return toDetail(actor, item, subject.getCode(), names, optionsByItemId(List.of(item)));
@@ -154,21 +232,25 @@ public class QuestionBankItemService {
     @Transactional
     public Long save(Long userId, Role role, QuestionBankItemForm form) {
         User actor = requireActor(userId, role);
-        Long subjectId = requireSubject(actor).getId();
+        Long subjectId = requireSubject(actor, form.getSubjectId()).getId();
+        Long lessonId = requireLesson(subjectId, form.getLessonTemplateId());
         List<QuestionBankOption> options = validatedOptions(form);
         String workflowStatus = resolveWorkflowAction(form.getWorkflowAction());
         QuestionBankItem item;
         if (form.getId() == null) {
-            item = new QuestionBankItem(subjectId, actor.getId(),
+            item = new QuestionBankItem(subjectId, lessonId, actor.getId(),
                     normalizedQuestionType(form.getQuestionType()), workflowStatus,
                     sanitizeRequired(form.getContent(), "Nội dung câu hỏi không được để trống"),
                     sanitizeOptional(form.getExplanation()));
         } else {
             item = requireVisibleItem(form.getId(), actor);
+            if (!subjectId.equals(item.getSubjectId())) {
+                throw new QuestionBankValidationException("Không thể chuyển câu hỏi sang mã môn khác");
+            }
             if (!canEdit(actor, item)) {
                 throw new AccessDeniedException(MSG_FORBIDDEN);
             }
-            item.updateAuthoring(normalizedQuestionType(form.getQuestionType()),
+            item.updateAuthoring(lessonId, normalizedQuestionType(form.getQuestionType()),
                     sanitizeRequired(form.getContent(), "Nội dung câu hỏi không được để trống"),
                     sanitizeOptional(form.getExplanation()));
             item.transitionWorkflow(workflowStatus, null, null, null, null);
@@ -185,16 +267,63 @@ public class QuestionBankItemService {
 
     @Transactional(readOnly = true)
     public boolean hasSubject(Long userId, Role role) {
+        return !subjectOptions(userId, role).isEmpty();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubjectOption> subjectOptions(Long userId, Role role) {
         User actor = requireActor(userId, role);
-        Long id = accessPolicy.resolveSubjectId(actor);
-        return id != null && subjectRepository.findById(id)
-                .filter(Department::isActive).isPresent();
+        return allowedSubjects(actor).stream()
+                .map(subject -> new SubjectOption(subject.getId(), subject.getCode(),
+                        subject.getName(), subject.getDescription()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LessonOption> lessonOptions(Long userId, Role role) {
+        User actor = requireActor(userId, role);
+        List<LessonOption> result = new ArrayList<>();
+        for (Department subject : allowedSubjects(actor)) {
+            for (LessonTemplate lesson : lessonRepository
+                    .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subject.getId())) {
+                result.add(new LessonOption(lesson.getId(), subject.getId(), subject.getCode(),
+                        lesson.getChapterTitle(), lesson.getTitle()));
+            }
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChapterOption> chapterOptions(Long userId, Role role, Long subjectId) {
+        User actor = requireActor(userId, role);
+        Department subject = requireSubject(actor, subjectId);
+        Map<Integer, ChapterOption> chapters = new LinkedHashMap<>();
+        for (LessonTemplate lesson : lessonRepository
+                .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subject.getId())) {
+            chapters.putIfAbsent(lesson.getChapterOrder(), new ChapterOption(
+                    lesson.getId(), lesson.getChapterOrder(), lesson.getChapterTitle()));
+        }
+        return List.copyOf(chapters.values());
+    }
+
+    @Transactional(readOnly = true)
+    public QuestionBankItemForm newForm(Long userId, Role role, Long subjectId) {
+        User actor = requireActor(userId, role);
+        Department subject = requireSubject(actor, subjectId);
+        QuestionBankItemForm form = QuestionBankItemForm.empty();
+        form.setSubjectId(subject.getId());
+        return form;
     }
 
     QuestionBankItem requireVisibleItem(Long itemId, User actor) {
-        Long subjectId = requireSubject(actor).getId();
-        return itemRepository.findByIdAndSubjectId(itemId, subjectId)
+        QuestionBankItem item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new QuestionBankValidationException(MSG_NOT_FOUND));
+        if (!accessPolicy.canAccessSubject(actor, item.getSubjectId())
+                || subjectRepository.findById(item.getSubjectId())
+                .filter(Department::isActive).isEmpty()) {
+            throw new QuestionBankValidationException(MSG_NOT_FOUND);
+        }
+        return item;
     }
 
     boolean canReview(User actor, QuestionBankItem item) {
@@ -234,13 +363,62 @@ public class QuestionBankItemService {
     }
 
     private Department requireSubject(User actor) {
-        Long subjectId = accessPolicy.resolveSubjectId(actor);
+        return requireSubject(actor, null);
+    }
+
+    private Department requireSubject(User actor, Long requestedSubjectId) {
+        List<Department> allowed = allowedSubjects(actor);
+        if (allowed.isEmpty()) {
+            throw new QuestionBankValidationException(MSG_EMPTY_SUBJECT);
+        }
+        Long subjectId = requestedSubjectId != null
+                ? requestedSubjectId : accessPolicy.resolveSubjectId(actor);
+        if (subjectId == null) {
+            return allowed.get(0);
+        }
         if (subjectId == null || !accessPolicy.canAccessSubject(actor, subjectId)) {
             throw new QuestionBankValidationException(MSG_EMPTY_SUBJECT);
         }
-        return subjectRepository.findById(subjectId)
-                .filter(Department::isActive)
+        return allowed.stream()
+                .filter(subject -> subjectId.equals(subject.getId()))
+                .findFirst()
                 .orElseThrow(() -> new QuestionBankValidationException(MSG_EMPTY_SUBJECT));
+    }
+
+    private List<Department> allowedSubjects(User actor) {
+        if (actor.getRole() == Role.LEADER) {
+            return subjectRepository.findByActiveTrueOrderByNameAsc().stream()
+                    .filter(subject -> accessPolicy.canAccessSubject(actor, subject.getId()))
+                    .sorted(Comparator.comparing(Department::getCode,
+                            String.CASE_INSENSITIVE_ORDER))
+                    .toList();
+        }
+        if (actor.getRole() != Role.LECTURER && actor.getRole() != Role.ADMIN) {
+            return List.of();
+        }
+        return subjectRepository.findByActiveTrueOrderByNameAsc().stream()
+                .sorted(Comparator.comparing(Department::getCode,
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    private Long requireLesson(Long subjectId, Long lessonId) {
+        if (lessonId == null) {
+            throw new QuestionBankValidationException(
+                    "Hãy tạo và chọn một chương/bài trong Kho học liệu trước khi thêm câu hỏi");
+        }
+        return lessonRepository.findByIdAndSubjectId(lessonId, subjectId)
+                .map(LessonTemplate::getId)
+                .orElseThrow(() -> new QuestionBankValidationException(
+                        "Bài học không thuộc mã môn đã chọn"));
+    }
+
+    private Map<Long, LessonTemplate> lessonsById(List<QuestionBankItem> items) {
+        List<Long> ids = items.stream().map(QuestionBankItem::getLessonTemplateId)
+                .filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+        return lessonRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(LessonTemplate::getId, lesson -> lesson));
     }
 
     private ItemDetail toDetail(User actor, QuestionBankItem item, String subjectCode,
@@ -321,7 +499,8 @@ public class QuestionBankItemService {
     }
 
     private static boolean matchesStatus(QuestionBankItem item, String status) {
-        return status == null || status.isBlank() || status.equalsIgnoreCase(item.getWorkflowStatus());
+        return status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)
+                || status.equalsIgnoreCase(item.getWorkflowStatus());
     }
 
     private static boolean matchesQuery(QuestionBankItem item, String subjectCode,

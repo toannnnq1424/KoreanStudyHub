@@ -41,45 +41,60 @@ public class LeaderDashboardService {
 
     @Transactional(readOnly = true)
     public DashboardView load(Long leaderUserId) {
-        Optional<Department> deptOpt = resolver.resolve(leaderUserId);
-        if (deptOpt.isEmpty()) {
+        List<Department> subjects = resolver.resolveAll(leaderUserId);
+        if (subjects.isEmpty()) {
             return new DashboardView(null, new DashboardKpis(0, 0, 0, 0), List.of(), true);
         }
-        Department dept = deptOpt.get();
-        Long deptId = dept.getId();
-
-        long classCount = classRepository.countByDepartmentId(deptId);
-        long lecturerCount = countOrZero(
-                "SELECT COUNT(*) FROM users WHERE is_deleted = 0 AND is_active = 1 "
-                        + "AND department_id = ? AND role IN ('LECTURER','LEADER')",
-                deptId);
-        long studentCount = countOrZero(
-                "SELECT COUNT(DISTINCT e.user_id) FROM enrollments e "
-                        + "INNER JOIN classes c ON c.id = e.class_id "
-                        + "WHERE e.status = 'ACTIVE' AND c.is_deleted = 0 AND c.department_id = ?",
-                deptId);
-        long approvedQuestionCount = countOrZero(
-                "SELECT COUNT(*) FROM question_bank_items WHERE subject_id = ? AND workflow_status = 'APPROVED'",
-                deptId);
-
-        List<ClassEntity> recent = classRepository
-                .findAllByDepartmentId(deptId,
-                        PageRequest.of(0, RECENT_LIMIT, Sort.by(Sort.Direction.DESC, "createdAt")))
-                .getContent();
+        long classCount = 0;
+        long lecturerCount = 0;
+        long studentCount = 0;
+        long approvedQuestionCount = 0;
+        List<ClassEntity> recent = new ArrayList<>();
+        Map<Long, String> subjectCodes = new HashMap<>();
+        for (Department subject : subjects) {
+            Long subjectId = subject.getId();
+            subjectCodes.put(subjectId, subject.getCode());
+            classCount += classRepository.countBySubjectId(subjectId);
+            lecturerCount += countOrZero(
+                    "SELECT COUNT(*) FROM users WHERE is_deleted = 0 AND is_active = 1 "
+                            + "AND subject_id = ? AND role IN ('LECTURER','LEADER')",
+                    subjectId);
+            studentCount += countOrZero(
+                    "SELECT COUNT(DISTINCT e.user_id) FROM enrollments e "
+                            + "INNER JOIN classes c ON c.id = e.class_id "
+                            + "WHERE e.status = 'ACTIVE' AND c.is_deleted = 0 AND c.subject_id = ?",
+                    subjectId);
+            approvedQuestionCount += countOrZero(
+                    "SELECT COUNT(*) FROM question_bank_items WHERE subject_id = ? AND workflow_status = 'APPROVED'",
+                    subjectId);
+            recent.addAll(classRepository.findAllBySubjectId(subjectId,
+                    PageRequest.of(0, RECENT_LIMIT,
+                            Sort.by(Sort.Direction.DESC, "createdAt"))).getContent());
+        }
+        recent.sort((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()));
+        if (recent.size() > RECENT_LIMIT) recent = new ArrayList<>(recent.subList(0, RECENT_LIMIT));
         Map<Long, String> lecturerNames = loadLecturerNames(recent);
         List<RecentClassRow> rows = new ArrayList<>(recent.size());
         for (ClassEntity c : recent) {
             rows.add(new RecentClassRow(
-                    c.getId(), c.getName(), dept.getCode(), c.getStatus(),
+                    c.getId(), c.getName(), subjectCodes.get(c.getSubjectId()), c.getStatus(),
                     lecturerNames.getOrDefault(c.getLecturerId(), "—"),
                     c.getCreatedAt()));
         }
 
         return new DashboardView(
-                new DepartmentSummary(dept.getId(), dept.getCode(), dept.getName()),
+                summary(subjects),
                 new DashboardKpis(classCount, lecturerCount, studentCount, approvedQuestionCount),
                 rows,
                 false);
+    }
+
+    private static DepartmentSummary summary(List<Department> subjects) {
+        Department first = subjects.get(0);
+        return subjects.size() == 1
+                ? new DepartmentSummary(first.getId(), first.getCode(), first.getName())
+                : new DepartmentSummary(first.getId(), subjects.size() + " mã môn",
+                        "Bộ môn tiếng Hàn");
     }
 
     private Map<Long, String> loadLecturerNames(List<ClassEntity> classes) {

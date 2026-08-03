@@ -12,14 +12,14 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
- * JPA entity mapping the {@code departments} table.
+ * JPA entity mapping the {@code subjects} catalog table.
  *
  * <p>Leader assignment is stored as a scalar {@code leaderUserId} (not a
  * {@code @ManyToOne}) to keep the entity simple and avoid lazy-loading loops.
- * Role promote/demote for the leader lives in the department service.
+ * Role promotion/demotion for the leader lives in the subject catalog service.
  */
 @Entity
-@Table(name = "departments")
+@Table(name = "subjects")
 public class Department {
 
     @Id
@@ -52,12 +52,12 @@ public class Department {
     }
 
     /**
-     * Creates a new department ready to be persisted.
+     * Creates a new subject ready to be persisted.
      *
      * @param name        display name
      * @param code        unique short code
      * @param description optional free-text description
-     * @param active      whether the department is active on creation
+     * @param active      whether the subject is active on creation
      */
     public Department(String name, String code, String description, boolean active) {
         this.name = name;
@@ -86,7 +86,7 @@ public class Department {
         this.active = active;
     }
 
-    /** Sets or clears the department leader user id. */
+    /** Sets or clears the subject leader user id. */
     public void assignLeader(Long leaderUserId) {
         this.leaderUserId = leaderUserId;
     }

@@ -3,6 +3,7 @@ package com.ksh.features.questionbank.controller;
 import com.ksh.features.questionbank.dto.QuestionBankItemForm;
 import com.ksh.features.questionbank.service.QuestionBankItemService;
 import com.ksh.features.questionbank.service.QuestionBankValidationException;
+import com.ksh.features.questionbank.service.QuestionBankTestGenerationService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
@@ -46,38 +47,88 @@ import static com.ksh.common.IConstant.VIEW_QB_LIST;
 public class LecturerQuestionBankController {
 
     private final QuestionBankItemService itemService;
+    private final QuestionBankTestGenerationService generationService;
 
-    public LecturerQuestionBankController(QuestionBankItemService itemService) {
+    public LecturerQuestionBankController(QuestionBankItemService itemService,
+                                          QuestionBankTestGenerationService generationService) {
         this.itemService = itemService;
+        this.generationService = generationService;
     }
 
     @GetMapping
-    public String list(@RequestParam(name = "status", required = false) String status,
+    public String list(@RequestParam(name = "subjectId", required = false) Long subjectId,
+                       @RequestParam(name = "status", required = false) String status,
                        @RequestParam(name = "q", required = false) String q,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
         boolean emptyDepartment = !itemService.hasSubject(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
+        model.addAttribute("subjectOptions", itemService.subjectOptions(user.getId(), user.getRole()));
         if (emptyDepartment) {
             model.addAttribute(ATTR_QB_ITEMS, java.util.List.of());
             model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
             model.addAttribute(ATTR_QB_QUERY, q);
             return VIEW_QB_LIST;
         }
+        var subjects = itemService.subjectOptions(user.getId(), user.getRole());
+        Long selectedSubjectId = subjectId != null ? subjectId
+                : subjects.stream().findFirst().map(subject -> subject.id()).orElse(null);
+        model.addAttribute("selectedSubjectId", selectedSubjectId);
+        model.addAttribute("workspace",
+                itemService.workspace(user.getId(), user.getRole(), selectedSubjectId, q));
+        model.addAttribute("lessonOptions", itemService.lessonOptions(user.getId(), user.getRole()));
+        model.addAttribute("chapterOptions", itemService.chapterOptions(
+                user.getId(), user.getRole(), selectedSubjectId));
+        model.addAttribute("generatorClasses", generationService.eligibleClasses(
+                user.getId(), user.getRole(), selectedSubjectId));
         model.addAttribute(ATTR_QB_ITEMS,
-                itemService.list(user.getId(), user.getRole(), status, null, q));
+                itemService.list(user.getId(), user.getRole(), selectedSubjectId,
+                        status, null, q));
         model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
         model.addAttribute(ATTR_QB_QUERY, q);
         return VIEW_QB_LIST;
     }
 
     @GetMapping("/new")
-    public String createForm(@AuthenticationPrincipal KshUserDetails user, Model model) {
+    public String createForm(@RequestParam(name = "subjectId", required = false) Long subjectId,
+                             @AuthenticationPrincipal KshUserDetails user, Model model) {
         if (!model.containsAttribute(ATTR_FORM)) {
-            model.addAttribute(ATTR_FORM, QuestionBankItemForm.empty());
+            model.addAttribute(ATTR_FORM,
+                    itemService.newForm(user.getId(), user.getRole(), subjectId));
         }
         populateForm(model, user, MODE_CREATE);
         return VIEW_QB_FORM;
+    }
+
+    @PostMapping("/generate-test")
+    public String generateTest(@RequestParam Long subjectId,
+                               @RequestParam(name = "title", required = false) String title,
+                               @RequestParam(name = "scope", defaultValue = "SUBJECT") String scope,
+                               @RequestParam(name = "lessonTemplateId", required = false) Long lessonTemplateId,
+                               @RequestParam(name = "questionCount", defaultValue = "10") Integer questionCount,
+                               @RequestParam(name = "classIds", required = false) java.util.List<Long> classIds,
+                               @AuthenticationPrincipal KshUserDetails user,
+                               RedirectAttributes ra) {
+        try {
+            var result = generationService.generate(user.getId(), user.getRole(), subjectId,
+                    title, scope, lessonTemplateId, questionCount, classIds);
+            String message = "Đã tạo và lưu đề " + result.questionCount() + " câu vào Kho bài test";
+            if (result.distributedCount() > 0) {
+                message += ", đồng thời phân phối tới " + result.distributedCount() + " lớp";
+            }
+            ra.addFlashAttribute("flashSuccess", message);
+            return "redirect:/lecturer/tests";
+        } catch (IllegalArgumentException | AccessDeniedException ex) {
+            ra.addFlashAttribute("flashError", ex.getMessage());
+            ra.addAttribute("subjectId", subjectId);
+            return redirectList();
+        }
+    }
+
+    /** Backward-compatible entry point used by controller unit tests and callers
+     * that do not preselect a subject. */
+    public String createForm(KshUserDetails user, Model model) {
+        return createForm(null, user, model);
     }
 
     @PostMapping
@@ -167,6 +218,8 @@ public class LecturerQuestionBankController {
         model.addAttribute(ATTR_MODE, mode);
         boolean emptyDepartment = !itemService.hasSubject(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
+        model.addAttribute("subjectOptions", itemService.subjectOptions(user.getId(), user.getRole()));
+        model.addAttribute("lessonOptions", itemService.lessonOptions(user.getId(), user.getRole()));
     }
 
     private static String redirectList() {

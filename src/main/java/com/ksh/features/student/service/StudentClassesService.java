@@ -12,6 +12,9 @@ import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.entities.Department;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,12 +69,15 @@ public class StudentClassesService {
 
     /** All leader-approved ACTIVE classes, optionally filtered by name/subject code. */
     @Transactional(readOnly = true)
-    public List<CatalogClassRow> listActiveCatalog(Long userId, String query) {
-        List<ClassEntity> classes = classRepository.findAllByStatusOrderByCreatedAtDesc(
-                ClassEntity.STATUS_ACTIVE);
+    public Page<CatalogClassRow> listActiveCatalog(Long userId, String query, int page, int size) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        Page<ClassEntity> classPage = classRepository.searchActiveCatalog(
+                ClassEntity.STATUS_ACTIVE, normalizedQuery,
+                PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50))));
+        List<ClassEntity> classes = classPage.getContent();
         Map<Long, Department> subjects = new HashMap<>();
         for (Department subject : subjectRepository.findAllById(classes.stream()
-                .map(ClassEntity::getDepartmentId).filter(java.util.Objects::nonNull).distinct().toList())) {
+                .map(ClassEntity::getSubjectId).filter(java.util.Objects::nonNull).distinct().toList())) {
             subjects.put(subject.getId(), subject);
         }
         Map<Long, String> lecturers = new HashMap<>();
@@ -83,17 +89,11 @@ public class StudentClassesService {
         for (Enrollment enrollment : enrollmentRepository.findAllByUserId(userId)) {
             enrollmentStatuses.put(enrollment.getClassId(), enrollment.getStatus());
         }
-        String needle = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
         List<CatalogClassRow> rows = new ArrayList<>();
         for (ClassEntity clazz : classes) {
-            Department subject = subjects.get(clazz.getDepartmentId());
+            Department subject = subjects.get(clazz.getSubjectId());
             String code = subject == null ? "—" : subject.getCode();
             String subjectName = subject == null ? "—" : subject.getName();
-            if (!needle.isEmpty()
-                    && !clazz.getName().toLowerCase(java.util.Locale.ROOT).contains(needle)
-                    && !code.toLowerCase(java.util.Locale.ROOT).contains(needle)) {
-                continue;
-            }
             String status = enrollmentStatuses.get(clazz.getId());
             rows.add(new CatalogClassRow(
                     clazz.getId(), clazz.getName(), code, subjectName,
@@ -101,7 +101,7 @@ public class StudentClassesService {
                     Enrollment.STATUS_PENDING.equals(status),
                     Enrollment.STATUS_ACTIVE.equals(status)));
         }
-        return rows;
+        return new PageImpl<>(rows, classPage.getPageable(), classPage.getTotalElements());
     }
 
     private List<EnrolledClassRow> mapRows(List<Enrollment> enrollments) {
@@ -123,7 +123,7 @@ public class StudentClassesService {
         }
         Map<Long, String> subjectCodes = new HashMap<>();
         for (Department subject : subjectRepository.findAllById(classById.values().stream()
-                .map(ClassEntity::getDepartmentId).filter(java.util.Objects::nonNull)
+                .map(ClassEntity::getSubjectId).filter(java.util.Objects::nonNull)
                 .distinct().toList())) {
             subjectCodes.put(subject.getId(), subject.getCode());
         }
@@ -139,7 +139,7 @@ public class StudentClassesService {
             rows.add(new EnrolledClassRow(
                     c.getId(),
                     c.getName(),
-                    subjectCodes.getOrDefault(c.getDepartmentId(), "—"),
+                    subjectCodes.getOrDefault(c.getSubjectId(), "—"),
                     lecName,
                     e.getJoinedAt(),
                     gradient

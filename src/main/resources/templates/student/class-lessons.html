@@ -3,15 +3,21 @@
 <head th:replace="~{fragments/head :: head(${view.className()} + ' — Bài giảng', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lesson-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/lesson-content-type.css}">
 </head>
 <body>
-<header th:if="${!teachingView}"
-        th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
-<header th:if="${teachingView}"
-        th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+<!-- Keep the condition outside th:replace. Thymeleaf evaluates th:replace
+     before th:if when both are on the same element, which rendered two
+     application headers on this shared student/lecturer view. -->
+<th:block th:if="${!teachingView}">
+  <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+</th:block>
+<th:block th:if="${teachingView}">
+  <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+</th:block>
 
 <main class="student-lessons-shell">
   <!-- Flash payload drained into KshToast by student-lesson-nav.js. -->
@@ -21,21 +27,13 @@
        style="display:none;"></div>
 
   <!-- Top bar with back link + class name -->
-  <div class="student-lessons-header">
-    <a th:if="${!teachingView}" th:href="@{/my/classes}" class="student-lessons-back">
+  <div class="student-lessons-header" th:if="${!teachingView}">
+    <a th:href="@{/my/classes}" class="student-lessons-back">
       <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            width="16" height="16">
         <polyline points="15 18 9 12 15 6"/>
       </svg>
       Quay lại lớp của tôi
-    </a>
-    <a th:if="${teachingView}" th:href="@{|/lecturer/classes/${view.classId()}|}"
-       class="student-lessons-back">
-      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           width="16" height="16" aria-hidden="true">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
-      Quay lại quản lý lớp
     </a>
     <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
   </div>
@@ -44,14 +42,14 @@
        first chapter. Only the content columns change between empty and
        populated states; class navigation must never disappear with content. -->
   <div class="student-lessons-grid"
-       th:classappend="${#lists.isEmpty(view.sections())} ? ' is-empty'">
+       th:classappend="${(#lists.isEmpty(view.sections()) ? ' is-empty' : '') + (teachingView ? ' is-teaching' : '')}">
 
     <!-- LEFT SIDEBAR: shared class shell sidebar. Progress bar + lessons-only
          extras (shared decks, chapter switcher) are passed as slot markup;
          because they are children of a th:replace element they are consumed as
          fragment sources, not rendered inline. -->
-    <div th:if="${!teachingView}"
-         th:replace="~{fragments/student-class-sidebar :: classSidebar('lessons', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{::lessonsProgress}, ~{::lessonsExtras})}">
+    <th:block th:if="${!teachingView}">
+    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('lessons', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{::lessonsProgress}, ~{::lessonsExtras})}">
       <!-- SLOT: progress bar inside the class card (KSH-4.5). -->
       <th:block th:fragment="lessonsProgress">
         <div class="student-lessons-progress"
@@ -92,7 +90,7 @@
             <li th:each="section : ${view.sections()}"
                 th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
                 class="student-lessons-section-item">
-              <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()})}"
+              <a th:href="${lessonBasePath + '?section=' + section.sectionId()}"
                  class="student-lessons-section-link">
                 <span th:text="${section.title()}">Chương 1</span>
                 <span class="student-lessons-section-count"
@@ -103,34 +101,11 @@
         </div>
       </th:block>
     </div>
+    </th:block>
 
-    <aside th:if="${teachingView}" class="student-lessons-sidebar">
-      <div class="student-lessons-class-card">
-        <p class="student-lessons-class-name" th:text="${view.className()}">Tên lớp</p>
-        <p class="student-lessons-class-code">Mã môn: <b th:text="${view.classCode()}">KOR311</b></p>
-        <p class="student-lessons-class-lecturer" th:if="${view.lecturerName() != null}">
-          Giảng viên: <b th:text="${view.lecturerName()}">Giảng viên</b>
-        </p>
-      </div>
-      <div>
-        <p class="student-lessons-sidebar-title">Quản lý nội dung</p>
-        <ul class="student-lessons-nav">
-          <li>
-            <span class="student-lessons-nav-item is-active" aria-current="page">Bài học đã phân phối</span>
-          </li>
-          <li>
-            <a class="student-lessons-nav-item" th:href="@{/lecturer/library/templates}">
-              Mở Library để tạo và phân phối
-            </a>
-          </li>
-          <li>
-            <a class="student-lessons-nav-item" th:href="@{|/lecturer/classes/${view.classId()}|}">
-              Quản lý lớp
-            </a>
-          </li>
-        </ul>
-      </div>
-    </aside>
+    <div th:if="${teachingView}" class="lecturer-lessons-sidebar">
+      <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'lessons')}"></aside>
+    </div>
 
     <!-- Empty class: keep the shared class sidebar and replace only the
          lesson/rail area with a useful central empty state. -->
@@ -319,7 +294,7 @@
             <li th:each="lesson : ${section.lessons()}"
                 th:classappend="${lessonDetail != null and lesson.id() == lessonDetail.lessonId()} ? ' active' : ''"
                 class="student-lessons-lesson-card">
-            <a th:href="@{|/my/classes/${view.classId()}/lessons|(section=${section.sectionId()},lesson=${lesson.id()})}"
+            <a th:href="${lessonBasePath + '?section=' + section.sectionId() + '&amp;lesson=' + lesson.id()}"
                class="student-lessons-lesson-link">
               <span class="student-lessons-lesson-thumb">
                 <!-- Icon switches per contentType so the rail signals the

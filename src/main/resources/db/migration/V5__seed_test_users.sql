@@ -10,7 +10,7 @@
 -- LUU Y: Chi dung cho moi truong DEV. KHONG seed tai khoan test o production.
 -- =============================================================================
 
-INSERT INTO users (email, password_hash, full_name, role, department_id, is_email_verified, is_active)
+INSERT INTO users (email, password_hash, full_name, role, subject_id, is_email_verified, is_active)
 VALUES
     ('lecturer@ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
      'Giang Vien Test', 'LECTURER', 1, 1, 1),

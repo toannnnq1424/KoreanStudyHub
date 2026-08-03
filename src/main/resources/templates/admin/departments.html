@@ -7,8 +7,9 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-departments.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
-<body>
+<body class="admin-departments-page">
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 
 <div class="class-detail-layout">
@@ -39,7 +40,7 @@
                    placeholder="Tìm theo tên hoặc mã…"
                    aria-label="Tìm theo tên hoặc mã">
           </div>
-          <select name="status" aria-label="Lọc theo trạng thái">
+          <select name="status" aria-label="Lọc theo trạng thái" data-ksh-select>
             <option value=""
                     th:selected="${filter == null or filter.status() == null or filter.status().isEmpty()}">
               Tất cả trạng thái
@@ -49,7 +50,7 @@
             <option value="inactive"
                     th:selected="${filter != null and filter.status() == 'inactive'}">Ẩn</option>
           </select>
-          <select name="sort" aria-label="Sắp xếp">
+          <select name="sort" aria-label="Sắp xếp" data-ksh-select>
             <option value="name,asc"
                     th:selected="${filter == null or filter.sort() == null or filter.sort() == 'name,asc'}">
               Tên A → Z
@@ -164,5 +165,6 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/admin-departments.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

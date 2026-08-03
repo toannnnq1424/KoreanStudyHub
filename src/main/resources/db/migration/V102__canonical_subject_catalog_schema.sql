@@ -1,0 +1,2 @@
+-- Fresh-only compaction marker. The catalog table and every referencing field
+-- have used subjects/subject_id since V1; no transitional rename is required.

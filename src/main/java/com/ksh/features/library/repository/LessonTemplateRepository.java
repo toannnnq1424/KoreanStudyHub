@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 
 /**
  * Owner-scoped repository for {@link LessonTemplate}. Soft-deleted rows are
@@ -24,12 +25,33 @@ public interface LessonTemplateRepository extends JpaRepository<LessonTemplate, 
               AND (:q IS NULL OR :q = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(t.chapterTitle) LIKE LOWER(CONCAT('%', :q, '%')))
-            ORDER BY t.chapterTitle ASC, t.displayOrder ASC, t.updatedAt DESC
+            ORDER BY t.chapterOrder ASC, t.displayOrder ASC, t.updatedAt DESC
             """)
     Page<LessonTemplate> searchOwnedSubject(@Param("ownerId") Long ownerId,
                                             @Param("subjectId") Long subjectId,
                                             @Param("q") String q,
                                             Pageable pageable);
 
+    @Query("""
+            SELECT t FROM LessonTemplate t
+            WHERE t.subjectId = :subjectId
+              AND (:q IS NULL OR :q = ''
+                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))
+                   OR LOWER(t.chapterTitle) LIKE LOWER(CONCAT('%', :q, '%')))
+            ORDER BY t.chapterOrder ASC, t.displayOrder ASC, t.updatedAt DESC
+            """)
+    Page<LessonTemplate> searchSubject(@Param("subjectId") Long subjectId,
+                                       @Param("q") String q,
+                                       Pageable pageable);
+
     long countByOwnerIdAndSubjectId(Long ownerId, Long subjectId);
+
+    long countBySubjectId(Long subjectId);
+
+    List<LessonTemplate> findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(Long subjectId);
+
+    List<LessonTemplate> findByOwnerIdAndSubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(
+            Long ownerId, Long subjectId);
+
+    Optional<LessonTemplate> findByIdAndSubjectId(Long id, Long subjectId);
 }

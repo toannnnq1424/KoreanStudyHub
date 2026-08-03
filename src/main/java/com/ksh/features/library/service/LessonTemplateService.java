@@ -27,6 +27,7 @@ import com.ksh.features.library.dto.LibraryDtos.MaterialOption;
 import com.ksh.features.library.dto.LibraryDtos.LessonTemplatePageView;
 import com.ksh.features.library.dto.LibraryDtos.LessonTemplateRow;
 import com.ksh.features.library.dto.LibraryDtos.SubjectContext;
+import com.ksh.features.library.dto.LibraryDtos.ChapterView;
 import com.ksh.features.library.dto.LessonTemplateForm;
 import com.ksh.features.library.repository.LessonTemplateAttachmentRepository;
 import com.ksh.features.library.repository.LessonTemplateRepository;
@@ -41,6 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.io.IOException;
 
 import static com.ksh.common.IConstant.CONTENT_TYPE_PDF;
@@ -114,7 +117,7 @@ public class LessonTemplateService {
         List<AttachTargetClassRow> options = new ArrayList<>(owned.getNumberOfElements());
         for (ClassRow row : owned.getContent()) {
             classRepository.findById(row.id())
-                    .filter(clazz -> subjectId.equals(clazz.getDepartmentId()))
+                    .filter(clazz -> subjectId.equals(clazz.getSubjectId()))
                     .filter(clazz -> !ClassEntity.STATUS_ARCHIVED.equals(clazz.getStatus()))
                     .ifPresent(clazz -> options.add(
                             new AttachTargetClassRow(row.id(), row.name(), row.code())));
@@ -124,36 +127,68 @@ public class LessonTemplateService {
 
     /** Saved templates only (secondary list / management). */
     @Transactional(readOnly = true)
-    public LessonTemplatePageView list(Long ownerId, Role role, String q, int page, int size) {
-        Department subject = subjectResolver.require(ownerId, role);
+    public LessonTemplatePageView list(Long ownerId, Role role, Long subjectId,
+                                       String q, int page, int size) {
+        Department subject = subjectResolver.require(ownerId, role, subjectId);
         PageRequest pr = pageRequest(page, size);
         String qNorm = normalizeQ(q);
-        Page<LessonTemplate> result = templateRepository.searchOwnedSubject(
-                ownerId, subject.getId(), qNorm, pr);
+        Page<LessonTemplate> result = templateRepository.searchSubject(
+                subject.getId(), qNorm, pr);
         Page<LessonTemplateRow> rows = result.map(t -> toRow(t, subject.getCode(),
-                templateAttachmentRepository.findByTemplateIdOrderByDisplayOrderAsc(t.getId()).size()));
-        long templateCount = templateRepository.countByOwnerIdAndSubjectId(ownerId, subject.getId());
+                templateAttachmentRepository.findByTemplateIdOrderByDisplayOrderAsc(t.getId()).size(),
+                ownerId.equals(t.getOwnerId())));
+        long templateCount = templateRepository.countBySubjectId(subject.getId());
+        Map<Integer, List<LessonTemplateRow>> byChapter = new LinkedHashMap<>();
+        rows.getContent().forEach(row -> byChapter
+                .computeIfAbsent(row.chapterNumber(), ignored -> new ArrayList<>()).add(row));
+        List<ChapterView> chapters = byChapter.entrySet().stream()
+                .map(entry -> new ChapterView(entry.getKey(),
+                        entry.getValue().get(0).chapterTitle(), List.copyOf(entry.getValue())))
+                .toList();
         return new LessonTemplatePageView(
                 rows,
                 qNorm == null ? "" : qNorm,
+                subject.getId(),
                 subject.getCode(),
                 subject.getName(),
+                subject.getDescription(),
+                subjectOptions(ownerId, role),
                 listOwnedClassOptions(ownerId, role, subject.getId()),
+                chapters,
                 templateCount);
     }
 
     @Transactional(readOnly = true)
-    public LessonTemplateForm loadForm(Long ownerId, Role role, Long templateId) {
-        Department subject = subjectResolver.require(ownerId, role);
+    public LessonTemplateForm loadForm(Long ownerId, Role role, Long templateId,
+                                       Long requestedSubjectId) {
         LessonTemplateForm form = new LessonTemplateForm();
         if (templateId == null) {
+            Department subject = subjectResolver.require(ownerId, role, requestedSubjectId);
+            form.setSubjectId(subject.getId());
+            List<LessonTemplate> existing = templateRepository
+                    .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subject.getId());
+            if (existing.isEmpty()) {
+                form.setChapterNumber(1);
+                form.setLessonNumber(1);
+                form.setChapterTitle("");
+            } else {
+                LessonTemplate last = existing.get(existing.size() - 1);
+                form.setChapterNumber(last.getChapterOrder());
+                form.setChapterTitle(stripChapterPrefix(last.getChapterTitle()));
+                form.setLessonNumber(existing.stream()
+                        .filter(row -> row.getChapterOrder() == last.getChapterOrder())
+                        .mapToInt(LessonTemplate::getDisplayOrder).max().orElse(0) + 1);
+            }
             return form;
         }
         LessonTemplate template = getOwned(ownerId, templateId);
-        requireTemplateSubject(template, subject.getId());
+        subjectResolver.require(ownerId, role, template.getSubjectId());
         form.setId(template.getId());
-        form.setChapterTitle(template.getChapterTitle());
-        form.setTitle(template.getTitle());
+        form.setSubjectId(template.getSubjectId());
+        form.setChapterNumber(template.getChapterOrder());
+        form.setChapterTitle(stripChapterPrefix(template.getChapterTitle()));
+        form.setLessonNumber(template.getDisplayOrder());
+        form.setTitle(stripLessonPrefix(template.getTitle()));
         form.setContentType(template.getContentType());
         form.setContentRichtext(template.getContentRichtext());
         form.setPdfLibraryAssetId(template.getPdfLibraryAssetId());
@@ -175,28 +210,74 @@ public class LessonTemplateService {
     }
 
     @Transactional(readOnly = true)
-    public SubjectContext subjectContext(Long ownerId, Role role) {
-        Department subject = subjectResolver.require(ownerId, role);
-        return new SubjectContext(subject.getId(), subject.getCode(), subject.getName());
+    public SubjectContext subjectContext(Long ownerId, Role role, Long subjectId) {
+        Department subject = subjectResolver.require(ownerId, role, subjectId);
+        return new SubjectContext(subject.getId(), subject.getCode(), subject.getName(),
+                subject.getDescription());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubjectContext> subjectOptions(Long ownerId, Role role) {
+        return subjectResolver.allowed(ownerId, role).stream()
+                .map(subject -> new SubjectContext(subject.getId(), subject.getCode(),
+                        subject.getName(), subject.getDescription()))
+                .toList();
     }
 
     @Transactional
     public LessonTemplateRow saveForm(Long ownerId, Role role, LessonTemplateForm form) {
-        Department subject = subjectResolver.require(ownerId, role);
-        String chapter = requireText(form.getChapterTitle(), "Tên chương không được để trống");
-        String title = requireText(form.getTitle(), "Tên bài học không được để trống");
+        Department subject = subjectResolver.require(ownerId, role, form.getSubjectId());
+        int chapterNumber = requirePositive(form.getChapterNumber(), "Số chương phải từ 1 trở lên");
+        String chapterDescription = requireText(form.getChapterTitle(),
+                "Nội dung tên chương không được để trống");
+        String lessonDescription = requireText(form.getTitle(),
+                "Nội dung tên bài học không được để trống");
         String type = form.getContentType();
         Lesson.validateContentType(type);
         ingestInlineUploads(ownerId, form);
 
+        List<LessonTemplate> ordered = new ArrayList<>(templateRepository
+                .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subject.getId()));
         LessonTemplate template;
         if (form.getId() == null) {
-            template = new LessonTemplate(ownerId, subject.getId(), chapter, title, type);
+            String chapter = existingChapterTitle(ordered, chapterNumber);
+            if (chapter == null) chapter = canonicalChapter(chapterNumber, chapterDescription);
+            int lessonNumber = insertionOrder(ordered, chapterNumber);
+            shiftFrom(ordered, lessonNumber, 1);
+            form.setLessonNumber(lessonNumber);
+            String title = canonicalLesson(lessonNumber, lessonDescription);
+            template = new LessonTemplate(ownerId, subject.getId(), chapterNumber,
+                    chapter, lessonNumber, title, type);
         } else {
             template = getOwned(ownerId, form.getId());
             requireTemplateSubject(template, subject.getId());
-            template.updateAuthoring(chapter, title, type);
+            int oldChapter = template.getChapterOrder();
+            int oldOrder = template.getDisplayOrder();
+            List<LessonTemplate> withoutCurrent = ordered.stream()
+                    .filter(row -> !row.getId().equals(template.getId()))
+                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+            int lessonNumber = oldOrder;
+            String chapter;
+            if (oldChapter == chapterNumber) {
+                String sameChapterTitle = canonicalChapter(chapterNumber, chapterDescription);
+                chapter = sameChapterTitle;
+                ordered.stream().filter(row -> row.getChapterOrder() == chapterNumber)
+                        .forEach(row -> row.updateSequence(
+                                chapterNumber, sameChapterTitle, row.getDisplayOrder()));
+            } else {
+                shiftAfter(withoutCurrent, oldOrder, -1);
+                chapter = existingChapterTitle(withoutCurrent, chapterNumber);
+                if (chapter == null) chapter = canonicalChapter(chapterNumber, chapterDescription);
+                lessonNumber = insertionOrder(withoutCurrent, chapterNumber);
+                shiftFrom(withoutCurrent, lessonNumber, 1);
+            }
+            form.setLessonNumber(lessonNumber);
+            String title = canonicalLesson(lessonNumber, lessonDescription);
+            template.updateAuthoring(chapterNumber, chapter, lessonNumber, title, type);
         }
+        templateRepository.saveAll(ordered.stream()
+                .filter(row -> template.getId() == null || !row.getId().equals(template.getId()))
+                .toList());
         applyFormBody(template, form, ownerId);
         LessonTemplate saved = templateRepository.saveAndFlush(template);
 
@@ -214,7 +295,7 @@ public class LessonTemplateService {
                     saved.getId(), asset.getId(), asset.getOriginalFilename(),
                     asset.getMimeType(), asset.getSizeBytes(), order++));
         }
-        return toRow(saved, subject.getCode(), order);
+        return toRow(saved, subject.getCode(), order, true);
     }
 
     private void ingestInlineUploads(Long ownerId, LessonTemplateForm form) {
@@ -249,14 +330,14 @@ public class LessonTemplateService {
         if (classIds == null || classIds.isEmpty()) {
             throw new IllegalArgumentException("Vui lòng chọn ít nhất một lớp");
         }
-        Department subject = subjectResolver.require(userId, role);
-        LessonTemplate template = getOwned(userId, templateId);
-        requireTemplateSubject(template, subject.getId());
+        LessonTemplate template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_TEMPLATE_NOT_FOUND));
+        Department subject = subjectResolver.require(userId, role, template.getSubjectId());
         List<LessonCloneResult> results = new ArrayList<>();
         for (Long classId : new LinkedHashSet<>(classIds)) {
             if (classId == null) continue;
             ClassEntity clazz = classesService.getEditable(classId, userId, role);
-            if (!subject.getId().equals(clazz.getDepartmentId())
+            if (!subject.getId().equals(clazz.getSubjectId())
                     || ClassEntity.STATUS_ARCHIVED.equals(clazz.getStatus())) {
                 throw new IllegalArgumentException("Chỉ được phân phối tới lớp cùng mã môn đang sử dụng");
             }
@@ -287,12 +368,39 @@ public class LessonTemplateService {
         return results;
     }
 
+    /**
+     * Distributes the complete canonical subject tree in one transaction:
+     * every chapter, lesson body and attached material is snapshotted to each
+     * selected ACTIVE class of the same subject.
+     */
+    @Transactional
+    public List<LessonCloneResult> distributeSubject(Long subjectId, List<Long> classIds,
+                                                      Long userId, Role role) {
+        Department subject = subjectResolver.require(userId, role, subjectId);
+        List<LessonTemplate> templates = templateRepository
+                .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subject.getId());
+        if (templates.isEmpty()) {
+            throw new IllegalArgumentException("Mã môn chưa có bài học để phân phối");
+        }
+        List<LessonCloneResult> results = new ArrayList<>();
+        for (LessonTemplate template : templates) {
+            results.addAll(distribute(template.getId(), classIds, userId, role));
+        }
+        return results;
+    }
+
     /** Soft-deletes an owned template (attachment rows stay for FK integrity). */
     @Transactional
     public void softDelete(Long ownerId, Long templateId) {
         LessonTemplate template = getOwned(ownerId, templateId);
+        int removedOrder = template.getDisplayOrder();
         template.markDeleted();
         templateRepository.save(template);
+        List<LessonTemplate> remaining = new ArrayList<>(templateRepository
+                .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(
+                        template.getSubjectId()));
+        shiftAfter(remaining, removedOrder, -1);
+        templateRepository.saveAll(remaining);
     }
 
     /** Materializes one canonical Library lesson as a class-owned snapshot. */
@@ -302,14 +410,14 @@ public class LessonTemplateService {
 
         Lesson lesson = materializeDraft(sectionId, template.getTitle(),
                 template.getContentType(), userId);
-        applyTemplateBodyToLesson(lesson, template, userId);
+        applyTemplateBodyToLesson(lesson, template, template.getOwnerId(), userId);
         Lesson saved = lessonRepository.saveAndFlush(lesson);
 
         List<LessonTemplateAttachment> extras =
                 templateAttachmentRepository.findByTemplateIdOrderByDisplayOrderAsc(template.getId());
         for (LessonTemplateAttachment extra : extras) {
             LibraryAsset asset = libraryService.getOwnedAssetForUpdate(
-                    userId, extra.getLibraryAssetId());
+                    template.getOwnerId(), extra.getLibraryAssetId());
             LessonAttachment row = new LessonAttachment(
                     saved.getId(), asset.getOriginalFilename(), asset.getStoredPath(),
                     asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
@@ -374,7 +482,8 @@ public class LessonTemplateService {
         throw new IllegalArgumentException(MSG_TEMPLATE_BODY_INCOMPLETE);
     }
 
-    private void applyTemplateBodyToLesson(Lesson lesson, LessonTemplate template, Long userId) {
+    private void applyTemplateBodyToLesson(Lesson lesson, LessonTemplate template,
+                                           Long assetOwnerId, Long userId) {
         String type = template.getContentType();
         if (CONTENT_TYPE_RICHTEXT.equals(type)) {
             lesson.switchContentTypeTo(CONTENT_TYPE_RICHTEXT);
@@ -384,7 +493,7 @@ public class LessonTemplateService {
         }
         if (CONTENT_TYPE_PDF.equals(type)) {
             LibraryAsset asset = libraryService.getOwnedAssetForUpdate(
-                    userId, template.getPdfLibraryAssetId());
+                    assetOwnerId, template.getPdfLibraryAssetId());
             // Attachment row first so pdf_attachment_id CHECK can pass after type switch.
             LessonAttachment row = new LessonAttachment(
                     lesson.getId(), asset.getOriginalFilename(), asset.getStoredPath(),
@@ -397,13 +506,14 @@ public class LessonTemplateService {
             return;
         }
         if (CONTENT_TYPE_VIDEO.equals(type)) {
-            applyTemplateVideoToLesson(lesson, template, userId);
+            applyTemplateVideoToLesson(lesson, template, assetOwnerId);
             return;
         }
         throw new IllegalArgumentException(MSG_TEMPLATE_BODY_INCOMPLETE);
     }
 
-    private void applyTemplateVideoToLesson(Lesson lesson, LessonTemplate template, Long userId) {
+    private void applyTemplateVideoToLesson(Lesson lesson, LessonTemplate template,
+                                            Long assetOwnerId) {
         String provider = template.getVideoProvider();
         if (VIDEO_PROVIDER_YOUTUBE.equals(provider) || VIDEO_PROVIDER_VIMEO.equals(provider)) {
             lesson.switchContentTypeTo(CONTENT_TYPE_VIDEO);
@@ -413,7 +523,7 @@ public class LessonTemplateService {
         }
         if (VIDEO_PROVIDER_UPLOAD.equals(provider)) {
             LibraryAsset asset = libraryService.getOwnedAssetForUpdate(
-                    userId, template.getVideoLibraryAssetId());
+                    assetOwnerId, template.getVideoLibraryAssetId());
             lesson.switchContentTypeTo(CONTENT_TYPE_VIDEO);
             lesson.setVideoProvider(VIDEO_PROVIDER_UPLOAD);
             lesson.setVideoLibraryAssetId(asset.getId());
@@ -455,10 +565,59 @@ public class LessonTemplateService {
     }
 
     private static LessonTemplateRow toRow(LessonTemplate t, String subjectCode,
-                                           int attachmentCount) {
+                                           int attachmentCount, boolean canManage) {
         return new LessonTemplateRow(
-                t.getId(), subjectCode, t.getChapterTitle(), t.getTitle(), t.getContentType(),
-                t.getUpdatedAt(), attachmentCount);
+                t.getId(), subjectCode, t.getChapterOrder(), t.getChapterTitle(),
+                t.getDisplayOrder(), t.getTitle(), t.getContentType(),
+                t.getUpdatedAt(), attachmentCount, canManage);
+    }
+
+    private static int requirePositive(int value, String message) {
+        if (value < 1) throw new IllegalArgumentException(message);
+        return value;
+    }
+
+    private static int insertionOrder(List<LessonTemplate> ordered, int chapterNumber) {
+        return ordered.stream().filter(row -> row.getChapterOrder() <= chapterNumber)
+                .mapToInt(LessonTemplate::getDisplayOrder).max().orElse(0) + 1;
+    }
+
+    private static String existingChapterTitle(List<LessonTemplate> ordered, int chapterNumber) {
+        return ordered.stream().filter(row -> row.getChapterOrder() == chapterNumber)
+                .map(LessonTemplate::getChapterTitle).findFirst().orElse(null);
+    }
+
+    private static void shiftFrom(List<LessonTemplate> rows, int fromInclusive, int delta) {
+        rows.stream().filter(row -> row.getDisplayOrder() >= fromInclusive)
+                .forEach(row -> row.updateSequence(row.getChapterOrder(),
+                        row.getChapterTitle(), row.getDisplayOrder() + delta));
+    }
+
+    private static void shiftAfter(List<LessonTemplate> rows, int afterExclusive, int delta) {
+        rows.stream().filter(row -> row.getDisplayOrder() > afterExclusive)
+                .forEach(row -> row.updateSequence(row.getChapterOrder(),
+                        row.getChapterTitle(), row.getDisplayOrder() + delta));
+    }
+
+    private static String canonicalChapter(int number, String description) {
+        return "Chương " + number + " · " + description;
+    }
+
+    private static String canonicalLesson(int number, String description) {
+        return "Bài " + number + " · " + description;
+    }
+
+    private static String stripChapterPrefix(String value) {
+        return stripNumberedPrefix(value, "Chương");
+    }
+
+    private static String stripLessonPrefix(String value) {
+        return stripNumberedPrefix(value, "Bài");
+    }
+
+    private static String stripNumberedPrefix(String value, String label) {
+        if (value == null) return "";
+        return value.replaceFirst("(?iu)^" + label + "\\s+\\d+\\s*(?:[·.:-]\\s*)?", "").trim();
     }
 
     private static PageRequest pageRequest(int page, int size) {

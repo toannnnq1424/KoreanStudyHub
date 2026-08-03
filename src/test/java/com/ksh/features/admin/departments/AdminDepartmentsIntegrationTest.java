@@ -87,7 +87,7 @@ class AdminDepartmentsIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(model().attribute("activeDetailTab", "history"))
                 .andExpect(model().attributeExists("activitiesPage"))
-                .andExpect(content().string(containsString("Lịch sử cập nhật bộ môn")));
+                .andExpect(content().string(containsString("Lịch sử cập nhật môn học")));
     }
 
     @Test
@@ -166,7 +166,7 @@ class AdminDepartmentsIntegrationTest {
         User promoted = userRepository.findById(lecturer.getId()).orElseThrow();
         assertThat(updated.getLeaderUserId()).isEqualTo(lecturer.getId());
         assertThat(promoted.getRole()).isEqualTo(Role.LEADER);
-        assertThat(promoted.getDepartmentId()).isEqualTo(dept.getId());
+        assertThat(promoted.getSubjectId()).isEqualTo(dept.getId());
     }
 
     @Test
@@ -251,7 +251,7 @@ class AdminDepartmentsIntegrationTest {
         User demoted = userRepository.findById(lecturer.getId()).orElseThrow();
         assertThat(updated.getLeaderUserId()).isNull();
         assertThat(demoted.getRole()).isEqualTo(Role.LECTURER);
-        assertThat(demoted.getDepartmentId()).isEqualTo(dept.getId());
+        assertThat(demoted.getSubjectId()).isEqualTo(dept.getId());
     }
 
     @Test

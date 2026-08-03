@@ -22,6 +22,8 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -132,6 +134,7 @@ class StudentLessonDetailControllerTest {
     private ClassEntity saveClass(String name, Long lecturerId, String code) {
         ClassEntity entity = new ClassEntity(name, lecturerId, lecturerId,
                 null, null, null, 100);
+        entity.approve(lecturerId, LocalDateTime.now());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

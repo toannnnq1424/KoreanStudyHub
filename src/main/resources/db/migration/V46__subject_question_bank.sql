@@ -2,22 +2,22 @@ SET NAMES utf8mb4;
 
 CREATE TABLE question_bank_categories (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    department_id BIGINT NOT NULL,
+    subject_id BIGINT NOT NULL,
     name VARCHAR(150) NOT NULL,
     description TEXT NULL,
     is_active TINYINT(1) DEFAULT 1,
     created_by BIGINT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_qbc_dept_name (department_id, name),
-    INDEX idx_qbc_department_active (department_id, is_active, name),
-    CONSTRAINT fk_qbc_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+    UNIQUE INDEX idx_qbc_dept_name (subject_id, name),
+    INDEX idx_qbc_subject_active (subject_id, is_active, name),
+    CONSTRAINT fk_qbc_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
     CONSTRAINT fk_qbc_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE question_bank_items (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    department_id BIGINT NOT NULL,
+    subject_id BIGINT NOT NULL,
     category_id BIGINT NOT NULL,
     contributor_id BIGINT NOT NULL,
     reviewed_by BIGINT NULL,
@@ -31,11 +31,11 @@ CREATE TABLE question_bank_items (
     reviewed_at DATETIME NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_qbi_department_status (department_id, workflow_status, updated_at),
-    INDEX idx_qbi_department_category (department_id, category_id),
+    INDEX idx_qbi_subject_status (subject_id, workflow_status, updated_at),
+    INDEX idx_qbi_subject_category (subject_id, category_id),
     INDEX idx_qbi_contributor_status (contributor_id, workflow_status),
     INDEX idx_qbi_reviewer (reviewed_by),
-    CONSTRAINT fk_qbi_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+    CONSTRAINT fk_qbi_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
     CONSTRAINT fk_qbi_category FOREIGN KEY (category_id) REFERENCES question_bank_categories(id),
     CONSTRAINT fk_qbi_contributor FOREIGN KEY (contributor_id) REFERENCES users(id),
     CONSTRAINT fk_qbi_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL

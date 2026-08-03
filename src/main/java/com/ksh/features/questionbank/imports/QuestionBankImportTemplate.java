@@ -32,7 +32,7 @@ public class QuestionBankImportTemplate {
     };
     private static final String[] GUIDE_LINES = {
             "1. Dòng đầu tiên là tiêu đề, không được xoá hoặc đổi tên cột.",
-            "2. Mã môn phải khớp chính xác với mã môn đang được gán cho bạn.",
+            "2. Mã môn phải khớp chính xác với mã môn ACTIVE đã chọn khi tải file mẫu.",
             "3. Loại câu hỏi chỉ chấp nhận MCQ hoặc MR.",
             "4. Cần ít nhất hai đáp án không rỗng; có thể để trống đáp án E/F nếu không dùng.",
             "5. Cột 'Đáp án đúng' dùng chữ cái A-F, ngăn cách bằng dấu phẩy cho câu MR.",

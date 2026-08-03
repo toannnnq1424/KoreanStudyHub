@@ -17,6 +17,7 @@ import com.ksh.features.questionbank.imports.QuestionBankImportSession.ImportedO
 import com.ksh.features.questionbank.imports.QuestionBankImportSessionStore;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
+import com.ksh.features.library.repository.LessonTemplateRepository;
 import com.ksh.security.Role;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,7 @@ public class QuestionBankImportService {
     private static final String MSG_BLOCKING_ERRORS =
             "Bản xem trước còn lỗi chặn nên chưa thể xác nhận import";
     private static final String MSG_EMPTY_SUBJECT =
-            "Bạn chưa được gán mã môn để import câu hỏi cộng tác";
+            "Chưa có mã môn đang hoạt động để import câu hỏi";
     private static final int MAX_PREVIEW_LENGTH = 80;
 
     private final UserRepository userRepository;
@@ -54,6 +55,7 @@ public class QuestionBankImportService {
     private final QuestionBankAccessPolicy accessPolicy;
     private final QuestionBankItemRepository itemRepository;
     private final QuestionBankOptionRepository optionRepository;
+    private final LessonTemplateRepository lessonRepository;
     private final QuestionBankImportParser importParser;
     private final QuestionBankImportSessionStore sessionStore;
 
@@ -62,6 +64,7 @@ public class QuestionBankImportService {
                                      QuestionBankAccessPolicy accessPolicy,
                                      QuestionBankItemRepository itemRepository,
                                      QuestionBankOptionRepository optionRepository,
+                                     LessonTemplateRepository lessonRepository,
                                      QuestionBankImportParser importParser,
                                      QuestionBankImportSessionStore sessionStore) {
         this.userRepository = userRepository;
@@ -69,6 +72,7 @@ public class QuestionBankImportService {
         this.accessPolicy = accessPolicy;
         this.itemRepository = itemRepository;
         this.optionRepository = optionRepository;
+        this.lessonRepository = lessonRepository;
         this.importParser = importParser;
         this.sessionStore = sessionStore;
     }
@@ -79,14 +83,43 @@ public class QuestionBankImportService {
      */
     @Transactional(readOnly = true)
     public String subjectCodeForTemplate(Long userId, Role role) {
+        return subjectCodeForTemplate(userId, role, null);
+    }
+
+    @Transactional(readOnly = true)
+    public String subjectCodeForTemplate(Long userId, Role role, Long subjectId) {
         User actor = requireActor(userId, role);
-        return requireSubject(actor).getCode();
+        return requireSubject(actor, subjectId).getCode();
     }
 
     @Transactional(readOnly = true)
     public QuestionBankImportSession previewUpload(Long userId, Role role, MultipartFile file) {
+        return previewUpload(userId, role, null, file);
+    }
+
+    @Transactional(readOnly = true)
+    public QuestionBankImportSession previewUpload(Long userId, Role role, Long subjectId,
+                                                   MultipartFile file) {
         User actor = requireActor(userId, role);
-        Department subject = requireSubject(actor);
+        Department subject = requireSubject(actor, subjectId);
+        Long firstLessonId = lessonRepository
+                .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subject.getId())
+                .stream().findFirst()
+                .map(com.ksh.entities.LessonTemplate::getId)
+                .orElseThrow(() -> new QuestionBankValidationException(
+                        "Mã môn chưa có chương/bài trong Kho học liệu"));
+        return previewUpload(userId, role, subjectId, firstLessonId, file);
+    }
+
+    @Transactional(readOnly = true)
+    public QuestionBankImportSession previewUpload(Long userId, Role role, Long subjectId,
+                                                   Long lessonTemplateId, MultipartFile file) {
+        User actor = requireActor(userId, role);
+        Department subject = requireSubject(actor, subjectId);
+        Long lessonId = lessonRepository.findByIdAndSubjectId(lessonTemplateId, subject.getId())
+                .map(com.ksh.entities.LessonTemplate::getId)
+                .orElseThrow(() -> new QuestionBankValidationException(
+                        "Hãy chọn một chương/bài hợp lệ trong Kho học liệu trước khi import"));
         String workflowStatus = importedWorkflowStatus(actor);
         ParsedFile parsed = importParser.parse(file);
 
@@ -104,6 +137,7 @@ public class QuestionBankImportService {
                 UUID.randomUUID(),
                 actor.getId(),
                 subject.getId(),
+                lessonId,
                 Instant.now(),
                 parsed.fileName(),
                 workflowStatus,
@@ -116,12 +150,14 @@ public class QuestionBankImportService {
     @Transactional
     public ConfirmResult confirm(Long userId, Role role, UUID sessionId) {
         User actor = requireActor(userId, role);
-        Department subject = requireSubject(actor);
         QuestionBankImportSession session = sessionStore.claim(sessionId, actor.getId())
                 .orElseThrow(() -> new QuestionBankValidationException(MSG_SESSION_EXPIRED));
-        if (!subject.getId().equals(session.getSubjectId())) {
+        Department subject;
+        try {
+            subject = requireSubject(actor, session.getSubjectId());
+        } catch (QuestionBankValidationException | AccessDeniedException ex) {
             sessionStore.restore(session);
-            throw new AccessDeniedException(MSG_FORBIDDEN);
+            throw ex;
         }
         if (!session.toPreview().confirmable()) {
             sessionStore.restore(session);
@@ -133,6 +169,7 @@ public class QuestionBankImportService {
         for (ImportedItem importedItem : session.getItems()) {
             QuestionBankItem item = itemRepository.save(new QuestionBankItem(
                     subject.getId(),
+                    session.getLessonTemplateId(),
                     actor.getId(),
                     importedItem.questionType(),
                     session.getWorkflowStatus(),
@@ -252,7 +289,18 @@ public class QuestionBankImportService {
     }
 
     private Department requireSubject(User actor) {
-        Long subjectId = accessPolicy.resolveSubjectId(actor);
+        return requireSubject(actor, null);
+    }
+
+    private Department requireSubject(User actor, Long requestedSubjectId) {
+        Long subjectId = requestedSubjectId != null
+                ? requestedSubjectId : accessPolicy.resolveSubjectId(actor);
+        if (subjectId == null && (actor.getRole() == Role.LECTURER
+                || actor.getRole() == Role.ADMIN)) {
+            return subjectRepository.findByActiveTrueOrderByNameAsc().stream()
+                    .findFirst()
+                    .orElseThrow(() -> new QuestionBankValidationException(MSG_EMPTY_SUBJECT));
+        }
         if (subjectId == null || !accessPolicy.canAccessSubject(actor, subjectId)) {
             throw new QuestionBankValidationException(MSG_EMPTY_SUBJECT);
         }

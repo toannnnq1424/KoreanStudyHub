@@ -59,13 +59,21 @@ public class StudentClassesController {
     @GetMapping("/classes")
     public String list(@AuthenticationPrincipal KshUserDetails user,
                        @RequestParam(name = "q", required = false) String query,
+                       @RequestParam(name = "tab", defaultValue = "mine") String tab,
+                       @RequestParam(name = "page", defaultValue = "0") int page,
                        Model model) {
         List<EnrolledClassRow> rows = studentClassesService.listEnrolledClasses(user.getId());
         List<EnrolledClassRow> pending = studentClassesService.listPendingClasses(user.getId());
+        String activeTab = "open".equalsIgnoreCase(tab) ? "open" : "mine";
         model.addAttribute(ATTR_ROWS, rows);
         model.addAttribute(ATTR_PENDING_ROWS, pending);
-        model.addAttribute("catalogRows", studentClassesService.listActiveCatalog(user.getId(), query));
+        var catalogPage = "open".equals(activeTab)
+                ? studentClassesService.listActiveCatalog(user.getId(), query, page, 25)
+                : org.springframework.data.domain.Page.empty();
+        model.addAttribute("catalogPage", catalogPage);
+        model.addAttribute("catalogRows", catalogPage.getContent());
         model.addAttribute("catalogQuery", query == null ? "" : query);
+        model.addAttribute("classesTab", activeTab);
         return VIEW_MY_CLASSES;
     }
 

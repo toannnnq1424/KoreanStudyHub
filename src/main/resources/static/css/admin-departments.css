@@ -122,3 +122,25 @@ a.dept-name-link:focus-visible {
   white-space: nowrap;
   border: 0;
 }
+
+/* The generic table wrapper uses overflow-x:auto. CSS then computes the other
+   axis as auto too, which can create a second vertical scroller beside the
+   document on a long subject catalog. Desktop has enough width, so keep one
+   page scrollbar; narrow screens retain horizontal table scrolling. */
+.admin-departments-page .admin-list-panel {
+  overflow: visible;
+}
+
+.admin-departments-page .admin-list-table-scroll {
+  overflow-x: clip;
+  overflow-y: visible;
+  max-height: none;
+}
+
+@media (max-width: 900px) {
+  .admin-departments-page .admin-list-panel { overflow: hidden; }
+  .admin-departments-page .admin-list-table-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+}

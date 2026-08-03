@@ -21,9 +21,10 @@ class LibraryLearningFlowContractTest {
         assertThat(libraryController).contains(
                 "@GetMapping(\"/new\")",
                 "@PostMapping",
-                "@PostMapping(\"/{id}/distribute\")");
+                "@PostMapping(\"/subjects/{subjectId}/distribute\")");
         assertThat(classTabController)
-                .contains("redirect:/my/classes/")
+                .contains("return \"student/class-lessons\"")
+                .doesNotContain("redirect:/my/classes/")
                 .doesNotContain("@PostMapping", "@DeleteMapping", "classes/detail-lessons");
 
         Path classTemplates = Path.of("src/main/resources/templates/classes");
@@ -41,9 +42,12 @@ class LibraryLearningFlowContractTest {
         assertThat(index).contains(
                 "Mã môn",
                 "Chương",
-                "Materials",
+                "Bài học",
+                "File",
                 "name=\"classIds\"",
-                "<select multiple");
+                "Phân phối toàn bộ học liệu",
+                "library-subject-tree")
+                .doesNotContain("library-distribute-form", "<select multiple");
         assertThat(form).contains(
                 "mã môn → chương → bài học → materials",
                 "th:field=\"*{chapterTitle}\"",

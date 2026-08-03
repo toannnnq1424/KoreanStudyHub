@@ -15,6 +15,7 @@ public final class QuestionBankImportSession {
     private final UUID id;
     private final Long actorId;
     private final Long subjectId;
+    private final Long lessonTemplateId;
     private final Instant uploadedAt;
     private final String fileName;
     private final String workflowStatus;
@@ -24,6 +25,7 @@ public final class QuestionBankImportSession {
     public QuestionBankImportSession(UUID id,
                                      Long actorId,
                                      Long subjectId,
+                                     Long lessonTemplateId,
                                      Instant uploadedAt,
                                      String fileName,
                                      String workflowStatus,
@@ -32,11 +34,26 @@ public final class QuestionBankImportSession {
         this.id = id;
         this.actorId = actorId;
         this.subjectId = subjectId;
+        this.lessonTemplateId = lessonTemplateId;
         this.uploadedAt = uploadedAt;
         this.fileName = fileName;
         this.workflowStatus = workflowStatus;
         this.items = List.copyOf(items);
         this.rows = List.copyOf(rows);
+    }
+
+    /** Compatibility constructor for session-store tests; real imports always
+     * use the constructor carrying a canonical Library lesson id. */
+    public QuestionBankImportSession(UUID id,
+                                     Long actorId,
+                                     Long subjectId,
+                                     Instant uploadedAt,
+                                     String fileName,
+                                     String workflowStatus,
+                                     List<ImportedItem> items,
+                                     List<PreviewRow> rows) {
+        this(id, actorId, subjectId, null, uploadedAt, fileName,
+                workflowStatus, items, rows);
     }
 
     public UUID getId() {
@@ -49,6 +66,10 @@ public final class QuestionBankImportSession {
 
     public Long getSubjectId() {
         return subjectId;
+    }
+
+    public Long getLessonTemplateId() {
+        return lessonTemplateId;
     }
 
     public String getWorkflowStatus() {

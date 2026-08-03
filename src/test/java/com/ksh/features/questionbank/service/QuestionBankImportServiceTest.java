@@ -11,6 +11,8 @@ import com.ksh.features.questionbank.imports.QuestionBankImportSession;
 import com.ksh.features.questionbank.imports.QuestionBankImportSessionStore;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
+import com.ksh.features.library.repository.LessonTemplateRepository;
+import com.ksh.entities.LessonTemplate;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,10 +35,12 @@ class QuestionBankImportServiceTest {
     private final QuestionBankAccessPolicy accessPolicy = mock(QuestionBankAccessPolicy.class);
     private final QuestionBankItemRepository itemRepository = mock(QuestionBankItemRepository.class);
     private final QuestionBankOptionRepository optionRepository = mock(QuestionBankOptionRepository.class);
+    private final LessonTemplateRepository lessonRepository = mock(LessonTemplateRepository.class);
     private final QuestionBankImportParser parser = mock(QuestionBankImportParser.class);
     private final QuestionBankImportSessionStore sessionStore = mock(QuestionBankImportSessionStore.class);
     private final QuestionBankImportService service = new QuestionBankImportService(
-            userRepository, subjectRepository, accessPolicy, itemRepository, optionRepository, parser, sessionStore);
+            userRepository, subjectRepository, accessPolicy, itemRepository, optionRepository,
+            lessonRepository, parser, sessionStore);
 
     private final User lecturer = mock(User.class);
     private final MockMultipartFile file = new MockMultipartFile("file", "bank.xlsx", "application/octet-stream", new byte[]{1});
@@ -51,6 +55,11 @@ class QuestionBankImportServiceTest {
         when(accessPolicy.resolveSubjectId(lecturer)).thenReturn(5L);
         when(accessPolicy.canAccessSubject(lecturer, 5L)).thenReturn(true);
         when(subjectRepository.findById(5L)).thenReturn(Optional.of(subject));
+        LessonTemplate lesson = mock(LessonTemplate.class);
+        when(lesson.getId()).thenReturn(11L);
+        when(lessonRepository.findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(5L))
+                .thenReturn(List.of(lesson));
+        when(lessonRepository.findByIdAndSubjectId(11L, 5L)).thenReturn(Optional.of(lesson));
     }
 
     @Test

@@ -55,10 +55,13 @@ public class QuestionBankImportController {
     }
 
     @GetMapping(value = "/template", produces = XLSX_MIME)
-    public ResponseEntity<byte[]> template(@AuthenticationPrincipal KshUserDetails user) {
+    public ResponseEntity<byte[]> template(
+            @RequestParam(name = "subjectId", required = false) Long subjectId,
+            @AuthenticationPrincipal KshUserDetails user) {
         try {
             byte[] bytes = importTemplate.build(
-                    importService.subjectCodeForTemplate(user.getId(), user.getRole()));
+                    importService.subjectCodeForTemplate(
+                            user.getId(), user.getRole(), subjectId));
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(XLSX_MIME));
             headers.setContentDispositionFormData("attachment", TEMPLATE_FILENAME);
@@ -76,9 +79,14 @@ public class QuestionBankImportController {
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> preview(@RequestParam("file") MultipartFile file,
+                                     @RequestParam(name = "subjectId", required = false)
+                                     Long subjectId,
+                                     @RequestParam(name = "lessonTemplateId", required = false)
+                                     Long lessonTemplateId,
                                      @AuthenticationPrincipal KshUserDetails user) {
         try {
-            QuestionBankImportSession session = importService.previewUpload(user.getId(), user.getRole(), file);
+            QuestionBankImportSession session = importService.previewUpload(
+                    user.getId(), user.getRole(), subjectId, lessonTemplateId, file);
             Preview preview = session.toPreview();
             return ResponseEntity.ok(preview);
         } catch (QuestionBankValidationException ex) {

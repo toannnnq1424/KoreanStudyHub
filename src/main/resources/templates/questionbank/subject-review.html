@@ -7,6 +7,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/leader-department.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/question-bank.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('leader')}"></header>
@@ -20,7 +21,7 @@
           style="display:none;"></span>
 
     <div th:if="${emptyDepartment}" class="detail-card detail-empty" role="status">
-      Bạn chưa được gán mã môn để duyệt ngân hàng câu hỏi.
+      Tài khoản này chưa phụ trách mã môn đang hoạt động nào để duyệt ngân hàng câu hỏi.
     </div>
 
     <th:block th:if="${!emptyDepartment}">
@@ -58,8 +59,8 @@
         <span class="qb-chip-count" th:text="${subjectReview.statusCounts().archived()}">0</span>
       </a>
       <a class="qb-chip"
-         th:classappend="${selectedStatus == null or selectedStatus == ''} ? 'on'"
-         th:href="@{/leader/question-bank(q=${query}, contributorId=${selectedContributorId})}">
+         th:classappend="${selectedStatus == 'ALL'} ? 'on'"
+         th:href="@{/leader/question-bank(status='ALL', q=${query}, contributorId=${selectedContributorId})}">
         Tất cả
         <span class="qb-chip-count" th:text="${subjectReview.statusCounts().total()}">0</span>
       </a>
@@ -69,10 +70,18 @@
     <section class="admin-list-panel qb-filter-panel">
       <form method="get" th:action="@{/leader/question-bank}" class="qb-filter-grid">
         <input type="hidden" name="status" th:value="${selectedStatus}">
+        <label class="sr-only" for="qbLeaderSubject">Lọc theo mã môn</label>
+        <select class="qb-input" id="qbLeaderSubject" name="subjectId"
+                data-ksh-select data-ksh-searchable data-ksh-search-placeholder="Gõ mã môn…">
+          <option th:each="subject : ${subjectOptions}"
+                  th:value="${subject.id()}"
+                  th:selected="${selectedSubjectId == subject.id()}"
+                  th:text="${subject.code()}">KOR311</option>
+        </select>
         <label class="sr-only" for="qbLeaderQuery">Tìm câu hỏi</label>
         <input class="qb-input" id="qbLeaderQuery" type="text" name="q" th:value="${query}" placeholder="Tìm theo nội dung hoặc người tạo">
         <label class="sr-only" for="qbContributor">Lọc theo người tạo</label>
-        <select class="qb-input" id="qbContributor" name="contributorId">
+        <select class="qb-input" id="qbContributor" name="contributorId" data-ksh-select>
           <option value="">Tất cả người tạo</option>
           <option th:each="contributor : ${subjectReview.contributors()}"
                   th:value="${contributor.id()}"
@@ -100,21 +109,25 @@
         <form method="post" th:action="@{/leader/question-bank/bulk/approve}">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
           <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
           <input type="hidden" name="q" th:value="${query}">
 
-          <!-- Sticky bulk toolbar: hidden until at least one row is checked (JS-driven). -->
-          <div class="qb-bulk-toolbar" hidden>
+          <div class="qb-bulk-toolbar">
+            <label class="qb-bulk-select-visible">
+              <input type="checkbox" data-bulk-select-all-secondary>
+              Chọn tất cả câu đang lọc
+            </label>
             <span class="qb-bulk-count">Đã chọn <strong data-bulk-count>0</strong> câu</span>
             <div class="qb-toolbar-actions">
-              <button type="submit" class="btn-primary btn-sm qb-btn-approve"
+              <button type="submit" class="btn-primary btn-sm qb-btn-approve" data-bulk-action disabled
                       th:formaction="@{/leader/question-bank/bulk/approve}">Duyệt</button>
               <input class="qb-input" type="text" name="note" placeholder="Ghi chú (tuỳ chọn)">
-              <button type="submit" class="btn-ghost btn-sm qb-btn-reject"
+              <button type="submit" class="btn-ghost btn-sm qb-btn-reject" data-bulk-action disabled
                       th:formaction="@{/leader/question-bank/bulk/reject}">Trả lại</button>
-              <button type="submit" class="btn-ghost btn-sm"
+              <button type="submit" class="btn-ghost btn-sm" data-bulk-action disabled
                       th:formaction="@{/leader/question-bank/bulk/archive}">Lưu trữ</button>
-              <button type="submit" class="btn-primary btn-sm"
+              <button type="submit" class="btn-primary btn-sm" data-bulk-action disabled
                       th:formaction="@{/leader/question-bank/bulk/unarchive}">Bỏ lưu trữ</button>
             </div>
           </div>
@@ -198,6 +211,7 @@
               th:action="@{'/leader/question-bank/' + ${item.id()} + '/approve'}">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
           <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
           <input type="hidden" name="q" th:value="${query}">
         </form>
@@ -206,6 +220,7 @@
               th:action="@{'/leader/question-bank/' + ${item.id()} + '/reject'}">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
           <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
           <input type="hidden" name="q" th:value="${query}">
         </form>
@@ -214,6 +229,7 @@
               th:action="@{'/leader/question-bank/' + ${item.id()} + '/archive'}">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
           <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
           <input type="hidden" name="q" th:value="${query}">
         </form>
@@ -222,6 +238,7 @@
               th:action="@{'/leader/question-bank/' + ${item.id()} + '/unarchive'}">
           <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
           <input type="hidden" name="status" th:value="${selectedStatus}">
+          <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
           <input type="hidden" name="contributorId" th:value="${selectedContributorId}">
           <input type="hidden" name="q" th:value="${query}">
         </form>
@@ -269,5 +286,6 @@
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/leader-department.js}"></script>
 <script th:src="@{/js/question-bank-detail.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

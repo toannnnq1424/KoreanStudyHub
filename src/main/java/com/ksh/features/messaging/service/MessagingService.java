@@ -216,8 +216,8 @@ public class MessagingService {
         ConversationView conversation = openConversation(meId, convId, page);
         String lecturerName = userRepository.findById(lecturerId)
                 .map(User::getFullName).orElse(null);
-        String subjectCode = clazz.getDepartmentId() == null ? "—"
-                : subjectRepository.findById(clazz.getDepartmentId())
+        String subjectCode = clazz.getSubjectId() == null ? "—"
+                : subjectRepository.findById(clazz.getSubjectId())
                         .map(com.ksh.entities.Department::getCode).orElse("—");
         return new ClassMessagesView(clazz.getId(), clazz.getName(), subjectCode,
                 lecturerName, conversation);

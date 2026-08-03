@@ -9,6 +9,7 @@
   <!-- Reuse the exam question authoring styles (.lf-panel/.lf-option/.tst-btn);
        loaded after question-bank.css so its .lf-* rules win the cascade. -->
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-lecturer-form.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
   <link class="page-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
 </head>
 <body>
@@ -28,7 +29,7 @@
   <p class="detail-sub">Soạn câu hỏi cho ngân hàng của mã môn, lưu nháp hoặc gửi LEADER duyệt trước khi có thể chèn vào bài test.</p>
 
   <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
-    Bạn chưa được gán mã môn nên chưa thể tạo câu hỏi.
+    Chưa có mã môn đang hoạt động để tạo câu hỏi.
   </div>
 
   <form th:if="${!emptyDepartment}" class="detail-card qb-form"
@@ -42,11 +43,40 @@
       </div>
       <div class="lf-grid">
         <div class="lf-field">
+          <label class="lf-label" for="subjectId">Mã môn</label>
+          <select class="lf-input" id="subjectId" th:field="*{subjectId}"
+                  data-ksh-select data-ksh-searchable data-ksh-search-placeholder="Gõ mã môn…"
+                  th:disabled="${mode == 'edit'}">
+            <option th:each="subject : ${subjectOptions}"
+                    th:value="${subject.id()}"
+                    th:text="${subject.code()}">KOR311</option>
+          </select>
+          <input th:if="${mode == 'edit'}" type="hidden" th:field="*{subjectId}">
+        </div>
+        <div class="lf-field">
           <label class="lf-label" for="questionType">Loại câu hỏi</label>
-          <select class="lf-input" id="questionType" th:field="*{questionType}">
+          <select class="lf-input" id="questionType" th:field="*{questionType}" data-ksh-select>
             <option value="MCQ">Một đáp án (MCQ)</option>
             <option value="MR">Nhiều đáp án (MR)</option>
           </select>
+        </div>
+        <div class="lf-field lf-col-2">
+          <label class="lf-label" for="lessonTemplateId">Chương và bài học</label>
+          <select class="lf-input" id="lessonTemplateId" th:field="*{lessonTemplateId}"
+                  required data-ksh-select data-ksh-searchable
+                  data-ksh-search-placeholder="Gõ tên chương hoặc bài…">
+            <option value="" disabled>Chọn chương và bài học trong Kho học liệu</option>
+            <option th:each="lesson : ${lessonOptions}"
+                    th:value="${lesson.id()}"
+                    th:attr="data-subject-id=${lesson.subjectId()}"
+                    th:text="${lesson.chapterTitle() + ' · ' + lesson.lessonTitle()}">
+              Chương 1 · Bài 1
+            </option>
+          </select>
+          <small class="lf-media-hint">Bắt buộc chọn bài đã tồn tại trong Kho học liệu; câu hỏi dùng chung đúng cây mã môn → chương → bài.</small>
+          <a class="toolbar-back" th:href="@{/lecturer/library/templates(subjectId=${form.subjectId})}">
+            Mở Kho học liệu để tạo chương/bài
+          </a>
         </div>
       </div>
 
@@ -101,5 +131,6 @@
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/question-bank-form.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

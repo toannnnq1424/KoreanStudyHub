@@ -69,7 +69,7 @@ public class LecturerDashboardService {
                 querySupport.loadCompletedLessonSets(lessonIdsByClass);
         Map<Long, String> subjectCodes = new HashMap<>();
         for (Department subject : subjectRepository.findAllById(classes.stream()
-                .map(ClassEntity::getDepartmentId).filter(java.util.Objects::nonNull)
+                .map(ClassEntity::getSubjectId).filter(java.util.Objects::nonNull)
                 .distinct().toList())) {
             subjectCodes.put(subject.getId(), subject.getCode());
         }
@@ -96,7 +96,7 @@ public class LecturerDashboardService {
             allRows.add(new ClassDashboardRow(
                     classId,
                     clazz.getName(),
-                    subjectCodes.getOrDefault(clazz.getDepartmentId(), "—"),
+                    subjectCodes.getOrDefault(clazz.getSubjectId(), "—"),
                     clazz.getStatus(),
                     students,
                     classAvg));

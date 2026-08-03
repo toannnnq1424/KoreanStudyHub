@@ -22,26 +22,6 @@
   padding: 2rem 1rem 3rem;
 }
 
-.library-subject-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 14px 0;
-  padding: 12px 14px;
-  border: 1px solid #b9dafa;
-  border-radius: 10px;
-  background: #edf7ff;
-  color: #29445f;
-}
-
-.library-subject-banner strong {
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: #d8edff;
-  color: #075b9d;
-}
-
 .library-subject-card {
   margin: 16px 0;
   padding: 14px;
@@ -60,12 +40,6 @@
 .library-lesson-form {
   display: grid;
   gap: 1.25rem;
-}
-
-.library-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
 }
 
 .library-lesson-form label {
@@ -94,7 +68,7 @@
   border-color: #2563eb;
 }
 
-.library-form-block small {
+.library-lesson-form small {
   font-weight: 400;
   color: #64748b;
 }
@@ -739,6 +713,85 @@
 }
 
 /* Responsive */
+.library-subject-distribution {
+  display: grid;
+  grid-template-columns: minmax(230px, .7fr) minmax(320px, 1.3fr);
+  gap: 24px;
+  margin: 18px 0 22px;
+  padding: 20px;
+  border: 1px solid #cfe3ed;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f5fbfe, #eef7fb);
+}
+
+.library-subject-distribution h3 { margin: 4px 0 6px; color: #203744; }
+.library-subject-distribution p { margin: 0; color: #607784; line-height: 1.55; }
+.library-eyebrow { color: #4b8caa; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.library-subject-distribution-form fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; padding: 0; border: 0; }
+.library-subject-distribution-form legend { grid-column: 1 / -1; margin-bottom: 6px; color: #35515f; font-weight: 700; }
+.library-class-choice { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #d7e7ee; border-radius: 12px; background: #fff; cursor: pointer; }
+.library-class-choice:has(input:checked) { border-color: #75b8d1; background: #edf8fc; }
+.library-class-choice input { width: 18px; height: 18px; accent-color: #4b9ec1; }
+
+/* Canonical hierarchy is a compact outline: chapter header followed by lesson
+   rows. Avoid card-inside-card stacking and preserve numeric order visually. */
+.library-subject-search { display: block; margin: 16px 0 8px; }
+.library-subject-search input {
+  width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid #cfe3ed;
+  border-radius: 10px; background: #fff; color: #29445f; font: inherit;
+}
+.library-subject-list { margin-top: 0 !important; }
+.library-subject-tree { display: grid; gap: 18px; }
+.library-chapter {
+  overflow: hidden; border: 1px solid #dbeaf1; border-radius: 14px; background: #fff;
+}
+.library-chapter-head {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) max-content; gap: 12px;
+  align-items: center; padding: 13px 16px; border-bottom: 1px solid #e6f0f5; background: #f7fbfd;
+}
+.library-chapter-index {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px;
+  background: #e7f5fb; color: #2d759b; font-weight: 800;
+}
+.library-chapter-head h3 { margin: 2px 0 0; font-size: 16px; }
+.library-chapter-head > div > span, .library-chapter-head small { color: #6d8290; font-size: 12px; }
+.library-lesson-list { display: grid; }
+.library-lesson-row {
+  display: grid; grid-template-columns: 34px minmax(240px, 1fr) minmax(130px, auto) max-content;
+  gap: 12px; align-items: center; min-width: 0; padding: 13px 16px; border-bottom: 1px solid #edf3f6;
+}
+.library-lesson-row:last-child { border-bottom: 0; }
+.library-lesson-row:hover { background: #fbfeff; }
+.library-lesson-number { color: #7a909d; font-weight: 800; text-align: center; }
+.library-lesson-main { min-width: 0; }
+.library-lesson-main small { display: block; margin-top: 3px; color: #718592; }
+.library-lesson-meta { display: flex; align-items: center; gap: 9px; color: #718592; font-size: 12px; }
+.library-lesson-actions { display: flex; align-items: center; gap: 6px; }
+.library-lesson-actions form { margin: 0; }
+
+@media (max-width: 760px) {
+  .library-lesson-row { grid-template-columns: 28px minmax(0, 1fr); }
+  .library-lesson-meta, .library-lesson-actions { grid-column: 2; }
+}
+.library-class-choice span { display: grid; min-width: 0; }
+.library-class-choice strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #263d49; font-size: 13px; }
+.library-class-choice small { color: #6c8591; }
+.library-class-empty { grid-column: 1 / -1; color: #6c8591; }
+
+.library-subject-tree { display: grid; gap: 18px; }
+.library-chapter { border: 1px solid #dceaf0; border-radius: 18px; background: #fff; overflow: hidden; }
+.library-chapter-head { display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; padding: 15px 17px; background: #f7fbfd; border-bottom: 1px solid #e3eef3; }
+.library-chapter-index { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #dff1f8; color: #397a99; font-weight: 800; }
+.library-chapter-head span:not(.library-chapter-index), .library-chapter-head small { color: #738993; font-size: 12px; }
+.library-chapter-head h3 { margin: 2px 0 0; color: #263d49; font-size: 16px; }
+.library-lesson-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; }
+.library-lesson-card { min-width: 0; padding: 15px; border: 1px solid #e1edf2; border-radius: 14px; background: #fcfeff; }
+.library-lesson-card-head, .library-lesson-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.library-lesson-card-head > span:last-child { color: #708690; font-size: 12px; }
+.library-lesson-card .asset-title { display: block; margin-top: 12px; color: #233a46; font-weight: 750; }
+.library-lesson-card p { margin: 6px 0 14px; color: #71858f; font-size: 13px; }
+.library-lesson-actions { justify-content: flex-start; flex-wrap: wrap; }
+
 @media (max-width: 900px) {
   .library-shell {
     grid-template-columns: 1fr;
@@ -746,6 +799,7 @@
   }
   .library-kinds { min-height: 0; }
   .kinds-hint { display: none; }
+  .library-subject-distribution { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 1100px) {
@@ -782,6 +836,8 @@
 }
 
 @media (max-width: 640px) {
+  .library-subject-distribution-form fieldset,
+  .library-lesson-grid { grid-template-columns: 1fr; }
   .asset-list-head {
     display: grid;
     grid-template-columns: 1fr 44px;
@@ -801,4 +857,34 @@
   .asset-row.lesson-row .col-kind { display: block; }
   .content-actions { width: 100%; }
   .content-create-btn { flex: 1; justify-content: center; }
+}
+
+/* Final canonical outline overrides legacy card-grid rules above. */
+.library-subject-distribution-form .ksh-search-checklist { display: block; }
+.library-subject-distribution-form .ksh-checklist-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.library-subject-distribution-form .ksh-checklist-search { margin-top: 6px; }
+.library-subject-tree { display: grid; gap: 18px; }
+.library-chapter { overflow: hidden; border: 1px solid #dbeaf1; border-radius: 14px; background: #fff; }
+.library-chapter-head {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) max-content; gap: 12px;
+  align-items: center; padding: 13px 16px; border-bottom: 1px solid #e6f0f5; background: #f7fbfd;
+}
+.library-lesson-list { display: grid; }
+.library-lesson-row {
+  display: grid; grid-template-columns: 34px minmax(240px, 1fr) minmax(130px, auto) max-content;
+  gap: 12px; align-items: center; min-width: 0; padding: 13px 16px; border-bottom: 1px solid #edf3f6;
+}
+.library-lesson-row:last-child { border-bottom: 0; }
+.library-lesson-row:hover { background: #fbfeff; }
+.library-lesson-number { color: #7a909d; font-weight: 800; text-align: center; }
+.library-lesson-main { min-width: 0; }
+.library-lesson-main small { display: block; margin-top: 3px; color: #718592; }
+.library-lesson-meta { display: flex; align-items: center; gap: 9px; color: #718592; font-size: 12px; }
+.library-lesson-actions { display: flex; justify-content: flex-start; align-items: center; gap: 6px; }
+.library-lesson-actions form { margin: 0; }
+
+@media (max-width: 760px) {
+  .library-lesson-row { grid-template-columns: 28px minmax(0, 1fr); }
+  .library-lesson-meta, .library-lesson-actions { grid-column: 2; }
+  .library-subject-distribution-form .ksh-checklist-options { grid-template-columns: 1fr; }
 }

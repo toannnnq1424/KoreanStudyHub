@@ -35,13 +35,14 @@ class QuestionBankFrontendContractTest {
     }
 
     @Test
-    void subject_review_uses_labeled_native_filters_and_has_no_category_ui() throws IOException {
+    void workspace_uses_clickable_subjects_and_two_explicit_banks() throws IOException {
         String list = Files.readString(LIST_TEMPLATE);
         String review = Files.readString(SUBJECT_REVIEW_TEMPLATE);
 
         assertThat(list)
                 .contains("for=\"qbLecturerQuery\"", "id=\"qbLecturerQuery\"")
-                .contains("for=\"qbLecturerStatus\"", "id=\"qbLecturerStatus\"")
+                .contains("qb-subject-rail", "Bộ chung đã duyệt", "Chờ leader duyệt")
+                .contains("name=\"scope\"", "name=\"lessonTemplateId\"", "name=\"classIds\"")
                 .doesNotContain("question-bank.js");
         assertThat(review)
                 .contains("for=\"qbLeaderQuery\"", "id=\"qbLeaderQuery\"")
@@ -51,18 +52,19 @@ class QuestionBankFrontendContractTest {
     }
 
     @Test
-    void authoring_and_import_require_only_an_assigned_subject() throws IOException {
+    void authoring_and_import_require_an_active_catalog_not_an_account_assignment() throws IOException {
         String list = Files.readString(LIST_TEMPLATE);
         String form = Files.readString(FORM_TEMPLATE);
 
         assertThat(list)
                 .contains("th:if=\"${!emptyDepartment}\"")
-                .contains("Bạn chưa được gán mã môn")
-                .contains("<th>Mã môn</th>")
+                .contains("Chưa có mã môn đang hoạt động", "qb-subject-rail")
+                .doesNotContain("Bạn chưa được gán mã môn")
                 .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
         assertThat(form)
                 .contains("th:if=\"${!emptyDepartment}\"")
-                .contains("Bạn chưa được gán mã môn")
+                .contains("Chưa có mã môn đang hoạt động")
+                .doesNotContain("Bạn chưa được gán mã môn")
                 .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
     }
 }

@@ -175,7 +175,7 @@ public class ClassDetailController {
 
     /**
      * Renders the class settings tab, reusing the edit-class form.
-     * Only the class owner (or LEADER/ADMIN) may access this endpoint.
+     * Only the immutable class owner (or ADMIN) may access this endpoint.
      *
      * <p>Invite settings were retired; this route only renders class info.
      */
@@ -184,7 +184,7 @@ public class ClassDetailController {
                                  @RequestParam(defaultValue = SUBTAB_INFO) String tab,
                                  @AuthenticationPrincipal KshUserDetails user,
                                  Model model) {
-        ClassEntity entity = classesService.getEditable(id, user.getId(), user.getRole());
+        ClassEntity entity = classesService.getOwnerManaged(id, user.getId(), user.getRole());
         // Preserve flashed form values from a prior failed POST.
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, ClassForm.fromEntity(entity));

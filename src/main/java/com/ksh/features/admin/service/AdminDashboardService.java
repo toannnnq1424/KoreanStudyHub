@@ -46,10 +46,10 @@ public class AdminDashboardService {
     public DashboardStats stats() {
         Long userCount = countOrZero("SELECT COUNT(*) FROM users WHERE is_deleted = 0 AND is_active = 1");
         Long classCount = countOrZero("SELECT COUNT(*) FROM classes WHERE is_deleted = 0");
-        Long departmentCount = countOrZero("SELECT COUNT(*) FROM departments WHERE is_active = 1");
+        Long subjectCount = countOrZero("SELECT COUNT(*) FROM subjects WHERE is_active = 1");
         Long activeClassCount = countOrZero(
                 "SELECT COUNT(*) FROM classes WHERE is_deleted = 0 AND status = 'ACTIVE'");
-        return new DashboardStats(userCount, classCount, departmentCount, activeClassCount);
+        return new DashboardStats(userCount, classCount, subjectCount, activeClassCount);
     }
 
     /**
@@ -84,7 +84,7 @@ public class AdminDashboardService {
         return jdbc.query(
                 "SELECT c.id, c.name, d.code AS subject_code, c.status, c.created_at, u.full_name AS lecturer_name " +
                         "FROM classes c " +
-                        "LEFT JOIN departments d ON d.id = c.department_id " +
+                        "LEFT JOIN subjects d ON d.id = c.subject_id " +
                         "LEFT JOIN users u ON u.id = c.lecturer_id " +
                         "WHERE c.is_deleted = 0 " +
                         "ORDER BY c.created_at DESC LIMIT ?",

@@ -9,8 +9,10 @@
     return;
   }
   var selectAll = table.querySelector('[data-bulk-select-all]');
+  var selectAllSecondary = document.querySelector('[data-bulk-select-all-secondary]');
   var toolbar = document.querySelector('.qb-bulk-toolbar');
   var countEl = document.querySelector('[data-bulk-count]');
+  var bulkActions = Array.prototype.slice.call(document.querySelectorAll('[data-bulk-action]'));
 
   function rowChecks() {
     return Array.prototype.slice.call(table.querySelectorAll('.qb-row-check'));
@@ -22,19 +24,28 @@
     if (countEl) {
       countEl.textContent = String(checked);
     }
-    if (toolbar) {
-      toolbar.hidden = checked === 0;
-    }
+    bulkActions.forEach(function (button) { button.disabled = checked === 0; });
     if (selectAll) {
       // Header reflects all/none/partial selection state.
       selectAll.checked = checked > 0 && checked === checks.length;
       selectAll.indeterminate = checked > 0 && checked < checks.length;
+    }
+    if (selectAllSecondary) {
+      selectAllSecondary.checked = checked > 0 && checked === checks.length;
+      selectAllSecondary.indeterminate = checked > 0 && checked < checks.length;
     }
   }
 
   if (selectAll) {
     selectAll.addEventListener('change', function () {
       rowChecks().forEach(function (c) { c.checked = selectAll.checked; });
+      refresh();
+    });
+  }
+
+  if (selectAllSecondary) {
+    selectAllSecondary.addEventListener('change', function () {
+      rowChecks().forEach(function (c) { c.checked = selectAllSecondary.checked; });
       refresh();
     });
   }

@@ -6,6 +6,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -32,7 +33,7 @@
       <form method="get" th:action="@{/admin/settings/ai/logs}" class="users-filter-form">
         <div class="users-toolbar-row">
           <label for="logProvider" class="sr-only">Lọc theo provider</label>
-          <select id="logProvider" name="provider" aria-label="Lọc theo provider">
+          <select id="logProvider" name="provider" aria-label="Lọc theo provider" data-ksh-select>
             <option value="" th:selected="${filter.provider() == null}">Tất cả provider</option>
             <option th:each="name : ${providerNames}"
                     th:value="${name}"
@@ -40,7 +41,7 @@
                     th:selected="${filter.provider() == name}">Provider</option>
           </select>
           <label for="logStatus" class="sr-only">Lọc theo trạng thái</label>
-          <select id="logStatus" name="status" aria-label="Lọc theo trạng thái">
+          <select id="logStatus" name="status" aria-label="Lọc theo trạng thái" data-ksh-select>
             <option value="" th:selected="${filter.status() == null}">Tất cả trạng thái</option>
             <option value="SUCCESS" th:selected="${filter.status() == 'SUCCESS'}">Thành công</option>
             <option value="FAILED" th:selected="${filter.status() == 'FAILED'}">Thất bại</option>
@@ -147,5 +148,6 @@
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/admin.js}"></script>
 <script th:src="@{/js/admin-settings-ai-logs.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

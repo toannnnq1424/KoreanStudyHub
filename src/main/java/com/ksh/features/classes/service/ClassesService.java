@@ -28,8 +28,8 @@ import java.util.HashMap;
  *
  * <p>Authorization rules (enforced here, NOT in the controller):
  * <ul>
- *   <li>LECTURER can only view/edit/delete their own classes ({@code lecturer_id == user.id}).</li>
- *   <li>LEADER can view/edit/delete classes in their resolved department; ADMIN is global.</li>
+ *   <li>Owner and co-lecturers can access teaching content; subject leaders retain read scope.</li>
+ *   <li>Only the immutable owner (or ADMIN) can edit/delete class-owned state.</li>
  *   <li>Authorization violations throw {@link AccessDeniedException} → HTTP 403.</li>
  *   <li>Non-existent or soft-deleted classes throw {@link EntityNotFoundException} → HTTP 404.</li>
  * </ul>
@@ -89,9 +89,10 @@ public class ClassesService {
         if (role == Role.LECTURER) {
             page = classRepository.findAllAccessibleToLecturer(userId, pageable);
         } else if (role == Role.LEADER) {
-            page = accessPolicy.leaderDepartmentId(userId)
-                    .map(id -> classRepository.findAllByDepartmentId(id, pageable))
-                    .orElseGet(() -> Page.empty(pageable));
+            List<Long> subjectIds = accessPolicy.leaderSubjectIds(userId);
+            page = subjectIds.isEmpty()
+                    ? Page.empty(pageable)
+                    : classRepository.findAllBySubjectIdIn(subjectIds, pageable);
         } else if (role == Role.ADMIN) {
             page = classRepository.findAllBy(pageable);
         } else {
@@ -100,14 +101,14 @@ public class ClassesService {
 
         List<ClassEntity> content = page.getContent();
         Map<Long, String> subjectCodes = new HashMap<>();
-        subjectRepository.findAllById(content.stream().map(ClassEntity::getDepartmentId)
+        subjectRepository.findAllById(content.stream().map(ClassEntity::getSubjectId)
                         .filter(java.util.Objects::nonNull).distinct().toList())
                 .forEach(subject -> subjectCodes.put(subject.getId(), subject.getCode()));
         List<ClassRow> rows = new ArrayList<>(content.size());
         for (int i = 0; i < content.size(); i++) {
             ClassEntity entity = content.get(i);
             rows.add(ClassRowMapper.toRow(entity, i,
-                    subjectCodes.getOrDefault(entity.getDepartmentId(), "—")));
+                    subjectCodes.getOrDefault(entity.getSubjectId(), "—")));
         }
         return new PageImpl<>(rows, pageable, page.getTotalElements());
     }
@@ -116,6 +117,12 @@ public class ClassesService {
     @Transactional(readOnly = true)
     public ClassEntity getEditable(Long id, Long userId, Role role) {
         return loadEditable(id, userId, role);
+    }
+
+    /** Loads a class for owner-only administration such as settings or member import. */
+    @Transactional(readOnly = true)
+    public ClassEntity getOwnerManaged(Long id, Long userId, Role role) {
+        return loadOwnerManaged(id, userId, role);
     }
 
     /** Locks an editable class so sibling append operations share one mutex row. */
@@ -155,7 +162,7 @@ public class ClassesService {
     /** Updates an existing class. Authorization is enforced; writes an UPDATED activity row with a before/after diff. */
     @Transactional
     public ClassEntity update(Long id, ClassForm form, Long userId, Role role) {
-        ClassEntity entity = loadEditable(id, userId, role);
+        ClassEntity entity = loadOwnerManaged(id, userId, role);
 
         Map<String, Object> oldState = ClassRowMapper.snapshot(entity);
         entity.updateDetails(form.name(), form.description(),
@@ -180,7 +187,7 @@ public class ClassesService {
     /** Soft-deletes a class. Authorization is enforced; writes a DELETED activity row. */
     @Transactional
     public void softDelete(Long id, Long userId, Role role) {
-        ClassEntity entity = loadEditable(id, userId, role);
+        ClassEntity entity = loadOwnerManaged(id, userId, role);
 
         entity.softDelete();
         classRepository.save(entity);
@@ -210,6 +217,16 @@ public class ClassesService {
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
         if (!isEditableBy(entity, userId, role)) {
             throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
+        }
+        return entity;
+    }
+
+    /** Loads the class and preserves its immutable owner boundary. */
+    private ClassEntity loadOwnerManaged(Long id, Long userId, Role role) {
+        ClassEntity entity = classRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        if (!accessPolicy.canManageClass(entity, userId, role)) {
+            throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được quản trị lớp này");
         }
         return entity;
     }

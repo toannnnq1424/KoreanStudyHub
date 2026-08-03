@@ -6,6 +6,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -137,7 +138,7 @@
 
             <div class="form-row">
               <label for="roleSelect">Vai trò <span class="required">*</span></label>
-              <select id="roleSelect" th:field="*{role}" required>
+              <select id="roleSelect" th:field="*{role}" required data-ksh-select>
                 <option th:each="r : ${roles}"
                         th:value="${r.name()}"
                         th:text="${r.name()}">ROLE</option>
@@ -148,7 +149,7 @@
 
             <div class="form-row">
               <label for="departmentSelect">Mã môn phụ trách</label>
-              <select id="departmentSelect" th:field="*{departmentId}">
+              <select id="departmentSelect" th:field="*{subjectId}" data-ksh-select>
                 <option value="">— Chưa gán —</option>
                 <option th:each="d : ${departments}"
                         th:value="${d.id()}"
@@ -356,5 +357,6 @@
 <script th:src="@{/js/admin-users.js}"></script>
 <script th:src="@{/js/detail-tabs-dirty-guard.js}"></script>
 <script th:src="@{/js/detail-tabs.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

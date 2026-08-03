@@ -78,6 +78,12 @@ class ClassesServiceTest {
                     || (role == Role.LECTURER && userId.equals(clazz.getLecturerId()))
                     || role == Role.LEADER;
         });
+        when(accessPolicy.canManageClass(any(), any(), any())).thenAnswer(invocation -> {
+            ClassEntity clazz = invocation.getArgument(0);
+            Long userId = invocation.getArgument(1);
+            Role role = invocation.getArgument(2);
+            return role == Role.ADMIN || userId.equals(clazz.getLecturerId());
+        });
         service = new ClassesService(classRepository, activityWriter,
                 subjectRepository, accessPolicy, eventPublisher);
     }
@@ -98,10 +104,10 @@ class ClassesServiceTest {
     }
 
     @Test
-    void list_for_leader_returns_only_resolved_department() {
+    void list_for_leader_returns_all_assigned_subjects() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(accessPolicy.leaderDepartmentId(LEADER_ID)).thenReturn(Optional.of(12L));
-        when(classRepository.findAllByDepartmentId(eq(12L), any(Pageable.class)))
+        when(accessPolicy.leaderSubjectIds(LEADER_ID)).thenReturn(List.of(12L, 13L));
+        when(classRepository.findAllBySubjectIdIn(eq(List.of(12L, 13L)), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(
                         List.of(buildClass(1L, "A", LECTURER_ID), buildClass(2L, "B", OTHER_LECTURER_ID)),
                         pageable, 2));
@@ -153,7 +159,7 @@ class ClassesServiceTest {
                 LocalDate.of(2026, 7, 1), LocalDate.of(2026, 12, 31), 50, 12L);
         ClassEntity saved = service.create(form, LECTURER_ID);
 
-        assertThat(saved.getDepartmentId()).isEqualTo(12L);
+        assertThat(saved.getSubjectId()).isEqualTo(12L);
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
         assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
 
@@ -236,17 +242,16 @@ class ClassesServiceTest {
     }
 
     @Test
-    void update_by_leader_succeeds_whenPolicyAdmitsDepartment() {
+    void update_by_leader_is_rejected_without_ownership_transfer() {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID);
         when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
-        when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClassForm form = new ClassForm("Y", "", null, null, 50, 12L);
-        service.update(9L, form, LEADER_ID, Role.LEADER);
 
-        assertThat(entity.getName()).isEqualTo("Y");
-        verify(activityWriter).write(eq(9L), eq(ClassActivity.TYPE_UPDATED),
-                any(), any(Map.class), eq(LEADER_ID));
+        assertThatThrownBy(() -> service.update(9L, form, LEADER_ID, Role.LEADER))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(entity.getName()).isEqualTo("X");
+        verify(classRepository, never()).save(any(ClassEntity.class));
     }
 
     @Test

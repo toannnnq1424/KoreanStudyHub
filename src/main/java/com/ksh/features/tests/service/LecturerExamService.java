@@ -1,7 +1,9 @@
 package com.ksh.features.tests.service;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Department;
 import com.ksh.entities.TestActivity;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.tests.dto.LecturerTestDtos.BankItemSnapshot;
 import com.ksh.features.tests.dto.LecturerTestDtos.BankOptionSnapshot;
@@ -11,6 +13,9 @@ import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamFilter;
 import com.ksh.features.tests.dto.LecturerTestDtos.OptionForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.QuestionForm;
+import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionResult;
+import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionTarget;
+import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionView;
 import com.ksh.features.tests.dto.TestDtos.PreviewView;
 import com.ksh.features.tests.entity.Question;
 import com.ksh.features.tests.entity.QuestionOption;
@@ -31,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -50,6 +56,7 @@ public class LecturerExamService {
     private final TestRepository testRepository;
     private final QuestionRepository questionRepository;
     private final ClassRepository classRepository;
+    private final DepartmentRepository departmentRepository;
     private final TestAccessResolver accessResolver;
     private final TestActivityWriter activityWriter;
     private final TakeViewBuilder takeViewBuilder;
@@ -60,6 +67,7 @@ public class LecturerExamService {
     public LecturerExamService(TestRepository testRepository,
                                QuestionRepository questionRepository,
                                ClassRepository classRepository,
+                               DepartmentRepository departmentRepository,
                                TestAccessResolver accessResolver,
                                TestActivityWriter activityWriter,
                                TakeViewBuilder takeViewBuilder,
@@ -69,6 +77,7 @@ public class LecturerExamService {
         this.testRepository = testRepository;
         this.questionRepository = questionRepository;
         this.classRepository = classRepository;
+        this.departmentRepository = departmentRepository;
         this.accessResolver = accessResolver;
         this.activityWriter = activityWriter;
         this.takeViewBuilder = takeViewBuilder;
@@ -281,6 +290,153 @@ public class LecturerExamService {
     }
 
     /**
+     * Returns ACTIVE classes in the same subject that may receive a snapshot of
+     * the selected published test. The source test remains unchanged and no
+     * Practice row is ever eligible for this flow.
+     */
+    @Transactional(readOnly = true)
+    public TestDistributionView distributionView(Long userId, Role role, Long testId) {
+        Test source = requireDistributable(testId, userId, role, false);
+        Long sourceSubjectId = requireSourceSubjectId(source);
+        Department subject = departmentRepository.findById(sourceSubjectId)
+                .orElseThrow(() -> new IllegalArgumentException("Mã môn của bài test không còn tồn tại"));
+
+        List<TestDistributionTarget> targets = accessResolver.manageableClasses(userId, role).stream()
+                .filter(clazz -> source.getClassId() == null || !clazz.getId().equals(source.getClassId()))
+                .filter(clazz -> ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus()))
+                .filter(clazz -> sourceSubjectId.equals(clazz.getSubjectId()))
+                .filter(clazz -> !testRepository.existsByClassIdAndTitleIgnoreCase(
+                        clazz.getId(), source.getTitle()))
+                .map(clazz -> new TestDistributionTarget(clazz.getId(), clazz.getName()))
+                .toList();
+        return new TestDistributionView(source.getId(), source.getTitle(),
+                subject.getCode(), targets);
+    }
+
+    /**
+     * Atomically copies one finished PUBLISHED test, including its questions
+     * and options, to one or more ACTIVE classes with the same subject code.
+     * Each copy is an independent published snapshot backed by the existing
+     * tests/questions/question_options tables; no extra mapping table is needed.
+     */
+    @Transactional
+    public TestDistributionResult distributePublished(Long userId, Role role, Long testId,
+                                                       List<Long> classIds) {
+        if (classIds == null || classIds.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn ít nhất một lớp nhận bài test");
+        }
+        Test source = requireDistributable(testId, userId, role, true);
+        Long sourceSubjectId = requireSourceSubjectId(source);
+        List<QuestionForm> questionSnapshot = snapshotQuestions(source.getId());
+        if (questionSnapshot.isEmpty()) {
+            throw new IllegalArgumentException("Bài test chưa có câu hỏi để phân phối");
+        }
+
+        List<Long> createdIds = new ArrayList<>();
+        for (Long classId : new LinkedHashSet<>(classIds)) {
+            if (classId == null) {
+                continue;
+            }
+            ClassEntity permitted = accessResolver.requireManageableClass(classId, userId, role);
+            ClassEntity target = classRepository.findByIdForUpdate(permitted.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Lớp nhận không còn tồn tại"));
+            if (source.getClassId() != null && target.getId().equals(source.getClassId())) {
+                throw new IllegalArgumentException("Không thể phân phối lại vào chính lớp nguồn");
+            }
+            if (!ClassEntity.STATUS_ACTIVE.equals(target.getStatus())) {
+                throw new IllegalArgumentException("Chỉ được phân phối tới lớp đã duyệt và đang hoạt động");
+            }
+            if (!sourceSubjectId.equals(target.getSubjectId())) {
+                throw new IllegalArgumentException("Chỉ được phân phối tới lớp có cùng mã môn");
+            }
+            if (testRepository.existsByClassIdAndTitleIgnoreCase(target.getId(), source.getTitle())) {
+                throw new IllegalArgumentException(
+                        "Lớp \"" + target.getName() + "\" đã có bài test cùng tên");
+            }
+
+            Test snapshot = copyExamFields(source, target.getId(), userId);
+            Test saved = testRepository.saveAndFlush(snapshot);
+            questionBankWriter.appendQuestions(saved.getId(), questionSnapshot);
+            saved.setTotalQuestions(questionSnapshot.size());
+            testRepository.save(saved);
+            activityWriter.write(saved.getId(), TestActivity.TYPE_CREATED,
+                    "Nhận bản phân phối từ bài test \"" + source.getTitle() + "\"",
+                    activityWriter.serialize(Map.of(
+                            "sourceTestId", source.getId(),
+                            "sourceTestSubjectId", sourceSubjectId)), userId);
+            activityWriter.write(saved.getId(), TestActivity.TYPE_PUBLISHED,
+                    "Phát hành bản phân phối bài test \"" + source.getTitle() + "\"",
+                    null, userId);
+            createdIds.add(saved.getId());
+        }
+        if (createdIds.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn ít nhất một lớp nhận bài test");
+        }
+        activityWriter.write(source.getId(), TestActivity.TYPE_UPDATED,
+                "Phân phối bài test \"" + source.getTitle() + "\" tới "
+                        + createdIds.size() + " lớp",
+                activityWriter.serialize(Map.of("distributedTestIds", createdIds)), userId);
+        return new TestDistributionResult(List.copyOf(createdIds));
+    }
+
+    private Test requireDistributable(Long testId, Long userId, Role role, boolean lock) {
+        Test source = lock
+                ? accessResolver.requireManageableForUpdate(testId, userId, role)
+                : accessResolver.requireManageable(testId, userId, role);
+        if (source.isPractice()) {
+            throw new IllegalArgumentException("Practice test không thuộc luồng phân phối này");
+        }
+        if (!Test.STATUS_PUBLISHED.equals(source.getStatus())) {
+            throw new IllegalArgumentException("Chỉ bài test đã hoàn tất và xuất bản mới được phân phối");
+        }
+        return source;
+    }
+
+    private Long requireSourceSubjectId(Test source) {
+        if (source.getSubjectId() != null) return source.getSubjectId();
+        if (source.getClassId() == null) {
+            throw new IllegalArgumentException("Bài test nguồn chưa có mã môn");
+        }
+        return classRepository.findById(source.getClassId())
+                .map(ClassEntity::getSubjectId)
+                .orElseThrow(() -> new IllegalArgumentException("Lớp nguồn không còn tồn tại"));
+    }
+
+    private List<QuestionForm> snapshotQuestions(Long testId) {
+        List<Question> questions = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId);
+        Map<Long, List<QuestionOption>> optionsByQuestion = questionBankWriter.loadOptions(questions);
+        return questions.stream().map(question -> new QuestionForm(
+                null,
+                question.getQuestionType(),
+                question.getContent(),
+                question.getExplanation(),
+                question.getPoints(),
+                optionsByQuestion.getOrDefault(question.getId(), List.of()).stream()
+                        .map(option -> new OptionForm(null, option.getContent(), option.isCorrect()))
+                        .toList()))
+                .toList();
+    }
+
+    private static Test copyExamFields(Test source, Long classId, Long createdBy) {
+        Test snapshot = new Test(createdBy, source.getType());
+        snapshot.setTitle(source.getTitle());
+        snapshot.setDescription(source.getDescription());
+        snapshot.setClassId(classId);
+        snapshot.setSubjectId(source.getSubjectId());
+        snapshot.setDurationMinutes(source.getDurationMinutes());
+        snapshot.setPassingScore(source.getPassingScore());
+        snapshot.setShuffleQuestions(source.isShuffleQuestions());
+        snapshot.setShuffleOptions(source.isShuffleOptions());
+        snapshot.setStatus(Test.STATUS_PUBLISHED);
+        snapshot.setStartAt(source.getStartAt());
+        snapshot.setEndAt(source.getEndAt());
+        snapshot.setTimeMode(source.getTimeMode());
+        snapshot.setMediaType(source.getMediaType());
+        snapshot.setMediaUrl(source.getMediaUrl());
+        return snapshot;
+    }
+
+    /**
      * Appends audit rows for a save: always a CREATED/UPDATED row, plus a
      * PUBLISHED row when the status transitions into {@code PUBLISHED} on this
      * save (create-as-published counts as a transition too). Audit failures
@@ -309,6 +465,7 @@ public class LecturerExamService {
         String description = trimToNull(form.description());
         test.setDescription(description == null ? null : HtmlSanitizer.sanitize(description));
         test.setClassId(form.classId());
+        classRepository.findById(form.classId()).ifPresent(clazz -> test.setSubjectId(clazz.getSubjectId()));
         test.setType(defaultType(form.type()));
         test.setStatus(form.status() == null ? Test.STATUS_DRAFT : form.status());
         test.setTimeMode(form.timeMode() == null ? Test.TIME_MODE_FIXED_WINDOW : form.timeMode());

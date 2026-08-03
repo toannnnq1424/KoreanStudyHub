@@ -35,6 +35,9 @@ public class QuestionBankItem {
     @Column(name = "subject_id", nullable = false)
     private Long subjectId;
 
+    @Column(name = "lesson_template_id")
+    private Long lessonTemplateId;
+
     @Column(name = "contributor_id", nullable = false)
     private Long contributorId;
 
@@ -77,7 +80,14 @@ public class QuestionBankItem {
     public QuestionBankItem(Long subjectId, Long contributorId,
                             String questionType, String workflowStatus,
                             String content, String explanation) {
+        this(subjectId, null, contributorId, questionType, workflowStatus, content, explanation);
+    }
+
+    public QuestionBankItem(Long subjectId, Long lessonTemplateId, Long contributorId,
+                            String questionType, String workflowStatus,
+                            String content, String explanation) {
         this.subjectId = subjectId;
+        this.lessonTemplateId = lessonTemplateId;
         this.contributorId = contributorId;
         this.questionType = questionType;
         this.workflowStatus = workflowStatus;
@@ -98,11 +108,17 @@ public class QuestionBankItem {
     }
 
     /** Updates author-editable content while keeping subject ownership stable. */
-    public void updateAuthoring(String questionType,
+    public void updateAuthoring(Long lessonTemplateId, String questionType,
                                 String content, String explanation) {
+        this.lessonTemplateId = lessonTemplateId;
         this.questionType = questionType;
         this.content = content;
         this.explanation = explanation;
+    }
+
+    /** Compatibility overload for callers that keep the existing lesson link. */
+    public void updateAuthoring(String questionType, String content, String explanation) {
+        updateAuthoring(this.lessonTemplateId, questionType, content, explanation);
     }
 
     /** Moves the item into a new workflow state and records the reviewer metadata. */
@@ -152,6 +168,8 @@ public class QuestionBankItem {
     public Long getSubjectId() {
         return subjectId;
     }
+
+    public Long getLessonTemplateId() { return lessonTemplateId; }
 
     public Long getContributorId() {
         return contributorId;

@@ -1,7 +1,7 @@
 -- These V3 audit tables never acquired an application entity, writer, reader,
 -- route, UI, or test caller. Active audit streams remain in activity_classes,
 -- activity_sections, activity_lessons, activity_tests, user_activities,
--- permission_activities, and subject_activities.
+-- permission_activities, and subjects_activities.
 DROP TABLE activity_enrollments;
 DROP TABLE activity_assignments;
 DROP TABLE activity_submissions;

@@ -118,7 +118,7 @@ public class ClassesController {
         try {
             classesService.create(form, user.getId());
         } catch (IllegalArgumentException exception) {
-            result.rejectValue("departmentId", "subject.invalid", exception.getMessage());
+            result.rejectValue("subjectId", "subject.invalid", exception.getMessage());
             model.addAttribute(ATTR_MODE, MODE_CREATE);
             model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
             addSubjectOptions(model);
@@ -130,14 +130,14 @@ public class ClassesController {
 
     /**
      * Renders the edit-class form for an existing class.
-     * Only the class owner (or LEADER/ADMIN) may access this endpoint; the service
+     * Only the immutable class owner (or ADMIN) may access this endpoint; the service
      * layer enforces the ownership check and throws if unauthorized.
      */
     @GetMapping("/classes/{id}/edit")
     public String editForm(@PathVariable Long id,
                            @AuthenticationPrincipal KshUserDetails user,
                            Model model) {
-        ClassEntity entity = classesService.getEditable(id, user.getId(), user.getRole());
+        ClassEntity entity = classesService.getOwnerManaged(id, user.getId(), user.getRole());
         // Preserve flashed form values from a prior failed POST.
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, ClassForm.fromEntity(entity));

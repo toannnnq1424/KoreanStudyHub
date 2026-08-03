@@ -68,7 +68,7 @@ class LecturerDashboardControllerTest {
                 .andExpect(content().string(containsString("Lớp đang hoạt động")))
                 .andExpect(content().string(containsString("Tiến độ trung bình")))
                 .andExpect(content().string(containsString("Danh sách lớp")))
-                .andExpect(content().string(containsString("Tìm theo tên hoặc mã lớp")));
+                .andExpect(content().string(containsString("Tìm theo tên lớp hoặc mã môn")));
     }
 
     @Test

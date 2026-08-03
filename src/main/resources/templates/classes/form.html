@@ -3,13 +3,15 @@
 <head th:replace="~{fragments/head :: head(${mode == 'edit' ? 'Sửa lớp' : 'Tạo lớp'}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
-<body>
+<body class="class-form-page">
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
 <main class="class-page">
   <div class="class-form-card">
     <h1 th:text="${mode == 'edit' ? 'Chỉnh sửa lớp học' : 'Tạo lớp học mới'}">Tạo lớp học mới</h1>
+    <p class="class-form-intro">Chọn mã môn trong catalog tiếng Hàn. Lớp mới sẽ ở trạng thái nháp để LEADER duyệt.</p>
 
     <form th:action="@{${formAction}}" method="post" th:object="${form}" novalidate>
       <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
@@ -26,20 +28,21 @@
       </div>
 
       <div class="field-row">
-        <label for="departmentId">Mã môn <span class="required" aria-hidden="true">*</span></label>
-        <select id="departmentId" th:field="*{departmentId}"
+        <label for="subjectId">Mã môn <span class="required" aria-hidden="true">*</span></label>
+        <select id="subjectId" th:field="*{subjectId}"
+                data-ksh-select data-ksh-searchable data-ksh-search-placeholder="Gõ mã môn…"
                 th:disabled="${mode == 'edit'}"
-                th:classappend="${#fields.hasErrors('departmentId')} ? 'is-invalid' : ''"
-                th:attr="aria-invalid=${#fields.hasErrors('departmentId')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('departmentId')} ? 'departmentId-error' : ''"
+                th:classappend="${#fields.hasErrors('subjectId')} ? 'is-invalid' : ''"
+                th:attr="aria-invalid=${#fields.hasErrors('subjectId')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('subjectId')} ? 'subjectId-error' : ''"
                 required aria-required="true">
           <option value="">Chọn mã môn</option>
           <option th:each="subject : ${subjectOptions}"
                   th:value="${subject.id}"
-                  th:text="${subject.code + ' — ' + subject.name}">KOR311 — Tiếng Hàn</option>
+                  th:text="${subject.code}">KOR311</option>
         </select>
-        <input th:if="${mode == 'edit'}" type="hidden" th:field="*{departmentId}">
-        <span id="departmentId-error" class="field-error" role="alert"
-              th:if="${#fields.hasErrors('departmentId')}" th:errors="*{departmentId}">Lỗi mã môn</span>
+        <input th:if="${mode == 'edit'}" type="hidden" th:field="*{subjectId}">
+        <span id="subjectId-error" class="field-error" role="alert"
+              th:if="${#fields.hasErrors('subjectId')}" th:errors="*{subjectId}">Lỗi mã môn</span>
       </div>
 
       <!-- Description -->
@@ -91,5 +94,6 @@
 </main>
 
 <script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

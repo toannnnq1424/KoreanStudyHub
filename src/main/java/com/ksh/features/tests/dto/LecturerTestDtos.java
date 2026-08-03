@@ -59,6 +59,22 @@ public final class LecturerTestDtos {
     public record BankInsertResult(int insertedCount) {
     }
 
+    /** One ACTIVE class eligible to receive a published test snapshot. */
+    public record TestDistributionTarget(Long id, String name) {
+    }
+
+    /** Read model for the published-test distribution screen. */
+    public record TestDistributionView(Long testId, String title, String subjectCode,
+                                       List<TestDistributionTarget> targetClasses) {
+    }
+
+    /** Atomic result of copying one published test to selected classes. */
+    public record TestDistributionResult(List<Long> testIds) {
+        public int distributedCount() {
+            return testIds.size();
+        }
+    }
+
     /** Save response: the persisted exam id + where to go next. */
     public record SaveResult(Long id) {
     }

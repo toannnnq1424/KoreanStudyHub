@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Phân phối bài test', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/test-distribute.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      hidden></span>
+
+<main class="tst-page td-page">
+  <nav class="td-back" aria-label="Điều hướng quay lại">
+    <a th:href="@{/lecturer/tests}">← Quay lại danh sách bài test</a>
+  </nav>
+
+  <header class="td-header">
+    <p class="td-kicker">Test Bank · <span th:text="${distribution.subjectCode()}">KOR311</span></p>
+    <h1 class="tst-page-title">Phân phối bài test đã hoàn tất</h1>
+    <p class="td-summary">
+      Chọn một hoặc nhiều lớp ACTIVE cùng mã môn để nhận bản sao độc lập của
+      <strong th:text="${distribution.title()}">Bài test</strong>.
+    </p>
+  </header>
+
+  <form class="td-card" method="post"
+        th:action="@{|/lecturer/tests/${distribution.testId()}/distribute|}">
+    <fieldset class="td-fieldset" th:disabled="${#lists.isEmpty(distribution.targetClasses())}">
+      <legend>Lớp nhận bài test</legend>
+      <p class="td-hint">Bài test, câu hỏi và đáp án được snapshot; chỉnh sửa sau này không ảnh hưởng bản nguồn.</p>
+
+      <div class="td-targets" th:if="${!#lists.isEmpty(distribution.targetClasses())}">
+        <label class="td-target" th:each="clazz : ${distribution.targetClasses()}"
+               th:for="${'target-class-' + clazz.id()}">
+          <input type="checkbox" name="classIds" th:value="${clazz.id()}"
+                 th:id="${'target-class-' + clazz.id()}">
+          <span>
+            <strong th:text="${clazz.name()}">Tên lớp</strong>
+            <small th:text="${distribution.subjectCode() + ' · ACTIVE'}">KOR311 · ACTIVE</small>
+          </span>
+        </label>
+      </div>
+
+      <p class="tst-empty" th:if="${#lists.isEmpty(distribution.targetClasses())}">
+        Không còn lớp ACTIVE cùng mã môn đủ điều kiện. Lớp đã có bài test cùng
+        tên cũng được loại khỏi danh sách để tránh phân phối trùng.
+      </p>
+    </fieldset>
+
+    <div class="td-actions">
+      <a class="tst-btn" th:href="@{/lecturer/tests}">Hủy</a>
+      <button class="tst-btn tst-btn-primary" type="submit"
+              th:disabled="${#lists.isEmpty(distribution.targetClasses())}">
+        Phân phối tới lớp đã chọn
+      </button>
+    </div>
+  </form>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/flashcard-common.js}"></script>
+</body>
+</html>

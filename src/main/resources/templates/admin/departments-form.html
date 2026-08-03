@@ -7,6 +7,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-departments.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -105,7 +106,7 @@
 
             <div class="form-row span-3">
               <label for="leaderSelect">Trưởng bộ môn phụ trách</label>
-              <select id="leaderSelect" th:field="*{leaderUserId}">
+              <select id="leaderSelect" th:field="*{leaderUserId}" data-ksh-select>
                 <option value="">— Chưa gán —</option>
                 <option th:each="c : ${leaderCandidates}"
                         th:value="${c.id()}"
@@ -196,5 +197,6 @@
 <script th:src="@{/js/admin-departments.js}"></script>
 <script th:src="@{/js/detail-tabs-dirty-guard.js}"></script>
 <script th:src="@{/js/detail-tabs.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>
