@@ -75,7 +75,7 @@ ALTER TABLE users
     CHECK (role IN ('STUDENT', 'LECTURER', 'LEADER', 'ADMIN'));
 
 -- Align the organization ownership column and its database object names.
-ALTER TABLE departments
+ALTER TABLE subjects
     DROP FOREIGN KEY fk_dept_head,
     DROP INDEX idx_dept_head,
     CHANGE COLUMN head_user_id leader_user_id BIGINT NULL,
@@ -83,7 +83,7 @@ ALTER TABLE departments
     ADD CONSTRAINT fk_dept_leader
         FOREIGN KEY (leader_user_id) REFERENCES users(id) ON DELETE SET NULL;
 
-UPDATE department_activities
+UPDATE subjects_activities
 SET type = CASE type
     WHEN 'HEAD_ASSIGNED' THEN 'LEADER_ASSIGNED'
     WHEN 'HEAD_CLEARED' THEN 'LEADER_CLEARED'

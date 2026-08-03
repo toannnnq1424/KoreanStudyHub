@@ -28,7 +28,7 @@ public class MemberDtos {
 
         /**
          * Returns a human-readable label for the {@code joinedVia} badge.
-         * Maps the enrollment source codes ({@code CODE}, {@code LINK}, {@code IMPORT},
+         * Maps the enrollment source codes ({@code REQUEST}, {@code IMPORT},
          * {@code MANUAL}) to their display labels; falls back to the raw value for
          * unrecognised codes.
          *
@@ -37,8 +37,7 @@ public class MemberDtos {
         public String displayJoinedVia() {
             if (joinedVia == null) return "—";
             return switch (joinedVia) {
-                case "CODE" -> "Mã mời";
-                case "LINK" -> "Link";
+                case "REQUEST" -> "Yêu cầu tham gia";
                 case "IMPORT" -> "Import";
                 case "MANUAL" -> "Thủ công";
                 default -> joinedVia;

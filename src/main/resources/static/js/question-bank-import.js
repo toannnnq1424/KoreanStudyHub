@@ -13,6 +13,7 @@
   var tableWrap = document.getElementById('qb-import-table-wrap');
   var rowsBody = document.getElementById('qb-import-rows');
   var confirmButton = document.getElementById('qb-import-confirm');
+  var lessonSelect = document.getElementById('qb-import-lesson');
   var resetButton = document.getElementById('qb-import-reset');
   var preview = null;
   var previewGeneration = 0;
@@ -20,9 +21,16 @@
   var csrfToken = document.querySelector('meta[name="_csrf"]');
   var csrfHeader = document.querySelector('meta[name="_csrf_header"]');
   var IMPORT_BASE = '/lecturer/question-bank/import';
+  var subjectId = panel.dataset.subjectId || '';
 
   fileInput.addEventListener('change', function () {
     if (!fileInput.files || !fileInput.files[0]) {
+      return;
+    }
+    if (!lessonSelect || !lessonSelect.value) {
+      fileInput.value = '';
+      window.KshToast.error('Hãy chọn chương/bài trong Kho học liệu trước khi import');
+      if (lessonSelect) lessonSelect.focus();
       return;
     }
     uploadPreview(fileInput.files[0]);
@@ -67,6 +75,8 @@
 
     var formData = new FormData();
     formData.append('file', file);
+    if (subjectId) formData.append('subjectId', subjectId);
+    formData.append('lessonTemplateId', lessonSelect.value);
     var headers = {};
     if (csrfToken && csrfHeader && csrfToken.content && csrfHeader.content) {
       headers[csrfHeader.content] = csrfToken.content;
@@ -121,7 +131,7 @@
     rowsBody.innerHTML = (data.rows || []).map(function (row) {
       return '<tr>'
         + cell(row.rowNumber)
-        + cell(row.categoryName || '—')
+        + cell(row.subjectCode || '—')
         + cell(row.questionType || '—')
         + cell(row.contentPreview || '—')
         + cell(row.optionCount)
@@ -153,7 +163,7 @@
         if (!result.ok) {
           throw new Error(result.error || 'Không thể xác nhận import');
         }
-        window.KshToast.success('Đã import ' + result.data.createdCount + ' câu hỏi vào ngân hàng bộ môn');
+        window.KshToast.success('Đã import ' + result.data.createdCount + ' câu hỏi vào ngân hàng mã môn');
         window.location.reload();
       })
       .catch(function (error) {

@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
  *
  * <p>{@link SQLRestriction} filters soft-deleted rows out of every default
  * query, mirroring {@link com.ksh.entities.ClassEntity}. No {@code @Data} —
- * explicit getters + business helpers only (like {@link com.ksh.entities.Comment}).
+ * explicit getters and business helpers only.
  */
 @Entity
 @Table(name = "flashcard_decks")

@@ -19,7 +19,7 @@ public final class LeaderDtos {
             long classCount,
             long lecturerCount,
             long studentCount,
-            long courseCount
+            long approvedQuestionCount
     ) {
     }
 
@@ -41,7 +41,7 @@ public final class LeaderDtos {
     ) {
     }
 
-    public record PendingClassRow(Long classId, String className, String classCode,
+    public record PendingClassRow(Long classId, String className, String subjectCode,
                                   String lecturerName, LocalDateTime createdAt) {
     }
 
@@ -56,9 +56,12 @@ public final class LeaderDtos {
     public record AssignClassRow(
             Long classId,
             String className,
-            String classCode,
+            String subjectCode,
+            Long subjectId,
             Long lecturerId,
-            String lecturerName
+            String lecturerName,
+            List<Long> coLecturerIds,
+            List<String> coLecturerNames
     ) {
     }
 
@@ -73,7 +76,7 @@ public final class LeaderDtos {
     public record ReportClassRow(
             Long classId,
             String className,
-            String classCode,
+            String subjectCode,
             long activeEnrollments,
             BigDecimal avgTestScore,
             BigDecimal avgAssignmentScore

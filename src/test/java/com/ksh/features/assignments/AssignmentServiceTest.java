@@ -59,7 +59,7 @@ class AssignmentServiceTest {
         clazz    = saveClass("Assignment IT class", lecturer.getId(), "ASGNIT" + System.nanoTime() % 10000);
         // Enroll the student so assignment operations succeed.
         enrollmentRepository.saveAndFlush(
-                Enrollment.createFor(student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                Enrollment.createFor(student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     // ── Create ────────────────────────────────────────────────────────────

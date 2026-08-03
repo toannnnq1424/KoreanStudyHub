@@ -6,6 +6,7 @@ import com.ksh.entities.User;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,7 @@ class LeaderDepartmentIntegrationTest {
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private ClassRepository classRepository;
+    @Autowired private ClassCoLecturerRepository coLecturerRepository;
 
     private Department cntt;
     private User leader;
@@ -53,12 +55,13 @@ class LeaderDepartmentIntegrationTest {
                 .findFirst().orElseThrow();
 
         // Ensure LEADER resolution via leader_user_id.
+        cntt.applyEdit(cntt.getName(), cntt.getCode(), cntt.getDescription(), true);
         cntt.assignLeader(leader.getId());
         departmentRepository.save(cntt);
         leader.promoteToLeader(cntt.getId());
         userRepository.save(leader);
 
-        lecturer.setDepartmentId(cntt.getId());
+        lecturer.setSubjectId(cntt.getId());
         userRepository.save(lecturer);
     }
 
@@ -85,7 +88,7 @@ class LeaderDepartmentIntegrationTest {
                 "Lớp CNTT Leader", leader.getId(), leader.getId(),
                 "desc", null, null, 50);
         inDept.setCode("HCN01");
-        inDept.setDepartmentId(cntt.getId());
+        inDept.setSubjectId(cntt.getId());
         classRepository.save(inDept);
 
         Department other = departmentRepository.findAll().stream()
@@ -95,7 +98,7 @@ class LeaderDepartmentIntegrationTest {
                 "Lớp KT Outside", lecturer.getId(), lecturer.getId(),
                 "desc", null, null, 50);
         outDept.setCode("HKT01");
-        outDept.setDepartmentId(other.getId());
+        outDept.setSubjectId(other.getId());
         classRepository.save(outDept);
 
         mockMvc.perform(get("/leader"))
@@ -111,7 +114,7 @@ class LeaderDepartmentIntegrationTest {
                 "Lớp Assign", leader.getId(), leader.getId(),
                 "desc", null, null, 50);
         inDept.setCode("HAS01");
-        inDept.setDepartmentId(cntt.getId());
+        inDept.setSubjectId(cntt.getId());
         classRepository.save(inDept);
 
         mockMvc.perform(get("/leader/assign"))
@@ -122,12 +125,43 @@ class LeaderDepartmentIntegrationTest {
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void reassign_lecturer_same_department() throws Exception {
+    void assign_page_and_submit_allow_an_active_lecturer_from_another_subject() throws Exception {
+        Department other = departmentRepository.findAll().stream()
+                .filter(d -> "KT".equals(d.getCode()))
+                .findFirst().orElseThrow();
+        lecturer.setSubjectId(other.getId());
+        userRepository.saveAndFlush(lecturer);
+
+        ClassEntity inDept = new ClassEntity(
+                "Lớp cần đồng giảng", leader.getId(), leader.getId(),
+                "desc", null, null, 50);
+        inDept.setCode("HXL01");
+        inDept.setSubjectId(cntt.getId());
+        ClassEntity saved = classRepository.saveAndFlush(inDept);
+
+        mockMvc.perform(get("/leader/assign"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(lecturer.getEmail())));
+
+        mockMvc.perform(post("/leader/assign/" + saved.getId()).with(csrf())
+                        .param("lecturerId", String.valueOf(lecturer.getId())))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(flash().attributeExists("flashSuccess"));
+
+        assertThat(coLecturerRepository.existsByClassIdAndLecturerId(
+                saved.getId(), lecturer.getId())).isTrue();
+        assertThat(classRepository.findById(saved.getId()).orElseThrow().getLecturerId())
+                .isEqualTo(leader.getId());
+    }
+
+    @Test
+    @WithUserDetails("leader@ksh.edu.vn")
+    void add_co_lecturer_same_subject_preserves_owner() throws Exception {
         ClassEntity inDept = new ClassEntity(
                 "Lớp Reassign", leader.getId(), leader.getId(),
                 "desc", null, null, 50);
         inDept.setCode("HRS01");
-        inDept.setDepartmentId(cntt.getId());
+        inDept.setSubjectId(cntt.getId());
         ClassEntity saved = classRepository.save(inDept);
 
         mockMvc.perform(post("/leader/assign/" + saved.getId()).with(csrf())
@@ -136,13 +170,16 @@ class LeaderDepartmentIntegrationTest {
                 .andExpect(flash().attributeExists("flashSuccess"));
 
         ClassEntity updated = classRepository.findById(saved.getId()).orElseThrow();
-        assertThat(updated.getLecturerId()).isEqualTo(lecturer.getId());
-        assertThat(updated.getDepartmentId()).isEqualTo(cntt.getId());
+        assertThat(updated.getLecturerId()).isEqualTo(leader.getId());
+        assertThat(updated.getCreatedBy()).isEqualTo(leader.getId());
+        assertThat(updated.getSubjectId()).isEqualTo(cntt.getId());
+        assertThat(coLecturerRepository.existsByClassIdAndLecturerId(
+                saved.getId(), lecturer.getId())).isTrue();
     }
 
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
-    void reassign_cross_department_class_denied() throws Exception {
+    void add_co_lecturer_cross_subject_class_denied() throws Exception {
         Department other = departmentRepository.findAll().stream()
                 .filter(d -> "KT".equals(d.getCode()))
                 .findFirst().orElseThrow();
@@ -150,7 +187,7 @@ class LeaderDepartmentIntegrationTest {
                 "Lớp Foreign", lecturer.getId(), lecturer.getId(),
                 "desc", null, null, 50);
         out.setCode("HFR01");
-        out.setDepartmentId(other.getId());
+        out.setSubjectId(other.getId());
         ClassEntity saved = classRepository.save(out);
 
         mockMvc.perform(post("/leader/assign/" + saved.getId()).with(csrf())
@@ -165,7 +202,7 @@ class LeaderDepartmentIntegrationTest {
                 "Lớp Report", leader.getId(), leader.getId(),
                 "desc", null, null, 50);
         inDept.setCode("HRP01");
-        inDept.setDepartmentId(cntt.getId());
+        inDept.setSubjectId(cntt.getId());
         classRepository.save(inDept);
 
         mockMvc.perform(get("/leader/report"))
@@ -181,7 +218,7 @@ class LeaderDepartmentIntegrationTest {
                 "Lớp chờ duyệt", lecturer.getId(), lecturer.getId(),
                 "desc", null, null, 50);
         pending.setCode("HAP01");
-        pending.setDepartmentId(cntt.getId());
+        pending.setSubjectId(cntt.getId());
         classRepository.save(pending);
 
         mockMvc.perform(get("/leader/approvals"))
@@ -199,7 +236,7 @@ class LeaderDepartmentIntegrationTest {
                 "Lớp được duyệt", lecturer.getId(), lecturer.getId(),
                 "desc", null, null, 50);
         pending.setCode("HAP02");
-        pending.setDepartmentId(cntt.getId());
+        pending.setSubjectId(cntt.getId());
         ClassEntity saved = classRepository.saveAndFlush(pending);
 
         mockMvc.perform(post("/leader/approvals/" + saved.getId() + "/approve").with(csrf()))
@@ -208,7 +245,7 @@ class LeaderDepartmentIntegrationTest {
                 .andExpect(flash().attributeExists("flashSuccess"));
 
         ClassEntity approved = classRepository.findById(saved.getId()).orElseThrow();
-        assertThat(approved.getStatus()).isEqualTo(ClassEntity.STATUS_UPCOMING);
+        assertThat(approved.getStatus()).isEqualTo(ClassEntity.STATUS_ACTIVE);
         assertThat(approved.getApprovedBy()).isEqualTo(leader.getId());
         assertThat(approved.getApprovedAt()).isNotNull();
     }
@@ -216,14 +253,14 @@ class LeaderDepartmentIntegrationTest {
     @Test
     @WithUserDetails("leader@ksh.edu.vn")
     void empty_state_when_no_department() throws Exception {
-        // Clear leader assignment and department_id so resolver returns empty.
+        // Clear leader assignment and subject_id so resolver returns empty.
         for (Department d : departmentRepository.findAll()) {
             if (leader.getId().equals(d.getLeaderUserId())) {
                 d.assignLeader(null);
                 departmentRepository.save(d);
             }
         }
-        leader.setDepartmentId(null);
+        leader.setSubjectId(null);
         userRepository.save(leader);
 
         mockMvc.perform(get("/leader"))

@@ -2,8 +2,6 @@ package com.ksh.features.library.repository;
 
 import com.ksh.entities.LessonTemplateAttachment;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -15,10 +13,5 @@ public interface LessonTemplateAttachmentRepository
 
     List<LessonTemplateAttachment> findByTemplateIdOrderByDisplayOrderAsc(Long templateId);
 
-    /** Counts template attachment rows that still reference the asset. */
-    @Query(value = """
-            SELECT COUNT(*) FROM lesson_template_attachments
-            WHERE library_asset_id = :assetId
-            """, nativeQuery = true)
-    long countByLibraryAssetId(@Param("assetId") Long assetId);
+    void deleteByTemplateId(Long templateId);
 }

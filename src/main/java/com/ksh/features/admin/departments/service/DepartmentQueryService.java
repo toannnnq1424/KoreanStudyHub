@@ -2,13 +2,13 @@ package com.ksh.features.admin.departments.service;
 
 import com.ksh.entities.Department;
 import com.ksh.entities.User;
-import com.ksh.features.admin.departments.dto.DepartmentActivityRow;
+import com.ksh.features.admin.departments.dto.SubjectActivityRow;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentFilter;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentOption;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentRow;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.LeaderCandidate;
-import com.ksh.features.admin.departments.repository.DepartmentActivityRepository;
+import com.ksh.features.admin.departments.repository.SubjectActivityRepository;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.security.Role;
@@ -37,11 +37,11 @@ public class DepartmentQueryService {
 
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
-    private final DepartmentActivityRepository activityRepository;
+    private final SubjectActivityRepository activityRepository;
 
     public DepartmentQueryService(DepartmentRepository departmentRepository,
                                   UserRepository userRepository,
-                                  DepartmentActivityRepository activityRepository) {
+                                  SubjectActivityRepository activityRepository) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.activityRepository = activityRepository;
@@ -111,10 +111,10 @@ public class DepartmentQueryService {
                 .toList();
     }
 
-    /** Paged audit history for the department detail history tab. */
+    /** Paged audit history for the subject detail history tab. */
     @Transactional(readOnly = true)
-    public Page<DepartmentActivityRow> listActivities(Long departmentId, Pageable pageable) {
-        return activityRepository.findActivitiesForDepartment(departmentId, pageable);
+    public Page<SubjectActivityRow> listActivities(Long subjectId, Pageable pageable) {
+        return activityRepository.findActivitiesForSubject(subjectId, pageable);
     }
 
     /** Batch-loads full names for distinct non-null leader user ids. */

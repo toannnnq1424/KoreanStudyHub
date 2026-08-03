@@ -5,6 +5,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/discovery-admin.css(v='6')}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -242,7 +243,7 @@
       <form class="news-trace-filters" method="get" th:action="@{/admin/news} + '#articles'">
         <label>
           Lượt tạo bài
-          <select name="runId">
+          <select name="runId" data-ksh-select>
             <option value="">Tất cả lượt</option>
             <option th:each="run : ${overview.recentRuns}"
                     th:value="${run.id}"
@@ -252,7 +253,7 @@
         </label>
         <label>
           Lượt AI xử lý
-          <select name="aiRunId">
+          <select name="aiRunId" data-ksh-select>
             <option value="">Tất cả lượt</option>
             <option th:each="run : ${overview.recentRuns}"
                     th:value="${run.id}"
@@ -262,7 +263,7 @@
         </label>
         <label>
           AI
-          <select name="ai">
+          <select name="ai" data-ksh-select>
             <option value="" th:selected="${overview.selectedAiStatus == null}">Tất cả</option>
             <option value="generated" th:selected="${overview.selectedAiStatus == 'generated'}">Đã biên tập</option>
             <option value="pending" th:selected="${overview.selectedAiStatus == 'pending'}">Chưa biên tập</option>
@@ -450,5 +451,6 @@
 </div>
 
 <script th:src="@{/js/discovery.js(v='2')}" defer></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

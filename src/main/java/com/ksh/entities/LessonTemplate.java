@@ -30,8 +30,20 @@ public class LessonTemplate {
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
 
+    @Column(name = "subject_id")
+    private Long subjectId;
+
     @Column(nullable = false, length = 300)
     private String title;
+
+    @Column(name = "chapter_title", nullable = false, length = 200)
+    private String chapterTitle = "Chương 1";
+
+    @Column(name = "chapter_order", nullable = false)
+    private int chapterOrder = 1;
+
+    @Column(name = "display_order", nullable = false)
+    private int displayOrder;
 
     @Column(name = "content_type", nullable = false, length = 20)
     private String contentType;
@@ -69,8 +81,23 @@ public class LessonTemplate {
      * before persist so the DB CHECK stays satisfied.
      */
     public LessonTemplate(Long ownerId, String title, String contentType) {
+        this(ownerId, null, "Chương 1", title, contentType);
+    }
+
+    public LessonTemplate(Long ownerId, Long subjectId, String chapterTitle,
+                          String title, String contentType) {
+        this(ownerId, subjectId, 1, chapterTitle, 1, title, contentType);
+    }
+
+    public LessonTemplate(Long ownerId, Long subjectId, int chapterOrder,
+                          String chapterTitle, int displayOrder,
+                          String title, String contentType) {
         Lesson.validateContentType(contentType);
         this.ownerId = ownerId;
+        this.subjectId = subjectId;
+        this.chapterTitle = chapterTitle;
+        this.chapterOrder = chapterOrder;
+        this.displayOrder = displayOrder;
         this.title = title;
         this.contentType = contentType;
         this.deleted = false;
@@ -95,6 +122,32 @@ public class LessonTemplate {
     /** Renames the display title only. */
     public void rename(String newTitle) {
         this.title = newTitle;
+    }
+
+    /** Updates hierarchy and clears type-specific body fields before remapping. */
+    public void updateAuthoring(int chapterOrder, String chapterTitle, int displayOrder,
+                                String title, String contentType) {
+        Lesson.validateContentType(contentType);
+        this.chapterTitle = chapterTitle;
+        this.chapterOrder = chapterOrder;
+        this.displayOrder = displayOrder;
+        this.title = title;
+        this.contentType = contentType;
+        this.contentRichtext = Lesson.CONTENT_TYPE_RICHTEXT.equals(contentType) ? "" : null;
+        this.pdfLibraryAssetId = null;
+        this.videoProvider = null;
+        this.videoUrl = null;
+        this.videoLibraryAssetId = null;
+    }
+
+    /** Updates only numeric hierarchy metadata during an insertion/reorder. */
+    public void updateSequence(int chapterOrder, String chapterTitle, int displayOrder) {
+        this.chapterOrder = chapterOrder;
+        this.chapterTitle = chapterTitle;
+        this.displayOrder = displayOrder;
+        String description = this.title == null ? "" : this.title
+                .replaceFirst("(?iu)^Bài\\s+\\d+\\s*(?:[·.:-]\\s*)?", "").trim();
+        this.title = "Bài " + displayOrder + (description.isEmpty() ? "" : " · " + description);
     }
 
     /** Soft-deletes so default queries exclude the row. */
@@ -130,9 +183,17 @@ public class LessonTemplate {
         return ownerId;
     }
 
+    public Long getSubjectId() { return subjectId; }
+
     public String getTitle() {
         return title;
     }
+
+    public String getChapterTitle() { return chapterTitle; }
+
+    public int getChapterOrder() { return chapterOrder; }
+
+    public int getDisplayOrder() { return displayOrder; }
 
     public String getContentType() {
         return contentType;

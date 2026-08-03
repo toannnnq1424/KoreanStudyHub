@@ -89,8 +89,8 @@ public class User {
 
     /** Owning department; optional for students / admins without a department. */
     @Setter
-    @Column(name = "department_id")
-    private Long departmentId;
+    @Column(name = "subject_id")
+    private Long subjectId;
 
     // ── Sprint 3 admin-side constructor ────────────────────────────────
 
@@ -211,27 +211,27 @@ public class User {
      * @param emailVerified  whether the admin marks the email as verified
      * @param phone          optional phone number; blank strings stored as null
      * @param bio            optional short biography; blank strings stored as null
-     * @param departmentId   optional department ownership
+     * @param subjectId   optional department ownership
      */
     public void updateAdminFields(String email, String fullName, Role role,
                                   boolean emailVerified, String phone, String bio,
-                                  Long departmentId) {
+                                  Long subjectId) {
         updateAdminFields(email, fullName, role, emailVerified, phone, bio);
-        this.departmentId = departmentId;
+        this.subjectId = subjectId;
     }
 
     /**
      * Promotes this user to LEADER of the given department.
      * Used by admin department leader assignment.
      */
-    public void promoteToLeader(Long departmentId) {
+    public void promoteToLeader(Long subjectId) {
         this.role = Role.LEADER;
-        this.departmentId = departmentId;
+        this.subjectId = subjectId;
     }
 
     /**
      * Demotes a former department leader back to LECTURER.
-     * Keeps {@code departmentId} so the user remains in their department.
+     * Keeps {@code subjectId} so the user remains in their department.
      * Never demotes ADMIN.
      */
     public void demoteFromLeaderToLecturer() {

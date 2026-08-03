@@ -7,6 +7,7 @@
   <link class="page-css" rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;family=Nanum+Myeongjo:wght@400;700;800&amp;family=Noto+Serif+KR:wght@400;500&amp;display=swap">
   <link class="page-css" rel="stylesheet" th:href="@{/css/discovery.css(v='4')}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body class="discovery-body"
       th:classappend="${selectedLanguage == 'ko'} ? ' is-korean-mode' : ' is-vietnamese-mode'">
@@ -362,7 +363,7 @@
     </label>
     <label>
       <span>Lưu vào bộ thẻ</span>
-      <select data-vocab-deck required>
+      <select data-vocab-deck required data-ksh-select>
         <option value="">Đang tải các bộ thẻ của bạn…</option>
       </select>
       <small>Không tự tạo bộ mới. Bạn chọn chính xác bộ sẽ nhận từ này.</small>
@@ -388,5 +389,6 @@
 </footer>
 
 <script th:src="@{/js/discovery.js(v='7')}" defer></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

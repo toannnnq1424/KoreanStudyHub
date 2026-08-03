@@ -26,12 +26,12 @@ import java.util.Set;
 import static com.ksh.common.IConstant.*;
 
 /**
- * MVC controller for {@code /admin/departments} — ADMIN-only department CRUD
- * and leader assignment.
+ * MVC controller for the legacy {@code /admin/departments} URL. The page now
+ * manages the subject catalog and subject-leader assignments.
  */
 @Controller
 @RequestMapping(URL_ADMIN_DEPARTMENTS)
-@PreAuthorize("hasAuthority('PERM_department.manage')")
+@PreAuthorize("hasAuthority('PERM_subject.manage')")
 public class AdminDepartmentsController {
 
     private static final String REDIRECT_BASE = "redirect:" + URL_ADMIN_DEPARTMENTS;

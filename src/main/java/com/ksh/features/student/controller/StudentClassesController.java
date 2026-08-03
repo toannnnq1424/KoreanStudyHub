@@ -3,28 +3,25 @@ package com.ksh.features.student.controller;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
 import com.ksh.entities.ClassEntity;
-import com.ksh.features.classes.service.invites.InviteCodeValidationException;
 import com.ksh.features.classes.service.JoinClassService;
 import com.ksh.features.classes.service.JoinClassService.AlreadyJoined;
 import com.ksh.features.classes.service.JoinClassService.JoinResult;
 import com.ksh.features.classes.service.JoinClassService.PendingRequested;
 import com.ksh.features.classes.service.JoinClassService.Success;
 import com.ksh.features.student.dto.StudentClassesDtos.EnrolledClassRow;
-import com.ksh.features.student.dto.StudentClassesDtos.JoinForm;
 import com.ksh.features.student.service.StudentClassesService;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -44,7 +41,6 @@ import static com.ksh.common.IConstant.*;
 public class StudentClassesController {
 
     private static final String VIEW_MY_CLASSES = "student/my-classes";
-    private static final String VIEW_JOIN_CLASS = "student/join-class";
     private static final String REDIRECT_MY_CLASSES = "redirect:/my/classes";
     private static final String ATTR_ROWS = "rows";
     private static final String MSG_LEFT_CLASS = "Đã rời lớp ";
@@ -61,40 +57,37 @@ public class StudentClassesController {
 
     /** Lists ACTIVE enrollments and PENDING join requests. */
     @GetMapping("/classes")
-    public String list(@AuthenticationPrincipal KshUserDetails user, Model model) {
+    public String list(@AuthenticationPrincipal KshUserDetails user,
+                       @RequestParam(name = "q", required = false) String query,
+                       @RequestParam(name = "tab", defaultValue = "mine") String tab,
+                       @RequestParam(name = "page", defaultValue = "0") int page,
+                       Model model) {
         List<EnrolledClassRow> rows = studentClassesService.listEnrolledClasses(user.getId());
         List<EnrolledClassRow> pending = studentClassesService.listPendingClasses(user.getId());
+        String activeTab = "open".equalsIgnoreCase(tab) ? "open" : "mine";
         model.addAttribute(ATTR_ROWS, rows);
         model.addAttribute(ATTR_PENDING_ROWS, pending);
+        var catalogPage = "open".equals(activeTab)
+                ? studentClassesService.listActiveCatalog(user.getId(), query, page, 25)
+                : org.springframework.data.domain.Page.empty();
+        model.addAttribute("catalogPage", catalogPage);
+        model.addAttribute("catalogRows", catalogPage.getContent());
+        model.addAttribute("catalogQuery", query == null ? "" : query);
+        model.addAttribute("classesTab", activeTab);
         return VIEW_MY_CLASSES;
     }
 
-    @GetMapping("/classes/join")
-    public String joinForm(Model model) {
-        if (!model.containsAttribute(ATTR_FORM)) {
-            model.addAttribute(ATTR_FORM, JoinForm.empty());
-        }
-        return VIEW_JOIN_CLASS;
-    }
-
-    /**
-     * Submits the join form. CODE/LINK creates a PENDING request (not ACTIVE).
-     */
-    @PostMapping("/classes/join")
-    public String join(@Valid @ModelAttribute("form") JoinForm form,
-                       BindingResult result,
-                       @AuthenticationPrincipal KshUserDetails user,
-                       Model model,
-                       RedirectAttributes ra) {
-        if (result.hasErrors()) {
-            return VIEW_JOIN_CLASS;
-        }
+    @PostMapping("/classes/{id}/request")
+    public String requestJoin(@PathVariable Long id,
+                              @AuthenticationPrincipal KshUserDetails user,
+                              RedirectAttributes ra) {
         try {
-            JoinResult outcome = joinClassService.join(form.code(), user.getId());
-            return redirectAfterJoin(outcome, ra);
-        } catch (InviteCodeValidationException ex) {
-            result.rejectValue("code", "invite.invalid", ex.getMessage());
-            return VIEW_JOIN_CLASS;
+            return redirectAfterJoin(joinClassService.requestJoin(id, user.getId()), ra);
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (IllegalStateException | AccessDeniedException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return REDIRECT_MY_CLASSES;
         }
     }
 

@@ -113,7 +113,7 @@
       <!-- Empty state -->
       <div class="m-empty" th:if="${progressPage.totalElements == 0}">
         <span th:if="${progressSummary.totalStudents() == 0}">
-          Lớp chưa có sinh viên nào. Chia sẻ mã mời ở thanh bên để sinh viên tham gia.
+          Lớp chưa có sinh viên nào. Sinh viên có thể tìm lớp ACTIVE và gửi yêu cầu tham gia.
         </span>
         <span th:unless="${progressSummary.totalStudents() == 0}">
           Không có sinh viên nào khớp với bộ lọc hoặc từ khoá hiện tại.

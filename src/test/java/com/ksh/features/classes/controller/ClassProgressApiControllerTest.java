@@ -58,7 +58,7 @@ class ClassProgressApiControllerTest {
         publishLesson(section.getId(), "B", (short) 1);
         member = ensureUser("drill-member@ksh.edu.vn", "Drill Member", Role.STUDENT);
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                member, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                member, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
         LearningProgress done = new LearningProgress(member.getId(), a.getId());
         done.markCompleted();
         progressRepository.saveAndFlush(done);

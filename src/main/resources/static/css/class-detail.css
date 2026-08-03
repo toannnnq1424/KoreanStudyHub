@@ -7,23 +7,27 @@
 /* ── Layout 2 cot ──────────────────────────────────────────────────── */
 .class-detail-layout {
     width: 100%;
-    padding: 20px 24px 60px;
+    padding: 0;
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
+    gap: 0;
+    align-items: stretch;
+    min-height: calc(100vh - var(--header-height, 64px));
 }
 .class-detail-layout .col { min-width: 0; }
+.class-detail-layout > main.col { padding: 30px clamp(24px, 3vw, 48px) 64px; background: #f8fbfd; }
 
 /* ── Sidebar ───────────────────────────────────────────────────────── */
 .side {
     background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--shadow-sm);
+    border: 0;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    box-shadow: none;
     overflow: hidden;
     position: sticky;
-    top: 85px;
+    top: var(--header-height, 64px);
+    min-height: calc(100vh - var(--header-height, 64px));
 }
 .class-head { padding: 18px 18px 14px; }
 .class-name {
@@ -34,6 +38,15 @@
 .class-ma b { color: var(--primary); font-weight: 700; letter-spacing: .4px; }
 
 .share-box { margin-top: 14px; }
+.class-teaching-team { display: grid; gap: 8px; margin-top: 15px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.class-team-heading { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.class-team-heading > span { color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
+.class-team-heading small { padding: 3px 7px; border-radius: 999px; background: #eaf6fc; color: #286b94; font-size: 10px; font-weight: 750; }
+.class-team-member { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 7px; align-items: center; }
+.class-team-role { color: var(--muted); font-size: 11px; }
+.class-team-member strong { overflow: hidden; color: var(--fg); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.class-team-empty { margin: 0; color: var(--muted); font-size: 11px; }
+.pending-owner-note { color: var(--muted); font-size: 12px; font-weight: 650; }
 .share-label {
     font-size: 12px; font-weight: 700;
     text-transform: uppercase; letter-spacing: .4px;
@@ -151,8 +164,8 @@
 .detail-panel {
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--shadow-sm);
+    border-radius: 0;
+    box-shadow: none;
     overflow: visible;
 }
 
@@ -249,6 +262,21 @@
 .m-empty {
     padding: 60px 20px; text-align: center; color: var(--muted);
 }
+
+.teaching-member-row {
+  background: #f8fbff;
+}
+
+.teaching-avatar {
+  background: #dff1fb !important;
+  color: #185d84;
+}
+
+.teaching-role {
+  background: #e8f5fb;
+  border-color: #b9def0;
+  color: #185d84;
+}
 .m-empty b { color: var(--primary); font-weight: 700; letter-spacing: .4px; }
 
 /* Pending join requests (CODE/LINK awaiting owner approval) */
@@ -304,7 +332,8 @@
     .col-school, .col-grade { display: none; }
 }
 @media (max-width: 720px) {
-    .class-detail-layout { grid-template-columns: 1fr; padding: 14px; }
+    .class-detail-layout { grid-template-columns: 1fr; padding: 0; }
+    .class-detail-layout > main.col { padding: 22px 16px 48px; }
     .side { position: static; }
     .col-phone, .col-joined { display: none; }
 }
@@ -313,7 +342,7 @@
    Detail-page extensions for the class settings page
    ----------------------------------------------------------------------------
    Adds page-specific bits the generic detail-page.css cannot ship:
-   - .code-badge: a monospace "Mã lớp: ABC12" badge in the header meta row,
+   - .code-badge: a monospace metadata badge in the header meta row,
      since the class entity carries a public code that the design system
      does not model.
    - Status-pill modifiers for the class status enum (UPCOMING / ACTIVE /

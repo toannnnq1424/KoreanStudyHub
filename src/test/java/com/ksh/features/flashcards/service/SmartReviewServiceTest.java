@@ -119,7 +119,7 @@ class SmartReviewServiceTest {
 
     private void enroll(User u) {
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                u, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                u, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     private ClassEntity saveClass(User lecturer, String name, String code) {

@@ -35,25 +35,32 @@ public class LeaderReportService {
 
     @Transactional(readOnly = true)
     public ReportView load(Long leaderUserId) {
-        Optional<Department> deptOpt = resolver.resolve(leaderUserId);
-        if (deptOpt.isEmpty()) {
+        List<Department> subjects = resolver.resolveAll(leaderUserId);
+        if (subjects.isEmpty()) {
             return new ReportView(null, List.of(), true);
         }
-        Department dept = deptOpt.get();
-        List<ClassEntity> classes =
-                classRepository.findAllByDepartmentIdOrderByCreatedAtDesc(dept.getId());
+        List<ClassEntity> classes = new ArrayList<>();
+        java.util.Map<Long, String> subjectCodes = new java.util.HashMap<>();
+        for (Department subject : subjects) {
+            subjectCodes.put(subject.getId(), subject.getCode());
+            classes.addAll(classRepository.findAllBySubjectIdOrderByCreatedAtDesc(subject.getId()));
+        }
+        classes.sort((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()));
         List<ReportClassRow> rows = new ArrayList<>(classes.size());
         for (ClassEntity c : classes) {
             long enrollments = countActiveEnrollments(c.getId());
             BigDecimal avgTest = avgTestScore(c.getId());
             BigDecimal avgAsg = avgAssignmentScore(c.getId());
             rows.add(new ReportClassRow(
-                    c.getId(), c.getName(), c.getCode(),
+                    c.getId(), c.getName(), subjectCodes.get(c.getSubjectId()),
                     enrollments, avgTest, avgAsg));
         }
-        return new ReportView(
-                new DepartmentSummary(dept.getId(), dept.getCode(), dept.getName()),
-                rows, false);
+        Department first = subjects.get(0);
+        DepartmentSummary summary = subjects.size() == 1
+                ? new DepartmentSummary(first.getId(), first.getCode(), first.getName())
+                : new DepartmentSummary(first.getId(), subjects.size() + " mã môn",
+                        "Bộ môn tiếng Hàn");
+        return new ReportView(summary, rows, false);
     }
 
     private long countActiveEnrollments(Long classId) {

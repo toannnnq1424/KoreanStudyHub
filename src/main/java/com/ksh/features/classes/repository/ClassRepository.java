@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 
 /**
  * Spring Data JPA repository for {@link ClassEntity}.
@@ -35,11 +36,6 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
 
     List<ClassEntity> findAllByOrderByCreatedAtDesc();
 
-    Optional<ClassEntity> findByCode(String code);
-
-    @Query(value = "SELECT COUNT(*) FROM classes WHERE code = :code", nativeQuery = true)
-    long countAnyByCode(@Param("code") String code);
-
     /**
      * Returns the (non-deleted) classes owned by the supplied lecturer.
      *
@@ -61,6 +57,35 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      * {@code Sort.by(Direction.DESC, "createdAt")}.
      */
     Page<ClassEntity> findAllByLecturerId(Long lecturerId, Pageable pageable);
+
+    /** Classes where the lecturer is either the immutable owner or a co-lecturer. */
+    @Query("""
+            SELECT c
+            FROM ClassEntity c
+            WHERE c.lecturerId = :lecturerId
+               OR c.id IN (
+                    SELECT cc.classId
+                    FROM ClassCoLecturer cc
+                    WHERE cc.lecturerId = :lecturerId
+               )
+            """)
+    Page<ClassEntity> findAllAccessibleToLecturer(@Param("lecturerId") Long lecturerId,
+                                                   Pageable pageable);
+
+    /** Non-paginated owner/co-lecturer scope used by class-backed authoring pickers. */
+    @Query("""
+            SELECT c
+            FROM ClassEntity c
+            WHERE c.lecturerId = :lecturerId
+               OR c.id IN (
+                    SELECT cc.classId
+                    FROM ClassCoLecturer cc
+                    WHERE cc.lecturerId = :lecturerId
+               )
+            ORDER BY c.createdAt DESC
+            """)
+    List<ClassEntity> findAllAccessibleToLecturerOrderByCreatedAtDesc(
+            @Param("lecturerId") Long lecturerId);
 
     /**
      * Paginated variant of the all-non-deleted query used by LEADER / ADMIN
@@ -96,17 +121,46 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      * @param lecturerId the lecturer's user id
      * @return distinct class ids taught by that lecturer
      */
-    @Query("SELECT c.id FROM ClassEntity c WHERE c.lecturerId = :lecturerId")
+    @Query(value = """
+            SELECT DISTINCT c.id
+            FROM classes c
+            LEFT JOIN class_co_lecturers cc ON cc.class_id = c.id
+            WHERE c.is_deleted = 0
+              AND (c.lecturer_id = :lecturerId OR cc.lecturer_id = :lecturerId)
+            """, nativeQuery = true)
     List<Long> findClassIdsForLecturer(@Param("lecturerId") Long lecturerId);
 
     /** Non-deleted classes owned by a department, newest first. */
-    List<ClassEntity> findAllByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
+    List<ClassEntity> findAllBySubjectIdOrderByCreatedAtDesc(Long subjectId);
 
-    List<ClassEntity> findAllByDepartmentIdAndStatusOrderByCreatedAtDesc(
-            Long departmentId, String status);
+    /** Non-deleted classes owned by any subject curated by a multi-subject leader. */
+    List<ClassEntity> findAllBySubjectIdInOrderByCreatedAtDesc(Collection<Long> subjectIds);
+
+    List<ClassEntity> findAllBySubjectIdAndStatusOrderByCreatedAtDesc(
+            Long subjectId, String status);
 
     /** Paginated department-scoped class list. */
-    Page<ClassEntity> findAllByDepartmentId(Long departmentId, Pageable pageable);
+    Page<ClassEntity> findAllBySubjectId(Long subjectId, Pageable pageable);
 
-    long countByDepartmentId(Long departmentId);
+    /** Paginated multi-subject class list for a leader. */
+    Page<ClassEntity> findAllBySubjectIdIn(Collection<Long> subjectIds, Pageable pageable);
+
+    long countBySubjectId(Long subjectId);
+
+    List<ClassEntity> findAllByStatusAndEndDateLessThanEqual(String status, LocalDate endDate);
+
+    List<ClassEntity> findAllByStatusOrderByCreatedAtDesc(String status);
+
+    /** Searchable, paginated ACTIVE catalog for student discovery. */
+    @Query("""
+            SELECT c FROM ClassEntity c, Department s
+            WHERE c.subjectId = s.id
+              AND c.status = :status
+              AND (:query = '' OR LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%'))
+                   OR LOWER(s.code) LIKE LOWER(CONCAT('%', :query, '%')))
+            ORDER BY c.createdAt DESC
+            """)
+    Page<ClassEntity> searchActiveCatalog(@Param("status") String status,
+                                          @Param("query") String query,
+                                          Pageable pageable);
 }

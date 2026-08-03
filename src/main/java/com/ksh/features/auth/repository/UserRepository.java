@@ -128,7 +128,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "       u.is_active AS active, " +
                    "       u.is_locked AS locked, " +
                    "       u.is_deleted AS deleted, " +
-                   "       u.department_id AS departmentId, " +
+                   "       u.subject_id AS subjectId, " +
                    "       u.last_login_at AS lastLoginAt, " +
                    "       u.created_at AS createdAt, " +
                    "       u.avatar_url AS avatarUrl " +
@@ -176,7 +176,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "       u.is_active AS active, " +
                    "       u.is_locked AS locked, " +
                    "       u.is_deleted AS deleted, " +
-                   "       u.department_id AS departmentId, " +
+                   "       u.subject_id AS subjectId, " +
                    "       u.last_login_at AS lastLoginAt, " +
                    "       u.created_at AS createdAt, " +
                    "       u.avatar_url AS avatarUrl " +
@@ -225,7 +225,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "       u.is_active AS active, " +
                    "       u.is_locked AS locked, " +
                    "       u.is_deleted AS deleted, " +
-                   "       u.department_id AS departmentId, " +
+                   "       u.subject_id AS subjectId, " +
                    "       u.last_login_at AS lastLoginAt, " +
                    "       u.created_at AS createdAt, " +
                    "       u.avatar_url AS avatarUrl " +
@@ -282,6 +282,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
             Collection<Role> roles, Long excludedId);
 
     /** Active users in the given department and roles, ordered by name. */
-    List<User> findByDepartmentIdAndRoleInAndActiveTrueOrderByFullNameAsc(Long departmentId,
+    List<User> findBySubjectIdAndRoleInAndActiveTrueOrderByFullNameAsc(Long subjectId,
                                                                           Collection<Role> roles);
 }

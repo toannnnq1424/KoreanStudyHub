@@ -159,7 +159,7 @@ WHERE p.feature_key = 'system.permissions'
 
 -- =============================================================================
 -- 4. AUDIT — permission_activities.
---    Mirrors the department_activities convention from V29. No existing
+--    Mirrors the subjects_activities convention from V29. No existing
 --    activity_* table can carry these events: activity_users.user_id is
 --    NOT NULL, but a role x permission matrix change targets a ROLE and has
 --    no target user at all. Hence target_user_id is nullable here — it is

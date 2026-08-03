@@ -83,7 +83,7 @@
         <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
         <label for="ldashSearch" class="sr-only">Tìm kiếm lớp học</label>
         <input id="ldashSearch" type="search" name="q" th:value="${teachingQuery}"
-               placeholder="Tìm theo tên hoặc mã lớp" autocomplete="off">
+               placeholder="Tìm theo tên lớp hoặc mã môn" autocomplete="off">
         <button type="submit">Tìm</button>
       </form>
     </header>
@@ -93,7 +93,7 @@
         <thead>
           <tr>
             <th>Tên lớp</th>
-            <th>Mã lớp</th>
+            <th>Mã môn</th>
             <th>Trạng thái</th>
             <th class="is-centered">Sĩ số</th>
             <th class="is-centered">Hoàn thành TB</th>
@@ -103,7 +103,7 @@
         <tbody>
           <tr th:each="r : ${teachingClassRows.content}">
             <td data-label="Tên lớp"><strong th:text="${r.name()}">Lớp</strong></td>
-            <td data-label="Mã lớp"><code th:text="${r.code() != null ? r.code() : '—'}">CODE</code></td>
+            <td data-label="Mã môn"><code th:text="${r.code() != null ? r.code() : '—'}">KOR311</code></td>
             <td data-label="Trạng thái">
               <span class="ldash-status"
                     th:classappend="${r.status() != null ? #strings.toLowerCase(r.status()) : ''}"
@@ -137,7 +137,7 @@
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
       </span>
       <h3>Không tìm thấy lớp phù hợp</h3>
-      <p>Không có kết quả cho “<span th:text="${teachingQuery}">từ khóa</span>”. Hãy thử tên hoặc mã lớp khác.</p>
+      <p>Không có kết quả cho “<span th:text="${teachingQuery}">từ khóa</span>”. Hãy thử tên lớp hoặc mã môn khác.</p>
       <a class="ldash-secondary-action" th:href="@{/lecturer/dashboard}">Xóa bộ lọc</a>
     </div>
 

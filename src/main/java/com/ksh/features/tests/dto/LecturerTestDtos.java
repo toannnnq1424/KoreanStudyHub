@@ -41,16 +41,12 @@ public final class LecturerTestDtos {
                            List<QuestionForm> questions, boolean questionBankLocked) {
     }
 
-    /** One active department category shown in the exam-side bank picker. */
-    public record BankCategoryOption(Long id, String name) {
-    }
-
     /** One option copied from an approved bank item. */
     public record BankOptionSnapshot(String content, boolean correct) {
     }
 
     /** Snapshot payload returned by the approved bank picker query. */
-    public record BankItemSnapshot(Long id, String categoryName, String questionType,
+    public record BankItemSnapshot(Long id, String subjectCode, String questionType,
                                    String content, String explanation,
                                    List<BankOptionSnapshot> options) {
     }
@@ -61,6 +57,22 @@ public final class LecturerTestDtos {
 
     /** Result of an insert-from-bank operation: how many questions were copied. */
     public record BankInsertResult(int insertedCount) {
+    }
+
+    /** One ACTIVE class eligible to receive a published test snapshot. */
+    public record TestDistributionTarget(Long id, String name) {
+    }
+
+    /** Read model for the published-test distribution screen. */
+    public record TestDistributionView(Long testId, String title, String subjectCode,
+                                       List<TestDistributionTarget> targetClasses) {
+    }
+
+    /** Atomic result of copying one published test to selected classes. */
+    public record TestDistributionResult(List<Long> testIds) {
+        public int distributedCount() {
+            return testIds.size();
+        }
     }
 
     /** Save response: the persisted exam id + where to go next. */

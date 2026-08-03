@@ -36,7 +36,7 @@ class DepartmentLeaderConcurrencyContractTest {
     private UserRepository userRepository;
 
     @Mock
-    private DepartmentAuditWriter auditWriter;
+    private SubjectAuditWriter auditWriter;
 
     @Mock
     private SystemSettingsRepository systemSettingsRepository;
@@ -51,8 +51,6 @@ class DepartmentLeaderConcurrencyContractTest {
                 .thenReturn(Optional.of(department));
         when(userRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(candidate));
         when(userRepository.findByIdForUpdate(30L)).thenReturn(Optional.of(previous));
-        when(departmentRepository.existsByLeaderUserIdAndIdNot(20L, 10L))
-                .thenReturn(false);
         when(departmentRepository.existsByLeaderUserId(30L)).thenReturn(false);
 
         service().assignLeader(10L, 20L, 99L);
@@ -66,31 +64,25 @@ class DepartmentLeaderConcurrencyContractTest {
         order.verify(userRepository).findByIdForUpdate(30L);
         assertThat(department.getLeaderUserId()).isEqualTo(20L);
         assertThat(candidate.getRole()).isEqualTo(Role.LEADER);
-        assertThat(candidate.getDepartmentId()).isEqualTo(10L);
+        assertThat(candidate.getSubjectId()).isEqualTo(10L);
         assertThat(previous.getRole()).isEqualTo(Role.LECTURER);
     }
 
     @Test
-    void candidateAlreadyLeadingAnotherDepartmentIsRejectedWithoutMutation() {
+    void candidateAlreadyLeadingAnotherSubjectCanCurateThisSubjectToo() {
         Department department = department(10L, null);
         User candidate = user(20L, Role.LEADER, 11L);
         stubAnchor();
         when(departmentRepository.findByIdForUpdate(10L))
                 .thenReturn(Optional.of(department));
         when(userRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(candidate));
-        when(departmentRepository.existsByLeaderUserIdAndIdNot(20L, 10L))
-                .thenReturn(true);
+        service().assignLeader(10L, 20L, 99L);
 
-        assertThatThrownBy(() -> service().assignLeader(10L, 20L, 99L))
-                .isInstanceOf(DepartmentValidationException.class)
-                .hasMessage(DepartmentService.MSG_LEADER_ALREADY_ASSIGNED);
-
-        assertThat(department.getLeaderUserId()).isNull();
+        assertThat(department.getLeaderUserId()).isEqualTo(20L);
         assertThat(candidate.getRole()).isEqualTo(Role.LEADER);
-        assertThat(candidate.getDepartmentId()).isEqualTo(11L);
-        verify(departmentRepository, never()).saveAndFlush(department);
-        verify(userRepository, never()).save(candidate);
-        verifyNoInteractions(auditWriter);
+        assertThat(candidate.getSubjectId()).isEqualTo(10L);
+        verify(departmentRepository).saveAndFlush(department);
+        verify(userRepository).save(candidate);
     }
 
     @Test
@@ -102,13 +94,10 @@ class DepartmentLeaderConcurrencyContractTest {
                 .thenReturn(Optional.of(department));
         when(userRepository.findByIdForUpdate(20L))
                 .thenReturn(Optional.of(driftedLeader));
-        when(departmentRepository.existsByLeaderUserIdAndIdNot(20L, 10L))
-                .thenReturn(false);
-
         service().assignLeader(10L, 20L, 99L);
 
         assertThat(driftedLeader.getRole()).isEqualTo(Role.LEADER);
-        assertThat(driftedLeader.getDepartmentId()).isEqualTo(10L);
+        assertThat(driftedLeader.getSubjectId()).isEqualTo(10L);
         verify(userRepository).findByIdForUpdate(20L);
         verify(userRepository).save(driftedLeader);
     }
@@ -171,7 +160,7 @@ class DepartmentLeaderConcurrencyContractTest {
         return department;
     }
 
-    private static User user(Long id, Role role, Long departmentId) {
+    private static User user(Long id, Role role, Long subjectId) {
         User user = UserFactory.newAdminCreated(
                 "user-" + id + "@ksh.test",
                 "unused-test-hash",
@@ -181,7 +170,7 @@ class DepartmentLeaderConcurrencyContractTest {
                 null,
                 null);
         ReflectionTestUtils.setField(user, "id", id);
-        user.setDepartmentId(departmentId);
+        user.setSubjectId(subjectId);
         return user;
     }
 }

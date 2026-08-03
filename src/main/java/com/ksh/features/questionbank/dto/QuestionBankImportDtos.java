@@ -10,7 +10,7 @@ public final class QuestionBankImportDtos {
     }
 
     public record PreviewRow(int rowNumber,
-                             String categoryName,
+                             String subjectCode,
                              String questionType,
                              String contentPreview,
                              String status,

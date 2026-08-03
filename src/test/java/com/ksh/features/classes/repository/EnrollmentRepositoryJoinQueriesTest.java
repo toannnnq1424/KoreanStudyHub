@@ -107,36 +107,25 @@ class EnrollmentRepositoryJoinQueriesTest {
     }
 
     private long insertClass(long lecturerId) {
-        String code = randomClassCode();
         em.createNativeQuery(
-                        "INSERT INTO classes (code, name, lecturer_id, created_by, status, max_students, is_deleted) " +
-                                "VALUES (:code, :name, :lec, :lec, 'UPCOMING', 100, 0)")
-                .setParameter("code", code)
-                .setParameter("name", "ERJ-" + code)
+                        "INSERT INTO classes (name, lecturer_id, created_by, status, max_students, is_deleted) " +
+                                "VALUES (:name, :lec, :lec, 'ACTIVE', 100, 0)")
+                .setParameter("name", "ERJ-" + System.nanoTime())
                 .setParameter("lec", lecturerId)
                 .executeUpdate();
         em.flush();
-        Number id = (Number) em.createNativeQuery("SELECT id FROM classes WHERE code = :code")
-                .setParameter("code", code)
-                .getSingleResult();
+        Number id = (Number) em.createNativeQuery("SELECT LAST_INSERT_ID()").getSingleResult();
         return id.longValue();
     }
 
     private void insertEnrollment(long userId, long classId, String status) {
         em.createNativeQuery(
                         "INSERT INTO enrollments (user_id, class_id, status, joined_via, joined_at) " +
-                                "VALUES (:u, :c, :s, 'CODE', NOW())")
+                                "VALUES (:u, :c, :s, 'REQUEST', NOW())")
                 .setParameter("u", userId)
                 .setParameter("c", classId)
                 .setParameter("s", status)
                 .executeUpdate();
     }
 
-    private static String randomClassCode() {
-        String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        StringBuilder sb = new StringBuilder(5);
-        java.util.Random rnd = new java.util.Random();
-        for (int i = 0; i < 5; i++) sb.append(alphabet.charAt(rnd.nextInt(alphabet.length())));
-        return sb.toString();
-    }
 }

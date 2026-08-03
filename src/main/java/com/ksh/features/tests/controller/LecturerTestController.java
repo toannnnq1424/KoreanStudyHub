@@ -9,6 +9,8 @@ import com.ksh.features.tests.dto.LecturerTestDtos.ExamHeader;
 import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamFilter;
 import com.ksh.features.tests.dto.LecturerTestDtos.SaveResult;
+import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionResult;
+import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionView;
 import com.ksh.features.tests.dto.TestDtos.PreviewView;
 import com.ksh.features.tests.service.ExamMonitorService;
 import com.ksh.features.tests.service.ExamQuestionBankPickerService;
@@ -37,6 +39,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 import java.util.List;
@@ -45,8 +48,9 @@ import java.util.Set;
 
 import static com.ksh.common.IConstant.ATTR_ACTIVE_DETAIL_TAB;
 import static com.ksh.common.IConstant.ATTR_EXAMS_PAGE;
-import static com.ksh.common.IConstant.ATTR_EXAM_BANK_CATEGORIES;
 import static com.ksh.common.IConstant.ATTR_EXAM_FORM;
+import static com.ksh.common.IConstant.ATTR_FLASH_ERROR;
+import static com.ksh.common.IConstant.ATTR_FLASH_SUCCESS;
 import static com.ksh.common.IConstant.ATTR_LED_CLASSES;
 import static com.ksh.common.IConstant.ATTR_MODE;
 import static com.ksh.common.IConstant.ATTR_MONITOR;
@@ -150,11 +154,45 @@ public class LecturerTestController {
 
         model.addAttribute(ATTR_EXAM_FORM, null);
         model.addAttribute(ATTR_LED_CLASSES, ledClasses);
-        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES, java.util.List.of());
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         model.addAttribute(ATTR_SELECTED_CLASS_ID, selectedClassId);
         model.addAttribute(ATTR_TEST_RETURN_URL, returnUrlForClass(selectedClassId));
         return VIEW_TEST_LECTURER_FORM;
+    }
+
+    /** Shows ACTIVE same-subject classes eligible for an atomic test snapshot. */
+    @GetMapping("/{id}/distribute")
+    public String distributionForm(@PathVariable Long id,
+                                   @AuthenticationPrincipal KshUserDetails user,
+                                   Model model) {
+        TestDistributionView distribution = examService.distributionView(
+                user.getId(), user.getRole(), id);
+        model.addAttribute("distribution", distribution);
+        return "tests/lecturer-distribute";
+    }
+
+    /** Copies one finished test to all selected same-subject classes. */
+    @PostMapping("/{id}/distribute")
+    public String distribute(@PathVariable Long id,
+                             @RequestParam(name = "classIds", required = false) List<Long> classIds,
+                             @AuthenticationPrincipal KshUserDetails user,
+                             RedirectAttributes ra) {
+        try {
+            TestDistributionResult result = examService.distributePublished(
+                    user.getId(), user.getRole(), id, classIds);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS,
+                    "Đã phân phối bài test tới " + result.distributedCount() + " lớp");
+            return "redirect:" + BASE_LECTURER_TESTS;
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:" + BASE_LECTURER_TESTS + "/" + id + "/distribute";
+        } catch (AccessDeniedException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, "Bạn không có quyền phân phối bài test này");
+            return "redirect:" + BASE_LECTURER_TESTS;
+        } catch (EntityNotFoundException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:" + BASE_LECTURER_TESTS;
+        }
     }
 
     /**
@@ -189,8 +227,6 @@ public class LecturerTestController {
         ExamForm form = examService.getForEdit(id, userId);
         model.addAttribute(ATTR_EXAM_FORM, form);
         model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(userId));
-        model.addAttribute(ATTR_EXAM_BANK_CATEGORIES,
-                questionBankPickerService.categoriesFor(userId, user.getRole(), id));
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_TEST, monitorService.header(id, userId));
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);

@@ -6,6 +6,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/leader-department.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('leader')}"></header>
@@ -13,57 +14,83 @@
 <div class="class-detail-layout">
   <aside th:replace="~{fragments/leader-sidebar :: leaderSidebar('assign')}"></aside>
 
-  <main class="col">
+  <main class="col leader-assignment-page">
     <span id="flash-data"
           th:attr="data-flash-success=${flashSuccess},
                    data-flash-error=${flashError}"
           style="display:none;"></span>
 
-    <h1 class="detail-title">Phân công giảng viên</h1>
-    <p class="detail-sub">Chỉ phân công giảng viên thuộc cùng bộ môn. Bộ môn của lớp không đổi.</p>
+    <h1 class="detail-title">Phân công đồng giảng</h1>
+    <p class="detail-sub">Thêm một hoặc nhiều giảng viên đang hoạt động vào lớp. Giảng viên chủ lớp và người tạo lớp không thay đổi.</p>
 
     <div th:if="${emptyDepartment}" class="admin-list-empty" role="status">
       Bạn chưa được gán bộ môn. Liên hệ quản trị viên để được chỉ định trưởng bộ môn.
     </div>
 
-    <section class="admin-list-panel" th:if="${!emptyDepartment}">
+    <section class="leader-assignment-panel" th:if="${!emptyDepartment}">
       <div th:if="${classRows == null or classRows.isEmpty()}" class="admin-list-empty">
         Chưa có lớp nào thuộc bộ môn.
       </div>
-      <table class="admin-list-table" th:if="${classRows != null and !classRows.isEmpty()}">
-        <thead>
-          <tr>
-            <th>Mã</th>
-            <th>Tên lớp</th>
-            <th>GV hiện tại</th>
-            <th>Phân công mới</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr th:each="row : ${classRows}">
-            <td><code th:text="${row.classCode()}">CODE</code></td>
-            <td th:text="${row.className()}">Tên</td>
-            <td th:text="${row.lecturerName()}">GV</td>
-            <td>
+      <th:block th:if="${classRows != null and !classRows.isEmpty()}">
+        <label class="leader-assignment-search">
+          <span class="sr-only">Tìm lớp cần phân công</span>
+          <input type="search" placeholder="Tìm theo mã môn, tên lớp hoặc giảng viên chủ lớp…"
+                 autocomplete="off" data-item-filter="#leader-assignment-list">
+        </label>
+
+        <div id="leader-assignment-list" class="leader-assignment-list">
+          <details class="leader-assignment-row" th:each="row : ${classRows}"
+                   data-filter-item
+                   th:attr="data-search-text=${row.subjectCode() + ' ' + row.className() + ' ' + row.lecturerName()}">
+            <summary class="leader-assignment-summary">
+              <code class="leader-assignment-code" th:text="${row.subjectCode()}">KOR311</code>
+              <span class="leader-assignment-class">
+                <strong th:text="${row.className()}">Tên lớp</strong>
+                <small>GV chủ lớp: <span th:text="${row.lecturerName()}">Giảng viên</span></small>
+              </span>
+              <span class="leader-assignment-current">
+                <small>Đồng giảng hiện tại</small>
+                <span th:if="${row.coLecturerNames() == null or row.coLecturerNames().isEmpty()}"
+                      class="leader-assignment-empty">Chưa có</span>
+                <span th:if="${row.coLecturerNames() != null and !row.coLecturerNames().isEmpty()}"
+                      class="leader-assignment-names">
+                  <span th:each="name : ${row.coLecturerNames()}" th:text="${name}">Giảng viên</span>
+                </span>
+              </span>
+              <span class="leader-assignment-toggle" aria-hidden="true">Chỉnh sửa</span>
+            </summary>
+
+            <div class="leader-assignment-editor">
               <form th:action="@{'/leader/assign/' + ${row.classId()}}" method="post" class="leader-assign-form">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <select name="lecturerId" required>
-                  <option th:each="l : ${lecturers}"
-                          th:value="${l.id()}"
-                          th:selected="${l.id() == row.lecturerId()}"
-                          th:text="${l.fullName()}">GV</option>
-                </select>
-                <button type="submit" class="btn-primary btn-sm">Lưu</button>
+                <div class="ksh-search-checklist" data-search-checklist>
+                  <label class="sr-only" th:for="${'co-lecturer-search-' + row.classId()}">Tìm giảng viên đồng giảng</label>
+                  <input class="ksh-checklist-search" type="search"
+                         th:id="${'co-lecturer-search-' + row.classId()}"
+                         placeholder="Gõ tên hoặc email giảng viên…" autocomplete="off">
+                  <div class="ksh-checklist-options" role="group" aria-label="Giảng viên có thể chọn">
+                    <label th:each="l : ${lecturers}"
+                           th:if="${l.id() != row.lecturerId()}"
+                           th:attr="data-search-text=${l.fullName() + ' ' + l.email()}">
+                      <input type="checkbox" name="lecturerIds" th:value="${l.id()}"
+                             th:checked="${row.coLecturerIds().contains(l.id())}">
+                      <span><strong th:text="${l.fullName()}">Giảng viên</strong>
+                        <small th:text="${l.email()}">email</small></span>
+                    </label>
+                  </div>
+                </div>
+                <button type="submit" class="btn-primary">Lưu phân công</button>
               </form>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </div>
+          </details>
+        </div>
+      </th:block>
     </section>
   </main>
 </div>
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/leader-department.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

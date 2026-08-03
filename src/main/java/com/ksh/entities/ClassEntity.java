@@ -10,6 +10,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import jakarta.persistence.Transient;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
@@ -18,9 +19,8 @@ import java.time.LocalDateTime;
 /**
  * JPA entity mapping the {@code classes} table.
  *
- * <p>As of Sprint 2 there is no Course dependency: migration V7 dropped the
- * {@code course_id} foreign key and added the {@code code} column
- * (5-character unique identifier).
+ * <p>There is no Course dependency and no random class/invite code. Classes
+ * are discovered by name and their catalog subject code.
  *
  * <p>{@link SQLRestriction} ensures that every default query filters out
  * soft-deleted records ({@code is_deleted = 0}).
@@ -33,11 +33,8 @@ import java.time.LocalDateTime;
 public class ClassEntity {
 
     public static final String STATUS_DRAFT = "DRAFT";
-    public static final String STATUS_UPCOMING = "UPCOMING";
     public static final String STATUS_ACTIVE = "ACTIVE";
-    public static final String STATUS_COMPLETED = "COMPLETED";
-    public static final String STATUS_CANCELLED = "CANCELLED";
-    public static final String STATUS_REJECTED = "REJECTED";
+    public static final String STATUS_ARCHIVED = "ARCHIVED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,17 +43,17 @@ public class ClassEntity {
     @Column(nullable = false, length = 300)
     private String name;
 
-    @Setter
-    @Column(length = 10, unique = true)
-    private String code;
+    /** Test-fixture compatibility only; V97 removed the persisted random code. */
+    @Transient
+    private String legacyCode;
 
     @Column(name = "lecturer_id", nullable = false)
     private Long lecturerId;
 
-    /** Owning department; nullable until backfilled or set on create. */
+    /** Canonical subject catalog row (physical compatibility column name). */
     @Setter
-    @Column(name = "department_id")
-    private Long departmentId;
+    @Column(name = "subject_id")
+    private Long subjectId;
 
     @Column(name = "start_date")
     private LocalDate startDate;
@@ -138,7 +135,6 @@ public class ClassEntity {
                               Integer maxStudents) {
         this.name = name;
         this.description = description;
-        this.startDate = startDate;
         this.endDate = endDate;
         if (maxStudents != null) {
             this.maxStudents = maxStudents;
@@ -154,17 +150,9 @@ public class ClassEntity {
         this.deleted = true;
     }
 
-    /**
-     * Reassigns the teaching lecturer without changing department ownership.
-     * Used by LEADER lecturer-assignment flows.
-     */
-    public void reassignLecturer(Long lecturerId) {
-        this.lecturerId = lecturerId;
-    }
-
     public void approve(Long reviewerId, LocalDateTime reviewedAt) {
         requireDraft();
-        this.status = STATUS_UPCOMING;
+        this.status = STATUS_ACTIVE;
         this.approvedBy = reviewerId;
         this.approvedAt = reviewedAt;
         this.rejectionNote = null;
@@ -172,10 +160,28 @@ public class ClassEntity {
 
     public void reject(Long reviewerId, String note, LocalDateTime reviewedAt) {
         requireDraft();
-        this.status = STATUS_REJECTED;
+        this.status = STATUS_DRAFT;
         this.approvedBy = reviewerId;
         this.approvedAt = reviewedAt;
         this.rejectionNote = note == null || note.isBlank() ? null : note.trim();
+    }
+
+    public void archive() {
+        if (STATUS_ACTIVE.equals(status)) {
+            this.status = STATUS_ARCHIVED;
+        }
+    }
+
+    /** @deprecated Class codes are no longer persisted or used by the product. */
+    @Deprecated(forRemoval = true)
+    public String getCode() {
+        return legacyCode;
+    }
+
+    /** @deprecated Kept temporarily so legacy test fixtures can migrate independently. */
+    @Deprecated(forRemoval = true)
+    public void setCode(String ignored) {
+        this.legacyCode = ignored;
     }
 
     private void requireDraft() {

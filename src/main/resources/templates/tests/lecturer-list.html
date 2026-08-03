@@ -4,9 +4,10 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
-<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
 
 <span id="flash-data"
       th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
@@ -20,21 +21,26 @@
 
   <section class="tst-section">
     <form method="get" class="tst-filter-grid">
-      <input class="tst-input" type="search" name="q" placeholder="Tìm theo tiêu đề"
+      <label class="sr-only" for="testSearch">Tìm theo tiêu đề bài test</label>
+      <input class="tst-input" id="testSearch" type="search" name="q" placeholder="Tìm theo tiêu đề"
              th:value="${examFilter.keyword()}">
-      <select class="tst-input" name="status">
+      <label class="sr-only" for="testStatus">Lọc theo trạng thái</label>
+      <select class="tst-input" id="testStatus" name="status" data-ksh-select>
         <option value="">Mọi trạng thái</option>
         <option value="DRAFT" th:selected="${examFilter.status() == 'DRAFT'}">Bản nháp</option>
         <option value="PUBLISHED" th:selected="${examFilter.status() == 'PUBLISHED'}">Đã xuất bản</option>
         <option value="ARCHIVED" th:selected="${examFilter.status() == 'ARCHIVED'}">Đã lưu trữ</option>
       </select>
-      <select class="tst-input" name="type">
+      <label class="sr-only" for="testType">Lọc theo loại bài test</label>
+      <select class="tst-input" id="testType" name="type" data-ksh-select>
         <option value="">Mọi loại</option>
         <option value="MOCK" th:selected="${examFilter.type() == 'MOCK'}">Thi thử</option>
         <option value="MODULE" th:selected="${examFilter.type() == 'MODULE'}">Theo học phần</option>
         <option value="PRACTICE" th:selected="${examFilter.type() == 'PRACTICE'}">Luyện tập</option>
       </select>
-      <select class="tst-input" name="classId">
+      <label class="sr-only" for="testClass">Lọc theo lớp</label>
+      <select class="tst-input" id="testClass" name="classId" data-ksh-select
+              data-ksh-searchable data-ksh-search-placeholder="Gõ tên lớp…">
         <option value="">Mọi lớp</option>
         <option th:each="clazz : ${ledClasses}" th:value="${clazz.id()}"
                 th:text="${clazz.name()}" th:selected="${examFilter.classId() == clazz.id()}">Lớp</option>
@@ -45,7 +51,8 @@
       Bạn chưa tạo bài test nào.
     </div>
 
-    <table class="tst-table" th:if="${examsPage.totalElements > 0}">
+    <div class="tst-table-wrap" th:if="${examsPage.totalElements > 0}">
+    <table class="tst-table">
       <thead>
       <tr>
         <th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Lớp</th>
@@ -57,18 +64,22 @@
         <td th:text="${exam.title()}">Tên</td>
         <td><span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}"
                   th:text="${exam.type()}">MOCK</span></td>
-        <td th:text="${exam.status()}">DRAFT</td>
+        <td><span class="tst-status" th:classappend="'tst-status-' + ${exam.status()}"
+                  th:text="${exam.status()}">DRAFT</span></td>
         <td th:text="${exam.className()}">Lớp</td>
         <td th:text="${exam.totalQuestions()}">0</td>
         <td class="tst-row-actions">
           <a th:href="@{|/lecturer/tests/${exam.id()}/edit|}">Sửa</a>
           <a th:href="@{|/lecturer/tests/${exam.id()}/preview|}">Xem trước</a>
+          <a th:if="${exam.status() == 'PUBLISHED'}"
+             th:href="@{|/lecturer/tests/${exam.id()}/distribute|}">Phân phối</a>
           <a th:href="@{|/lecturer/tests/${exam.id()}/monitor|}">Theo dõi</a>
           <a th:href="@{|/lecturer/tests/${exam.id()}/submissions|}">Bài nộp</a>
         </td>
       </tr>
       </tbody>
     </table>
+    </div>
 
     <div th:replace="~{fragments/pager :: pager(${examsPage}, '/lecturer/tests', ${examPagerParams})}"></div>
   </section>
@@ -76,5 +87,6 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/flashcard-common.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

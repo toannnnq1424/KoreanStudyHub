@@ -24,4 +24,4 @@ ALTER TABLE classes
     ADD COLUMN approved_at DATETIME NULL AFTER approved_by,
     ADD COLUMN rejection_note VARCHAR(500) NULL AFTER approved_at,
     ADD CONSTRAINT fk_class_approver FOREIGN KEY (approved_by) REFERENCES users(id),
-    ADD INDEX idx_classes_department_status_created (department_id, status, created_at);
+    ADD INDEX idx_classes_subject_status_created (subject_id, status, created_at);

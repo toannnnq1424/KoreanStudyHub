@@ -1,6 +1,7 @@
 package com.ksh.features.classes.repository;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.ClassCoLecturer;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ class ClassRepositoryPaginationTest {
 
     @Autowired
     private ClassRepository classRepository;
+
+    @Autowired
+    private ClassCoLecturerRepository classCoLecturerRepository;
 
     @PersistenceContext
     private EntityManager em;
@@ -115,6 +119,23 @@ class ClassRepositoryPaginationTest {
         assertThat(page.getContent())
                 .extracting(ClassEntity::getName)
                 .contains("PG-All-A", "PG-All-B");
+    }
+
+    @Test
+    void accessible_scope_includes_co_lecturer_for_page_and_authoring_picker() {
+        Long lecturerId = lookupUserId("lecturer@ksh.edu.vn");
+        Long ownerId = lookupUserId("leader@ksh.edu.vn");
+        ClassEntity shared = classRepository.saveAndFlush(
+                newClass("PG-Co-Lecturer", randomCode(), ownerId));
+        classCoLecturerRepository.saveAndFlush(
+                new ClassCoLecturer(shared.getId(), lecturerId, ownerId));
+
+        Page<ClassEntity> page = classRepository.findAllAccessibleToLecturer(
+                lecturerId, PageRequest.of(0, 100, Sort.by(Sort.Direction.DESC, "createdAt")));
+        assertThat(page.getContent()).extracting(ClassEntity::getId).contains(shared.getId());
+        assertThat(classRepository.findAllAccessibleToLecturerOrderByCreatedAtDesc(lecturerId))
+                .extracting(ClassEntity::getId)
+                .contains(shared.getId());
     }
 
     // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

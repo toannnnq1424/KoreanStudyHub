@@ -1,8 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    KSH — Student classes behavior
    - Leave-class menu action gated by confirm modal
-   - Auto-uppercase the join-code input as the user types
-   - Copy class code to clipboard
+   - Copy subject code to clipboard
    - Client-side search + sort over student class cards
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -10,16 +9,6 @@
   'use strict';
 
   // Server flash payloads are drained centrally by notifications.js.
-
-  // ── Auto-uppercase the join code input ────────────────────────────
-  var codeInput = document.getElementById('code');
-  if (codeInput) {
-    codeInput.addEventListener('input', function () {
-      var pos = codeInput.selectionStart;
-      codeInput.value = codeInput.value.toUpperCase();
-      try { codeInput.setSelectionRange(pos, pos); } catch (e) { /* ignored */ }
-    });
-  }
 
   // ── "Rời khỏi lớp" menu action → confirm → submit hidden form ──────
   document.addEventListener('click', function (e) {
@@ -42,7 +31,7 @@
     });
   });
 
-  // ── Copy class code to clipboard ──────────────────────────────────
+  // ── Copy subject code to clipboard ────────────────────────────────
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.copy-code');
     if (!btn) return;
@@ -52,7 +41,7 @@
     if (!code) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(code).then(function () {
-        if (window.KshToast) window.KshToast.success('Đã sao chép mã: ' + code);
+        if (window.KshToast) window.KshToast.success('Đã sao chép mã môn: ' + code);
       });
     }
   });

@@ -5,6 +5,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-lecturer-form.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-monitor.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-submissions.css}">
   <link class="page-css" rel="stylesheet"
@@ -15,7 +16,7 @@
         crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
-<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+<header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
 
 <div class="class-detail-layout"
      th:classappend="${mode == 'create' or clazz == null} ? 'lf-no-sidebar'">
@@ -135,7 +136,7 @@
         </div>
         <div class="lf-field">
           <label class="lf-label" for="lfClass">Lớp</label>
-          <select class="lf-input" id="lfClass">
+          <select class="lf-input" id="lfClass" data-ksh-select>
             <option value="">— Chọn lớp —</option>
             <option th:each="c : ${ledClasses}"
                     th:value="${c.id()}"
@@ -146,14 +147,14 @@
         </div>
         <div class="lf-field">
           <label class="lf-label" for="lfType">Loại</label>
-          <select class="lf-input" id="lfType">
+          <select class="lf-input" id="lfType" data-ksh-select>
             <option value="MOCK">MOCK (thi thử)</option>
             <option value="MODULE">MODULE (theo chương)</option>
           </select>
         </div>
         <div class="lf-field">
           <label class="lf-label" for="lfStatus">Trạng thái</label>
-          <select class="lf-input" id="lfStatus">
+          <select class="lf-input" id="lfStatus" data-ksh-select>
             <option value="DRAFT">Nháp</option>
             <option value="PUBLISHED">Xuất bản</option>
             <option value="ARCHIVED">Lưu trữ</option>
@@ -161,7 +162,7 @@
         </div>
         <div class="lf-field">
           <label class="lf-label" for="lfTimeMode">Kiểu tính giờ</label>
-          <select class="lf-input" id="lfTimeMode">
+          <select class="lf-input" id="lfTimeMode" data-ksh-select>
             <option value="FIXED_WINDOW">Cửa sổ cố định (theo giờ mở/đóng)</option>
             <option value="INDIVIDUAL">Riêng từng SV (theo thời lượng)</option>
           </select>
@@ -209,7 +210,7 @@
         <div class="lf-grid">
           <div class="lf-field">
             <label class="lf-label" for="lfMediaType">Loại media</label>
-            <select class="lf-input" id="lfMediaType">
+            <select class="lf-input" id="lfMediaType" data-ksh-select>
               <option value="YOUTUBE">YouTube</option>
               <option value="VIDEO">Video (URL ngoài)</option>
               <option value="AUDIO">Audio (URL ngoài)</option>
@@ -248,17 +249,11 @@
                data-dirty-guard="ignore" hidden>
         <div class="lf-bank-toolbar">
           <input class="lf-input" id="lfBankQuery" type="text"
-                 placeholder="Tìm theo nội dung hoặc danh mục câu hỏi">
-          <select class="lf-input" id="lfBankCategory">
-            <option value="">Tất cả danh mục</option>
-            <option th:each="category : ${examBankCategories}"
-                    th:value="${category.id()}"
-                    th:text="${category.name()}">Danh mục</option>
-          </select>
+                 placeholder="Tìm theo nội dung hoặc mã môn">
           <button type="button" class="tst-btn" id="lfBankSearch">Tìm</button>
           <button type="button" class="tst-btn" id="lfBankClose">Đóng</button>
         </div>
-        <div class="lf-bank-state" id="lfBankState">Nhập từ khoá hoặc chọn danh mục để tải các câu đã được duyệt của ngân hàng bộ môn.</div>
+        <div class="lf-bank-state" id="lfBankState">Tải các câu đã duyệt thuộc cùng mã môn với lớp.</div>
         <div class="lf-bank-results" id="lfBankResults"></div>
       </section>
 
@@ -278,17 +273,17 @@
                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
         </div>
         <div class="lf-bank-toolbar">
-          <select class="lf-input" id="lfAiCount" aria-label="Số câu hỏi">
+          <select class="lf-input" id="lfAiCount" aria-label="Số câu hỏi" data-ksh-select>
             <option value="3">3 câu</option>
             <option value="5" selected>5 câu</option>
             <option value="10">10 câu</option>
             <option value="20">20 câu</option>
           </select>
-          <select class="lf-input" id="lfAiType" aria-label="Loại câu hỏi">
+          <select class="lf-input" id="lfAiType" aria-label="Loại câu hỏi" data-ksh-select>
             <option value="MCQ" selected>Một đáp án đúng</option>
             <option value="MR">Nhiều đáp án đúng</option>
           </select>
-          <select class="lf-input" id="lfAiDifficulty" aria-label="Độ khó">
+          <select class="lf-input" id="lfAiDifficulty" aria-label="Độ khó" data-ksh-select>
             <option value="easy">Dễ</option>
             <option value="medium" selected>Trung bình</option>
             <option value="hard">Khó</option>
@@ -490,5 +485,6 @@
 <script th:src="@{/js/test-monitor.js}"></script>
 <script th:src="@{/js/detail-tabs-dirty-guard.js}"></script>
 <script th:src="@{/js/test-detail-tabs.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

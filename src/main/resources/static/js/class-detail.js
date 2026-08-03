@@ -8,26 +8,6 @@
 
   // Server flash payloads are drained centrally by notifications.js.
 
-  // ── Copy buttons in sidebar share-box ──────────────────────────────
-  // Wired here (not in invite-code.js) because invite-code.js scopes its
-  // copy handler to .invite-panel, and the sidebar share-box lives outside
-  // that panel. Both rows expose data-copy + data-copy-label so this single
-  // handler covers the CODE row and the LINK row uniformly.
-  document.querySelectorAll('.share-copy-btn').forEach(function (btn) {
-    btn.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var value = btn.dataset.copy;
-      var label = btn.dataset.copyLabel || 'giá trị';
-      if (!value || !navigator.clipboard) return;
-      navigator.clipboard.writeText(value).then(function () {
-        if (window.KshToast) window.KshToast.success('Đã sao chép ' + label);
-      }).catch(function () {
-        if (window.KshToast) window.KshToast.error('Không thể sao chép');
-      });
-    });
-  });
-
   // ── Member search (client-side) ────────────────────────────────────
   var memberSearch = document.getElementById('memberSearch');
   if (memberSearch) {

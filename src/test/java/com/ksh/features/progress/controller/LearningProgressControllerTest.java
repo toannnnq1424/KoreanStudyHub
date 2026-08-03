@@ -63,7 +63,7 @@ class LearningProgressControllerTest {
         l.publish();
         lesson = lessonRepository.saveAndFlush(l);
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     @Test

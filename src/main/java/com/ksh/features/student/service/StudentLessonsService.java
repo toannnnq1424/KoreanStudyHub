@@ -5,6 +5,7 @@ import com.ksh.entities.Lesson;
 import com.ksh.entities.Section;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.service.support.ProgressMath;
 import com.ksh.features.lessons.repository.LessonRepository;
@@ -35,10 +36,9 @@ import static com.ksh.common.IConstant.CONTENT_TYPE_RICHTEXT;
  *       {@code @SQLRestriction} filters soft-deleted rows
  *       transparently — a missing row maps to 404.</li>
  *   <li>The caller must be admitted: an ACTIVE-enrolled student, OR the
- *       owning lecturer, OR an ADMIN / in-department LEADER moderator
- *       (bypasses enrollment so they can open the discussion thread to moderate — design D7,
- *       mirroring {@code LessonCommentsService.authorize} D3). Any other
- *       caller (REMOVED / COMPLETED / non-enrolled non-moderator) → 404
+ *       owning lecturer, OR an ADMIN / in-department LEADER
+ *       (bypasses enrollment for in-scope inspection). Any other
+ *       caller (REMOVED / COMPLETED / non-enrolled non-privileged) → 404
  *       to avoid leaking class existence (see design D5, D6).</li>
  * </ol>
  *
@@ -55,26 +55,29 @@ public class StudentLessonsService {
     private final UserRepository userRepository;
     private final LearningProgressRepository progressRepository;
     private final ClassAccessPolicy accessPolicy;
+    private final DepartmentRepository subjectRepository;
 
     public StudentLessonsService(ClassRepository classRepository,
                                  SectionRepository sectionRepository,
                                  LessonRepository lessonRepository,
                                  UserRepository userRepository,
                                  LearningProgressRepository progressRepository,
-                                 ClassAccessPolicy accessPolicy) {
+                                 ClassAccessPolicy accessPolicy,
+                                 DepartmentRepository subjectRepository) {
         this.classRepository = classRepository;
         this.sectionRepository = sectionRepository;
         this.lessonRepository = lessonRepository;
         this.userRepository = userRepository;
         this.progressRepository = progressRepository;
         this.accessPolicy = accessPolicy;
+        this.subjectRepository = subjectRepository;
     }
 
     /**
      * Returns the lesson view for the given class, admitting an
      * ACTIVE-enrolled student, the owning lecturer, or an ADMIN /
      * in-department LEADER
-     * moderator.
+     * privileged viewer.
      *
      * @param classId target class id
      * @param userId  authenticated user id
@@ -92,12 +95,15 @@ public class StudentLessonsService {
         ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Class not found or not accessible"));
+        if (role == Role.STUDENT && !ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus())) {
+            throw new EntityNotFoundException("Class not found or not accessible");
+        }
 
-        // Gate 2: admit the caller. ADMIN and in-department LEADER bypass enrollment so they can
-        // open the discussion thread to moderate; the owning lecturer passes
+        // Gate 2: admit the caller. ADMIN and in-department LEADER bypass enrollment for
+        // in-scope inspection; the owning lecturer passes
         // too; otherwise an ACTIVE enrollment is required. Any other caller
-        // (REMOVED/COMPLETED/non-enrolled non-moderator) → no-leak 404.
-        accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
+        // (REMOVED/COMPLETED/non-enrolled non-privileged) → no-leak 404.
+        accessPolicy.requireViewAccess(clazz, userId, role);
 
         List<Section> sections = sectionRepository
                 .findByClassIdOrderByDisplayOrderAsc(classId);
@@ -139,9 +145,12 @@ public class StudentLessonsService {
         String lecturerName = userRepository.findById(clazz.getLecturerId())
                 .map(User::getFullName)
                 .orElse(null);
+        String subjectCode = clazz.getSubjectId() == null ? "—"
+                : subjectRepository.findById(clazz.getSubjectId())
+                        .map(com.ksh.entities.Department::getCode).orElse("—");
 
         return new ClassLessonsView(clazz.getId(), clazz.getName(),
-                clazz.getCode(), lecturerName, sectionRows,
+                subjectCode, lecturerName, sectionRows,
                 completedTotal, publishedTotal, percent);
     }
 

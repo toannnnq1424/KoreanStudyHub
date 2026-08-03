@@ -1,15 +1,15 @@
 package com.ksh.features.lessons.controller;
 
-import com.ksh.entities.ClassEntity;
-import com.ksh.entities.Section;
 import com.ksh.features.classes.service.ClassesService;
-import com.ksh.features.lessons.dto.LessonDtos.LessonRow;
-import com.ksh.features.lessons.dto.SectionDtos.SectionRow;
-import com.ksh.features.lessons.repository.SectionRepository;
-import com.ksh.features.lessons.service.LessonsService;
-import com.ksh.features.lessons.service.SectionsService;
-import com.ksh.security.Roles;
+import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
+import com.ksh.features.student.dto.StudentLessonsDtos.ClassLessonsView;
+import com.ksh.features.student.dto.StudentLessonsDtos.LessonDetailView;
+import com.ksh.features.student.dto.StudentLessonsDtos.SectionWithLessons;
+import com.ksh.features.student.service.StudentLessonDetailService;
+import com.ksh.features.student.service.StudentLessonsService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -19,83 +19,74 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.Collections;
-import java.util.List;
-
-import static com.ksh.common.IConstant.*;
-
 /**
- * Renders the lessons tab page (sidebar of sections + content list).
- * Split out of {@link SectionsController} so the entry-point view is
- * isolated from section CRUD form handling.
+ * Compatibility entry point for the former class-scoped lesson authoring UI.
+ *
+ * <p>Lessons are authored only in Library. A lecturer opening the old class
+ * tab is admitted through the normal class view gate and redirected to the
+ * shared, read-only distributed-lessons surface.
  */
 @Controller
 @RequestMapping("/lecturer/classes/{classId}/lessons")
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
 public class LessonsTabController {
 
-    private static final String VIEW_LESSONS = "classes/detail-lessons";
-    private static final String ATTR_SECTIONS            = "sections";
-    private static final String ATTR_CAN_EDIT            = "canEdit";
-    private static final String ATTR_SELECTED_SECTION_ID = "selectedSectionId";
-    private static final String ATTR_SELECTED_SECTION    = "selectedSection";
-
-    private final SectionsService sectionsService;
-    private final LessonsService lessonsService;
     private final ClassesService classesService;
-    private final SectionRepository sectionRepository;
+    private final StudentLessonsService studentLessonsService;
+    private final StudentLessonDetailService studentLessonDetailService;
+    private final ClassDetailModelSupport detailSupport;
 
-    public LessonsTabController(SectionsService sectionsService,
-                                LessonsService lessonsService,
-                                ClassesService classesService,
-                                SectionRepository sectionRepository) {
-        this.sectionsService = sectionsService;
-        this.lessonsService = lessonsService;
+    public LessonsTabController(ClassesService classesService,
+                                StudentLessonsService studentLessonsService,
+                                StudentLessonDetailService studentLessonDetailService,
+                                ClassDetailModelSupport detailSupport) {
         this.classesService = classesService;
-        this.sectionRepository = sectionRepository;
+        this.studentLessonsService = studentLessonsService;
+        this.studentLessonDetailService = studentLessonDetailService;
+        this.detailSupport = detailSupport;
     }
 
-    /**
-     * Renders the lessons tab page with the current section list.
-     *
-     * <p>The optional {@code section} query parameter selects a folder in
-     * the left column. When present the section is validated to belong to
-     * {@code classId}; if it doesn't (stale link, bad URL), we silently
-     * fall back to "all lessons" instead of returning 404 so the UX stays
-     * soft.
-     */
     @GetMapping
-    public String renderLessonsPage(@PathVariable Long classId,
-                                    @RequestParam(required = false) Long section,
-                                    @AuthenticationPrincipal KshUserDetails user,
-                                    Model model) {
-        ClassEntity clazz = classesService.getViewable(classId, user.getId(), user.getRole());
-        List<SectionRow> sections = sectionsService.listForClass(
-                classId, user.getId(), user.getRole());
-        boolean canEdit = classesService.isEditableBy(clazz, user.getId(), user.getRole());
+    public String viewDistributedLessons(@PathVariable Long classId,
+                                         @RequestParam(value = "section", required = false) Long sectionParam,
+                                         @RequestParam(value = "lesson", required = false) Long lessonParam,
+                                         @AuthenticationPrincipal KshUserDetails user,
+                                         Model model) {
+        var clazz = classesService.getViewable(classId, user.getId(), user.getRole());
+        ClassLessonsView view = studentLessonsService
+                .listClassLessons(classId, user.getId(), user.getRole());
+        Long activeSectionId = resolveActiveSection(view, sectionParam);
+        model.addAttribute("view", view);
+        model.addAttribute("activeSectionId", activeSectionId);
+        model.addAttribute("teachingView", true);
+        model.addAttribute("classSharedDecks", java.util.List.of());
+        model.addAttribute("lessonBasePath", "/lecturer/classes/" + classId + "/lessons");
+        detailSupport.populateDetail(model, clazz, "lessons", user.getId(), user.getRole());
 
-        // Soft validation: cross-class links degrade gracefully instead of 404.
-        Section selectedSection = null;
-        if (section != null) {
-            selectedSection = sectionRepository.findByIdAndClassId(section, classId)
-                    .orElse(null);
+        if (lessonParam != null && activeSectionId != null
+                && lessonBelongsToSection(view, activeSectionId, lessonParam)) {
+            try {
+                LessonDetailView detail = studentLessonDetailService
+                        .getLessonDetail(classId, lessonParam, user.getId(), user.getRole());
+                model.addAttribute("lessonDetail", detail);
+            } catch (EntityNotFoundException ignored) {
+                // Keep the class shell visible without leaking a foreign lesson.
+            }
         }
-        Long selectedSectionId = selectedSection != null ? selectedSection.getId() : null;
+        return "student/class-lessons";
+    }
 
-        // Lessons fetched only when a section is selected so the "All
-        // lessons" landing page stays cheap.
-        List<LessonRow> lessons = selectedSection != null
-                ? lessonsService.listForSection(classId, selectedSection.getId(),
-                        user.getId(), user.getRole())
-                : Collections.emptyList();
+    private static Long resolveActiveSection(ClassLessonsView view, Long requested) {
+        if (view.sections().isEmpty()) return null;
+        return view.sections().stream().map(SectionWithLessons::sectionId)
+                .filter(id -> id.equals(requested)).findFirst()
+                .orElse(view.sections().get(0).sectionId());
+    }
 
-        model.addAttribute(ATTR_CLAZZ, clazz);
-        model.addAttribute(ATTR_ACTIVE_TAB, TAB_LESSONS);
-        model.addAttribute(ATTR_SECTIONS, sections);
-        model.addAttribute(ATTR_CAN_EDIT, canEdit);
-        model.addAttribute(ATTR_SELECTED_SECTION_ID, selectedSectionId);
-        model.addAttribute(ATTR_SELECTED_SECTION, selectedSection);
-        model.addAttribute(ATTR_LESSONS, lessons);
-        return VIEW_LESSONS;
+    private static boolean lessonBelongsToSection(ClassLessonsView view, Long sectionId, Long lessonId) {
+        return view.sections().stream()
+                .filter(section -> section.sectionId().equals(sectionId))
+                .flatMap(section -> section.lessons().stream())
+                .anyMatch(lesson -> lesson.id().equals(lessonId));
     }
 }

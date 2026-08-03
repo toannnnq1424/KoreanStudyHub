@@ -2,14 +2,10 @@ package com.ksh.features.classes.service;
 
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
-import com.ksh.entities.ClassInviteCode;
-import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
-import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
-import com.ksh.features.classes.service.codes.ClassCodeGenerator;
-import com.ksh.features.classes.service.invites.InviteCodeService;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -22,19 +18,18 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.HashMap;
 
 /**
  * Business service for class CRUD operations on the lecturer-facing screens.
  *
  * <p>Authorization rules (enforced here, NOT in the controller):
  * <ul>
- *   <li>LECTURER can only view/edit/delete their own classes ({@code lecturer_id == user.id}).</li>
- *   <li>LEADER can view/edit/delete classes in their resolved department; ADMIN is global.</li>
+ *   <li>Owner and co-lecturers can access teaching content; subject leaders retain read scope.</li>
+ *   <li>Only the immutable owner (or ADMIN) can edit/delete class-owned state.</li>
  *   <li>Authorization violations throw {@link AccessDeniedException} → HTTP 403.</li>
  *   <li>Non-existent or soft-deleted classes throw {@link EntityNotFoundException} → HTTP 404.</li>
  * </ul>
@@ -49,32 +44,29 @@ import java.util.Objects;
  * {@link ClassActivity} via {@link ClassActivityWriter}. Because service methods
  * are {@code @Transactional}, a failure when inserting the activity record will
  * also roll back the class mutation. The create flow is delegated to a
- * package-private {@link ClassCreator} helper that owns the collision-retry loop
- * and token-provisioning step.
+ * package-private {@link ClassCreator} helper that owns subject validation and
+ * the collision-retry loop.
  */
 @Service
 public class ClassesService {
 
     private final ClassRepository classRepository;
-    private final ClassInviteCodeRepository inviteCodeRepository;
     private final ClassActivityWriter activityWriter;
+    private final DepartmentRepository subjectRepository;
     private final ClassCreator creator;
     private final ClassRoleAccessPolicy accessPolicy;
 
     public ClassesService(ClassRepository classRepository,
-                          ClassInviteCodeRepository inviteCodeRepository,
                           ClassActivityWriter activityWriter,
-                          ClassCodeGenerator codeGenerator,
-                          InviteCodeService inviteCodeService,
-                          UserRepository userRepository,
+                          DepartmentRepository subjectRepository,
                           ClassRoleAccessPolicy accessPolicy,
                           ApplicationEventPublisher eventPublisher) {
         this.classRepository = classRepository;
-        this.inviteCodeRepository = inviteCodeRepository;
         this.activityWriter = activityWriter;
+        this.subjectRepository = subjectRepository;
         this.accessPolicy = accessPolicy;
         this.creator = new ClassCreator(classRepository, activityWriter,
-                codeGenerator, inviteCodeService, userRepository, eventPublisher);
+                subjectRepository, eventPublisher);
     }
 
     // ───────────────────── Public CRUD API ──────────────────────────
@@ -95,11 +87,12 @@ public class ClassesService {
     public Page<ClassRow> listForUser(Long userId, Role role, Pageable pageable) {
         Page<ClassEntity> page;
         if (role == Role.LECTURER) {
-            page = classRepository.findAllByLecturerId(userId, pageable);
+            page = classRepository.findAllAccessibleToLecturer(userId, pageable);
         } else if (role == Role.LEADER) {
-            page = accessPolicy.leaderDepartmentId(userId)
-                    .map(id -> classRepository.findAllByDepartmentId(id, pageable))
-                    .orElseGet(() -> Page.empty(pageable));
+            List<Long> subjectIds = accessPolicy.leaderSubjectIds(userId);
+            page = subjectIds.isEmpty()
+                    ? Page.empty(pageable)
+                    : classRepository.findAllBySubjectIdIn(subjectIds, pageable);
         } else if (role == Role.ADMIN) {
             page = classRepository.findAllBy(pageable);
         } else {
@@ -107,38 +100,29 @@ public class ClassesService {
         }
 
         List<ClassEntity> content = page.getContent();
-        // List UI "Mã lớp" is the shareable 6-char invite CODE, not classes.code (5-char).
-        Map<Long, String> inviteCodes = loadActiveInviteCodes(content);
+        Map<Long, String> subjectCodes = new HashMap<>();
+        subjectRepository.findAllById(content.stream().map(ClassEntity::getSubjectId)
+                        .filter(java.util.Objects::nonNull).distinct().toList())
+                .forEach(subject -> subjectCodes.put(subject.getId(), subject.getCode()));
         List<ClassRow> rows = new ArrayList<>(content.size());
         for (int i = 0; i < content.size(); i++) {
             ClassEntity entity = content.get(i);
-            String displayCode = inviteCodes.getOrDefault(entity.getId(), entity.getCode());
-            rows.add(ClassRowMapper.toRow(entity, i, displayCode));
+            rows.add(ClassRowMapper.toRow(entity, i,
+                    subjectCodes.getOrDefault(entity.getSubjectId(), "—")));
         }
         return new PageImpl<>(rows, pageable, page.getTotalElements());
-    }
-
-    /** Batch-loads active CODE invite tokens for the given classes (one query). */
-    private Map<Long, String> loadActiveInviteCodes(List<ClassEntity> content) {
-        Map<Long, String> byClassId = new HashMap<>();
-        if (content.isEmpty()) {
-            return byClassId;
-        }
-        for (ClassEntity entity : content) {
-            inviteCodeRepository
-                    .findByClassIdAndTypeAndActiveTrue(entity.getId(), ClassInviteCode.TYPE_CODE)
-                    .map(ClassInviteCode::getCode)
-                    .ifPresent(code -> byClassId.put(entity.getId(), code));
-        }
-        // Drop null keys defensively (should not happen for persisted entities).
-        byClassId.keySet().removeIf(Objects::isNull);
-        return byClassId;
     }
 
     /** Loads a class for editing after enforcing authorization. */
     @Transactional(readOnly = true)
     public ClassEntity getEditable(Long id, Long userId, Role role) {
         return loadEditable(id, userId, role);
+    }
+
+    /** Loads a class for owner-only administration such as settings or member import. */
+    @Transactional(readOnly = true)
+    public ClassEntity getOwnerManaged(Long id, Long userId, Role role) {
+        return loadOwnerManaged(id, userId, role);
     }
 
     /** Locks an editable class so sibling append operations share one mutex row. */
@@ -167,8 +151,8 @@ public class ClassesService {
     }
 
     /**
-     * Creates a new class. Delegates the collision-retry loop and the default
-     * CODE + LINK invite token provisioning to {@link ClassCreator}.
+     * Creates a new class. Delegates code collision retry, required subject
+     * binding and the review notification to {@link ClassCreator}.
      */
     @Transactional
     public ClassEntity create(ClassForm form, Long userId) {
@@ -178,7 +162,7 @@ public class ClassesService {
     /** Updates an existing class. Authorization is enforced; writes an UPDATED activity row with a before/after diff. */
     @Transactional
     public ClassEntity update(Long id, ClassForm form, Long userId, Role role) {
-        ClassEntity entity = loadEditable(id, userId, role);
+        ClassEntity entity = loadOwnerManaged(id, userId, role);
 
         Map<String, Object> oldState = ClassRowMapper.snapshot(entity);
         entity.updateDetails(form.name(), form.description(),
@@ -203,7 +187,7 @@ public class ClassesService {
     /** Soft-deletes a class. Authorization is enforced; writes a DELETED activity row. */
     @Transactional
     public void softDelete(Long id, Long userId, Role role) {
-        ClassEntity entity = loadEditable(id, userId, role);
+        ClassEntity entity = loadOwnerManaged(id, userId, role);
 
         entity.softDelete();
         classRepository.save(entity);
@@ -233,6 +217,16 @@ public class ClassesService {
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
         if (!isEditableBy(entity, userId, role)) {
             throw new AccessDeniedException("Bạn không có quyền chỉnh sửa lớp này");
+        }
+        return entity;
+    }
+
+    /** Loads the class and preserves its immutable owner boundary. */
+    private ClassEntity loadOwnerManaged(Long id, Long userId, Role role) {
+        ClassEntity entity = classRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        if (!accessPolicy.canManageClass(entity, userId, role)) {
+            throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được quản trị lớp này");
         }
         return entity;
     }

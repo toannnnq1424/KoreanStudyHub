@@ -205,8 +205,7 @@
   background: #1d4ed8;
 }
 
-/* Modal overlay, .btn-danger, and .menu-item.danger now live in admin.css
-   (shared with the categories delete confirm). */
+/* Modal overlay, .btn-danger, and .menu-item.danger now live in admin.css. */
 
 /* ── Detail-page form spacing tweaks (user-form specific) ─────────
    These overrides live inside `.detail-page` scope so the legacy

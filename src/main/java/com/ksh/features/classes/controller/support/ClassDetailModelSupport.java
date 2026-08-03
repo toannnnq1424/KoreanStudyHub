@@ -1,15 +1,19 @@
 package com.ksh.features.classes.controller.support;
 
 import com.ksh.entities.ClassEntity;
-import com.ksh.features.classes.dto.ClassesDtos.InviteCodeView;
-import com.ksh.features.classes.dto.ClassesDtos.InviteLinkView;
-import com.ksh.features.classes.service.ClassesService;
-import com.ksh.features.classes.service.invites.InviteCodeService;
+import com.ksh.entities.ClassCoLecturer;
+import com.ksh.entities.User;
+import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.security.Role;
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
 
 import static com.ksh.common.IConstant.*;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Shared model-population + URL/label helpers for the class detail screens.
@@ -17,54 +21,65 @@ import static com.ksh.common.IConstant.*;
  * the controllers stay focused on request mapping.
  *
  * <p>{@link #populateDetail} centralises the attributes consumed by the
- * detail layout (sidebar fragments, share box, settings invite panel) so
- * every tab — board, members, settings, and the placeholder tabs — receives
- * the same {@code activeCode}, {@code activeLink}, and {@code canRegenerate}
- * data sourced from {@code class_invite_codes}.
+ * detail layout across board, members, settings and placeholder tabs.
  */
 @Component
 public class ClassDetailModelSupport {
 
-    private final ClassesService classesService;
-    private final InviteCodeService inviteCodeService;
+    private final ClassCoLecturerRepository coLecturerRepository;
+    private final UserRepository userRepository;
 
-    public ClassDetailModelSupport(ClassesService classesService,
-                                   InviteCodeService inviteCodeService) {
-        this.classesService = classesService;
-        this.inviteCodeService = inviteCodeService;
+    public ClassDetailModelSupport(ClassCoLecturerRepository coLecturerRepository,
+                                   UserRepository userRepository) {
+        this.coLecturerRepository = coLecturerRepository;
+        this.userRepository = userRepository;
     }
 
     /**
      * Populates common model attributes required by the class-detail layout.
      *
-     * <p>Beyond the basic {@code clazz} and {@code activeTab} pair consumed by
-     * the sidebar fragment, this helper also injects the active invite tokens
-     * ({@code activeCode}, {@code activeLink}) and the {@code canRegenerate}
-     * flag so that EVERY detail tab — including the sidebar share-box and the
-     * Settings tab invite panel — can render real invite data sourced from
-     * {@code class_invite_codes} rather than the immutable {@code classes.code}.
+     * <p>The invite system is retired; only common class and tab state remains.
      */
     public void populateDetail(Model model, ClassEntity clazz, String activeTab,
                                Long userId, Role role) {
         model.addAttribute(ATTR_CLAZZ, clazz);
         model.addAttribute(ATTR_ACTIVE_TAB, activeTab);
-
-        // Active invite tokens may be absent for legacy classes — render null.
-        InviteCodeView activeCode = inviteCodeService.findActiveCode(clazz.getId())
-                .map(ic -> new InviteCodeView(ic.getCode(), ic.getId(), ic.getUseCount()))
-                .orElse(null);
-        InviteLinkView activeLink = inviteCodeService.findActiveLink(clazz.getId())
-                .map(ic -> new InviteLinkView(ic.getCode(),
-                        inviteCodeService.buildLinkUrl(ic),
-                        ic.getId(),
-                        ic.getUseCount()))
-                .orElse(null);
-        boolean canRegenerate = classesService.isEditableBy(clazz, userId, role);
-
-        model.addAttribute(ATTR_ACTIVE_CODE, activeCode);
-        model.addAttribute(ATTR_ACTIVE_LINK, activeLink);
-        model.addAttribute(ATTR_CAN_REGENERATE, canRegenerate);
+        TeachingTeam teachingTeam = loadTeachingTeam(clazz);
+        boolean primaryOwner = clazz.getLecturerId().equals(userId);
+        boolean coLecturer = teachingTeam.coLecturers().stream()
+                .anyMatch(member -> member.id().equals(userId));
+        model.addAttribute("classTeachingTeam", teachingTeam);
+        model.addAttribute("isPrimaryClassOwner", primaryOwner);
+        model.addAttribute("classViewerRole",
+                primaryOwner ? "GV chủ lớp"
+                        : coLecturer ? "Giảng viên đồng giảng"
+                        : role == Role.LEADER ? "Trưởng bộ môn"
+                        : role == Role.ADMIN ? "Quản trị viên" : "Người xem");
     }
+
+    private TeachingTeam loadTeachingTeam(ClassEntity clazz) {
+        List<ClassCoLecturer> assignments = coLecturerRepository.findAllByClassId(clazz.getId());
+        List<Long> userIds = new java.util.ArrayList<>();
+        userIds.add(clazz.getLecturerId());
+        userIds.addAll(assignments.stream().map(ClassCoLecturer::getLecturerId).toList());
+        Map<Long, User> users = new LinkedHashMap<>();
+        userRepository.findAllById(userIds).forEach(user -> users.put(user.getId(), user));
+
+        TeachingMember owner = toMember(users.get(clazz.getLecturerId()), clazz.getLecturerId());
+        List<TeachingMember> coLecturers = assignments.stream()
+                .map(ClassCoLecturer::getLecturerId)
+                .map(id -> toMember(users.get(id), id))
+                .toList();
+        return new TeachingTeam(owner, coLecturers);
+    }
+
+    private static TeachingMember toMember(User user, Long fallbackId) {
+        if (user == null) return new TeachingMember(fallbackId, "Không tìm thấy tài khoản", "");
+        return new TeachingMember(user.getId(), user.getFullName(), user.getEmail());
+    }
+
+    public record TeachingMember(Long id, String name, String email) {}
+    public record TeachingTeam(TeachingMember owner, List<TeachingMember> coLecturers) {}
 
     /** Builds the canonical URL for a single class — used by redirects and form actions. */
     public static String classUrl(Long id) {

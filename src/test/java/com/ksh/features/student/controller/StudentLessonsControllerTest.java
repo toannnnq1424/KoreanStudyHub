@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -95,7 +96,7 @@ class StudentLessonsControllerTest {
         defaultLesson = lessonRepository.saveAndFlush(l);
         // Enroll the seeded primary student into this fresh class.
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     @Test
@@ -214,9 +215,11 @@ class StudentLessonsControllerTest {
      */
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void lecturer_cannot_open_student_lesson_route() throws Exception {
+    void owning_lecturer_is_redirected_to_role_correct_lesson_shell_without_progress_side_effect() throws Exception {
         mockMvc.perform(get(urlWithLesson(clazz.getId(), section1.getId(), defaultLesson.getId())))
-                .andExpect(status().isForbidden());
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/lecturer/classes/" + clazz.getId() + "/lessons"
+                        + "?section=" + section1.getId() + "&lesson=" + defaultLesson.getId()));
 
         // The D7 guard short-circuits before recordOpened for non-students.
         // This is the assertion that locks the guard: reverting it lets the
@@ -245,6 +248,8 @@ class StudentLessonsControllerTest {
     private ClassEntity saveClass(String name, Long lecturerId, String code) {
         ClassEntity entity = new ClassEntity(name, lecturerId, lecturerId,
                 null, null, null, 100);
+        entity.setSubjectId(lecturer.getSubjectId());
+        entity.approve(lecturerId, java.time.LocalDateTime.now());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

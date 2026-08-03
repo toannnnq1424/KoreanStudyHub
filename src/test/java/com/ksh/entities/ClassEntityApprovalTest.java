@@ -17,7 +17,7 @@ class ClassEntityApprovalTest {
         assertThat(clazz.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
         clazz.approve(11L, reviewedAt);
 
-        assertThat(clazz.getStatus()).isEqualTo(ClassEntity.STATUS_UPCOMING);
+        assertThat(clazz.getStatus()).isEqualTo(ClassEntity.STATUS_ACTIVE);
         assertThat(clazz.getApprovedBy()).isEqualTo(11L);
         assertThat(clazz.getApprovedAt()).isEqualTo(reviewedAt);
         assertThatThrownBy(() -> clazz.approve(11L, reviewedAt))
@@ -25,15 +25,13 @@ class ClassEntityApprovalTest {
     }
 
     @Test
-    void rejectionStoresTrimmedOptionalNoteAndIsTerminal() {
+    void rejectionStoresTrimmedOptionalNoteAndKeepsDraftStatus() {
         ClassEntity clazz = new ClassEntity("Lớp mới", 7L, 7L,
                 null, null, null, 30);
 
         clazz.reject(11L, "  Thiếu thông tin  ", LocalDateTime.now());
 
-        assertThat(clazz.getStatus()).isEqualTo(ClassEntity.STATUS_REJECTED);
+        assertThat(clazz.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
         assertThat(clazz.getRejectionNote()).isEqualTo("Thiếu thông tin");
-        assertThatThrownBy(() -> clazz.reject(11L, null, LocalDateTime.now()))
-                .isInstanceOf(IllegalStateException.class);
     }
 }

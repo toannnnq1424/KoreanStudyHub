@@ -21,7 +21,7 @@ public interface UserRow {
     boolean isActive();
     boolean isLocked();
     boolean isDeleted();
-    Long getDepartmentId();
+    Long getSubjectId();
     LocalDateTime getLastLoginAt();
     LocalDateTime getCreatedAt();
     String getAvatarUrl();

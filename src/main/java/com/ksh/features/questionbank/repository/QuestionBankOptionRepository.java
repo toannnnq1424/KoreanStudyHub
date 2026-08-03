@@ -7,7 +7,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * Repository for department question bank answer options.
+ * Repository for subject-scoped question bank answer options.
  */
 public interface QuestionBankOptionRepository extends JpaRepository<QuestionBankOption, Long> {
 

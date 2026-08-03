@@ -10,7 +10,7 @@ import static com.ksh.common.IConstant.URL_LEADER_QUESTION_BANK_MANAGE;
 import static com.ksh.common.IConstant.URL_LECTURER_QUESTION_BANK;
 
 /**
- * Redirects the legacy test-scoped question-bank routes to the department-scoped
+ * Redirects the legacy test-scoped question-bank routes to the subject-scoped
  * shared bank so old bookmarks do not surface 404/500 noise. The shared bank is
  * no longer attached to a test; the {@code testId} path segment is dropped.
  *

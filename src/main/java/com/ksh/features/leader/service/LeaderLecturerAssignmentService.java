@@ -1,10 +1,12 @@
 package com.ksh.features.leader.service;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.ClassCoLecturer;
 import com.ksh.entities.Department;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.features.leader.dto.LeaderDtos.AssignClassRow;
 import com.ksh.features.leader.dto.LeaderDtos.AssignView;
 import com.ksh.features.leader.dto.LeaderDtos.DepartmentSummary;
@@ -23,7 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Lists department classes and reassigns lecturers within the LEADER's department.
+ * Lists subject classes and adds co-lecturers without transferring ownership.
  */
 @Service
 public class LeaderLecturerAssignmentService {
@@ -33,77 +35,148 @@ public class LeaderLecturerAssignmentService {
     private final LeaderDepartmentResolver resolver;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
+    private final ClassCoLecturerRepository coLecturerRepository;
 
     public LeaderLecturerAssignmentService(LeaderDepartmentResolver resolver,
                                          ClassRepository classRepository,
-                                         UserRepository userRepository) {
+                                         UserRepository userRepository,
+                                         ClassCoLecturerRepository coLecturerRepository) {
         this.resolver = resolver;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
+        this.coLecturerRepository = coLecturerRepository;
     }
 
     @Transactional(readOnly = true)
     public AssignView load(Long leaderUserId) {
-        Optional<Department> deptOpt = resolver.resolve(leaderUserId);
-        if (deptOpt.isEmpty()) {
+        List<Department> subjects = resolver.resolveAll(leaderUserId);
+        if (subjects.isEmpty()) {
             return new AssignView(null, List.of(), List.of(), true);
         }
-        Department dept = deptOpt.get();
-        List<ClassEntity> classes =
-                classRepository.findAllByDepartmentIdOrderByCreatedAtDesc(dept.getId());
+        Map<Long, String> subjectCodes = new HashMap<>();
+        List<ClassEntity> classes = new ArrayList<>();
+        for (Department subject : subjects) {
+            subjectCodes.put(subject.getId(), subject.getCode());
+            classes.addAll(classRepository.findAllBySubjectIdOrderByCreatedAtDesc(subject.getId()));
+        }
+        classes.sort((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()));
         Map<Long, String> names = loadNames(classes);
+        Map<Long, List<Long>> coLecturerIds = loadCoLecturerIds(classes);
+        Map<Long, List<String>> coLecturerNames = loadCoLecturerNames(classes);
         List<AssignClassRow> rows = new ArrayList<>(classes.size());
         for (ClassEntity c : classes) {
             rows.add(new AssignClassRow(
-                    c.getId(), c.getName(), c.getCode(),
+                    c.getId(), c.getName(), subjectCodes.get(c.getSubjectId()), c.getSubjectId(),
                     c.getLecturerId(),
-                    names.getOrDefault(c.getLecturerId(), "—")));
+                    names.getOrDefault(c.getLecturerId(), "—"),
+                    coLecturerIds.getOrDefault(c.getId(), List.of()),
+                    coLecturerNames.getOrDefault(c.getId(), List.of())));
         }
-        List<LecturerOption> lecturers = departmentLecturers(dept.getId());
+        List<LecturerOption> lecturers = activeLecturers();
+        Department first = subjects.get(0);
         return new AssignView(
-                new DepartmentSummary(dept.getId(), dept.getCode(), dept.getName()),
+                subjects.size() == 1
+                        ? new DepartmentSummary(first.getId(), first.getCode(), first.getName())
+                        : new DepartmentSummary(first.getId(), subjects.size() + " mã môn",
+                                "Bộ môn tiếng Hàn"),
                 rows, lecturers, false);
     }
 
     /**
-     * Reassigns a class lecturer. Class must belong to the LEADER's department;
-     * new lecturer must be active LECTURER/LEADER in the same department.
-     * Does not change {@code department_id}.
+     * Adds a co-lecturer without changing the owning lecturer or creator.
      *
      * @return class display name for success toast
      */
     @Transactional
-    public String reassign(Long leaderUserId, Long classId, Long newLecturerId) {
-        Department dept = resolver.resolve(leaderUserId)
-                .orElseThrow(() -> new AccessDeniedException("Không có bộ môn"));
+    public String assignCoLecturer(Long leaderUserId, Long classId, Long newLecturerId) {
+        List<Long> selected = new ArrayList<>(coLecturerRepository.findAllByClassId(classId)
+                .stream().map(ClassCoLecturer::getLecturerId).toList());
+        selected.add(newLecturerId);
+        return updateCoLecturers(leaderUserId, classId, selected);
+    }
+
+    /** Replaces the co-lecturer set selected by the leader. Ownership and
+     * creator fields on the class are deliberately never touched. */
+    @Transactional
+    public String updateCoLecturers(Long leaderUserId, Long classId,
+                                    List<Long> selectedLecturerIds) {
+        List<Department> subjects = resolver.resolveAll(leaderUserId);
+        if (subjects.isEmpty()) throw new AccessDeniedException("Không có bộ môn");
         ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy lớp"));
-        if (clazz.getDepartmentId() == null
-                || !clazz.getDepartmentId().equals(dept.getId())) {
+        Department subject = subjects.stream()
+                .filter(item -> item.getId().equals(clazz.getSubjectId()))
+                .findFirst()
+                .orElseThrow(() -> new AccessDeniedException(
+                        "Lớp không thuộc bộ môn của bạn"));
+        if (clazz.getSubjectId() == null) {
             throw new AccessDeniedException("Lớp không thuộc bộ môn của bạn");
         }
-        User lecturer = userRepository.findById(newLecturerId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Không tìm thấy giảng viên"));
-        if (!lecturer.isActive() || lecturer.isDeleted()
-                || !ELIGIBLE.contains(lecturer.getRole())
-                || lecturer.getDepartmentId() == null
-                || !lecturer.getDepartmentId().equals(dept.getId())) {
-            throw new IllegalArgumentException(
-                    "Giảng viên phải thuộc cùng bộ môn và đang hoạt động");
+        Set<Long> selected = selectedLecturerIds == null ? Set.of()
+                : new java.util.LinkedHashSet<>(selectedLecturerIds);
+        for (Long lecturerId : selected) {
+            User lecturer = userRepository.findById(lecturerId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Không tìm thấy giảng viên"));
+            if (!lecturer.isActive() || lecturer.isDeleted()
+                    || !ELIGIBLE.contains(lecturer.getRole())) {
+                throw new IllegalArgumentException(
+                        "Giảng viên đồng giảng phải đang hoạt động");
+            }
+            if (lecturerId.equals(clazz.getLecturerId())) {
+                throw new IllegalArgumentException("Giảng viên này đang là chủ lớp");
+            }
         }
-        clazz.reassignLecturer(newLecturerId);
-        classRepository.save(clazz);
+        List<ClassCoLecturer> current = coLecturerRepository.findAllByClassId(classId);
+        coLecturerRepository.deleteAll(current.stream()
+                .filter(row -> !selected.contains(row.getLecturerId())).toList());
+        Set<Long> existing = current.stream().map(ClassCoLecturer::getLecturerId)
+                .filter(selected::contains).collect(java.util.stream.Collectors.toSet());
+        for (Long lecturerId : selected) {
+            if (!existing.contains(lecturerId)) {
+                coLecturerRepository.save(new ClassCoLecturer(classId, lecturerId, leaderUserId));
+            }
+        }
         return clazz.getName();
     }
 
-    private List<LecturerOption> departmentLecturers(Long departmentId) {
+    private Map<Long, List<Long>> loadCoLecturerIds(List<ClassEntity> classes) {
+        if (classes.isEmpty()) return Map.of();
+        Map<Long, List<Long>> result = new HashMap<>();
+        for (ClassCoLecturer assignment : coLecturerRepository.findAllByClassIdIn(
+                classes.stream().map(ClassEntity::getId).toList())) {
+            result.computeIfAbsent(assignment.getClassId(), ignored -> new ArrayList<>())
+                    .add(assignment.getLecturerId());
+        }
+        return result;
+    }
+
+    private Map<Long, List<String>> loadCoLecturerNames(List<ClassEntity> classes) {
+        if (classes.isEmpty()) {
+            return Map.of();
+        }
+        List<ClassCoLecturer> assignments = coLecturerRepository.findAllByClassIdIn(
+                classes.stream().map(ClassEntity::getId).toList());
+        Map<Long, String> userNames = new HashMap<>();
+        for (User user : userRepository.findAllById(
+                assignments.stream().map(ClassCoLecturer::getLecturerId).distinct().toList())) {
+            userNames.put(user.getId(), user.getFullName());
+        }
+        Map<Long, List<String>> result = new HashMap<>();
+        for (ClassCoLecturer assignment : assignments) {
+            result.computeIfAbsent(assignment.getClassId(), ignored -> new ArrayList<>())
+                    .add(userNames.getOrDefault(assignment.getLecturerId(), "—"));
+        }
+        return result;
+    }
+
+    private List<LecturerOption> activeLecturers() {
         return userRepository.findAll().stream()
                 .filter(u -> u.isActive() && !u.isDeleted())
                 .filter(u -> ELIGIBLE.contains(u.getRole()))
-                .filter(u -> departmentId.equals(u.getDepartmentId()))
                 .sorted((a, b) -> a.getFullName().compareToIgnoreCase(b.getFullName()))
-                .map(u -> new LecturerOption(u.getId(), u.getFullName(), u.getEmail()))
+                .map(u -> new LecturerOption(
+                        u.getId(), u.getFullName(), u.getEmail()))
                 .toList();
     }
 

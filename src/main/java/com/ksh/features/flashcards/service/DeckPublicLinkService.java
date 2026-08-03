@@ -1,6 +1,5 @@
 package com.ksh.features.flashcards.service;
 
-import com.ksh.features.classes.service.invites.InviteTokenGenerator;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
 import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
 import com.ksh.features.flashcards.support.DeckAccessResolver;
@@ -14,11 +13,11 @@ public class DeckPublicLinkService {
 
     private final FlashcardDeckRepository deckRepository;
     private final DeckAccessResolver accessResolver;
-    private final InviteTokenGenerator tokenGenerator;
+    private final FlashcardPublicTokenGenerator tokenGenerator;
 
     public DeckPublicLinkService(FlashcardDeckRepository deckRepository,
                                  DeckAccessResolver accessResolver,
-                                 InviteTokenGenerator tokenGenerator) {
+                                 FlashcardPublicTokenGenerator tokenGenerator) {
         this.deckRepository = deckRepository;
         this.accessResolver = accessResolver;
         this.tokenGenerator = tokenGenerator;
@@ -28,7 +27,7 @@ public class DeckPublicLinkService {
     @Transactional
     public String enable(Long deckId, Long ownerId) {
         FlashcardDeck deck = accessResolver.requireOwner(deckId, ownerId);
-        deck.enablePublicLink(tokenGenerator.generateLink());
+        deck.enablePublicLink(tokenGenerator.generate());
         return deckRepository.save(deck).getShareToken();
     }
 
@@ -44,7 +43,7 @@ public class DeckPublicLinkService {
     @Transactional
     public String regenerate(Long deckId, Long ownerId) {
         FlashcardDeck deck = accessResolver.requireOwner(deckId, ownerId);
-        deck.regeneratePublicToken(tokenGenerator.generateLink());
+        deck.regeneratePublicToken(tokenGenerator.generate());
         deck.enablePublicLink(deck.getShareToken());
         return deckRepository.save(deck).getShareToken();
     }
@@ -52,7 +51,7 @@ public class DeckPublicLinkService {
     /** Resolves only enabled, non-deleted public decks without leaking state. */
     @Transactional(readOnly = true)
     public FlashcardDeck resolvePublic(String token) {
-        if (token == null || !token.matches(InviteTokenGenerator.LINK_REGEX)) {
+        if (token == null || !token.matches(FlashcardPublicTokenGenerator.TOKEN_REGEX)) {
             throw notFound();
         }
         FlashcardDeck deck = deckRepository.findByShareToken(token).orElseThrow(this::notFound);

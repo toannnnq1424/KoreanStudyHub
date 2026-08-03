@@ -8,7 +8,7 @@ import org.jsoup.safety.Safelist;
  * Static helper that strips unsafe markup from HTML before it is persisted.
  *
  * <p>Lives in {@code common} so every feature that accepts user-authored
- * HTML (lesson body, comments, board posts) can reuse the same policy
+ * HTML (lesson body and board posts) can reuse the same policy
  * from a single entry point without dragging a bean dependency around.
  *
  * <p>Allowed tags: {@code h1–h6}, {@code p}, {@code br}, {@code hr},

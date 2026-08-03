@@ -31,7 +31,7 @@ import java.util.Map;
 
 import static com.ksh.common.IConstant.BASE_LECTURER_QUESTION_BANK;
 
-/** REST endpoints for department-scoped Excel template download, preview, and confirm. */
+/** REST endpoints for subject-scoped Excel template download, preview, and confirm. */
 @RestController
 @RequestMapping(BASE_LECTURER_QUESTION_BANK + "/import")
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
@@ -42,7 +42,7 @@ public class QuestionBankImportController {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String TEMPLATE_FILENAME = "mau-import-cau-hoi-cong-tac.xlsx";
     private static final String JSON_KEY_ERROR = "error";
-    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi cộng tác cho bộ môn này";
+    private static final String MSG_FORBIDDEN = "Bạn không có quyền import câu hỏi của mã môn này";
     private static final String MSG_UNEXPECTED = "Có lỗi không mong muốn khi xử lý file import";
 
     private final QuestionBankImportService importService;
@@ -55,10 +55,13 @@ public class QuestionBankImportController {
     }
 
     @GetMapping(value = "/template", produces = XLSX_MIME)
-    public ResponseEntity<byte[]> template(@AuthenticationPrincipal KshUserDetails user) {
+    public ResponseEntity<byte[]> template(
+            @RequestParam(name = "subjectId", required = false) Long subjectId,
+            @AuthenticationPrincipal KshUserDetails user) {
         try {
             byte[] bytes = importTemplate.build(
-                    importService.activeCategoryNamesForTemplate(user.getId(), user.getRole()));
+                    importService.subjectCodeForTemplate(
+                            user.getId(), user.getRole(), subjectId));
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(XLSX_MIME));
             headers.setContentDispositionFormData("attachment", TEMPLATE_FILENAME);
@@ -76,9 +79,14 @@ public class QuestionBankImportController {
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> preview(@RequestParam("file") MultipartFile file,
+                                     @RequestParam(name = "subjectId", required = false)
+                                     Long subjectId,
+                                     @RequestParam(name = "lessonTemplateId", required = false)
+                                     Long lessonTemplateId,
                                      @AuthenticationPrincipal KshUserDetails user) {
         try {
-            QuestionBankImportSession session = importService.previewUpload(user.getId(), user.getRole(), file);
+            QuestionBankImportSession session = importService.previewUpload(
+                    user.getId(), user.getRole(), subjectId, lessonTemplateId, file);
             Preview preview = session.toPreview();
             return ResponseEntity.ok(preview);
         } catch (QuestionBankValidationException ex) {

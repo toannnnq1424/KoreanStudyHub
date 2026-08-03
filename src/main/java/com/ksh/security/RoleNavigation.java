@@ -77,6 +77,9 @@ public final class RoleNavigation {
                 || matchesArea(path, "/classes")) {
             return hasRole(authentication, Roles.STUDENT);
         }
+        if (matchesArea(path, "/j")) {
+            return false;
+        }
 
         return !matchesArea(path, "/login") && !matchesArea(path, "/logout");
     }

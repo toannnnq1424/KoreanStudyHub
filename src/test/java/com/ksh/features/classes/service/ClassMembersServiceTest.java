@@ -105,7 +105,7 @@ class ClassMembersServiceTest {
     void list_for_class_preserves_user_fields_in_member_row() {
         ClassEntity clazz = newClass(13L, "FieldsClass");
         Enrollment e = newEnrollment(500L, "Nguyen Van A", "nva@ksh.vn");
-        ReflectionTestUtils.setField(e, "joinedVia", "CODE");
+        ReflectionTestUtils.setField(e, "joinedVia", "REQUEST");
         // Set phone on the underlying user
         ReflectionTestUtils.setField(e.getUser(), "phone", "0901234567");
 
@@ -121,7 +121,7 @@ class ClassMembersServiceTest {
         assertThat(row.fullName()).isEqualTo("Nguyen Van A");
         assertThat(row.email()).isEqualTo("nva@ksh.vn");
         assertThat(row.phone()).isEqualTo("0901234567");
-        assertThat(row.joinedVia()).isEqualTo("CODE");
+        assertThat(row.joinedVia()).isEqualTo("REQUEST");
         assertThat(row.avatarLabel()).isEqualTo("NA");
     }
 

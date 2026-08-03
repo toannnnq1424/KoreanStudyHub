@@ -5,6 +5,7 @@ import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.features.classes.service.ClassesService;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
@@ -42,7 +43,7 @@ import static com.ksh.features.classes.controller.support.ClassDetailModelSuppor
  *   <li>{@code POST /lecturer/classes/{id}/delete} — soft-delete after confirm modal</li>
  * </ul>
  *
- * <p>Sidebar tabs (board/members/settings/...) and invite regeneration live on
+ * <p>Sidebar tabs (board/members/settings/...) live on
  * {@link ClassDetailController}. Validation errors render inline beneath each
  * field via {@code th:errors}; the service layer enforces owner authorization.
  */
@@ -52,9 +53,12 @@ import static com.ksh.features.classes.controller.support.ClassDetailModelSuppor
 public class ClassesController {
 
     private final ClassesService classesService;
+    private final DepartmentRepository subjectRepository;
 
-    public ClassesController(ClassesService classesService) {
+    public ClassesController(ClassesService classesService,
+                             DepartmentRepository subjectRepository) {
         this.classesService = classesService;
+        this.subjectRepository = subjectRepository;
     }
 
     /**
@@ -88,6 +92,7 @@ public class ClassesController {
         }
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+        addSubjectOptions(model);
         return VIEW_CLASS_FORM;
     }
 
@@ -107,23 +112,32 @@ public class ClassesController {
             rebindDateRangeError(result);
             model.addAttribute(ATTR_MODE, MODE_CREATE);
             model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+            addSubjectOptions(model);
             return VIEW_CLASS_FORM;
         }
-        ClassEntity saved = classesService.create(form, user.getId());
-        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_CREATED + saved.getCode());
+        try {
+            classesService.create(form, user.getId());
+        } catch (IllegalArgumentException exception) {
+            result.rejectValue("subjectId", "subject.invalid", exception.getMessage());
+            model.addAttribute(ATTR_MODE, MODE_CREATE);
+            model.addAttribute(ATTR_FORM_ACTION, URL_CLASSES_LIST);
+            addSubjectOptions(model);
+            return VIEW_CLASS_FORM;
+        }
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_CREATED);
         return "redirect:" + URL_CLASSES_LIST;
     }
 
     /**
      * Renders the edit-class form for an existing class.
-     * Only the class owner (or LEADER/ADMIN) may access this endpoint; the service
+     * Only the immutable class owner (or ADMIN) may access this endpoint; the service
      * layer enforces the ownership check and throws if unauthorized.
      */
     @GetMapping("/classes/{id}/edit")
     public String editForm(@PathVariable Long id,
                            @AuthenticationPrincipal KshUserDetails user,
                            Model model) {
-        ClassEntity entity = classesService.getEditable(id, user.getId(), user.getRole());
+        ClassEntity entity = classesService.getOwnerManaged(id, user.getId(), user.getRole());
         // Preserve flashed form values from a prior failed POST.
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, ClassForm.fromEntity(entity));
@@ -131,6 +145,7 @@ public class ClassesController {
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
         model.addAttribute(ATTR_CLASS_ID, id);
+        addSubjectOptions(model);
         return VIEW_CLASS_FORM;
     }
 
@@ -152,6 +167,7 @@ public class ClassesController {
             model.addAttribute(ATTR_MODE, MODE_EDIT);
             model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
             model.addAttribute(ATTR_CLASS_ID, id);
+            addSubjectOptions(model);
             return VIEW_CLASS_FORM;
         }
         classesService.update(id, form, user.getId(), user.getRole());
@@ -186,5 +202,9 @@ public class ClassesController {
         result.getFieldErrors("dateRangeValid").forEach(err ->
                 result.rejectValue("endDate", "dateRange.invalid", err.getDefaultMessage())
         );
+    }
+
+    private void addSubjectOptions(Model model) {
+        model.addAttribute("subjectOptions", subjectRepository.findByActiveTrueOrderByNameAsc());
     }
 }

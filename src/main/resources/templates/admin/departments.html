@@ -1,23 +1,24 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Admin | Bộ môn', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Admin | Danh mục môn học', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-departments.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
-<body>
+<body class="admin-departments-page">
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
 
 <div class="class-detail-layout">
   <aside th:replace="~{fragments/admin-sidebar :: adminSidebar('departments')}"></aside>
 
   <main class="col">
-    <h1 class="detail-title">Bộ môn</h1>
-    <p class="detail-sub">Quản lý bộ môn, trạng thái hoạt động và gán trưởng bộ môn.
-      Gán trưởng bộ môn sẽ nâng role người dùng lên LEADER.</p>
+    <h1 class="detail-title">Danh mục môn học</h1>
+    <p class="detail-sub">Quản lý mã môn dùng cho lớp, Library và Test Bank.
+      Có thể gán trưởng bộ môn phụ trách; thao tác này nâng role người dùng lên LEADER.</p>
 
     <span id="flash-data"
           th:attr="data-flash-success=${flashSuccess},
@@ -39,7 +40,7 @@
                    placeholder="Tìm theo tên hoặc mã…"
                    aria-label="Tìm theo tên hoặc mã">
           </div>
-          <select name="status" aria-label="Lọc theo trạng thái">
+          <select name="status" aria-label="Lọc theo trạng thái" data-ksh-select>
             <option value=""
                     th:selected="${filter == null or filter.status() == null or filter.status().isEmpty()}">
               Tất cả trạng thái
@@ -49,7 +50,7 @@
             <option value="inactive"
                     th:selected="${filter != null and filter.status() == 'inactive'}">Ẩn</option>
           </select>
-          <select name="sort" aria-label="Sắp xếp">
+          <select name="sort" aria-label="Sắp xếp" data-ksh-select>
             <option value="name,asc"
                     th:selected="${filter == null or filter.sort() == null or filter.sort() == 'name,asc'}">
               Tên A → Z
@@ -71,7 +72,7 @@
                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 5v14"/><path d="M5 12h14"/>
             </svg>
-            Tạo bộ môn
+            Thêm mã môn
           </a>
         </div>
       </form>
@@ -82,8 +83,8 @@
         <table class="admin-list-table" th:if="${departments != null and !departments.isEmpty()}">
           <thead>
             <tr>
-              <th>Bộ môn</th>
-              <th>Trưởng bộ môn</th>
+              <th>Môn học</th>
+              <th>Trưởng bộ môn phụ trách</th>
               <th>Trạng thái</th>
               <th class="col-actions" aria-label="Thao tác"></th>
             </tr>
@@ -138,7 +139,7 @@
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
                       </svg>
-                      <span th:text="${row.active()} ? 'Ẩn bộ môn' : 'Hiện bộ môn'">Ẩn bộ môn</span>
+                      <span th:text="${row.active()} ? 'Ẩn môn học' : 'Hiện môn học'">Ẩn môn học</span>
                     </button>
                   </div>
                 </div>
@@ -156,7 +157,7 @@
 
       <div th:if="${departments == null or departments.isEmpty()}"
            class="admin-list-empty" role="status" aria-live="polite">
-        Không có bộ môn nào khớp bộ lọc hiện tại.
+        Không có môn học nào khớp bộ lọc hiện tại.
       </div>
     </section>
   </main>
@@ -164,5 +165,6 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/admin-departments.js}"></script>
+<script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

@@ -39,7 +39,7 @@
 .stat-icon.users      { background: #e9f1fb; color: #527aab; }
 .stat-icon.classes    { background: #e8f3f0; color: #4b8177; }
 .stat-icon.departments { background: #f0ecf8; color: #725d9b; }
-.stat-icon.courses    { background: #faf1e5; color: #a67539; }
+.stat-icon.active-classes { background: #faf1e5; color: #a67539; }
 .stat-meta { min-width: 0; }
 .stat-meta h6 {
     font-size: 12.5px; font-weight: 600;
@@ -404,7 +404,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Shared admin list-table shell
    Panel + horizontal-scroll + table + empty state used by /admin/users and
-   /admin/categories. Extracted from admin-users.css to remove duplication.
+   admin management screens. Extracted from admin-users.css to remove duplication.
    Pages layer their own cell/row cosmetics on top (.user-name, .cat-* …).
    ══════════════════════════════════════════════════════════════════════════ */
 .admin-list-panel {
@@ -471,8 +471,7 @@
 
 /* ── Modal overlay + danger button ────────────────────────────────────────────
    Confirm / lock / reset-password dialogs. Shared by the users list, the user
-   detail page, and the categories delete confirm. Previously lived only in
-   admin-users.css, which left the categories delete modal unstyled. */
+   detail page, and other destructive confirmations. */
 .modal-overlay {
     position: fixed;
     inset: 0;

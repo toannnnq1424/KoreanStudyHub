@@ -30,6 +30,8 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
 
     Optional<Department> findFirstByLeaderUserId(Long leaderUserId);
 
+    List<Department> findByLeaderUserIdOrderByCodeAsc(Long leaderUserId);
+
     boolean existsByLeaderUserId(Long leaderUserId);
 
     /**

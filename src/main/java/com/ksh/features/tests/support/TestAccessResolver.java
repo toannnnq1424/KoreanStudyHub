@@ -152,6 +152,10 @@ public class TestAccessResolver {
         if (role == Role.LECTURER && userId != null && userId.equals(test.getCreatedBy())) {
             return test;
         }
+        if (role == Role.LEADER && test.getSubjectId() != null
+                && classAccessPolicy.leaderSubjectIds(userId).contains(test.getSubjectId())) {
+            return test;
+        }
         if (test.getClassId() != null) {
             ClassEntity clazz = classRepository.findById(test.getClassId()).orElse(null);
             if (clazz != null && classAccessPolicy.canAccess(clazz, userId, role)) {
@@ -182,12 +186,13 @@ public class TestAccessResolver {
             return classRepository.findAllByOrderByCreatedAtDesc();
         }
         if (role == Role.LEADER) {
-            return classAccessPolicy.leaderDepartmentId(userId)
-                    .map(classRepository::findAllByDepartmentIdOrderByCreatedAtDesc)
-                    .orElseGet(List::of);
+            List<Long> subjectIds = classAccessPolicy.leaderSubjectIds(userId);
+            return subjectIds.isEmpty()
+                    ? List.of()
+                    : classRepository.findAllBySubjectIdInOrderByCreatedAtDesc(subjectIds);
         }
         if (role == Role.LECTURER) {
-            return classRepository.findAllByLecturerIdOrderByCreatedAtDesc(userId);
+            return classRepository.findAllAccessibleToLecturerOrderByCreatedAtDesc(userId);
         }
         return List.of();
     }

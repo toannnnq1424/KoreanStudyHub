@@ -41,17 +41,17 @@
           <svg class="ico" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
         </div>
         <div class="stat-meta">
-          <h6>Bộ môn</h6>
+          <h6>Mã môn hoạt động</h6>
           <div class="num" th:text="${stats.departmentCount}">0</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon courses">
+        <div class="stat-icon active-classes">
           <svg class="ico" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         </div>
         <div class="stat-meta">
-          <h6>Khoá học</h6>
-          <div class="num" th:text="${stats.courseCount}">0</div>
+          <h6>Lớp đang hoạt động</h6>
+          <div class="num" th:text="${stats.activeClassCount}">0</div>
         </div>
       </div>
     </div>
@@ -94,7 +94,7 @@
           <thead>
             <tr>
               <th>Tên lớp</th>
-              <th class="col-code">Mã</th>
+              <th class="col-code">Mã môn</th>
               <th>Giảng viên</th>
               <th>Trạng thái</th>
               <th>Tạo lúc</th>
@@ -103,7 +103,7 @@
           <tbody>
             <tr th:each="r : ${recentClasses}">
               <td data-label="Tên lớp" th:text="${r.name}">Lớp</td>
-              <td data-label="Mã" class="col-code"><b th:text="${r.code}">CODE</b></td>
+              <td data-label="Mã môn" class="col-code"><b th:text="${r.code}">KOR311</b></td>
               <td data-label="Giảng viên" th:text="${r.lecturerName != null ? r.lecturerName : '—'}">GV</td>
               <td data-label="Trạng thái">
                 <span class="status-pill"

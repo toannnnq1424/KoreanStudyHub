@@ -24,7 +24,7 @@ public record CreateUserForm(
         @NotNull(message = "Vai trò không được để trống")
         Role role,
 
-        Long departmentId,
+        Long subjectId,
 
         @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự")
         String phone,

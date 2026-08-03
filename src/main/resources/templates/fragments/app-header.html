@@ -67,6 +67,8 @@
     <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
        th:href="@{/lecturer/classes}" th:classappend="${active == 'classes'} ? 'active'">Lớp học</a>
     <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
+       th:href="@{/lecturer/tests}" th:classappend="${active == 'tests'} ? 'active'">Kho bài test</a>
+    <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
        th:href="@{/lecturer/library}" th:classappend="${active == 'library'} ? 'active'">Kho học liệu</a>
     <!-- Lecturer contribution entry to the department-scoped shared question bank. -->
     <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
@@ -121,7 +123,7 @@
           <span class="menu-label" role="presentation">Giảng dạy</span>
           <a th:href="@{/lecturer/dashboard}" class="menu-item" role="menuitem">Tổng quan</a>
           <a th:href="@{/lecturer/classes}" class="menu-item" role="menuitem">Lớp học</a>
-          <a th:href="@{/lecturer/tests}" class="menu-item" role="menuitem">Kho đề test</a>
+          <a th:href="@{/lecturer/tests}" class="menu-item" role="menuitem">Kho bài test</a>
           <a th:href="@{/lecturer/library}" class="menu-item" role="menuitem">Kho học liệu</a>
           <a th:href="@{/lecturer/question-bank}" class="menu-item" role="menuitem">Ngân hàng câu hỏi</a>
         </th:block>

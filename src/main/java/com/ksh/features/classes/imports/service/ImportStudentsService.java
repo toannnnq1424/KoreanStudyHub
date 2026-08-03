@@ -42,8 +42,8 @@ import java.util.UUID;
  * {@link ClassActivity} summary. Per-row failures are tolerated — they are
  * reported in {@link ImportResult} without aborting the surrounding transaction.
  *
- * <p>Authorization is delegated to {@link ClassesService#getEditable}: only the
- * lecturer who owns the class (plus LEADER / ADMIN) may import members.
+ * <p>Authorization is delegated to {@link ClassesService#getOwnerManaged}: only the
+ * immutable class owner (plus ADMIN) may import members.
  */
 @Service
 public class ImportStudentsService {
@@ -93,7 +93,7 @@ public class ImportStudentsService {
      */
     @Transactional(readOnly = true)
     public ImportSession previewUpload(MultipartFile file, Long classId, Long lecturerId, Role role) {
-        ClassEntity clazz = classesService.getEditable(classId, lecturerId, role);
+        ClassEntity clazz = classesService.getOwnerManaged(classId, lecturerId, role);
         ExcelParser.ParsedFile parsed = excelParser.parse(file);
         List<ImportRow> rows = rowValidator.validate(parsed.rows(), clazz.getId());
 
@@ -116,7 +116,7 @@ public class ImportStudentsService {
     @Transactional
     public ImportResult confirmImport(UUID sessionId, Long classId, Long lecturerId,
                                       Role role, ImportOptions options) {
-        ClassEntity clazz = classesService.getEditable(classId, lecturerId, role);
+        ClassEntity clazz = classesService.getOwnerManaged(classId, lecturerId, role);
         ImportSession session = sessionStore.claim(sessionId, lecturerId)
                 .orElseThrow(() -> new InvalidFileException(
                         "Phiên import đã hết hạn hoặc không tồn tại. Vui lòng tải file lên lại."));

@@ -33,7 +33,7 @@
       <table class="admin-list-table" th:if="${reportRows != null and !reportRows.isEmpty()}">
         <thead>
           <tr>
-            <th>Mã</th>
+            <th>Mã môn</th>
             <th>Tên lớp</th>
             <th>SV ACTIVE</th>
             <th>Điểm TB bài kiểm tra</th>
@@ -42,7 +42,7 @@
         </thead>
         <tbody>
           <tr th:each="row : ${reportRows}">
-            <td><code th:text="${row.classCode()}">CODE</code></td>
+            <td><code th:text="${row.subjectCode()}">KOR311</code></td>
             <td th:text="${row.className()}">Tên</td>
             <td th:text="${row.activeEnrollments()}">0</td>
             <td>

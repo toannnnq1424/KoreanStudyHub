@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/** Sends the department Leader an in-app notification after class creation commits. */
+/** Sends the subject Leader an in-app notification after class creation commits. */
 @Component
 public class ClassPendingReviewNotifier {
 
@@ -26,22 +26,22 @@ public class ClassPendingReviewNotifier {
 
     /**
      * Runs after commit so a notification failure can never roll back the new
-     * class, its activity record, or its invite tokens.
+     * class or its activity record.
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void notifyLeader(ClassPendingReviewEvent event) {
         try {
-            if (event.departmentId() == null) {
+            if (event.subjectId() == null) {
                 return;
             }
-            departmentRepository.findById(event.departmentId())
+            departmentRepository.findById(event.subjectId())
                     .map(department -> department.getLeaderUserId())
                     .filter(leaderId -> !leaderId.equals(event.lecturerId()))
                     .ifPresent(leaderId -> notificationService.create(
                             leaderId,
                             "Lớp mới chờ duyệt",
-                            "Lớp \"" + event.className() + "\" (" + event.classCode()
-                                    + ") đang chờ bạn duyệt.",
+                            "Lớp \"" + event.className() + "\" thuộc mã môn "
+                                    + event.subjectCode() + " đang chờ bạn duyệt.",
                             NotificationType.CLASS_PENDING_APPROVAL,
                             NotificationType.REF_CLASS,
                             event.classId()));

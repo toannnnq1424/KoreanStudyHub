@@ -38,7 +38,7 @@ class RoleNavigationTest {
     void deepLinksAndSharedAuthenticatedPagesRemainResumable() {
         Authentication student = authentication(Roles.STUDENT);
 
-        assertThat(RoleNavigation.canResume(student, "/j/abc123")).isTrue();
+        assertThat(RoleNavigation.canResume(student, "/j/abc123")).isFalse();
         assertThat(RoleNavigation.canResume(student, "/discover/example")).isTrue();
         assertThat(RoleNavigation.canResume(student, "/my/flashcards/7/edit")).isTrue();
     }

@@ -234,20 +234,20 @@ CREATE TABLE activity_flashcard_decks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- 13. Activity: Departments (bộ môn)
+-- 13. Activity: Subjects (bộ môn)
 --     Events: tạo mới, cập nhật, đổi trưởng bộ môn
 -- =============================================================================
 
-CREATE TABLE activity_departments (
+CREATE TABLE activity_subjects (
                                       id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                                      department_id BIGINT NOT NULL,
+                                      subject_id BIGINT NOT NULL,
                                       type VARCHAR(50) NOT NULL,
                                       description TEXT NULL,
                                       metadata JSON NULL,
                                       created_by BIGINT NOT NULL,
                                       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                      INDEX idx_adep_department (department_id, created_at),
-                                      CONSTRAINT fk_adep_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE,
+                                      INDEX idx_adep_subject (subject_id, created_at),
+                                      CONSTRAINT fk_adep_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
                                       CONSTRAINT fk_adep_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -266,5 +266,5 @@ CREATE TABLE activity_departments (
 -- activity_comments           — Bình luận (moderation)
 -- activity_content_versions   — Phiên bản nội dung (duyệt/từ chối)
 -- activity_flashcard_decks    — Bộ flashcard
--- activity_departments        — Bộ môn
+-- activity_subjects        — Bộ môn
 -- =============================================================================

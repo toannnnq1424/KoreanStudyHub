@@ -85,7 +85,7 @@
     });
   }
 
-  // ── Copy class code to clipboard ───────────────────────────────────
+  // ── Copy subject code to clipboard ─────────────────────────────────
   document.querySelectorAll('.copy-code').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -94,7 +94,7 @@
       if (!code) return;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(function () {
-          if (window.KshToast) window.KshToast.success('Đã sao chép mã ' + code);
+          if (window.KshToast) window.KshToast.success('Đã sao chép mã môn ' + code);
         }).catch(function () {
           if (window.KshToast) window.KshToast.error('Không sao chép được, vui lòng thử lại');
         });
@@ -102,7 +102,7 @@
     });
   });
 
-  // ── Search: filter rows by data-class-name + data-class-code ───────
+  // ── Search: filter rows by class name + subject code ───────────────
   var searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('input', function () {

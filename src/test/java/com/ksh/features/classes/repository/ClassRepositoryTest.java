@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +17,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * {@link ClassRepository} integration test chay tren MySQL that
  * (theo {@code application.properties}). {@code @DataJpaTest} + Flyway
- * bao dam schema V1–V7 san sang truoc moi test.
+ * bao dam schema Flyway moi nhat san sang truoc moi test.
  *
  * <p>Moi method la 1 transaction roll-back, du lieu khong ro ri sang test ke.
  */
@@ -48,25 +46,14 @@ class ClassRepositoryTest {
     }
 
     @Test
-    void save_and_find_by_code_returns_correct_row() {
+    void save_and_find_by_id_returns_correct_row() {
         ClassEntity entity = newClass("Java CB", "AAAA1", 1L);
-        classRepository.saveAndFlush(entity);
+        ClassEntity saved = classRepository.saveAndFlush(entity);
 
-        Optional<ClassEntity> found = classRepository.findByCode("AAAA1");
+        Optional<ClassEntity> found = classRepository.findById(saved.getId());
 
         assertThat(found).isPresent();
         assertThat(found.get().getName()).isEqualTo("Java CB");
-    }
-
-    @Test
-    void duplicate_code_throws_unique_violation() {
-        classRepository.saveAndFlush(newClass("A", "DUP01", 1L));
-
-        ClassEntity dup = newClass("B", "DUP01", 1L);
-
-        assertThatThrownBy(() -> classRepository.saveAndFlush(dup))
-                .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("uk_classes_code");
     }
 
     @Test
@@ -98,7 +85,7 @@ class ClassRepositoryTest {
 
         em.clear(); // force reload from DB
 
-        Optional<ClassEntity> found = classRepository.findByCode("DELT1");
+        Optional<ClassEntity> found = classRepository.findById(entity.getId());
 
         assertThat(found).as("soft-deleted row must be excluded by @SQLRestriction").isEmpty();
     }

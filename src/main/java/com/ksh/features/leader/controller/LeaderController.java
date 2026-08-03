@@ -106,12 +106,21 @@ public class LeaderController {
 
     @PostMapping("/assign/{classId}")
     public String reassign(@PathVariable Long classId,
-                           @RequestParam Long lecturerId,
+                           @RequestParam(name = "lecturerIds", required = false)
+                           java.util.List<Long> lecturerIds,
+                           @RequestParam(name = "lecturerId", required = false)
+                           Long legacyLecturerId,
                            @AuthenticationPrincipal KshUserDetails user,
                            RedirectAttributes ra) {
         try {
-            String className = assignmentService.reassign(user.getId(), classId, lecturerId);
-            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_LEADER_REASSIGNED + className);
+            java.util.List<Long> selected = lecturerIds;
+            if ((selected == null || selected.isEmpty()) && legacyLecturerId != null) {
+                selected = java.util.List.of(legacyLecturerId);
+            }
+            String className = assignmentService.updateCoLecturers(
+                    user.getId(), classId, selected);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS,
+                    "Đã cập nhật nhóm đồng giảng cho lớp " + className);
         } catch (IllegalArgumentException ex) {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
         }

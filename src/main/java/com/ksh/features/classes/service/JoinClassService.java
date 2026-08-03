@@ -1,15 +1,11 @@
 package com.ksh.features.classes.service;
 
 import com.ksh.entities.ClassEntity;
-import com.ksh.entities.ClassInviteCode;
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.classes.repository.ClassInviteCodeRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import com.ksh.features.classes.service.invites.InviteCodeValidationException;
-import com.ksh.features.classes.service.invites.InviteRejectionReason;
 import com.ksh.features.notifications.entity.NotificationType;
 import com.ksh.features.notifications.service.NotificationService;
 import com.ksh.security.Role;
@@ -20,97 +16,83 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
-/**
- * Service for the student-side join/leave flow and lecturer approve/reject.
- *
- * <p>CODE/LINK self-join creates or re-opens a {@code PENDING} enrollment;
- * the class owner must approve (→ ACTIVE, invite {@code use_count++}) or
- * reject (→ REJECTED). Lecturer-initiated IMPORT/MANUAL paths remain ACTIVE
- * via other services.
- *
- * <p>Validation (token, capacity) is delegated to {@link JoinTokenValidator};
- * audit rows to {@link JoinAuditWriter}.
- */
+/** Catalog request, leave, and owner approval flow without invite tokens. */
 @Service
 public class JoinClassService {
 
-    private final ClassInviteCodeRepository inviteRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
-    private final JoinTokenValidator validator;
-    private final JoinAuditWriter auditWriter;
     private final NotificationService notificationService;
     private final ClassesService classesService;
+    private final JoinAuditWriter auditWriter;
 
-    public JoinClassService(ClassInviteCodeRepository inviteRepository,
-                            EnrollmentRepository enrollmentRepository,
+    public JoinClassService(EnrollmentRepository enrollmentRepository,
                             ClassRepository classRepository,
                             ClassActivityWriter activityWriter,
                             UserRepository userRepository,
                             NotificationService notificationService,
                             ClassesService classesService) {
-        this.inviteRepository = inviteRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.classesService = classesService;
-        this.validator = new JoinTokenValidator(inviteRepository, classRepository,
-                enrollmentRepository);
         this.auditWriter = new JoinAuditWriter(activityWriter);
     }
 
-    /** Outcome of a join attempt returned to the controller. */
     public sealed interface JoinResult permits Success, AlreadyJoined, PendingRequested {}
-
-    /** Immediate ACTIVE admission (not used by CODE/LINK after approval flow). */
     public record Success(ClassEntity clazz) implements JoinResult {}
-
-    /** Caller was already ACTIVE — no-op with a friendly toast. */
     public record AlreadyJoined(ClassEntity clazz) implements JoinResult {}
-
-    /** PENDING request created or already awaiting approval. */
     public record PendingRequested(ClassEntity clazz, boolean alreadyPending)
             implements JoinResult {}
 
-    /**
-     * Validates an invite token and creates/re-opens a PENDING enrollment.
-     * Does not increment invite {@code use_count} (that happens on approve).
-     */
+    /** Creates or re-opens a PENDING request for a leader-approved ACTIVE class. */
     @Transactional
-    public JoinResult join(String rawToken, Long userId) {
-        String normalized = JoinTokenValidator.normalize(rawToken);
-        ClassInviteCode token = validator.resolveAndValidate(normalized);
-        ClassEntity clazz = validator.loadJoinableClass(token);
-
-        // Class owner must not redeem their own invite CODE/LINK.
+    public JoinResult requestJoin(Long classId, Long userId) {
+        ClassEntity clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        if (!ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus())) {
+            throw new IllegalStateException("Lớp không mở yêu cầu tham gia");
+        }
         if (clazz.getLecturerId().equals(userId)) {
-            throw new InviteCodeValidationException(InviteRejectionReason.OWN_CLASS);
+            throw new AccessDeniedException("Giảng viên chủ lớp không thể gửi yêu cầu tham gia");
         }
 
         Optional<Enrollment> existing =
-                enrollmentRepository.findByUserIdAndClassId(userId, token.getClassId());
+                enrollmentRepository.findByUserIdAndClassId(userId, classId);
         if (existing.isPresent()) {
-            return handleExisting(existing.get(), clazz, token, userId);
+            Enrollment row = existing.get();
+            if (Enrollment.STATUS_ACTIVE.equals(row.getStatus())) {
+                return new AlreadyJoined(clazz);
+            }
+            if (Enrollment.STATUS_COMPLETED.equals(row.getStatus())) {
+                throw new IllegalStateException("Bạn đã hoàn thành lớp này");
+            }
+            if (Enrollment.STATUS_PENDING.equals(row.getStatus())) {
+                return new PendingRequested(clazz, true);
+            }
+            enforceCapacity(clazz);
+            row.markPending(Enrollment.JoinedVia.REQUEST, null);
+            enrollmentRepository.save(row);
+            auditWriter.writeJoin(clazz, userId, Enrollment.JoinedVia.REQUEST);
+            User student = row.getUser() != null ? row.getUser()
+                    : userRepository.findById(userId).orElse(null);
+            if (student != null) emitJoinRequestToOwner(clazz, student);
+            return new PendingRequested(clazz, false);
         }
 
-        validator.enforceCapacity(clazz);
-        User user = userRepository.findById(userId)
+        enforceCapacity(clazz);
+        User student = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("Người dùng không tồn tại"));
-        Enrollment fresh = Enrollment.createPending(user, clazz.getId(),
-                JoinAuditWriter.joinedVia(token.getType()), token.getId());
+        Enrollment fresh = Enrollment.createPending(
+                student, classId, Enrollment.JoinedVia.REQUEST, null);
         enrollmentRepository.save(fresh);
-
-        auditWriter.writeJoin(clazz, userId, token);
-        emitJoinRequestToOwner(clazz, user);
+        auditWriter.writeJoin(clazz, userId, Enrollment.JoinedVia.REQUEST);
+        emitJoinRequestToOwner(clazz, student);
         return new PendingRequested(clazz, false);
     }
 
-    /**
-     * Soft-removes the caller's enrollment. PENDING/REJECTED rows are also
-     * cleared to REMOVED so the student can re-request cleanly if needed.
-     */
     @Transactional
     public ClassEntity leave(Long classId, Long userId) {
         Enrollment row = enrollmentRepository.findByUserIdAndClassId(userId, classId)
@@ -121,29 +103,16 @@ public class JoinClassService {
         if (Enrollment.STATUS_COMPLETED.equals(row.getStatus())) {
             throw new IllegalStateException("Không thể rời lớp đã hoàn thành");
         }
-
         ClassEntity clazz = classRepository.findById(classId)
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
-
         row.markRemoved();
         enrollmentRepository.save(row);
-
         auditWriter.writeLeave(clazz, userId);
         return clazz;
     }
 
-    /**
-     * Class owner approves a PENDING enrollment → ACTIVE, increments invite
-     * use_count when present, notifies the student.
-     *
-     * @throws AccessDeniedException when caller is not the class owner (and not LEADER/ADMIN)
-     * @throws IllegalStateException when not PENDING, class full, or invite max_uses exhausted
-     */
     @Transactional
     public ClassEntity approve(Long classId, Long studentUserId, Long actorId, Role actorRole) {
-        // This must be the transaction's first database read. Under MySQL's
-        // default REPEATABLE READ isolation, locking later would leave the
-        // capacity query on a snapshot created before a competing approval.
         classRepository.findByIdForUpdate(classId)
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
         ClassEntity clazz = requireOwner(classId, actorId, actorRole);
@@ -152,41 +121,13 @@ public class JoinClassService {
         if (!Enrollment.STATUS_PENDING.equals(row.getStatus())) {
             throw new IllegalStateException("Yêu cầu không ở trạng thái chờ duyệt");
         }
-
-        // Lock the shared invite before re-checking capacity. Every CODE/LINK
-        // approval for this class uses the same invite row, so this serializes
-        // concurrent approvals for the final class slot as well as use_count.
-        // Checking capacity before acquiring the lock would let both transactions
-        // observe the same free slot and activate two enrollments.
-        ClassInviteCode lockedInvite = null;
-        if (row.getInviteCodeId() != null) {
-            lockedInvite = inviteRepository.findByIdForUpdate(row.getInviteCodeId())
-                    .orElse(null);
-            if (lockedInvite != null) {
-                if (lockedInvite.getMaxUses() != null
-                        && lockedInvite.getUseCount() >= lockedInvite.getMaxUses()) {
-                    throw new IllegalStateException("Mã mời đã đạt giới hạn lượt dùng");
-                }
-            }
-        }
-
-        validator.enforceCapacity(clazz);
-
-        if (lockedInvite != null) {
-            lockedInvite.incrementUseCount();
-            inviteRepository.save(lockedInvite);
-        }
-
+        enforceCapacity(clazz);
         row.activateFromPending();
         enrollmentRepository.save(row);
-
         emitApprovedNotifications(clazz, studentUserId);
         return clazz;
     }
 
-    /**
-     * Class owner rejects a PENDING enrollment → REJECTED. No use_count change.
-     */
     @Transactional
     public ClassEntity reject(Long classId, Long studentUserId, Long actorId, Role actorRole) {
         ClassEntity clazz = requireOwner(classId, actorId, actorRole);
@@ -195,112 +136,60 @@ public class JoinClassService {
         if (!Enrollment.STATUS_PENDING.equals(row.getStatus())) {
             throw new IllegalStateException("Yêu cầu không ở trạng thái chờ duyệt");
         }
-
         row.markRejected();
         enrollmentRepository.save(row);
-
         emitRejectedNotification(clazz, studentUserId);
         return clazz;
     }
 
-    // ──────────────────── internal ────────────────────
+    private void enforceCapacity(ClassEntity clazz) {
+        Integer cap = clazz.getMaxStudents();
+        if (cap == null) return;
+        classRepository.findByIdForUpdate(clazz.getId());
+        if (enrollmentRepository.countActiveByClassIdForUpdate(clazz.getId()) >= cap) {
+            throw new IllegalStateException("Lớp đã đủ sĩ số");
+        }
+    }
 
-    /** Owner-only gate: LECTURER must own the class; LEADER/ADMIN pass via getEditable. */
     private ClassEntity requireOwner(Long classId, Long actorId, Role actorRole) {
-        // getEditable enforces LECTURER ownership and LEADER/ADMIN privilege.
         ClassEntity clazz = classesService.getEditable(classId, actorId, actorRole);
-        // Spec: approve/reject is class owner only — deny LEADER/ADMIN non-owners.
         if (!clazz.getLecturerId().equals(actorId)) {
             throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được duyệt yêu cầu");
         }
         return clazz;
     }
 
-    private JoinResult handleExisting(Enrollment row, ClassEntity clazz,
-                                      ClassInviteCode token, Long userId) {
-        return switch (row.getStatus()) {
-            case Enrollment.STATUS_ACTIVE -> new AlreadyJoined(clazz);
-            case Enrollment.STATUS_COMPLETED -> throw new InviteCodeValidationException(
-                    InviteRejectionReason.ALREADY_COMPLETED);
-            case Enrollment.STATUS_PENDING -> new PendingRequested(clazz, true);
-            case Enrollment.STATUS_REJECTED, Enrollment.STATUS_REMOVED -> {
-                validator.enforceCapacity(clazz);
-                row.markPending(JoinAuditWriter.joinedVia(token.getType()), token.getId());
-                enrollmentRepository.save(row);
-                auditWriter.writeJoin(clazz, userId, token);
-                User student = row.getUser();
-                if (student == null) {
-                    student = userRepository.findById(userId).orElse(null);
-                }
-                if (student != null) {
-                    emitJoinRequestToOwner(clazz, student);
-                }
-                yield new PendingRequested(clazz, false);
-            }
-            default -> throw new IllegalStateException(
-                    "Trạng thái enrollment không hợp lệ: " + row.getStatus());
-        };
-    }
-
     private void emitJoinRequestToOwner(ClassEntity clazz, User student) {
         try {
             String name = student.getFullName() != null ? student.getFullName() : student.getEmail();
-            notificationService.create(
-                    clazz.getLecturerId(),
-                    "Yêu cầu tham gia lớp",
+            notificationService.create(clazz.getLecturerId(), "Yêu cầu tham gia lớp",
                     name + " đã gửi yêu cầu tham gia lớp \"" + clazz.getName() + "\".",
-                    NotificationType.JOIN_REQUEST,
-                    NotificationType.REF_CLASS,
-                    clazz.getId()
-            );
+                    NotificationType.JOIN_REQUEST, NotificationType.REF_CLASS, clazz.getId());
         } catch (Exception ignored) {
-            // Notification failure must not roll back the enrollment.
+            // Notification failure must not roll back enrollment state.
         }
     }
 
     private void emitApprovedNotifications(ClassEntity clazz, Long studentUserId) {
         try {
-            notificationService.create(
-                    studentUserId,
-                    "Yêu cầu tham gia đã được duyệt",
+            notificationService.create(studentUserId, "Yêu cầu tham gia được duyệt",
                     "Bạn đã được duyệt vào lớp \"" + clazz.getName() + "\".",
-                    NotificationType.JOIN_APPROVED,
-                    NotificationType.REF_CLASS,
-                    clazz.getId()
-            );
+                    NotificationType.JOIN_APPROVED, NotificationType.REF_CLASS, clazz.getId());
+            notificationService.create(studentUserId, "Đã tham gia lớp",
+                    "Bạn đã được thêm vào lớp \"" + clazz.getName() + "\".",
+                    NotificationType.CLASS_ENROLLED, NotificationType.REF_CLASS, clazz.getId());
         } catch (Exception ignored) {
-            // best-effort
+            // Notification failure must not roll back enrollment state.
         }
-        emitEnrolledNotification(clazz, studentUserId);
     }
 
     private void emitRejectedNotification(ClassEntity clazz, Long studentUserId) {
         try {
-            notificationService.create(
-                    studentUserId,
-                    "Yêu cầu tham gia bị từ chối",
-                    "Yêu cầu tham gia lớp \"" + clazz.getName() + "\" đã bị từ chối.",
-                    NotificationType.JOIN_REJECTED,
-                    NotificationType.REF_CLASS,
-                    clazz.getId()
-            );
+            notificationService.create(studentUserId, "Yêu cầu tham gia bị từ chối",
+                    "Yêu cầu tham gia lớp \"" + clazz.getName() + "\" chưa được chấp nhận.",
+                    NotificationType.JOIN_REJECTED, NotificationType.REF_CLASS, clazz.getId());
         } catch (Exception ignored) {
-            // best-effort
-        }
-    }
-
-    private void emitEnrolledNotification(ClassEntity clazz, Long userId) {
-        try {
-            notificationService.create(
-                    userId,
-                    "Tham gia lớp thành công",
-                    "Bạn đã tham gia lớp \"" + clazz.getName() + "\" thành công.",
-                    NotificationType.CLASS_ENROLLED,
-                    NotificationType.REF_CLASS,
-                    clazz.getId()
-            );
-        } catch (Exception ignored) {
-            // Notification failure must not roll back the enrollment.
+            // Notification failure must not roll back enrollment state.
         }
     }
 }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,7 +16,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for department-scoped question bank access.
+ * Unit tests for subject-scoped question bank access.
  */
 class QuestionBankAccessPolicyTest {
 
@@ -23,13 +24,13 @@ class QuestionBankAccessPolicyTest {
     private final QuestionBankAccessPolicy policy = new QuestionBankAccessPolicy(leaderDepartmentResolver);
 
     @Test
-    void lecturer_can_access_own_department_but_cannot_curate() {
+    void lecturer_can_contribute_to_any_subject_but_cannot_curate() {
         User lecturer = user(Role.LECTURER, 10L, 5L);
 
-        assertThat(policy.resolveDepartmentId(lecturer)).isEqualTo(5L);
-        assertThat(policy.canAccessDepartment(lecturer, 5L)).isTrue();
-        assertThat(policy.canAccessDepartment(lecturer, 7L)).isFalse();
-        assertThat(policy.canCurateDepartment(lecturer, 5L)).isFalse();
+        assertThat(policy.resolveSubjectId(lecturer)).isEqualTo(5L);
+        assertThat(policy.canAccessSubject(lecturer, 5L)).isTrue();
+        assertThat(policy.canAccessSubject(lecturer, 7L)).isTrue();
+        assertThat(policy.canCurateSubject(lecturer, 5L)).isFalse();
     }
 
     @Test
@@ -37,23 +38,25 @@ class QuestionBankAccessPolicyTest {
         User leader = user(Role.LEADER, 11L, 99L);
         Department department = department(5L, leader.getId());
         when(leaderDepartmentResolver.resolve(leader.getId())).thenReturn(Optional.of(department));
+        when(leaderDepartmentResolver.resolveAll(leader.getId())).thenReturn(List.of(department));
 
-        assertThat(policy.resolveDepartmentId(leader)).isEqualTo(5L);
-        assertThat(policy.canAccessDepartment(leader, 5L)).isTrue();
-        assertThat(policy.canCurateDepartment(leader, 5L)).isTrue();
-        assertThat(policy.canAccessDepartment(leader, 6L)).isFalse();
+        assertThat(policy.resolveSubjectId(leader)).isEqualTo(5L);
+        assertThat(policy.canAccessSubject(leader, 5L)).isTrue();
+        assertThat(policy.canCurateSubject(leader, 5L)).isTrue();
+        assertThat(policy.canAccessSubject(leader, 6L)).isFalse();
     }
 
     @Test
-    void admin_is_scoped_by_department_assignment() {
+    void admin_can_access_and_curate_the_full_subject_catalog() {
         User admin = user(Role.ADMIN, 12L, 8L);
 
-        assertThat(policy.canAccessDepartment(admin, 8L)).isTrue();
-        assertThat(policy.canCurateDepartment(admin, 8L)).isTrue();
-        assertThat(policy.canAccessDepartment(admin, 9L)).isFalse();
+        assertThat(policy.canAccessSubject(admin, 8L)).isTrue();
+        assertThat(policy.canCurateSubject(admin, 8L)).isTrue();
+        assertThat(policy.canAccessSubject(admin, 9L)).isTrue();
+        assertThat(policy.canCurateSubject(admin, 9L)).isTrue();
     }
 
-    private static User user(Role role, Long id, Long departmentId) {
+    private static User user(Role role, Long id, Long subjectId) {
         try {
             Constructor<User> ctor = User.class.getDeclaredConstructor(
                     String.class, String.class, String.class, Role.class,
@@ -62,7 +65,7 @@ class QuestionBankAccessPolicyTest {
             ctor.setAccessible(true);
             User user = ctor.newInstance("u@example.com", "hash", "User", role,
                     true, true, false, false, null, null);
-            user.setDepartmentId(departmentId);
+            user.setSubjectId(subjectId);
             Field idField = User.class.getDeclaredField("id");
             idField.setAccessible(true);
             idField.set(user, id);

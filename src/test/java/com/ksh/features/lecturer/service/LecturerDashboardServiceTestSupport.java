@@ -74,7 +74,7 @@ class LecturerDashboardServiceTestSupport {
     User enroll(ClassEntity clazz, String email, String name) {
         User u = ensureUser(email, name, Role.STUDENT);
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                u, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                u, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
         return u;
     }
 

@@ -2,7 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <!--
   Fragment: adminSidebar(activeTab)
-    activeTab : 'dashboard' | 'users' | 'departments' | 'categories' | 'classes' | 'news'
+    activeTab : 'dashboard' | 'users' | 'departments' | 'classes' | 'news'
               | 'permissions' | 'settings'
 
   Render mot card sidebar 280px (cot trai layout admin).
@@ -53,44 +53,17 @@
                         <line x1="9" y1="12" x2="9" y2="12.01"/>
                         <line x1="9" y1="15" x2="9" y2="15.01"/>
                         <line x1="9" y1="18" x2="9" y2="18.01"/>
-                    </svg>Bộ môn
+                    </svg>Mã môn
                 </a>
             </li>
             <li>
-                <!-- Collapsible group; stays open while one of its children is active. -->
-                <details class="side-group" th:attr="open=${activeTab == 'categories'} ? 'open' : null">
-                    <summary class="side-group-toggle">
-                        <svg class="ico ico-sm" viewBox="0 0 24 24">
-                            <path d="M3 7h18"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/>
-                            <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>
-                            <path d="M10 12h4"/>
-                        </svg>
-                        <span class="side-group-label">Danh mục</span>
-                        <svg class="ico ico-sm side-group-caret" viewBox="0 0 24 24" aria-hidden="true">
-                            <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                    </summary>
-                    <ul class="side-subnav">
-                        <li>
-                            <a th:href="@{/admin/categories}"
-                               th:classappend="${activeTab == 'categories'} ? 'active' : ''">
-                                <svg class="ico ico-sm" viewBox="0 0 24 24">
-                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                                </svg>Danh mục môn học
-                            </a>
-                        </li>
-                        <li>
-                            <a th:href="@{/admin/settings/ai/prompts}">
-                                <svg class="ico ico-sm" viewBox="0 0 24 24">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                                    <line x1="7" y1="8" x2="17" y2="8"/>
-                                    <line x1="7" y1="12" x2="13" y2="12"/>
-                                </svg>Danh mục System Prompt
-                            </a>
-                        </li>
-                    </ul>
-                </details>
+                <a th:href="@{/admin/settings/ai/prompts}">
+                    <svg class="ico ico-sm" viewBox="0 0 24 24">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        <line x1="7" y1="8" x2="17" y2="8"/>
+                        <line x1="7" y1="12" x2="13" y2="12"/>
+                    </svg>System Prompt
+                </a>
             </li>
             <li>
                 <a th:href="@{/admin/news}"

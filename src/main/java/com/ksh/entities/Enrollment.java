@@ -36,7 +36,7 @@ public class Enrollment {
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_REMOVED = "REMOVED";
     public static final String STATUS_COMPLETED = "COMPLETED";
-    /** Awaiting class-owner approval after CODE/LINK self-join. */
+    /** Awaiting class-owner approval after a catalog request. */
     public static final String STATUS_PENDING = "PENDING";
     /** Class owner rejected the join request; student may re-request. */
     public static final String STATUS_REJECTED = "REJECTED";
@@ -50,10 +50,8 @@ public class Enrollment {
     public enum JoinedVia {
         /** Added by an admin or lecturer through the manual flow. */
         MANUAL,
-        /** Student redeemed a 6-character invite code. */
-        CODE,
-        /** Student clicked a 32-character invite link. */
-        LINK,
+        /** Student selected an ACTIVE class from the public class catalog. */
+        REQUEST,
         /** Lecturer bulk-loaded the student via Excel import (KSH-3.4). */
         IMPORT
     }
@@ -78,9 +76,6 @@ public class Enrollment {
     @Column(name = "joined_at", insertable = false, updatable = false)
     private LocalDateTime joinedAt;
 
-    @Column(name = "invite_code_id")
-    private Long inviteCodeId;
-
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
@@ -100,7 +95,6 @@ public class Enrollment {
         this.classId = classId;
         this.status = STATUS_ACTIVE;
         this.joinedVia = joinedVia;
-        this.inviteCodeId = inviteCodeId;
         this.completedAt = null;
     }
 
@@ -114,7 +108,7 @@ public class Enrollment {
     }
 
     /**
-     * Factory for a CODE/LINK self-join request. Status is PENDING until the
+     * Factory for a student self-join request. Status is PENDING until the
      * class owner approves; {@code use_count} is not incremented here.
      */
     public static Enrollment createPending(User user, Long classId,
@@ -131,7 +125,6 @@ public class Enrollment {
     public void reactivateVia(String joinedVia, Long inviteCodeId) {
         this.status = STATUS_ACTIVE;
         this.joinedVia = joinedVia;
-        this.inviteCodeId = inviteCodeId;
         this.completedAt = null;
     }
 
@@ -147,7 +140,6 @@ public class Enrollment {
     public void markPending(JoinedVia joinedVia, Long inviteCodeId) {
         this.status = STATUS_PENDING;
         this.joinedVia = joinedVia.name();
-        this.inviteCodeId = inviteCodeId;
         this.completedAt = null;
     }
 

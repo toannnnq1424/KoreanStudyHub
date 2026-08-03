@@ -9,6 +9,18 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
+  /* This stylesheet is shared by board/members/tests/lessons pages.  Those
+     pages no longer all load detail-page.css, so keep the small spacing type
+     scale local instead of letting unresolved custom properties invalidate
+     padding/gap declarations in the class sidebar. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --font-size-sm: 14px;
   --shub-bg: #f5f6f8;
   --shub-surface: #ffffff;
   --shub-border: #e6e8eb;
@@ -77,6 +89,18 @@
   grid-template-columns: 260px minmax(0, 1fr);
 }
 
+.student-lessons-grid.is-teaching {
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
+  min-height: calc(100vh - var(--header-height, 64px));
+}
+
+.student-lessons-grid.is-teaching.is-empty {
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.lecturer-lessons-sidebar { min-width: 0; background: #fff; }
+.lecturer-lessons-sidebar .side { position: sticky; top: var(--header-height, 64px); }
+
 @media (max-width: 1199px) {
   .student-lessons-grid {
     grid-template-columns: 240px 1fr;
@@ -86,12 +110,14 @@
     border-left: 0;
     border-top: 1px solid var(--shub-border);
   }
+  .student-lessons-grid.is-teaching { grid-template-columns: 250px minmax(0, 1fr); }
 }
 
 @media (max-width: 767px) {
   .student-lessons-grid {
     grid-template-columns: 1fr;
   }
+  .student-lessons-grid.is-teaching { grid-template-columns: 1fr; }
   .student-lessons-sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--shub-border);

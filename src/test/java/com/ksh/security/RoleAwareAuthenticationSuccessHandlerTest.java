@@ -49,7 +49,7 @@ class RoleAwareAuthenticationSuccessHandlerTest {
     }
 
     @Test
-    void studentCanResumeInviteDeepLink() throws Exception {
+    void retiredInviteDeepLinkFallsBackToStudentHome() throws Exception {
         RequestCache cache = mock(RequestCache.class);
         String target = "http://localhost:18091/j/abc123?continue";
         SavedRequest saved = savedRequest(target);
@@ -60,7 +60,7 @@ class RoleAwareAuthenticationSuccessHandlerTest {
         new RoleAwareAuthenticationSuccessHandler(cache).onAuthenticationSuccess(
                 request, response, authentication(Roles.STUDENT));
 
-        assertThat(response.getRedirectedUrl()).isEqualTo(target);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/my/classes");
     }
 
     @Test

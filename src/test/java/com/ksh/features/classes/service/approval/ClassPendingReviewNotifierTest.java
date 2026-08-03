@@ -30,7 +30,7 @@ class ClassPendingReviewNotifierTest {
         verify(notifications).create(
                 9L,
                 "Lớp mới chờ duyệt",
-                "Lớp \"TOPIK 3\" (K3ABC) đang chờ bạn duyệt.",
+                "Lớp \"TOPIK 3\" thuộc mã môn K3ABC đang chờ bạn duyệt.",
                 NotificationType.CLASS_PENDING_APPROVAL,
                 NotificationType.REF_CLASS,
                 11L);

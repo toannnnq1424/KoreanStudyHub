@@ -55,6 +55,9 @@ public class Test {
     @Column(name = "class_id")
     private Long classId;
 
+    @Column(name = "subject_id")
+    private Long subjectId;
+
     @Column(nullable = false, length = 20)
     private String type;
 
@@ -149,6 +152,7 @@ public class Test {
     public void setTitle(String title) { this.title = title; }
     public void setDescription(String description) { this.description = description; }
     public void setClassId(Long classId) { this.classId = classId; }
+    public void setSubjectId(Long subjectId) { this.subjectId = subjectId; }
     public void setType(String type) { this.type = type; }
     public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
     public void setPassingScore(BigDecimal passingScore) { this.passingScore = passingScore; }
@@ -168,6 +172,7 @@ public class Test {
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public Long getClassId() { return classId; }
+    public Long getSubjectId() { return subjectId; }
     public String getType() { return type; }
     public Integer getDurationMinutes() { return durationMinutes; }
     public BigDecimal getPassingScore() { return passingScore; }

@@ -1,7 +1,7 @@
 package com.ksh.features.admin.departments.service;
 
 import com.ksh.entities.Department;
-import com.ksh.entities.DepartmentActivity;
+import com.ksh.entities.SubjectActivity;
 import com.ksh.entities.User;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
@@ -23,14 +23,14 @@ import java.util.stream.Stream;
 
 /**
  * Write-side department mutations: create/update/toggle and leader assignment
- * with promote/demote rules. Audit rows go through {@link DepartmentAuditWriter}.
+ * with promote/demote rules. Audit rows go through {@link SubjectAuditWriter}.
  * Read queries live on {@link DepartmentQueryService}.
  */
 @Service
 public class DepartmentService {
 
-    static final String MSG_NOT_FOUND = "Không tìm thấy bộ môn";
-    static final String MSG_CODE_EXISTS = "Mã bộ môn đã tồn tại";
+    static final String MSG_NOT_FOUND = "Không tìm thấy môn học";
+    static final String MSG_CODE_EXISTS = "Mã môn đã tồn tại";
     static final String MSG_LEADER_NOT_FOUND = "Không tìm thấy người dùng để gán trưởng bộ môn";
     static final String MSG_LEADER_INELIGIBLE =
             "Trưởng bộ môn phải là giảng viên hoặc trưởng bộ môn đang hoạt động";
@@ -46,12 +46,12 @@ public class DepartmentService {
 
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
-    private final DepartmentAuditWriter auditWriter;
+    private final SubjectAuditWriter auditWriter;
     private final SystemSettingsRepository systemSettingsRepository;
 
     public DepartmentService(DepartmentRepository departmentRepository,
                              UserRepository userRepository,
-                             DepartmentAuditWriter auditWriter,
+                             SubjectAuditWriter auditWriter,
                              SystemSettingsRepository systemSettingsRepository) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
@@ -74,8 +74,8 @@ public class DepartmentService {
             lockLeaderAssignmentAnchor();
         }
         Department saved = departmentRepository.save(entity);
-        auditWriter.write(saved.getId(), DepartmentActivity.TYPE_CREATED,
-                "Tạo bộ môn " + saved.getName() + " (" + saved.getCode() + ")",
+        auditWriter.write(saved.getId(), SubjectActivity.TYPE_CREATED,
+                "Tạo môn học " + saved.getName() + " (" + saved.getCode() + ")",
                 null, actorId);
 
         if (form.leaderUserId() != null) {
@@ -112,16 +112,16 @@ public class DepartmentService {
         Map<String, Object> fieldChanges = new LinkedHashMap<>(changes);
         fieldChanges.remove("active");
         if (!fieldChanges.isEmpty()) {
-            auditWriter.write(entity.getId(), DepartmentActivity.TYPE_UPDATED,
-                    "Cập nhật thông tin bộ môn",
+            auditWriter.write(entity.getId(), SubjectActivity.TYPE_UPDATED,
+                    "Cập nhật thông tin môn học",
                     auditWriter.serialize(fieldChanges), actorId);
         }
         // Visibility flip on the edit form (list toggle endpoint also writes this type).
         if (activeChanged) {
             boolean nowActive = form.active();
             auditWriter.write(entity.getId(),
-                    nowActive ? DepartmentActivity.TYPE_ACTIVATED : DepartmentActivity.TYPE_DEACTIVATED,
-                    nowActive ? "Hiện bộ môn" : "Ẩn bộ môn",
+                    nowActive ? SubjectActivity.TYPE_ACTIVATED : SubjectActivity.TYPE_DEACTIVATED,
+                    nowActive ? "Hiện môn học" : "Ẩn môn học",
                     null, actorId);
         }
     }
@@ -133,8 +133,8 @@ public class DepartmentService {
         boolean now = entity.toggleActive();
         departmentRepository.save(entity);
         auditWriter.write(entity.getId(),
-                now ? DepartmentActivity.TYPE_ACTIVATED : DepartmentActivity.TYPE_DEACTIVATED,
-                now ? "Hiện bộ môn" : "Ẩn bộ môn",
+                now ? SubjectActivity.TYPE_ACTIVATED : SubjectActivity.TYPE_DEACTIVATED,
+                now ? "Hiện môn học" : "Ẩn môn học",
                 null, actorId);
         return now;
     }
@@ -142,14 +142,14 @@ public class DepartmentService {
     /**
      * Assigns or clears the department leader with promote/demote side effects.
      *
-     * @param departmentId target department
+     * @param subjectId target department
      * @param leaderUserId   new leader, or null to unassign
      * @param actorId      admin performing the action (audit)
      */
     @Transactional
-    public void assignLeader(Long departmentId, Long leaderUserId, Long actorId) {
+    public void assignLeader(Long subjectId, Long leaderUserId, Long actorId) {
         lockLeaderAssignmentAnchor();
-        Department entity = departmentRepository.findByIdForUpdate(departmentId)
+        Department entity = departmentRepository.findByIdForUpdate(subjectId)
                 .orElseThrow(() -> new DepartmentValidationException(MSG_NOT_FOUND));
         applyLeaderAssignment(entity, leaderUserId, actorId);
         departmentRepository.save(entity);
@@ -171,10 +171,7 @@ public class DepartmentService {
                     || !DepartmentQueryService.LEADER_ELIGIBLE.contains(candidate.getRole())) {
                 throw new DepartmentValidationException(MSG_LEADER_INELIGIBLE);
             }
-            if (departmentRepository.existsByLeaderUserIdAndIdNot(
-                    newLeaderUserId, entity.getId())) {
-                throw new DepartmentValidationException(MSG_LEADER_ALREADY_ASSIGNED);
-            }
+            // One Korean department leader may curate multiple subject-code rows.
         }
 
         if (Objects.equals(oldLeaderId, newLeaderUserId)) {
@@ -183,7 +180,7 @@ public class DepartmentService {
             // out-of-band user role/department edit.
             if (candidate != null
                     && (candidate.getRole() != Role.LEADER
-                    || !Objects.equals(candidate.getDepartmentId(), entity.getId()))) {
+                    || !Objects.equals(candidate.getSubjectId(), entity.getId()))) {
                 candidate.promoteToLeader(entity.getId());
                 userRepository.save(candidate);
             }
@@ -207,10 +204,10 @@ public class DepartmentService {
 
         if (entity.getId() != null) {
             if (newLeaderUserId == null) {
-                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_LEADER_CLEARED,
+                auditWriter.write(entity.getId(), SubjectActivity.TYPE_LEADER_CLEARED,
                         "Bỏ gán trưởng bộ môn", null, actorId);
             } else {
-                auditWriter.write(entity.getId(), DepartmentActivity.TYPE_LEADER_ASSIGNED,
+                auditWriter.write(entity.getId(), SubjectActivity.TYPE_LEADER_ASSIGNED,
                         "Gán trưởng bộ môn: " + (newLeaderEmail != null ? newLeaderEmail : newLeaderUserId),
                         null, actorId);
             }

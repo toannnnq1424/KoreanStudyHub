@@ -13,16 +13,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
-/** Builds the .xlsx template used for department question bank imports. */
+/** Builds the .xlsx template used for subject Question Bank imports. */
 @Component
 public class QuestionBankImportTemplate {
 
     private static final String SHEET_ROWS = "Cau hoi";
     private static final String SHEET_GUIDE = "Huong dan";
-    private static final String CATEGORY_PLACEHOLDER =
-            "[CHƯA CÓ DANH MỤC ĐANG MỞ - HÃY NHỜ TRƯỞNG BỘ MÔN TẠO HOẶC MỞ]";
     private static final String[] HEADERS = {
-            "Danh mục", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
+            "Mã môn", "Loại câu hỏi", "Nội dung câu hỏi", "Giải thích",
             "Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D", "Đáp án E", "Đáp án F",
             "Đáp án đúng"
     };
@@ -34,7 +32,7 @@ public class QuestionBankImportTemplate {
     };
     private static final String[] GUIDE_LINES = {
             "1. Dòng đầu tiên là tiêu đề, không được xoá hoặc đổi tên cột.",
-            "2. Danh mục phải khớp chính xác với danh mục đang hoạt động trong bộ môn của bạn.",
+            "2. Mã môn phải khớp chính xác với mã môn ACTIVE đã chọn khi tải file mẫu.",
             "3. Loại câu hỏi chỉ chấp nhận MCQ hoặc MR.",
             "4. Cần ít nhất hai đáp án không rỗng; có thể để trống đáp án E/F nếu không dùng.",
             "5. Cột 'Đáp án đúng' dùng chữ cái A-F, ngăn cách bằng dấu phẩy cho câu MR.",
@@ -44,11 +42,11 @@ public class QuestionBankImportTemplate {
     private static final int CONTENT_WIDTH = 256 * 42;
 
     /** Builds the workbook and serializes it to bytes for HTTP download. */
-    public byte[] build(List<String> activeCategoryNames) throws IOException {
+    public byte[] build(String subjectCode) throws IOException {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             CellStyle headerStyle = headerStyle(workbook);
-            buildRowsSheet(workbook, headerStyle, sampleCategory(activeCategoryNames));
+            buildRowsSheet(workbook, headerStyle, subjectCode);
             buildGuideSheet(workbook, headerStyle);
             workbook.write(out);
             return out.toByteArray();
@@ -57,7 +55,7 @@ public class QuestionBankImportTemplate {
 
     private void buildRowsSheet(Workbook workbook,
                                 CellStyle headerStyle,
-                                String sampleCategory) {
+                                String subjectCode) {
         Sheet sheet = workbook.createSheet(SHEET_ROWS);
         Row header = sheet.createRow(0);
         for (int i = 0; i < HEADERS.length; i++) {
@@ -69,7 +67,7 @@ public class QuestionBankImportTemplate {
         for (int r = 0; r < SAMPLE_ROWS.length; r++) {
             Row row = sheet.createRow(r + 1);
             for (int c = 0; c < SAMPLE_ROWS[r].length; c++) {
-                row.createCell(c).setCellValue(c == 0 ? sampleCategory : SAMPLE_ROWS[r][c]);
+                row.createCell(c).setCellValue(c == 0 ? subjectCode : SAMPLE_ROWS[r][c]);
             }
         }
     }
@@ -84,17 +82,6 @@ public class QuestionBankImportTemplate {
         for (int i = 0; i < GUIDE_LINES.length; i++) {
             sheet.createRow(i + 1).createCell(0).setCellValue(GUIDE_LINES[i]);
         }
-    }
-
-    private static String sampleCategory(List<String> activeCategoryNames) {
-        if (activeCategoryNames != null) {
-            for (String name : activeCategoryNames) {
-                if (name != null && !name.isBlank()) {
-                    return name.trim();
-                }
-            }
-        }
-        return CATEGORY_PLACEHOLDER;
     }
 
     private static CellStyle headerStyle(Workbook workbook) {

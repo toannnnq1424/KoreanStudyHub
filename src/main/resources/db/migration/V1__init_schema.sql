@@ -16,7 +16,7 @@ CREATE TABLE users (
                        password_hash VARCHAR(255) NOT NULL,
                        full_name VARCHAR(150) NOT NULL,
                        role VARCHAR(20) NOT NULL CHECK (role IN ('STUDENT','LECTURER','HEAD','ADMIN')),
-                       department_id BIGINT NULL,
+                       subject_id BIGINT NULL,
                        avatar_url VARCHAR(500) NULL,
                        bio TEXT NULL,
                        phone VARCHAR(20) NULL,
@@ -32,7 +32,7 @@ CREATE TABLE users (
                        UNIQUE INDEX idx_users_email (email),
                        UNIQUE INDEX idx_users_google_id (google_id),
                        INDEX idx_users_role (role),
-                       INDEX idx_users_department_id (department_id)
+                       INDEX idx_users_subject_id (subject_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 1.2 User Verification Tokens — Xác thực email
@@ -92,8 +92,8 @@ CREATE TABLE login_history (
 -- 2. ORGANIZATION
 -- =============================================================================
 
--- 2.1 Departments — Bộ môn
-CREATE TABLE departments (
+-- 2.1 Subjects — Bộ môn
+CREATE TABLE subjects (
                              id BIGINT AUTO_INCREMENT PRIMARY KEY,
                              name VARCHAR(200) NOT NULL,
                              code VARCHAR(20) NOT NULL,
@@ -107,9 +107,9 @@ CREATE TABLE departments (
                              CONSTRAINT fk_dept_head FOREIGN KEY (head_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Add FK từ users.department_id → departments (cần tạo departments trước)
+-- Add FK từ users.subject_id → subjects (cần tạo subjects trước)
 ALTER TABLE users
-    ADD CONSTRAINT fk_user_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL;
+    ADD CONSTRAINT fk_user_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL;
 
 -- 2.2 Categories — Danh mục khoá học
 CREATE TABLE categories (
@@ -137,7 +137,7 @@ CREATE TABLE courses (
                          slug VARCHAR(300) NOT NULL,
                          description TEXT NULL,
                          image_url VARCHAR(500) NULL,
-                         department_id BIGINT NOT NULL,
+                         subject_id BIGINT NOT NULL,
                          created_by BIGINT NOT NULL,
                          status VARCHAR(20) DEFAULT 'DRAFT' CHECK (status IN ('DRAFT','PUBLISHED','ARCHIVED')),
                          is_active TINYINT(1) DEFAULT 1,
@@ -145,10 +145,10 @@ CREATE TABLE courses (
                          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                          is_deleted TINYINT(1) DEFAULT 0,
                          UNIQUE INDEX idx_course_slug (slug),
-                         INDEX idx_course_dept (department_id),
+                         INDEX idx_course_dept (subject_id),
                          INDEX idx_course_status (status),
                          INDEX idx_course_created_by (created_by),
-                         CONSTRAINT fk_course_dept FOREIGN KEY (department_id) REFERENCES departments(id),
+                         CONSTRAINT fk_course_dept FOREIGN KEY (subject_id) REFERENCES subjects(id),
                          CONSTRAINT fk_course_creator FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -16,6 +16,8 @@ class QuestionBankFrontendContractTest {
             Path.of("src/main/resources/templates/questionbank/list.html");
     private static final Path FORM_TEMPLATE =
             Path.of("src/main/resources/templates/questionbank/form.html");
+    private static final Path SUBJECT_REVIEW_TEMPLATE =
+            Path.of("src/main/resources/templates/questionbank/subject-review.html");
 
     @Test
     void multipart_preview_sends_the_spring_csrf_header() throws IOException {
@@ -33,20 +35,36 @@ class QuestionBankFrontendContractTest {
     }
 
     @Test
-    void authoring_and_import_are_not_offered_without_active_categories() throws IOException {
+    void workspace_uses_clickable_subjects_and_two_explicit_banks() throws IOException {
+        String list = Files.readString(LIST_TEMPLATE);
+        String review = Files.readString(SUBJECT_REVIEW_TEMPLATE);
+
+        assertThat(list)
+                .contains("for=\"qbLecturerQuery\"", "id=\"qbLecturerQuery\"")
+                .contains("qb-subject-rail", "Bộ chung đã duyệt", "Chờ leader duyệt")
+                .contains("name=\"scope\"", "name=\"lessonTemplateId\"", "name=\"classIds\"")
+                .doesNotContain("question-bank.js");
+        assertThat(review)
+                .contains("for=\"qbLeaderQuery\"", "id=\"qbLeaderQuery\"")
+                .contains("for=\"qbContributor\"", "id=\"qbContributor\"")
+                .contains("<select class=\"qb-input\" id=\"qbContributor\"")
+                .doesNotContain("category", "danh mục", "question-bank.js");
+    }
+
+    @Test
+    void authoring_and_import_require_an_active_catalog_not_an_account_assignment() throws IOException {
         String list = Files.readString(LIST_TEMPLATE);
         String form = Files.readString(FORM_TEMPLATE);
 
         assertThat(list)
-                .contains("th:if=\"${!emptyDepartment and !emptyCategories}\"")
-                .contains("Chưa có danh mục ngân hàng câu hỏi nào đang mở trong bộ môn")
-                .contains("Vui lòng liên hệ trưởng bộ môn")
-                .doesNotContain("Vui lòng liên hệ ADMIN");
+                .contains("th:if=\"${!emptyDepartment}\"")
+                .contains("Chưa có mã môn đang hoạt động", "qb-subject-rail")
+                .doesNotContain("Bạn chưa được gán mã môn")
+                .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
         assertThat(form)
-                .contains("th:if=\"${!emptyDepartment and !emptyCategories}\"")
-                .contains("Chưa có danh mục ngân hàng câu hỏi nào đang mở trong bộ môn")
-                .contains("Vui lòng liên hệ trưởng bộ môn")
-                .contains("Danh mục ngân hàng câu hỏi")
-                .doesNotContain("Vui lòng liên hệ ADMIN");
+                .contains("th:if=\"${!emptyDepartment}\"")
+                .contains("Chưa có mã môn đang hoạt động")
+                .doesNotContain("Bạn chưa được gán mã môn")
+                .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
     }
 }

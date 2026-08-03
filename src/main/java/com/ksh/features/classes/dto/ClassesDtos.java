@@ -5,6 +5,7 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -74,12 +75,21 @@ public class ClassesDtos {
 
             @Min(value = 1, message = "Sĩ số tối thiểu là 1")
             @Max(value = 1000, message = "Sĩ số tối đa là 1000")
-            Integer maxStudents
+            Integer maxStudents,
+
+            @NotNull(message = "Vui lòng chọn mã môn")
+            Long subjectId
     ) {
+
+        /** Compatibility constructor for non-web callers while subject selection migrates. */
+        public ClassForm(String name, String description, LocalDate startDate,
+                         LocalDate endDate, Integer maxStudents) {
+            this(name, description, startDate, endDate, maxStudents, null);
+        }
 
         /** Returns an empty form instance, used when rendering {@code GET /new}. */
         public static ClassForm empty() {
-            return new ClassForm("", "", null, null, 100);
+            return new ClassForm("", "", null, null, 100, null);
         }
 
         /** Converts an entity to a form instance to pre-fill the edit form.
@@ -93,7 +103,8 @@ public class ClassesDtos {
                     e.getDescription(),
                     e.getStartDate(),
                     e.getEndDate(),
-                    e.getMaxStudents()
+                    e.getMaxStudents(),
+                    e.getSubjectId()
             );
         }
 
@@ -116,26 +127,4 @@ public class ClassesDtos {
         }
     }
 
-    /**
-     * View-model for the active {@code CODE} invite token rendered
-     * on the Members tab "Mời sinh viên" panel.
-     *
-     * @param code     the 6-char invite code value
-     * @param id       primary key of the {@code class_invite_codes} row
-     * @param useCount how many successful joins this token has served
-     */
-    public record InviteCodeView(String code, Long id, Integer useCount) {}
-
-    /**
-     * View-model for the active {@code LINK} invite token rendered
-     * on the Members tab "Mời sinh viên" panel.
-     *
-     * @param token    the 32-char base64url token (the URL path
-     *                 segment under {@code /j/})
-     * @param fullUrl  the complete invite URL the lecturer copies
-     *                 (e.g. {@code https://app.example/j/<token>})
-     * @param id       primary key of the {@code class_invite_codes} row
-     * @param useCount how many successful joins this LINK has served
-     */
-    public record InviteLinkView(String token, String fullUrl, Long id, Integer useCount) {}
 }

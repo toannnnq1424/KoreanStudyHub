@@ -44,10 +44,9 @@ import static com.ksh.common.IConstant.VIDEO_PROVIDER_YOUTUBE;
  *       lesson MUST be {@link Lesson#STATUS_PUBLISHED} and not
  *       soft-deleted — all resolved by {@link LessonAccessResolver}.</li>
  *   <li>The caller MUST be admitted: an ACTIVE-enrolled student, OR the
- *       owning lecturer, OR an ADMIN / in-department LEADER moderator
- *       (bypasses enrollment so they can open the lesson's discussion thread to moderate —
- *       design D7, mirroring {@code LessonCommentsService.authorize}
- *       D3). The lesson gates run first, so a moderator gains nothing on
+ *       owning lecturer, OR an ADMIN / in-department LEADER
+ *       (bypasses enrollment for in-scope inspection). The lesson gates run
+ *       first, so a privileged user gains nothing on
  *       a deleted / unpublished lesson.</li>
  * </ol>
  *
@@ -89,12 +88,12 @@ public class StudentLessonDetailService {
     /**
      * Returns the populated view model for a single PUBLISHED lesson,
      * admitting an ACTIVE-enrolled student, the owning lecturer, or an
-     * ADMIN / in-department LEADER moderator.
+     * ADMIN / in-subject LEADER privileged viewer.
      *
      * @param classId  target class id from the URL
      * @param lessonId target lesson id from the URL
      * @param userId   authenticated user id
-     * @param role     the caller's role; ADMIN and in-department LEADER bypass enrollment
+     * @param role     the caller's role; ADMIN and in-subject LEADER bypass enrollment
      * @return populated {@link LessonDetailView}; the attachments list is
      *         empty when the lesson has none
      * @throws EntityNotFoundException whenever any gate fails — always
@@ -104,19 +103,22 @@ public class StudentLessonDetailService {
     public LessonDetailView getLessonDetail(Long classId, Long lessonId, Long userId, Role role) {
         // Lesson gates first (live class, section-belongs-to-class, PUBLISHED)
         // resolve the trio via the shared resolver; failures collapse to 404.
-        // Running these before the access gate means a moderator gains nothing
+        // Running these before the access gate means a privileged viewer gains nothing
         // on a deleted / unpublished lesson.
         LessonAccessResolver.ResolvedLesson resolved =
                 lessonAccessResolver.resolveInClass(classId, lessonId);
         ClassEntity clazz = resolved.clazz();
         Section section = resolved.section();
         Lesson lesson = resolved.lesson();
+        if (role == Role.STUDENT && !ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus())) {
+            throw new EntityNotFoundException("Class not found or not accessible");
+        }
 
-        // Access gate: ADMIN and in-department LEADER bypass enrollment so they can open the
-        // lesson (and its discussion thread) to moderate; the owning lecturer
+        // Access gate: ADMIN and in-department LEADER bypass enrollment so they can inspect the
+        // lesson; the owning lecturer
         // passes too; otherwise an ACTIVE enrollment is required. Any other
-        // caller (REMOVED/COMPLETED/non-enrolled non-moderator) → no-leak 404.
-        accessPolicy.requireModeratorOrEnrolled(clazz, userId, role);
+        // caller (REMOVED/COMPLETED/non-enrolled non-privileged) → no-leak 404.
+        accessPolicy.requireViewAccess(clazz, userId, role);
 
         List<LessonAttachment> rawAttachments = lessonAttachmentRepository
                 .findByLessonIdOrderByUploadedAtAsc(lessonId);

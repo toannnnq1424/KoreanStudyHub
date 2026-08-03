@@ -76,6 +76,9 @@ public interface TestRepository extends JpaRepository<Test, Long> {
     /** Exams belonging to a single class (class-detail "Bài test" tab). */
     Page<Test> findByClassId(Long classId, Pageable pageable);
 
+    /** Prevents accidental duplicate snapshots when a distribution is retried. */
+    boolean existsByClassIdAndTitleIgnoreCase(Long classId, String title);
+
     /**
      * Published exams in a single class whose title contains {@code title}
      * (case-insensitive), newest-updated first. Backs the class-scoped student

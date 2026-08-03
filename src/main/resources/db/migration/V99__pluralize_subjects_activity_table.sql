@@ -1,0 +1,2 @@
+-- Fresh-only compaction marker. The canonical table name
+-- subjects_activities has existed since V41.

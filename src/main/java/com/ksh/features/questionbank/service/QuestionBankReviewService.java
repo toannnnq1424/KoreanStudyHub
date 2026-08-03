@@ -13,12 +13,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-/** LEADER review actions for department-scoped shared workflow transitions. */
+/** LEADER review actions for subject-scoped shared workflow transitions. */
 @Service
 public class QuestionBankReviewService {
 
     private static final String MSG_FORBIDDEN =
-            "Bạn không có quyền duyệt câu hỏi cộng tác của bộ môn này";
+            "Bạn không có quyền duyệt câu hỏi của mã môn này";
     private static final String MSG_INVALID_STATE =
             "Không thể thực hiện thao tác ở trạng thái hiện tại";
 
@@ -175,17 +175,16 @@ public class QuestionBankReviewService {
     private User requireCurator(Long userId) {
         User actor = userRepository.findById(userId)
                 .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
-        Long departmentId = accessPolicy.resolveDepartmentId(actor);
-        if (departmentId == null || !accessPolicy.canCurateDepartment(actor, departmentId)) {
+        Long subjectId = accessPolicy.resolveSubjectId(actor);
+        if (subjectId == null || !accessPolicy.canCurateSubject(actor, subjectId)) {
             throw new AccessDeniedException(MSG_FORBIDDEN);
         }
         return actor;
     }
 
     private QuestionBankItem requireCuratedItem(Long itemId, User actor) {
-        Long departmentId = accessPolicy.resolveDepartmentId(actor);
-        return itemRepository.findByIdAndDepartmentId(itemId, departmentId)
-                .filter(item -> accessPolicy.canCurateDepartment(actor, item.getDepartmentId()))
+        return itemRepository.findById(itemId)
+                .filter(item -> accessPolicy.canCurateSubject(actor, item.getSubjectId()))
                 .orElseThrow(() -> new AccessDeniedException(MSG_FORBIDDEN));
     }
 

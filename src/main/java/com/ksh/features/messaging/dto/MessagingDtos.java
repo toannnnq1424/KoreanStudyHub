@@ -101,7 +101,7 @@ public final class MessagingDtos {
      *
      * @param classId      the class id (for sidebar hrefs)
      * @param className    the class name shown in the sidebar info card
-     * @param classCode    the class code shown in the sidebar info card
+     * @param classCode    the subject code shown in the sidebar info card
      * @param lecturerName the lecturer's full name, or {@code null}
      * @param conversation the opened thread with the class's lecturer
      */

@@ -7,10 +7,10 @@
 
 
 -- =============================================================================
--- 1. DEPARTMENTS (Bộ môn)
+-- 1. SUBJECTS (Mã môn)
 -- =============================================================================
 
-INSERT INTO departments (name, code, description) VALUES
+INSERT INTO subjects (name, code, description) VALUES
                                                       ('Công nghệ thông tin', 'CNTT', 'Khoa Công nghệ thông tin — đào tạo các ngành về phần mềm, mạng, hệ thống thông tin'),
                                                       ('Kinh tế', 'KT', 'Khoa Kinh tế — đào tạo các ngành về kinh tế, quản trị kinh doanh, tài chính'),
                                                       ('Ngoại ngữ', 'NN', 'Khoa Ngoại ngữ — đào tạo các ngành về ngôn ngữ Anh, Nhật, Hàn, Trung'),
@@ -31,7 +31,7 @@ INSERT INTO users (email, password_hash, full_name, role, is_email_verified, is_
      1,
      1);
 
--- Cập nhật departments.head_user_id (tạm NULL vì chưa có Head)
+-- Cập nhật subjects.head_user_id (tạm NULL vì chưa có Head)
 
 -- =============================================================================
 -- 3. CATEGORIES (Danh mục khoá học — 2 cấp)
@@ -146,7 +146,7 @@ INSERT INTO feature_permissions (role, feature_key, is_granted) VALUES
                                                                     ('HEAD', 'course.delete', 1),
                                                                     ('HEAD', 'course.publish', 1),
                                                                     ('HEAD', 'section.manage', 1),
-                                                                    ('HEAD', 'department.report', 1),
+                                                                    ('HEAD', 'subject.report', 1),
                                                                     ('HEAD', 'content.approve', 1),
                                                                     ('HEAD', 'content.version_manage', 1),
                                                                     ('HEAD', 'lecturer.assign', 1);
@@ -156,7 +156,7 @@ INSERT INTO feature_permissions (role, feature_key, is_granted) VALUES
                                                                     ('ADMIN', 'user.manage', 1),
                                                                     ('ADMIN', 'user.role_assign', 1),
                                                                     ('ADMIN', 'user.lock_unlock', 1),
-                                                                    ('ADMIN', 'department.manage', 1),
+                                                                    ('ADMIN', 'subject.manage', 1),
                                                                     ('ADMIN', 'category.manage', 1),
                                                                     ('ADMIN', 'course.manage_all', 1),
                                                                     ('ADMIN', 'course.activate_deactivate', 1),
@@ -177,7 +177,7 @@ INSERT INTO feature_permissions (role, feature_key, is_granted) VALUES
 
 /*
 -- Sample Lecturer account (password: Lecturer@123)
-INSERT INTO users (email, password_hash, full_name, role, department_id, is_email_verified)
+INSERT INTO users (email, password_hash, full_name, role, subject_id, is_email_verified)
 VALUES ('giangvien1@ksh.edu.vn',
         '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
         'Nguyễn Văn A',
@@ -186,7 +186,7 @@ VALUES ('giangvien1@ksh.edu.vn',
         1);
 
 -- Sample Head account (password: Head@123)
-INSERT INTO users (email, password_hash, full_name, role, department_id, is_email_verified)
+INSERT INTO users (email, password_hash, full_name, role, subject_id, is_email_verified)
 VALUES ('truongbomon@ksh.edu.vn',
         '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
         'Trần Thị B',
@@ -195,7 +195,7 @@ VALUES ('truongbomon@ksh.edu.vn',
         1);
 
 -- Cập nhật trưởng bộ môn
-UPDATE departments SET head_user_id = (SELECT id FROM users WHERE email = 'truongbomon@ksh.edu.vn')
+UPDATE subjects SET head_user_id = (SELECT id FROM users WHERE email = 'truongbomon@ksh.edu.vn')
 WHERE code = 'CNTT';
 
 -- Sample Student accounts (password: Student@123)
@@ -205,7 +205,7 @@ INSERT INTO users (email, password_hash, full_name, role, is_email_verified) VAL
 ('sv03@student.ksh.edu.vn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Hoàng Văn E', 'STUDENT', 1);
 
 -- Sample Course
-INSERT INTO courses (title, slug, description, department_id, created_by, status) VALUES
+INSERT INTO courses (title, slug, description, subject_id, created_by, status) VALUES
 ('Lập trình Java cơ bản', 'lap-trinh-java-co-ban',
  'Khoá học lập trình Java từ cơ bản đến hướng đối tượng. Dành cho sinh viên năm 1-2 ngành CNTT.',
  1, 1, 'DRAFT');

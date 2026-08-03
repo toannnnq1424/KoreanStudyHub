@@ -3,17 +3,10 @@ package com.ksh.features.questionbank.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** Read-only DTOs for department-scoped shared question pages. */
+/** Read-only DTOs for subject-scoped shared question pages. */
 public final class QuestionBankViews {
 
     private QuestionBankViews() {
-    }
-
-    public record CategoryOption(Long id, String name, boolean active) {
-    }
-
-    public record CategoryRow(Long id, String name, String description,
-                              boolean active, long itemCount) {
     }
 
     /** One distinct contributor shown in the LEADER management-screen filter. */
@@ -25,20 +18,39 @@ public final class QuestionBankViews {
                                long archived, long total) {
     }
 
+    public record SubjectOption(Long id, String code, String name, String description) {
+    }
+
+    public record LessonOption(Long id, Long subjectId, String subjectCode,
+                               String chapterTitle, String lessonTitle) {
+    }
+
+    /** One canonical Library chapter represented by its first lesson id. */
+    public record ChapterOption(Long lessonId, int chapterOrder, String chapterTitle) {
+    }
+
     public record ItemRow(Long id, String contentPreview, String questionType,
-                          String workflowStatus, Long categoryId, String categoryName,
+                          String workflowStatus, String subjectCode,
+                          Long lessonTemplateId, int chapterOrder, int lessonOrder,
+                          String chapterTitle, String lessonTitle,
                           String contributorName, LocalDateTime updatedAt,
                           boolean editable, boolean reviewable) {
     }
 
-    /**
-     * Master→detail payload: category header plus its questions and scoped tallies.
-     * Items carry full detail (content, options, review flags) so the detail screen
-     * can render a client-side "view" modal per row without a server round-trip.
-     */
-    public record CategoryDetailView(Long categoryId, String categoryName, String description,
-                                     boolean active, List<ItemDetail> items,
-                                     StatusCounts statusCounts, List<ContributorOption> contributors) {
+    public record QuestionGroup(Long lessonTemplateId, String chapterTitle,
+                                String lessonTitle, List<ItemRow> items) {
+    }
+
+    public record WorkspaceView(SubjectOption subject,
+                                List<QuestionGroup> approvedGroups,
+                                List<QuestionGroup> pendingGroups,
+                                long approvedCount, long pendingCount) {
+    }
+
+    /** Subject-wide review payload used by the leader inbox. */
+    public record SubjectReviewView(String subjectCode, String subjectName,
+                                    List<ItemDetail> items, StatusCounts statusCounts,
+                                    List<ContributorOption> contributors) {
     }
 
     public record OptionView(String content, boolean correct) {
@@ -46,7 +58,7 @@ public final class QuestionBankViews {
 
     public record ItemDetail(Long id, String questionType, String workflowStatus,
                              String content, String contentPreview, String explanation, String reviewNote,
-                             String categoryName, String contributorName,
+                             String subjectCode, String contributorName,
                              String reviewerName, LocalDateTime reviewedAt,
                              LocalDateTime approvedAt, LocalDateTime updatedAt,
                              List<OptionView> options, boolean editable,

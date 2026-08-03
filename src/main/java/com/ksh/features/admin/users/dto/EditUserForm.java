@@ -25,7 +25,7 @@ public record EditUserForm(
         @NotNull(message = "Vai trò không được để trống")
         Role role,
 
-        Long departmentId,
+        Long subjectId,
 
         @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự")
         String phone,
@@ -44,7 +44,7 @@ public record EditUserForm(
                 u.getEmail(),
                 u.getFullName(),
                 u.getRole(),
-                u.getDepartmentId(),
+                u.getSubjectId(),
                 u.getPhone(),
                 u.getBio(),
                 u.isEmailVerified()

@@ -72,7 +72,7 @@ class AdminUsersLeaderAssignmentGuardTest {
                 departments, settings);
     }
 
-    private static User user(Long id, Role role, Long departmentId) {
+    private static User user(Long id, Role role, Long subjectId) {
         User user = UserFactory.newAdminCreated(
                 "leader-" + id + "@ksh.test",
                 "unused-test-hash",
@@ -82,7 +82,7 @@ class AdminUsersLeaderAssignmentGuardTest {
                 null,
                 null);
         ReflectionTestUtils.setField(user, "id", id);
-        user.setDepartmentId(departmentId);
+        user.setSubjectId(subjectId);
         return user;
     }
 

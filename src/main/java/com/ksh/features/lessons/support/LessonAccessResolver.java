@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Shared lesson resolution + published-visibility gate for student-facing
- * lesson surfaces (detail, progress, comments).
+ * lesson surfaces (detail and progress).
  *
  * <p>Every failure collapses to a single {@link EntityNotFoundException} with
  * the canonical message so lesson existence is never leaked. This helper owns
@@ -57,25 +57,6 @@ public class LessonAccessResolver {
         if (!classId.equals(section.getClassId())) {
             throw new EntityNotFoundException(NF_MSG);
         }
-        requirePublished(lesson);
-        return new ResolvedLesson(clazz, section, lesson);
-    }
-
-    /**
-     * Resolves for lesson-only surfaces (comments): derives the class from the
-     * lesson's section, then verifies the lesson is PUBLISHED and the class is
-     * live.
-     *
-     * @throws EntityNotFoundException on any failure, always with the canonical
-     *         message so existence is never leaked
-     */
-    public ResolvedLesson resolveByLesson(Long lessonId) {
-        Lesson lesson = lessonRepository.findById(lessonId)
-                .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
-        Section section = sectionRepository.findById(lesson.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
-        ClassEntity clazz = classRepository.findById(section.getClassId())
-                .orElseThrow(() -> new EntityNotFoundException(NF_MSG));
         requirePublished(lesson);
         return new ResolvedLesson(clazz, section, lesson);
     }

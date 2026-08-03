@@ -90,8 +90,6 @@ class LecturerTestNavigationTest {
                 60, null, null, BigDecimal.valueOf(5),
                 false, false, null, null, List.of(), false);
         when(examService.getForEdit(1L, 41L)).thenReturn(form);
-        when(questionBankPickerService.categoriesFor(41L, Role.LECTURER, 1L))
-                .thenReturn(List.of());
         when(monitorService.header(1L, 41L))
                 .thenReturn(new ExamHeader(1L, "Bài test", "DRAFT", "FIXED_WINDOW",
                         null, 0));

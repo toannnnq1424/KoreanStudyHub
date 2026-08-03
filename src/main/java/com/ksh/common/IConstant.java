@@ -49,10 +49,6 @@ public interface IConstant {
     String URL_LECTURER_DASHBOARD = BASE_LECTURER + PATH_DASHBOARD;
     String PATH_LIBRARY      = "/library";
     String URL_LIBRARY       = BASE_LECTURER + PATH_LIBRARY;
-    String URL_LIBRARY_API   = URL_LIBRARY + "/api";
-    String PATH_LIBRARY_TARGETS = "/targets";
-    String URL_LIBRARY_TARGETS  = URL_LIBRARY + PATH_LIBRARY_TARGETS;
-    String URL_LIBRARY_TARGET_CLASSES = URL_LIBRARY_TARGETS + "/classes";
 
     // ───────── View names ────────────────────────────────────────────
     String VIEW_LECTURER_DASHBOARD      = "lecturer/dashboard";
@@ -65,9 +61,7 @@ public interface IConstant {
     String VIEW_CLASS_DETAIL_PLACEHOLDER = "classes/detail-placeholder";
     String VIEW_CLASS_DETAIL_PROGRESS   = "classes/detail-progress";
     String VIEW_CLASS_DETAIL_TESTS      = "classes/detail-tests";
-    String VIEW_LESSON_FORM             = "classes/lesson-form";
     String VIEW_STUDENT_CLASS_LESSONS   = "student/class-lessons";
-    String VIEW_STUDENT_LESSON_DETAIL   = "student/lesson-detail";
 
     // ───────── Model attribute keys ──────────────────────────────────
     String ATTR_FORM              = "form";
@@ -83,9 +77,6 @@ public interface IConstant {
     String ATTR_CLASSES_PAGE      = "classesPage";
     String ATTR_MEMBERS           = "members";
     String ATTR_MEMBER_TOTAL      = "memberTotal";
-    String ATTR_ACTIVE_CODE       = "activeCode";
-    String ATTR_ACTIVE_LINK       = "activeLink";
-    String ATTR_CAN_REGENERATE    = "canRegenerate";
     String ATTR_PLACEHOLDER_TAB   = "placeholderTab";
     String ATTR_PLACEHOLDER_LABEL = "placeholderLabel";
 
@@ -105,18 +96,11 @@ public interface IConstant {
     // Personal file library (lecturer-file-library).
     String ATTR_LIBRARY_PAGE   = "libraryPage";
     String ATTR_LIBRARY_QUERY  = "libraryQuery";
-    String ATTR_LIBRARY_KIND   = "libraryKind";
     String ATTR_LIBRARY_SIZE   = "librarySize";
-    String ATTR_LIBRARY_TOTAL_COUNT    = "libraryTotalCount";
-    String ATTR_LIBRARY_DOCUMENT_COUNT = "libraryDocumentCount";
-    String ATTR_LIBRARY_VIDEO_COUNT    = "libraryVideoCount";
     String ATTR_LIBRARY_TEMPLATE_COUNT = "libraryTemplateCount";
-    String ATTR_LIBRARY_TAB            = "libraryTab";
-    String ATTR_LIBRARY_CLASS_ID       = "libraryClassId";
     String ATTR_LIBRARY_CLASS_OPTIONS  = "libraryClassOptions";
 
     /** Library sidebar rail for lesson templates (not a file kind). */
-    String LIBRARY_TAB_TEMPLATES = "TEMPLATES";
 
     /** Default section title auto-created when cloning into an empty class. */
     String DEFAULT_SECTION_TITLE = "Chương 1";
@@ -177,21 +161,15 @@ public interface IConstant {
 
     // Settings sub-tabs
     String SUBTAB_INFO   = "info";
-    String SUBTAB_INVITE = "invite";
 
     // ───────── Flash messages (Vietnamese UI text) ───────────────────
     // Migrate to messages.properties once MessageSource is wired up.
-    String MSG_CLASS_CREATED       = "Đã tạo lớp ";
+    String MSG_CLASS_CREATED       = "Đã tạo lớp";
     String MSG_CLASS_UPDATED       = "Đã cập nhật lớp";
     String MSG_CLASS_DELETED       = "Đã xoá lớp";
-    String MSG_INVITE_REGENERATED  = "Đã tạo mã mời mới";
-    String MSG_INVALID_INVITE_TYPE = "Loại mã không hợp lệ";
-
-    // Cross-controller invite / join messages
-    // (used by InviteLinkController + StudentClassesController).
+    // Cross-controller membership messages.
     String MSG_JOINED_CLASS        = "Đã tham gia lớp ";
     String MSG_ALREADY_IN_CLASS    = "Bạn đã ở trong lớp ";
-    String MSG_INVALID_INVITE_LINK = "Liên kết không hợp lệ";
     String MSG_JOIN_REQUEST_SENT   = "Đã gửi yêu cầu tham gia lớp ";
     String MSG_JOIN_REQUEST_PENDING_SUFFIX = " — chờ giảng viên duyệt";
     String MSG_JOIN_ALREADY_PENDING = "Yêu cầu tham gia lớp ";
@@ -293,16 +271,6 @@ public interface IConstant {
     // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
     String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";
 
-    // ───────── Lesson-comment messages (KSH-4.6, Vietnamese UI text) ──
-    String MSG_COMMENT_BLANK         = "Nội dung không được để trống";
-    String MSG_COMMENT_TOO_LONG      = "Nội dung tối đa 2000 ký tự";
-    String MSG_COMMENT_PARENT_INVALID = "Không tìm thấy bình luận gốc";
-    String MSG_COMMENT_NOT_FOUND     = "Không tìm thấy bình luận";
-    // Moderator hide/unhide (KSH-11.7).
-    String MSG_COMMENT_MODERATE_FORBIDDEN = "Bạn không có quyền ẩn bình luận này";
-    // Comment bulk moderation (KSH-11.7).
-    String MSG_COMMENT_BULK_EMPTY = "Vui lòng chọn ít nhất một bình luận";
-
     // ───────── Flashcards (KSH-5.x) ──────────────────────────────────
     // Route prefixes / canonical URLs.
     String BASE_FLASHCARDS      = "/my/flashcards";
@@ -384,7 +352,6 @@ public interface IConstant {
     String ATTR_SUBMISSIONS  = "submissions";
     String ATTR_TEST_ACTIVITIES_PAGE = "activitiesPage";
     String ATTR_PREVIEW      = "preview";
-    String ATTR_EXAM_BANK_CATEGORIES = "examBankCategories";
 
     // Readiness band labels (Vietnamese UI text).
     String BAND_NOT_READY = "Chưa sẵn sàng";
@@ -528,14 +495,6 @@ public interface IConstant {
     // Personal file library — SSR / picker page size.
     int DEFAULT_LIBRARY_PAGE_SIZE = 12;
     int MAX_LIBRARY_PAGE_SIZE = 50;
-    // Library attach wizard — editable class target page size.
-    int DEFAULT_LIBRARY_TARGET_PAGE_SIZE = 12;
-    int MAX_LIBRARY_TARGET_PAGE_SIZE = 50;
-
-    // Lesson comments — root comments per "load more" page (default + upper bound).
-    // MAX caps a client-supplied ?size so a huge value can't force an oversized query.
-    int DEFAULT_COMMENT_PAGE_SIZE = 10;
-    int MAX_COMMENT_PAGE_SIZE = 50;
 
     // Flashcards — own decks per SSR numbered-pager page.
     int DEFAULT_DECK_PAGE_SIZE = 12;
@@ -545,28 +504,6 @@ public interface IConstant {
     // Numbered-button window size lives in com.ksh.common.PageWindow.
     String ATTR_PAGER_PARAMS = "params";
 
-    // ───────── Admin course categories (KSH-11.4) ────────────────────
-    // View names.
-    String VIEW_ADMIN_CATEGORIES      = "admin/categories";
-    String VIEW_ADMIN_CATEGORIES_FORM = "admin/categories-form";
-
-    // Tab key (admin sidebar active state).
-    String TAB_CATEGORIES = "categories";
-
-    // Model attribute keys.
-    String ATTR_CATEGORY_TREE    = "categoryTree";
-    String ATTR_CATEGORY_PARENTS = "categoryParents";
-    String ATTR_HAS_CHILDREN     = "hasChildren";
-    String ATTR_TARGET_ID        = "targetId";
-
-    // Flash messages (Vietnamese UI text).
-    String MSG_CATEGORY_CREATED = "Đã tạo danh mục ";
-    String MSG_CATEGORY_UPDATED = "Đã cập nhật danh mục";
-    String MSG_CATEGORY_DELETED = "Đã xoá danh mục";
-    String MSG_CATEGORY_ACTIVATED   = "Đã kích hoạt danh mục";
-    String MSG_CATEGORY_DEACTIVATED = "Đã ẩn danh mục";
-    String MSG_CATEGORY_NOT_FOUND   = "Không tìm thấy danh mục";
-
     // ───────── Admin departments + LEADER shell ────────────────────────
     String URL_ADMIN_DEPARTMENTS = "/admin/departments";
     String VIEW_ADMIN_DEPARTMENTS      = "admin/departments";
@@ -575,25 +512,24 @@ public interface IConstant {
 
     String ATTR_DEPARTMENTS     = "departments";
     String ATTR_LEADER_CANDIDATES = "leaderCandidates";
+    String ATTR_TARGET_ID = "targetId";
     // Shared key "activitiesPage" — same string as users edit history tab.
     String ATTR_ACTIVITIES_PAGE = "activitiesPage";
 
-    String MSG_DEPARTMENT_CREATED     = "Đã tạo bộ môn ";
-    String MSG_DEPARTMENT_UPDATED     = "Đã cập nhật bộ môn";
-    String MSG_DEPARTMENT_ACTIVATED   = "Đã hiện bộ môn";
-    String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn bộ môn";
-    String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy bộ môn";
+    String MSG_DEPARTMENT_CREATED     = "Đã thêm môn học ";
+    String MSG_DEPARTMENT_UPDATED     = "Đã cập nhật môn học";
+    String MSG_DEPARTMENT_ACTIVATED   = "Đã hiện môn học";
+    String MSG_DEPARTMENT_DEACTIVATED = "Đã ẩn môn học";
+    String MSG_DEPARTMENT_NOT_FOUND   = "Không tìm thấy môn học";
 
     // LEADER product area.
     String BASE_LEADER              = "/leader";
     String URL_LEADER_DASHBOARD     = BASE_LEADER;
     String URL_LEADER_ASSIGN        = BASE_LEADER + "/assign";
     String URL_LEADER_REPORT        = BASE_LEADER + "/report";
-    String URL_LEADER_QUESTION_BANK = BASE_LEADER + "/question-bank/review";
     String VIEW_LEADER_DASHBOARD    = "leader/dashboard";
     String VIEW_LEADER_ASSIGN       = "leader/assign";
     String VIEW_LEADER_REPORT       = "leader/report";
-    String VIEW_LEADER_QUESTION_BANK = "questionbank/review";
     String VIEW_LEADER_QB_TESTS      = "leader/question-bank-tests";
     String ATTR_LEADER_QB_TESTS      = "qbTests";
     String ATTR_LEADER_DEPARTMENT   = "leaderDepartment";
@@ -604,15 +540,9 @@ public interface IConstant {
     String ATTR_LEADER_REPORT_ROWS  = "reportRows";
     String ATTR_LEADER_EMPTY        = "emptyDepartment";
     String ATTR_QB_ITEMS          = "items";
-    String ATTR_QB_CATEGORIES     = "categories";
-    String ATTR_QB_CATEGORY_OPTIONS = "categoryOptions";
-    String ATTR_QB_CATEGORY_FORM  = "categoryForm";
     String ATTR_QB_SELECTED_STATUS = "selectedStatus";
-    String ATTR_QB_SELECTED_CATEGORY_ID = "selectedCategoryId";
     String ATTR_QB_QUERY          = "query";
     String ATTR_QB_EMPTY_DEPARTMENT = "emptyDepartment";
-    String ATTR_QB_EMPTY_CATEGORIES = "emptyCategories";
-    String ATTR_QB_EDIT_CATEGORY_ID = "editCategoryId";
     String ATTR_QB_DETAIL         = "detail";
     String MSG_LEADER_REASSIGNED    = "Đã phân công giảng viên cho lớp ";
     String MSG_LEADER_REASSIGN_FAIL = "Không thể phân công giảng viên";
@@ -620,16 +550,12 @@ public interface IConstant {
     String MSG_QB_SUBMITTED       = "Đã gửi câu hỏi lên hàng chờ duyệt";
     String MSG_QB_UPDATED         = "Đã cập nhật câu hỏi";
     String MSG_QB_RESUBMITTED     = "Đã cập nhật và gửi lại hàng chờ duyệt";
-    String MSG_QB_CATEGORY_CREATED = "Đã tạo danh mục câu hỏi";
-    String MSG_QB_CATEGORY_UPDATED = "Đã cập nhật danh mục câu hỏi";
-    String MSG_QB_CATEGORY_TOGGLED = "Đã đổi trạng thái danh mục";
-    String MSG_QB_CATEGORY_DELETED = "Đã xoá danh mục câu hỏi";
     String MSG_QB_APPROVED        = "Đã duyệt câu hỏi";
     String MSG_QB_REJECTED        = "Đã trả lại câu hỏi cho giảng viên";
     String MSG_QB_ARCHIVED        = "Đã lưu trữ câu hỏi";
     String MSG_QB_UNARCHIVED      = "Đã bỏ lưu trữ câu hỏi";
 
-    // ───────── Shared department question bank (department-scoped) ────
+    // ───────── Shared subject-scoped question bank ────────────────────
     // Route prefixes / canonical URLs.
     String BASE_LECTURER_QUESTION_BANK = BASE_LECTURER + "/question-bank";
     String URL_LECTURER_QUESTION_BANK  = BASE_LECTURER_QUESTION_BANK;
@@ -640,28 +566,11 @@ public interface IConstant {
     String VIEW_QB_LIST   = "questionbank/list";
     String VIEW_QB_DETAIL = "questionbank/detail";
     String VIEW_QB_FORM   = "questionbank/form";
-    String VIEW_QB_MANAGE = "questionbank/manage";
-
-    // Model attribute keys (department-scoped screens).
-    String ATTR_QB_CONTRIBUTORS         = "contributors";
+    // Model attribute keys.
     String ATTR_QB_SELECTED_CONTRIBUTOR_ID = "selectedContributorId";
 
-    // LEADER management screen 2-tab layout (server-side ?tab= routing).
-    String ATTR_QB_ACTIVE_TAB           = "qbActiveTab";
-    String TAB_QB_QUESTIONS             = "questions";
-    String TAB_QB_CATEGORIES            = "categories";
-    String ATTR_QB_HAS_ACTIVE_FILTER    = "hasActiveFilter";
-    String ATTR_QB_STATUS_COUNTS        = "statusCounts";
-
-    // Inbox review UX (question table + detail panel) on the questions tab.
-    String PARAM_QB_SELECTED            = "selected";
-    String ATTR_QB_SELECTED_ITEM        = "selectedItem";
-    String ATTR_QB_SELECTED_ITEM_ID     = "selectedItemId";
-
-    // LEADER master-detail redesign: category master → question detail + bulk.
-    String VIEW_QB_CATEGORY_DETAIL     = "questionbank/category-detail";
-    String ATTR_QB_CATEGORY_DETAIL     = "categoryDetail";
-    String ATTR_QB_CATEGORY_ID         = "categoryId";
+    // LEADER subject review with question detail + bulk actions.
+    String VIEW_QB_SUBJECT_REVIEW      = "questionbank/subject-review";
     String PARAM_QB_ITEM_IDS           = "itemIds";
     String MSG_QB_BULK_EMPTY           = "Vui lòng chọn ít nhất một câu hỏi";
     String MSG_QB_BULK_APPROVED_PREFIX = "Đã duyệt ";
@@ -680,39 +589,16 @@ public interface IConstant {
     String MSG_QB_INSERT_EMPTY    = "Vui lòng chọn ít nhất một câu hỏi đã duyệt để chèn";
 
     // ───────── Personal file library (Vietnamese UI text) ────────────
-    String MSG_LIBRARY_UPLOADED        = "Đã thêm tệp vào kho học liệu";
-    String MSG_LIBRARY_RENAMED         = "Đã đổi tên tệp trong kho";
-    String MSG_LIBRARY_DELETED         = "Đã xoá tệp khỏi kho học liệu";
     String MSG_LIBRARY_ASSET_NOT_FOUND = "Không tìm thấy học liệu";
-    String MSG_LIBRARY_ASSET_IN_USE    =
-            "Không thể xoá: học liệu đang được dùng trong bài giảng";
-    String MSG_LIBRARY_TITLE_BLANK     = "Tên hiển thị không được để trống";
     String MSG_LIBRARY_BIND_INVALID_KIND =
             "Loại học liệu không phù hợp với thao tác này";
     String MSG_LIBRARY_BIND_NOT_PDF    = "Chỉ có thể chọn tệp PDF làm nội dung chính";
-    String MSG_LIBRARY_BOUND_PDF       = "Đã gắn PDF từ kho học liệu";
-    String MSG_LIBRARY_BOUND_VIDEO     = "Đã gắn video từ kho học liệu";
-    String MSG_LIBRARY_BOUND_ATTACHMENT = "Đã gắn tệp từ kho học liệu";
-    String MSG_LIBRARY_ATTACHED_TO_CLASS = "Đã gắn học liệu vào bài giảng";
-    String MSG_LIBRARY_ATTACH_FAILED     = "Không gắn được học liệu vào bài giảng";
-    String MSG_LIBRARY_ATTACH_REPLACE_PDF =
-            "Bài giảng đã có PDF chính. Thay thế bằng tệp từ kho?";
-    String MSG_LIBRARY_ATTACH_REPLACE_VIDEO =
-            "Bài giảng đã có video tải lên. Thay thế bằng video từ kho?";
 
     // ───────── Lesson templates (Vietnamese UI text) ─────────────────
-    String MSG_TEMPLATE_SAVED          = "Đã lưu bài giảng vào kho mẫu";
-    String MSG_TEMPLATE_RENAMED        = "Đã đổi tên mẫu bài giảng";
     String MSG_TEMPLATE_DELETED        = "Đã xoá mẫu bài giảng";
     String MSG_TEMPLATE_NOT_FOUND      = "Không tìm thấy mẫu bài giảng";
-    String MSG_TEMPLATE_TITLE_BLANK    = "Tên mẫu không được để trống";
-    String MSG_TEMPLATE_CLONE_OK       = "Đã clone bài giảng sang lớp (bản nháp)";
-    String MSG_TEMPLATE_CLONE_FAILED   = "Không clone được bài giảng";
-    String MSG_TEMPLATE_SAVE_FAILED    = "Không lưu được mẫu bài giảng";
     String MSG_TEMPLATE_BODY_INCOMPLETE =
             "Bài giảng chưa đủ nội dung để lưu mẫu (thiếu PDF/video/nội dung)";
-    String MSG_TEMPLATE_PROMOTE_FAILED =
-            "Không thể đưa tệp đính kèm vào kho học liệu";
 
     // Admin permission management.
     String URL_ADMIN_PERMISSIONS           = "/admin/permissions";

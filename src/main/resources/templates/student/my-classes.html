@@ -4,6 +4,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-classes.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
@@ -16,17 +17,25 @@
 
   <section class="panel">
 
-    <!-- Tabs row -->
+    <!-- Two compact views keep the full ACTIVE catalog out of the personal
+         class list until the student explicitly asks for it. -->
     <div class="panel-top">
-      <div class="tabs">
-        <button class="tab active" type="button">
-          Lớp của bạn <span th:text="${rows != null ? rows.size() : 0}">0</span>
-        </button>
-      </div>
+      <nav class="tabs classes-view-tabs" aria-label="Khu vực lớp học">
+        <a class="tab" th:classappend="${classesTab == 'mine'} ? ' active'"
+           th:href="@{/my/classes(tab='mine')}"
+           th:attr="aria-current=${classesTab == 'mine'} ? 'page' : null">
+          Lớp của tôi <span th:text="${rows != null ? rows.size() : 0}">0</span>
+        </a>
+        <a class="tab" th:classappend="${classesTab == 'open'} ? ' active'"
+           th:href="@{/my/classes(tab='open')}"
+           th:attr="aria-current=${classesTab == 'open'} ? 'page' : null">
+          Danh sách lớp đang mở
+        </a>
+      </nav>
     </div>
 
-    <!-- Toolbar -->
-    <div class="toolbar">
+    <th:block th:if="${classesTab == 'mine'}">
+    <div class="toolbar" aria-label="Tìm và sắp xếp lớp của tôi">
       <div class="search">
         <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
         <label for="searchInput" class="sr-only">Tìm kiếm lớp học</label>
@@ -46,10 +55,6 @@
           <button class="menu-item" data-sort="Tên Z-A" data-sort-key="name-desc" type="button">Tên Z-A</button>
         </div>
       </div>
-      <a class="create-btn" th:href="@{/my/classes/join}">
-        <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-        Tham gia lớp mới
-      </a>
     </div>
 
     <!-- List header -->
@@ -73,7 +78,7 @@
       <div th:each="row : ${rows}" class="class-row student-class-row"
            th:attr="data-class-id=${row.classId()},data-class-name=${row.className()},data-class-code=${row.classCode()},data-joined-at=${#temporals.format(row.joinedAt(), 'yyyy-MM-dd''T''HH:mm:ss')}">
         <a class="class-main class-main-link"
-           th:href="@{|/my/classes/${row.classId()}/lessons|}"
+           th:href="@{|/my/classes/${row.classId()}/board|}"
            th:aria-label="'Mở lớp ' + ${row.className()}">
           <div class="class-thumb"
                th:style="'background:' + ${row.avatarGradient()}"
@@ -81,7 +86,7 @@
           <div class="class-info">
             <h4 th:text="${row.className()}">SE1865</h4>
             <div class="class-code">
-              Mã lớp &bull; <b th:text="${row.classCode()}">NILXM</b>
+              Mã môn &bull; <b th:text="${row.classCode()}">KOR311</b>
               <button class="copy-code" type="button" aria-label="Sao chép mã"
                       th:attr="data-code=${row.classCode()}">
                 <svg class="ico ico-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -97,7 +102,7 @@
             <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
           </button>
           <div class="menu right">
-            <a class="menu-item" th:href="@{|/my/classes/${row.classId()}/lessons|}">
+            <a class="menu-item" th:href="@{|/my/classes/${row.classId()}/board|}">
               <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
               Vào lớp
             </a>
@@ -121,9 +126,8 @@
     </div>
 
     <!-- PENDING join requests — no deep link into class content -->
-    <div class="pending-classes" th:if="${pendingRows != null and !pendingRows.isEmpty()}"
-         style="margin-top:24px; padding-top:16px; border-top:1px solid #e2e8f0;">
-      <h3 style="font-size:15px; font-weight:700; margin:0 0 12px;">Đang chờ duyệt
+    <div class="pending-classes" th:if="${pendingRows != null and !pendingRows.isEmpty()}">
+      <h3>Đang chờ duyệt
         <span th:text="'(' + ${pendingRows.size()} + ')'">(0)</span>
       </h3>
       <div class="class-list">
@@ -136,8 +140,8 @@
             <div class="class-info">
               <h4 th:text="${row.className()}">SE1865</h4>
               <div class="class-code">
-                Mã lớp &bull; <b th:text="${row.classCode()}">NILXM</b>
-                &bull; <span style="color:#B45309; font-weight:600;">đang chờ duyệt</span>
+                Mã môn &bull; <b th:text="${row.classCode()}">KOR311</b>
+                &bull; <span class="pending-label">đang chờ duyệt</span>
               </div>
             </div>
           </div>
@@ -147,6 +151,58 @@
         </div>
       </div>
     </div>
+    </th:block>
+
+    <section class="catalog-classes" th:if="${classesTab == 'open'}">
+      <div class="panel-top">
+        <div>
+          <h2>Danh sách lớp đang mở</h2>
+          <p>Chỉ hiển thị lớp ACTIVE đã được trưởng môn duyệt.</p>
+        </div>
+      </div>
+      <form method="get" th:action="@{/my/classes}" class="toolbar" role="search">
+        <input type="hidden" name="tab" value="open">
+        <div class="search">
+          <label for="catalogQuery" class="sr-only">Tìm theo tên lớp hoặc mã môn</label>
+          <input id="catalogQuery" name="q" type="search" th:value="${catalogQuery}"
+                 placeholder="Tên lớp hoặc mã môn, ví dụ KOR311">
+        </div>
+        <button class="btn-primary" type="submit">Tìm lớp</button>
+      </form>
+      <div class="empty" th:if="${catalogRows == null or catalogRows.isEmpty()}">
+        Không có lớp ACTIVE phù hợp.
+      </div>
+      <div class="class-list" th:if="${catalogRows != null and !catalogRows.isEmpty()}">
+        <div class="class-row student-class-row" th:each="catalog : ${catalogRows}">
+          <div class="class-main">
+            <div class="class-info">
+              <h4 th:text="${catalog.className()}">Tên lớp</h4>
+              <div class="class-code">
+                <b th:text="${catalog.subjectCode()}">KOR311</b>
+                <span th:text="${' — ' + catalog.subjectName()}"> — Tên môn</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat student-stat-text" th:text="${catalog.lecturerName()}">Giảng viên</div>
+          <div class="stat">
+            <span th:if="${catalog.alreadyEnrolled()}">Đã tham gia</span>
+            <span th:if="${catalog.alreadyRequested()}">Đang chờ duyệt</span>
+            <form th:if="${!catalog.alreadyEnrolled() and !catalog.alreadyRequested()}"
+                  th:action="@{|/my/classes/${catalog.classId()}/request|}" method="post">
+              <button class="btn-primary btn-sm" type="submit">Yêu cầu tham gia</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <nav class="catalog-pagination" th:if="${catalogPage != null and catalogPage.totalPages > 1}"
+           aria-label="Phân trang danh sách lớp đang mở">
+        <a th:if="${!catalogPage.first}"
+           th:href="@{/my/classes(tab='open',q=${catalogQuery},page=${catalogPage.number - 1})}">‹ Trước</a>
+        <span th:text="'Trang ' + (${catalogPage.number + 1}) + ' / ' + ${catalogPage.totalPages}">Trang 1 / 1</span>
+        <a th:if="${!catalogPage.last}"
+           th:href="@{/my/classes(tab='open',q=${catalogQuery},page=${catalogPage.number + 1})}">Sau ›</a>
+      </nav>
+    </section>
   </section>
 </main>
 

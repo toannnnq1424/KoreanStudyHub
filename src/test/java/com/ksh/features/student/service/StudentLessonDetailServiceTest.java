@@ -25,6 +25,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -132,8 +134,7 @@ class StudentLessonDetailServiceTest {
     void owning_lecturer_not_enrolled_can_view_detail() {
         Lesson lesson = persistLesson(section.getId(), "Bài 1", "<p>X</p>", true);
 
-        // The owning lecturer is not enrolled but must open the detail (and its
-        // discussion thread) to moderate — design D7.
+        // The owning lecturer is not enrolled but must still inspect the detail.
         LessonDetailView view = studentLessonDetailService.getLessonDetail(
                 clazz.getId(), lesson.getId(), lecturer.getId(), Role.LECTURER);
 
@@ -373,7 +374,7 @@ class StudentLessonDetailServiceTest {
 
     private Enrollment enrollActive() {
         return enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     private void forceEnrollmentStatus(Long enrollmentId, String status) {
@@ -386,7 +387,8 @@ class StudentLessonDetailServiceTest {
     private ClassEntity saveClass(String name, String code) {
         ClassEntity entity = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
                 null, null, null, 100);
-        entity.setDepartmentId(lecturer.getDepartmentId());
+        entity.setSubjectId(lecturer.getSubjectId());
+        entity.approve(lecturer.getId(), LocalDateTime.now());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);

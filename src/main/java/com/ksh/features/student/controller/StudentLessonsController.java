@@ -9,7 +9,6 @@ import com.ksh.features.student.service.StudentLessonDetailService;
 import com.ksh.features.student.service.StudentLessonsService;
 import com.ksh.security.Role;
 import com.ksh.security.KshUserDetails;
-import com.ksh.security.Roles;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +51,7 @@ import static com.ksh.common.IConstant.VIEW_STUDENT_CLASS_LESSONS;
  */
 @Controller
 @RequestMapping("/my/classes/{classId}/lessons")
-@PreAuthorize(Roles.PREAUTH_STUDENT)
+@PreAuthorize("isAuthenticated()")
 public class StudentLessonsController {
 
     private static final Logger log = LoggerFactory.getLogger(StudentLessonsController.class);
@@ -79,15 +78,20 @@ public class StudentLessonsController {
                        @RequestParam(value = "lesson", required = false) Long lessonParam,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
+        if (user.getRole() != Role.STUDENT) {
+            return lecturerLessonsRedirect(classId, sectionParam, lessonParam);
+        }
+
         ClassLessonsView view = studentLessonsService
                 .listClassLessons(classId, user.getId(), user.getRole());
 
         Long activeSectionId = resolveActiveSection(view, sectionParam);
         model.addAttribute(ATTR_VIEW, view);
         model.addAttribute(ATTR_ACTIVE_SECTION_ID, activeSectionId);
+        model.addAttribute("teachingView", false);
+        model.addAttribute("lessonBasePath", "/my/classes/" + classId + "/lessons");
         // Surface flashcard decks shared to this class in the sidebar.
-        model.addAttribute("classSharedDecks",
-                deckService.listSharedForClass(classId, user.getId()));
+        model.addAttribute("classSharedDecks", deckService.listSharedForClass(classId, user.getId()));
 
         // Inline lesson detail when ?lesson=X is provided AND it belongs to the
         // active section. Invalid lesson id falls back to the hero placeholder
@@ -109,11 +113,25 @@ public class StudentLessonsController {
         return VIEW_STUDENT_CLASS_LESSONS;
     }
 
+    private static String lecturerLessonsRedirect(Long classId, Long sectionId, Long lessonId) {
+        StringBuilder target = new StringBuilder("redirect:/lecturer/classes/")
+                .append(classId)
+                .append("/lessons");
+        if (sectionId != null) {
+            target.append("?section=").append(sectionId);
+        }
+        if (lessonId != null) {
+            target.append(sectionId == null ? "?" : "&")
+                    .append("lesson=").append(lessonId);
+        }
+        return target.toString();
+    }
+
     /**
      * Records the open as IN_PROGRESS, swallowing and logging any failure so
      * a progress write problem can never break lesson rendering (design D7a).
      *
-     * <p>Only ACTIVE-enrolled students accrue progress. A moderator
+     * <p>Only ACTIVE-enrolled students accrue progress. A privileged viewer
      * (ADMIN, in-department LEADER, or the owning lecturer, admitted via the widened D7 gate
      * but not enrolled) opens the lesson to moderate its thread, not to
      * learn — so skipping progress for them is expected, not an error, and
@@ -121,7 +139,7 @@ public class StudentLessonsController {
      * enrollment gate query {@code recordOpened} would otherwise run.
      */
     private void recordOpenedQuietly(Long classId, Long lessonId, Long userId, Role role) {
-        // Progress belongs to students only; moderators generate none (D7).
+        // Progress belongs to students only; privileged viewers generate none.
         if (role != Role.STUDENT) {
             return;
         }

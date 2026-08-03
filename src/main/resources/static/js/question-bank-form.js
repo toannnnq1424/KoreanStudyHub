@@ -71,9 +71,30 @@
     });
   }
 
+  function initLessonHierarchy() {
+    var subject = document.getElementById('subjectId');
+    var lesson = document.getElementById('lessonTemplateId');
+    if (!subject || !lesson) return;
+
+    function syncLessons() {
+      var selectedSubject = subject.value;
+      Array.prototype.forEach.call(
+        lesson.querySelectorAll('option[data-subject-id]'), function (option) {
+          option.disabled = option.dataset.subjectId !== selectedSubject;
+        });
+      var current = lesson.options[lesson.selectedIndex];
+      if (current && current.disabled) lesson.value = '';
+      lesson.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    subject.addEventListener('change', syncLessons);
+    syncLessons();
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     var editors = document.querySelectorAll('[data-qb-editor]');
     Array.prototype.forEach.call(editors, initQuill);
     initOptions();
+    initLessonHierarchy();
   });
 })();

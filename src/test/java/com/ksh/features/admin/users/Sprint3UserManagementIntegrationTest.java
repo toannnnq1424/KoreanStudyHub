@@ -307,7 +307,6 @@ class Sprint3UserManagementIntegrationTest {
         ClassEntity clazz = new ClassEntity(
                 "Demo Class", lecturer.getId(), lecturer.getId(),
                 "desc", null, null, 50);
-        ReflectionTestUtils.setField(clazz, "code", "DEMO1");
         classRepository.save(clazz);
 
         mockMvc.perform(post("/admin/users/" + lecturer.getId()).with(csrf())

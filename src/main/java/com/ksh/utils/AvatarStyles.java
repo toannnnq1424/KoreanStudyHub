@@ -4,7 +4,7 @@ package com.ksh.utils;
  * Avatar initials + gradient helper for member-style rows.
  *
  * <p>Single source of the avatar look shared across features (class members
- * list, lecturer progress dashboard, lesson comments). Lives in {@code utils}
+ * list and lecturer progress dashboard). Lives in {@code utils}
  * so consuming features don't depend on one another. Change the palette here
  * and every surface follows.
  */

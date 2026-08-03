@@ -88,7 +88,7 @@ public class AdminUsersWriteService {
                 StringUtils.blankToNull(form.phone()),
                 StringUtils.blankToNull(form.bio())
         );
-        u.setDepartmentId(form.departmentId());
+        u.setSubjectId(form.subjectId());
         User saved = userRepository.save(u);
 
         auditWriter.write(saved.getId(), UserActivity.TYPE_CREATED,
@@ -135,7 +135,7 @@ public class AdminUsersWriteService {
                 form.emailVerified(),
                 form.phone(),
                 form.bio(),
-                form.departmentId()
+                form.subjectId()
         );
         User saved = userRepository.save(target);
 
@@ -165,7 +165,7 @@ public class AdminUsersWriteService {
             List<ClassEntity> owned = classRepository.findAllByLecturerId(saved.getId());
             if (!owned.isEmpty()) {
                 String classList = owned.stream()
-                        .map(c -> c.getName() + " (" + c.getCode() + ")")
+                        .map(ClassEntity::getName)
                         .reduce((a, b) -> a + ", " + b)
                         .orElse("");
                 return List.of(
@@ -195,7 +195,7 @@ public class AdminUsersWriteService {
         departmentRepository.findFirstByLeaderUserId(target.getId())
                 .ifPresent(department -> {
                     boolean preserved = form.role() == Role.LEADER
-                            && Objects.equals(form.departmentId(), department.getId());
+                            && Objects.equals(form.subjectId(), department.getId());
                     if (!preserved) {
                         throw new DepartmentValidationException(
                                 "Người dùng đang là trưởng bộ môn "
@@ -221,7 +221,7 @@ public class AdminUsersWriteService {
         m.put("emailVerified", u.isEmailVerified());
         m.put("phone", u.getPhone());
         m.put("bio", u.getBio());
-        m.put("departmentId", u.getDepartmentId());
+        m.put("subjectId", u.getSubjectId());
         return m;
     }
 }

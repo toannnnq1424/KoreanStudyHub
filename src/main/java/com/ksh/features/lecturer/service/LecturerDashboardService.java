@@ -1,6 +1,8 @@
 package com.ksh.features.lecturer.service;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Department;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.lecturer.dto.LecturerDashboardDtos.ClassDashboardRow;
 import com.ksh.features.lecturer.dto.LecturerDashboardDtos.TeachingDashboardView;
 import com.ksh.features.lecturer.dto.LecturerDashboardDtos.TeachingStats;
@@ -14,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashMap;
 
 /**
  * Aggregates teaching KPIs and per-class rows for the lecturer dashboard.
@@ -29,9 +32,12 @@ public class LecturerDashboardService {
     private static final String CLASS_STATUS_ACTIVE = "ACTIVE";
 
     private final LecturerDashboardQuerySupport querySupport;
+    private final DepartmentRepository subjectRepository;
 
-    public LecturerDashboardService(LecturerDashboardQuerySupport querySupport) {
+    public LecturerDashboardService(LecturerDashboardQuerySupport querySupport,
+                                     DepartmentRepository subjectRepository) {
         this.querySupport = querySupport;
+        this.subjectRepository = subjectRepository;
     }
 
     /**
@@ -61,6 +67,12 @@ public class LecturerDashboardService {
         Map<Long, List<Long>> studentIdsByClass = querySupport.loadActiveStudentIds(classIds);
         Map<Long, Set<Long>> completedByUser =
                 querySupport.loadCompletedLessonSets(lessonIdsByClass);
+        Map<Long, String> subjectCodes = new HashMap<>();
+        for (Department subject : subjectRepository.findAllById(classes.stream()
+                .map(ClassEntity::getSubjectId).filter(java.util.Objects::nonNull)
+                .distinct().toList())) {
+            subjectCodes.put(subject.getId(), subject.getCode());
+        }
 
         List<ClassDashboardRow> allRows = new ArrayList<>(classes.size());
         long totalStudents = 0L;
@@ -84,7 +96,7 @@ public class LecturerDashboardService {
             allRows.add(new ClassDashboardRow(
                     classId,
                     clazz.getName(),
-                    clazz.getCode(),
+                    subjectCodes.getOrDefault(clazz.getSubjectId(), "—"),
                     clazz.getStatus(),
                     students,
                     classAvg));

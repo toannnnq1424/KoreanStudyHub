@@ -28,6 +28,8 @@ import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -75,44 +77,30 @@ class Sprint3LessonContentTypesIntegrationTest {
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
         // Enroll the student so they can view the student detail page.
         enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                student, clazz.getId(), Enrollment.JoinedVia.CODE, null));
+                student, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
     }
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void lecturer_uploads_pdf_and_student_can_view_pdf_lesson() throws Exception {
+    void legacy_in_class_pdf_authoring_endpoint_is_removed() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
                 "PDF lesson", "DRAFT", "", lecturer.getId(), Role.LECTURER);
 
-        // Upload main PDF via the content endpoint.
+        // Authoring belongs to Library; the old class-local upload endpoint is gone.
         String url = pdfUrl(row.id());
         mockMvc.perform(multipart(url)
                         .file(new MockMultipartFile("file", "main.pdf", "application/pdf",
                                 pdfBytes()))
                         .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.contentType").exists());
+                .andExpect(status().isNotFound());
 
         Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
-        assertThat(reloaded.getPdfAttachmentId()).isNotNull();
-
-        // Submit the edit form to switch the type to PDF.
-        mockMvc.perform(post(editUrl(row.id()))
-                        .with(csrf())
-                        .param("title", "PDF lesson")
-                        .param("status", "PUBLISHED")
-                        .param("contentType", "PDF")
-                        .param("contentHtml", ""))
-                .andExpect(status().is3xxRedirection());
-
-        Lesson published = lessonRepository.findById(row.id()).orElseThrow();
-        assertThat(published.getContentType()).isEqualTo("PDF");
-        assertThat(published.getStatus()).isEqualTo("PUBLISHED");
+        assertThat(reloaded.getPdfAttachmentId()).isNull();
     }
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void lecturer_sets_youtube_url_via_content_endpoint() throws Exception {
+    void legacy_in_class_video_authoring_endpoint_is_removed() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
                 "YT lesson", "DRAFT", "", lecturer.getId(), Role.LECTURER);
 
@@ -121,17 +109,16 @@ class Sprint3LessonContentTypesIntegrationTest {
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .param("provider", "YOUTUBE")
                         .param("url", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.videoProvider").value("YOUTUBE"));
+                .andExpect(status().isNotFound());
 
         Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
-        assertThat(reloaded.getVideoProvider()).isEqualTo("YOUTUBE");
-        assertThat(reloaded.getVideoUrl()).contains("dQw4w9WgXcQ");
+        assertThat(reloaded.getVideoProvider()).isNull();
+        assertThat(reloaded.getVideoUrl()).isNull();
     }
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void content_video_url_rejects_non_provider_url() throws Exception {
+    void removed_content_video_url_does_not_accept_requests() throws Exception {
         LessonRow row = lessonsService.create(clazz.getId(), section.getId(),
                 "Bad URL", "DRAFT", "", lecturer.getId(), Role.LECTURER);
 
@@ -140,7 +127,7 @@ class Sprint3LessonContentTypesIntegrationTest {
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .param("provider", "YOUTUBE")
                         .param("url", "https://malicious.example/x"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
 
         Lesson reloaded = lessonRepository.findById(row.id()).orElseThrow();
         assertThat(reloaded.getVideoUrl()).isNull();
@@ -315,6 +302,7 @@ class Sprint3LessonContentTypesIntegrationTest {
     private ClassEntity saveClass(String name, String code, Long lecturerId) {
         ClassEntity entity = new ClassEntity(name, lecturerId, lecturerId,
                 null, null, null, 100);
+        entity.approve(lecturerId, LocalDateTime.now());
         entity.setCode(code);
         try {
             return classRepository.saveAndFlush(entity);
