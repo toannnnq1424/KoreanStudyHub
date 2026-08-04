@@ -50,37 +50,27 @@
               th:text="'Không tìm thấy bài test nào khớp với &quot;' + ${view.query()} + '&quot;.'">Không tìm thấy</span>
       </div>
 
-      <div class="tst-grid" th:if="${view.exams().totalElements > 0}">
-        <a th:each="exam : ${view.exams().content}" class="tst-card"
-           th:href="@{|/my/tests/${exam.id()}|}">
-          <div class="tst-card-body">
-            <div class="tst-card-badges">
-              <span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}"
-                    th:text="${exam.type()}">MOCK</span>
-              <span class="tst-attempt-pill tst-attempt-active"
-                    th:if="${exam.lastAttemptStatus() == 'IN_PROGRESS'}">Đang làm</span>
-              <span class="tst-attempt-pill tst-attempt-done"
-                    th:if="${exam.lastAttemptStatus() == 'SUBMITTED' or exam.lastAttemptStatus() == 'TIMED_OUT'}">
-                Đã hoàn thành
-              </span>
-              <span class="tst-attempt-pill"
-                    th:if="${exam.lastAttemptStatus() == null}">Chưa làm</span>
-            </div>
-            <h3 class="tst-card-title" th:text="${exam.title()}">Tên bài test</h3>
-          </div>
-          <div class="tst-card-foot">
-            <span class="tst-meta" th:text="${exam.totalQuestions()} + ' câu'">0 câu</span>
-            <span class="tst-meta"
-                  th:if="${exam.timeMode() == 'INDIVIDUAL' and exam.durationMinutes() != null}"
-                  th:text="${exam.durationMinutes()} + ' phút'">30 phút</span>
-            <span class="tst-meta" th:if="${exam.timeMode() == 'FIXED_WINDOW'}">
-              Khung giờ chung
-            </span>
-            <span class="tst-meta tst-meta-done" th:if="${exam.bestScorePercent() != null}"
-                  th:text="'Điểm: ' + ${exam.bestScorePercent()} + '%'">Điểm</span>
-            <span class="tst-card-open">Xem chi tiết →</span>
-          </div>
-        </a>
+      <div class="tst-table-wrap student-test-table-wrap" th:if="${view.exams().totalElements > 0}">
+        <table class="tst-table student-test-table">
+          <thead>
+          <tr><th>Bài test</th><th>Loại</th><th>Thời lượng</th><th>Trạng thái</th><th>Điểm</th><th aria-label="Thao tác"></th></tr>
+          </thead>
+          <tbody>
+          <tr th:each="exam : ${view.exams().content}">
+            <td><strong th:text="${exam.title()}">Tên bài test</strong><small th:text="${exam.totalQuestions()} + ' câu hỏi'">0 câu hỏi</small></td>
+            <td><span class="tst-badge" th:classappend="'tst-badge-' + ${exam.type()}" th:text="${exam.type()}">MODULE</span></td>
+            <td th:text="${exam.timeMode() == 'INDIVIDUAL' and exam.durationMinutes() != null ? exam.durationMinutes() + ' phút' : 'Khung giờ chung'}">20 phút</td>
+            <td><span class="tst-attempt-pill tst-attempt-active" th:if="${exam.lastAttemptStatus() == 'IN_PROGRESS'}">Đang làm</span><span class="tst-attempt-pill tst-attempt-done" th:if="${exam.lastAttemptStatus() == 'SUBMITTED' or exam.lastAttemptStatus() == 'TIMED_OUT'}">Đã hoàn thành</span><span class="tst-attempt-pill" th:if="${exam.lastAttemptStatus() == null}">Chưa làm</span></td>
+            <td th:text="${exam.bestScorePercent() != null ? exam.bestScorePercent() + '%' : '—'}">—</td>
+            <td class="tst-row-actions">
+              <a class="tst-icon-action" title="Xem chi tiết" aria-label="Xem chi tiết" th:href="@{|/my/classes/${view.classId()}/tests/${exam.id()}|}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></a>
+              <form class="tst-action-form" method="post" th:if="${exam.lastAttemptStatus() == null}" th:action="@{|/my/classes/${view.classId()}/tests/${exam.id()}/start|}"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button class="tst-icon-action" type="submit" title="Làm bài" aria-label="Làm bài"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg></button></form>
+              <a class="tst-icon-action" title="Tiếp tục làm bài" aria-label="Tiếp tục làm bài" th:if="${exam.lastAttemptStatus() == 'IN_PROGRESS'}" th:href="@{|/my/classes/${view.classId()}/tests/${exam.id()}/take|}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg></a>
+              <a class="tst-icon-action" title="Xem kết quả chi tiết" aria-label="Xem kết quả chi tiết" th:if="${exam.lastCompletedAttemptId() != null}" th:href="@{|/my/classes/${view.classId()}/tests/${exam.id()}/result/${exam.lastCompletedAttemptId()}|}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 3-3 3 2 5-6"/></svg></a>
+            </td>
+          </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Shared SSR numbered pager; preserves ?q via the params map. -->

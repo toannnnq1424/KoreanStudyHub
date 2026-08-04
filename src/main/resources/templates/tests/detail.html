@@ -138,17 +138,17 @@
 
     <div class="td-actions">
       <form th:if="${detail.canStart()}"
-            th:action="@{|/my/tests/${detail.id()}/start|}" method="post">
+            th:action="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + detail.id() + '/start' : '/my/tests/' + detail.id() + '/start'}" method="post">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
         <button class="td-btn td-btn-primary" type="submit">Bắt đầu làm bài</button>
       </form>
       <a class="td-btn td-btn-primary" th:if="${detail.canResume()}"
-         th:href="@{|/my/tests/${detail.id()}/take|}">Tiếp tục làm bài</a>
+         th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + detail.id() + '/take' : '/my/tests/' + detail.id() + '/take'}">Tiếp tục làm bài</a>
       <a class="td-btn td-btn-primary"
          th:if="${detail.completed() and detail.attemptId() != null}"
-         th:href="@{|/my/tests/${detail.id()}/result/${detail.attemptId()}|}">Xem kết quả</a>
+         th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + detail.id() + '/result/' + detail.attemptId() : '/my/tests/' + detail.id() + '/result/' + detail.attemptId()}">Xem kết quả</a>
       <a class="td-btn" th:if="${detail.completed() and detail.attemptId() != null}"
-         th:href="@{|/my/tests/${detail.id()}/review/${detail.attemptId()}|}">Xem lại câu trả lời</a>
+         th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + detail.id() + '/review/' + detail.attemptId() : '/my/tests/' + detail.id() + '/review/' + detail.attemptId()}">Xem lại câu trả lời</a>
     </div>
   </section>
 

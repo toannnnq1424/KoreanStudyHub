@@ -42,7 +42,7 @@ public class TakeViewBuilder {
     public TakeView build(Test test, TestAttempt attempt) {
         List<TakeQuestionView> views = buildQuestions(test, attempt.getId(), true);
         long remaining = ExamDeadline.remainingSeconds(test, attempt, LocalDateTime.now());
-        return new TakeView(attempt.getId(), test.getId(), test.getTitle(),
+        return new TakeView(attempt.getId(), test.getId(), test.getClassId(), test.getTitle(),
                 test.getDescription(), test.getTimeMode(), remaining,
                 ExamDeadline.deadlineEpochMillis(test, attempt),
                 test.getMediaType(), test.getMediaUrl(), mediaEmbedUrl(test), views);

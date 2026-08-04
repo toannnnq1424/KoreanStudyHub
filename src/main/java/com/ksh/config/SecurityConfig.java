@@ -119,7 +119,20 @@ public class SecurityConfig {
 
     @Bean
     public RequestCache requestCache() {
-        return new HttpSessionRequestCache();
+        HttpSessionRequestCache cache = new HttpSessionRequestCache();
+        // The shared header polls these endpoints in the background. Saving one
+        // as the post-login destination turns a normal sign-in into a redirect
+        // to a JSON response (for example /my/notifications/unread-count).
+        cache.setRequestMatcher(request -> {
+            String path = request.getRequestURI();
+            boolean ajax = "XMLHttpRequest".equalsIgnoreCase(
+                    request.getHeader("X-Requested-With"));
+            return "GET".equalsIgnoreCase(request.getMethod())
+                    && !ajax
+                    && !path.endsWith("/unread-count")
+                    && !path.endsWith("/recent");
+        });
+        return cache;
     }
 
     @Bean

@@ -101,6 +101,19 @@ public class TestAttemptService {
     @Transactional
     public TakeView startOrResume(Long testId, Long userId) {
         Test test = accessResolver.requireAttemptableForUpdate(testId, userId);
+        return startOrResume(test, userId);
+    }
+
+    /** Starts/resumes only after the requested class scope was verified. */
+    @Transactional
+    public TakeView startOrResumeInClass(Long testId, Long classId, Long userId) {
+        Test test = accessResolver.requireAttemptableForUpdate(testId, userId);
+        requireClassScope(classId, test);
+        return startOrResume(test, userId);
+    }
+
+    private TakeView startOrResume(Test test, Long userId) {
+        Long testId = test.getId();
         List<TestAttempt> attempts =
                 attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(testId, userId);
         if (!test.isPractice() && attempts.stream().anyMatch(a -> !a.isInProgress())) {
@@ -114,6 +127,12 @@ public class TestAttemptService {
         ensureStartable(test, LocalDateTime.now());
         TestAttempt attempt = attemptRepository.save(new TestAttempt(testId, userId));
         return takeViewBuilder.build(test, attempt);
+    }
+
+    private static void requireClassScope(Long classId, Test test) {
+        if (!classId.equals(test.getClassId())) {
+            throw new EntityNotFoundException(TestAccessResolver.NF_MSG);
+        }
     }
 
     /**

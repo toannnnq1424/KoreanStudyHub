@@ -44,10 +44,9 @@
         var tabsNav = document.querySelector('.detail-tabs');
         if (!panel) return;
 
-        // Create mode has no tab nav, but its form still needs native
-        // Back/sidebar/breadcrumb protection.
-        var dirtyGuard = window.KshDirtyFormGuard.create(panel);
         if (!tabsNav) return;
+
+        var dirtyGuard = window.KshDirtyFormGuard.create(panel);
 
         // Mark owned so the shared detail-tabs.js (if also loaded) no-ops.
         tabsNav.setAttribute('data-ajax-tabs', 'owned');

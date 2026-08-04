@@ -186,11 +186,16 @@ public class TestCatalogService {
     private ExamListRow toRow(Test t, String className, List<TestAttempt> attempts) {
         String lastStatus = attempts.isEmpty() ? null : attempts.get(0).getStatus();
         Integer bestPercent = bestScorePercent(attempts);
+        Long lastCompletedAttemptId = attempts.stream()
+                .filter(attempt -> !attempt.isInProgress())
+                .map(TestAttempt::getId)
+                .findFirst()
+                .orElse(null);
         return new ExamListRow(t.getId(), t.getTitle(), t.getType(), t.getStatus(), className,
                 t.isPractice(), t.getDurationMinutes(), t.getTimeMode(),
                 t.getStartAt(), t.getEndAt(),
                 t.getTotalQuestions() == null ? 0 : t.getTotalQuestions(),
-                lastStatus, bestPercent);
+                lastStatus, bestPercent, lastCompletedAttemptId);
     }
 
     /** Best score percentage across submitted attempts, or null if none submitted. */

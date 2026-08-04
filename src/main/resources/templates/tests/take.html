@@ -23,7 +23,7 @@
                  data-time-mode=${take.timeMode()},
                  data-submit-url=@{|/api/tests/attempts/${take.attemptId()}/submit|},
                  data-heartbeat-url=@{|/api/tests/attempts/${take.attemptId()}/heartbeat|},
-                 data-result-base=@{|/my/tests/${take.testId()}/result|}">
+                 data-result-base=${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + take.testId() + '/result' : '/my/tests/' + take.testId() + '/result'}">
 
     <div class="tk-empty" th:if="${#lists.isEmpty(take.questions())}">
       Bài test này chưa có câu hỏi.

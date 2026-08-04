@@ -59,3 +59,12 @@
   font-size: var(--font-size-sm);
   color: var(--shub-text);
 }
+
+.student-test-table-wrap { overflow-x: auto; }
+.student-test-table td:first-child strong,
+.student-test-table td:first-child small { display: block; }
+.student-test-table td:first-child small { margin-top: 4px; color: var(--shub-text-muted); }
+.student-test-table th:last-child,
+.student-test-table td:last-child { width: 96px; text-align: right; }
+.student-test-table .tst-row-actions { justify-content: flex-end; }
+.student-test-table .tst-action-form { display: inline-flex; margin: 0; }

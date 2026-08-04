@@ -36,9 +36,9 @@
     </div>
 
     <div class="rs-actions">
-      <a class="tst-btn" th:href="@{/my/tests}">Về danh sách</a>
+      <a class="tst-btn" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Về danh sách</a>
       <a class="tst-btn tst-btn-primary"
-         th:href="@{|/my/tests/${result.testId()}/review/${result.attemptId()}|}">Xem lại bài làm</a>
+         th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + result.testId() + '/review/' + result.attemptId() : '/my/tests/' + result.testId() + '/review/' + result.attemptId()}">Xem lại bài làm</a>
     </div>
   </div>
 </main>
