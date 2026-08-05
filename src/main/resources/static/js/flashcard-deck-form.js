@@ -358,10 +358,46 @@
                 fd.append('file', file);
                 window.FcCommon.postForm(importUrl, fd)
                     .then(function (res) {
-                        var cards = (res.data && res.data.cards) || [];
-                        cards.forEach(function (c) { addRow({ front: c.front, back: c.back }); });
-                        toast('success', 'Đã thêm ' + cards.length +
-                            ' thẻ từ Excel, kiểm tra rồi bấm Lưu');
+                        //fix empty box
+                        var importedCards = (res.data && res.data.cards) || [];
+                        if (importedCards.length === 0) {
+                            toast('info', 'File Excel không có thẻ nào để import.');
+                            return;
+                        }
+
+                        // Find empty, unsaved rows that can be used
+                        var availableRows = rows().filter(function(row) {
+                            var front = row.querySelector('.fc-front').value.trim();
+                            var back = row.querySelector('.fc-back').value.trim();
+                            var id = row.getAttribute('data-card-id');
+                            return !front && !back && !id;
+                        });
+
+                        var availableRowIndex = 0;
+                        importedCards.forEach(function(cardData) {
+                            if (availableRowIndex < availableRows.length) {
+                                // Use an existing empty row
+                                var row = availableRows[availableRowIndex];
+                                var frontInput = row.querySelector('.fc-front');
+                                var backInput = row.querySelector('.fc-back');
+                                if (frontInput) frontInput.value = cardData.front || '';
+                                if (backInput) backInput.value = cardData.back || '';
+                                availableRowIndex++;
+                            } else {
+                                // No more empty rows, add a new one
+                                addRow({ front: cardData.front, back: cardData.back });
+                            }
+                        });
+
+                        // Remove any remaining, unused empty rows
+                        if (availableRowIndex < availableRows.length) {
+                            for (var i = availableRowIndex; i < availableRows.length; i++) {
+                                availableRows[i].remove();
+                            }
+                            renumber(); // Renumber if we removed rows
+                        }
+
+                        toast('success', 'Đã import ' + importedCards.length + ' thẻ. Kiểm tra rồi bấm Lưu.');
                     })
                     .catch(function (err) {
                         toast('error', err.message || 'Import Excel thất bại');
