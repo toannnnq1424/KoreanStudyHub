@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Library bài học', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Kho học liệu - ' + ${librarySubjectCode}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/library.css}">
@@ -9,38 +9,18 @@
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('library')}"></header>
 
-<main class="library-shell library-canonical-shell">
-  <aside class="library-kinds" aria-label="Thông tin Library">
-    <div class="kinds-head">
-      <h1>Kho học liệu</h1>
-      <p>Mã môn → Chương → Bài học → File</p>
-    </div>
-    <label class="library-subject-search">
-      <span class="sr-only">Tìm mã môn trong Library</span>
-      <input type="search" placeholder="Gõ mã môn, ví dụ KOR311…"
-             autocomplete="off" data-link-filter="#library-subject-list">
-    </label>
-    <nav class="library-subject-list" id="library-subject-list" aria-label="Chọn mã môn">
-      <a th:each="subject : ${librarySubjectOptions}"
-         th:href="@{/lecturer/library/templates(subjectId=${subject.id()})}"
-         th:classappend="${subject.id() == librarySubjectId} ? 'is-active'"
-         th:attr="aria-current=${subject.id() == librarySubjectId} ? 'page' : null,
-                  data-search-text=${subject.code() + ' ' + subject.name()}">
-        <strong th:text="${subject.code()}">KOR311</strong>
-        <span th:text="${subject.name()}">Tiếng Hàn</span>
-      </a>
-    </nav>
-    <div class="library-subject-card">
-      <span>Đang xem</span>
-      <strong th:text="${librarySubjectCode}">KOR311</strong>
+<main class="library-detail-page">
+  <div class="library-detail-header">
+    <div>
+      <a th:href="@{/lecturer/library/list}" class="library-back-link">‹ Quay lại danh sách</a>
+      <h1 th:text="${librarySubjectCode}">KOR311</h1>
       <p th:text="${librarySubjectName}">Tiếng Hàn</p>
       <small th:if="${librarySubjectDescription != null}"
              th:text="${librarySubjectDescription}">Chương trình đào tạo</small>
     </div>
-    <p class="kinds-hint">
-      Tạo bài học theo chương, thêm materials ngay trong bài học, rồi phân phối tới lớp cùng mã môn.
-    </p>
-  </aside>
+    <a class="content-create-btn"
+       th:href="@{/lecturer/library/templates/new(subjectId=${librarySubjectId})}">Tạo bài học</a>
+  </div>
 
   <section class="library-content" aria-labelledby="libraryTitle">
     <div id="flash-data"
@@ -53,21 +33,18 @@
         <h2 class="content-title" id="libraryTitle">Bài học</h2>
         <p class="content-sub" th:text="${libraryTemplateCount} + ' bài học trong mã môn'">0 bài học</p>
       </div>
-      <a class="content-create-btn"
-         th:href="@{/lecturer/library/templates/new(subjectId=${librarySubjectId})}">Tạo bài học</a>
+      <form class="content-search" method="get" th:action="@{/lecturer/library/templates}" role="search">
+        <svg class="content-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <label for="librarySearchInput" class="sr-only">Tìm theo tên bài học hoặc chương</label>
+        <input type="search" id="librarySearchInput" name="q" th:value="${libraryQuery}"
+               placeholder="Tìm theo tên bài học hoặc chương…" autocomplete="off">
+        <input type="hidden" name="size" th:value="${librarySize}">
+        <input type="hidden" name="subjectId" th:value="${librarySubjectId}">
+        <button type="submit" class="content-search-submit">Tìm</button>
+      </form>
     </div>
-
-    <form class="content-search" method="get" th:action="@{/lecturer/library/templates}" role="search">
-      <svg class="content-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      <label for="librarySearchInput" class="sr-only">Tìm theo tên bài học hoặc chương</label>
-      <input type="search" id="librarySearchInput" name="q" th:value="${libraryQuery}"
-             placeholder="Tìm theo tên bài học hoặc chương…" autocomplete="off">
-      <input type="hidden" name="size" th:value="${librarySize}">
-      <input type="hidden" name="subjectId" th:value="${librarySubjectId}">
-      <button type="submit" class="content-search-submit">Tìm</button>
-    </form>
 
     <section class="library-subject-distribution" th:if="${libraryTemplateCount > 0}"
              aria-labelledby="subjectDistributionTitle">
@@ -113,16 +90,23 @@
     </div>
 
     <div class="library-subject-tree" th:if="${libraryPage != null and !libraryPage.empty}">
-      <section class="library-chapter" th:each="chapter : ${libraryChapters}">
-        <header class="library-chapter-head">
+      <section class="library-chapter" th:each="chapter, iterStat : ${libraryChapters}"
+               th:classappend="${iterStat.index == 0} ? 'is-open'">
+        <button class="library-chapter-head"
+                th:attr="aria-expanded=${iterStat.index == 0},
+                         aria-controls='chapter-lessons-' + ${iterStat.index}">
           <span class="library-chapter-index" th:text="${chapter.number()}">1</span>
           <div>
             <span>Chương</span>
             <h3 th:text="${chapter.title()}">Chương 1 · Nhập môn</h3>
           </div>
           <small th:text="${chapter.lessons().size()} + ' bài học'">2 bài học</small>
-        </header>
-        <div class="library-lesson-list" role="list">
+          <svg class="library-chapter-chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+        <div class="library-lesson-list" role="list"
+             th:id="'chapter-lessons-' + ${iterStat.index}">
           <article class="library-lesson-row" th:each="item : ${chapter.lessons()}" role="listitem">
             <span class="library-lesson-number" th:text="${item.lessonNumber()}">1</span>
             <div class="library-lesson-main">
@@ -163,5 +147,18 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/learning-select.js}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const chapterHeads = document.querySelectorAll('.library-chapter-head');
+    chapterHeads.forEach(head => {
+      head.addEventListener('click', () => {
+        const chapter = head.parentElement;
+        const isExpanded = head.getAttribute('aria-expanded') === 'true';
+        head.setAttribute('aria-expanded', !isExpanded);
+        chapter.classList.toggle('is-open');
+      });
+    });
+  });
+</script>
 </body>
 </html>
