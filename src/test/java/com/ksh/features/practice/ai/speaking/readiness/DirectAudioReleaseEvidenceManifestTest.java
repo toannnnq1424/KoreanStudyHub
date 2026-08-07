@@ -34,6 +34,9 @@ class DirectAudioReleaseEvidenceManifestTest {
     private static final Path SCHEMA = Path.of(
             "docs/operations/"
                     + "practice-speaking-direct-audio-release-evidence-manifest.schema.json");
+    private static final Path REVIEW_DECISIONS = Path.of(
+            "docs/evidence/practice-speaking-direct-audio/"
+                    + "speaking-scoring-review-decisions-2026-08-07.json");
     private static final String EVIDENCE_PREFIX =
             "docs/evidence/practice-speaking-direct-audio/";
     private static final Set<String> ROOT_FIELDS = Set.of(
@@ -57,13 +60,19 @@ class DirectAudioReleaseEvidenceManifestTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void repositorySkeletonIsExactBlockedAndNonScoreBearing() throws Exception {
+    void repositoryIntakeHasSixPendingSixMissingAndRemainsNonScoreBearing() throws Exception {
         JsonNode root = objectMapper.readTree(Files.readString(MANIFEST));
 
         Validation validation = validate(root, Path.of("."));
 
-        assertThat(validation.missingKinds()).containsExactlyInAnyOrderElementsOf(
-                REQUIRED_EVIDENCE);
+        assertThat(validation.missingKinds()).containsExactlyInAnyOrder(
+                "REGION_POLICY", "NON_TRAINING_POLICY", "RETENTION_POLICY",
+                "DELETION_SLA_POLICY", "REDACTED_CAPTURED_REQUEST",
+                "REDACTED_CAPTURED_RESPONSE_RECEIPT");
+        assertThat(validation.pendingKinds()).containsExactlyInAnyOrder(
+                "ALIGNER_CAPABILITY_CAPTURE", "KOREAN_TIMESTAMP_SAMPLE_REPORT",
+                "CORPUS_MANIFEST_REPORT", "ACOUSTIC_CALIBRATION_REPORT",
+                "FAIRNESS_REVIEW_REPORT", "REPEATABILITY_REPORT");
         assertThat(root.path("status").asText())
                 .isEqualTo("BLOCKED_EXTERNAL_EVIDENCE");
         assertThat(root.path("approvalScope").asText())
@@ -93,6 +102,39 @@ class DirectAudioReleaseEvidenceManifestTest {
                 .isEqualTo(KoreanDirectAudioAlignmentNormalizer.CONTRACT_VERSION);
         assertThat(contracts.path("capabilityRegistryArtifactId").asText())
                 .isEqualTo(PracticeDirectAudioCapabilityRegistry.REGISTRY_ARTIFACT_ID);
+    }
+
+    @Test
+    void suppliedLocalEvidenceHasIndependentPendingDigestBoundReviews()
+            throws Exception {
+        JsonNode manifest = objectMapper.readTree(Files.readString(MANIFEST));
+        JsonNode decisions = objectMapper.readTree(
+                Files.readString(REVIEW_DECISIONS)).path("decisions");
+
+        assertThat(decisions).hasSize(6);
+        Set<String> reviewedKinds = new HashSet<>();
+        decisions.forEach(decision -> {
+            assertThat(decision.path("decision").asText()).isEqualTo("PENDING");
+            assertThat(decision.has("reviewDecisionId")).isFalse();
+            assertThat(decision.path("reviewer").isNull()).isTrue();
+            reviewedKinds.add(decision.path("artifact").asText());
+
+            ObjectNode reference = references(manifest).stream()
+                    .filter(candidate -> candidate.path("kind").asText()
+                            .equals(decision.path("artifact").asText()))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(reference.path("state").asText())
+                    .isEqualTo("SUPPLIED_REVIEW_PENDING");
+            assertThat(decision.path("artifactId").asText())
+                    .isEqualTo(reference.path("artifactId").asText());
+            assertThat(decision.path("artifactSha256").asText())
+                    .isEqualTo(reference.path("sha256").asText());
+        });
+        assertThat(reviewedKinds).containsExactlyInAnyOrder(
+                "ALIGNER_CAPABILITY_CAPTURE", "KOREAN_TIMESTAMP_SAMPLE_REPORT",
+                "CORPUS_MANIFEST_REPORT", "ACOUSTIC_CALIBRATION_REPORT",
+                "FAIRNESS_REVIEW_REPORT", "REPEATABILITY_REPORT");
     }
 
     @Test
@@ -132,6 +174,13 @@ class DirectAudioReleaseEvidenceManifestTest {
                 Files.readString(MANIFEST));
         missing.put("status", "DARK_VALIDATION_READY");
         missing.withArray("blockers").removeAll();
+        for (ObjectNode evidence : references(missing)) {
+            evidence.put("state", "MISSING");
+            evidence.putNull("artifactId");
+            evidence.putNull("relativePath");
+            evidence.putNull("sha256");
+            evidence.putNull("reviewDecisionId");
+        }
         assertThatThrownBy(() -> validate(missing, repositoryRoot))
                 .hasMessageContaining("accepted evidence");
 
@@ -216,6 +265,7 @@ class DirectAudioReleaseEvidenceManifestTest {
         List<ObjectNode> references = references(root);
         Set<String> kinds = new HashSet<>();
         List<String> missing = new ArrayList<>();
+        List<String> pending = new ArrayList<>();
         List<String> accepted = new ArrayList<>();
         for (ObjectNode evidence : references) {
             String kind = text(evidence, "kind");
@@ -264,6 +314,7 @@ class DirectAudioReleaseEvidenceManifestTest {
             } else {
                 require(evidence.path("reviewDecisionId").isNull(),
                         "pending evidence cannot be accepted " + kind);
+                pending.add(kind);
             }
         }
         require(kinds.equals(REQUIRED_EVIDENCE), "exact required evidence set");
@@ -290,7 +341,8 @@ class DirectAudioReleaseEvidenceManifestTest {
                             && !root.path("blockers").isEmpty(),
                     "blocked manifest requires blockers");
         }
-        return new Validation(List.copyOf(missing), List.copyOf(accepted));
+        return new Validation(
+                List.copyOf(missing), List.copyOf(pending), List.copyOf(accepted));
     }
 
     private static void assertSelection(JsonNode node, String... fields) {
@@ -373,6 +425,7 @@ class DirectAudioReleaseEvidenceManifestTest {
 
     private record Validation(
             List<String> missingKinds,
+            List<String> pendingKinds,
             List<String> acceptedKinds) {
     }
 }

@@ -11,16 +11,16 @@
     "capabilityRegistryArtifactId": "KSH_PRACTICE_DIRECT_AUDIO_CAPABILITY_VERIFICATION_V1"
   },
   "forcedAlignment": {
-    "selectionStatus": "NOT_SELECTED",
-    "componentType": null,
-    "provider": null,
-    "model": null,
-    "version": null,
+    "selectionStatus": "SELECTED_REVIEW_PENDING",
+    "componentType": "DEDICATED_FORCED_ALIGNER",
+    "provider": "Montreal Forced Aligner",
+    "model": "korean_mfa",
+    "version": "CLI 3.4.2.dev0+gf01293108.d20260711 / embedded model 3.0",
     "minimumReleaseCapability": "EOJJEOL_OR_WORD_TIMESTAMPS",
     "higherGranularityPolicy": "SYLLABLE_JAMO_PHONEME_REQUIRE_SEPARATE_CAPTURED_EVIDENCE",
     "evidence": [
-      {"kind": "ALIGNER_CAPABILITY_CAPTURE", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
-      {"kind": "KOREAN_TIMESTAMP_SAMPLE_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null}
+      {"kind": "ALIGNER_CAPABILITY_CAPTURE", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-422a8e8dab40", "relativePath": "docs/evidence/practice-speaking-direct-audio/aligner-capability-capture.json", "sha256": "422a8e8dab402edb50dcf4bedcfdebaa9ba017cba35b67d0d896944708444a6d", "reviewDecisionId": null},
+      {"kind": "KOREAN_TIMESTAMP_SAMPLE_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-KOREAN-TIMESTAMP-SAMPLE-REPORT-20260807-68ce329355b3", "relativePath": "docs/evidence/practice-speaking-direct-audio/korean-timestamp-sample-report.json", "sha256": "68ce329355b34493645b25b6b9cf900758da2e45f5259835a14c3c05c0222a01", "reviewDecisionId": null}
     ]
   },
   "providerEvidence": {
@@ -52,10 +52,10 @@
     ],
     "numericThresholds": null,
     "evidence": [
-      {"kind": "CORPUS_MANIFEST_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
-      {"kind": "ACOUSTIC_CALIBRATION_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
-      {"kind": "FAIRNESS_REVIEW_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
-      {"kind": "REPEATABILITY_REPORT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null}
+      {"kind": "CORPUS_MANIFEST_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-CORPUS-MANIFEST-REPORT-20260807-427c1cd12f52", "relativePath": "docs/evidence/practice-speaking-direct-audio/corpus-manifest-report.json", "sha256": "427c1cd12f52a11ce1ef01b3e237c8bab6dc18dd92d33268dbd5bf96fd5ed98c", "reviewDecisionId": null},
+      {"kind": "ACOUSTIC_CALIBRATION_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-ACOUSTIC-CALIBRATION-REPORT-20260807-71b2d47890d5", "relativePath": "docs/evidence/practice-speaking-direct-audio/acoustic-calibration-report.json", "sha256": "71b2d47890d5deb8c3e69788fec91403ca6edfb86dcdfca35b7da86dced0cec0", "reviewDecisionId": null},
+      {"kind": "FAIRNESS_REVIEW_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-FAIRNESS-REVIEW-REPORT-20260807-17c5e67186bc", "relativePath": "docs/evidence/practice-speaking-direct-audio/fairness-review-report.json", "sha256": "17c5e67186bc0d326f3ca32156655f1049aff76173a31a1a1f6b12ecb081f4d1", "reviewDecisionId": null},
+      {"kind": "REPEATABILITY_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-REPEATABILITY-REPORT-20260807-72beebf8f6bf", "relativePath": "docs/evidence/practice-speaking-direct-audio/repeatability-report.json", "sha256": "72beebf8f6bf4be4ea7d5bfa85aec1bdc07a7d14417faa09863d00b3fbbfe135", "reviewDecisionId": null}
     ]
   },
   "releaseGate": {
@@ -65,11 +65,13 @@
     "reason": "EVIDENCE_INTAKE_CANNOT_AUTHORIZE_SCORE_RELEASE"
   },
   "blockers": [
-    "ALIGNER_COMPONENT_SELECTION_REQUIRED",
-    "ALIGNER_CAPTURE_EVIDENCE_REQUIRED",
     "PROVIDER_RUNTIME_CAPTURE_REQUIRED",
     "PROVIDER_POLICY_EVIDENCE_REQUIRED",
-    "CALIBRATION_CORPUS_ARTIFACTS_REQUIRED",
-    "FAIRNESS_REPEATABILITY_REPORTS_REQUIRED"
+    "ALIGNER_INDEPENDENT_REVIEW_REQUIRED",
+    "KOREAN_TIMESTAMP_GOLD_SME_REVIEW_REQUIRED",
+    "GENUINE_DEVICE_ENVIRONMENT_CORPUS_REQUIRED",
+    "HUMAN_SME_CALIBRATION_THRESHOLDS_REQUIRED",
+    "FAIRNESS_HUMAN_BASELINE_REQUIRED",
+    "REPEATABILITY_THRESHOLD_SIGNOFF_REQUIRED"
   ]
 }

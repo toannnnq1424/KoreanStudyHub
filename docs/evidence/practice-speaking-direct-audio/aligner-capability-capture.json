@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "ksh-speaking-evidence-report-v1",
+  "kind": "ALIGNER_CAPABILITY_CAPTURE",
+  "captureDate": "2026-08-07",
+  "status": "TECHNICAL_CAPTURE_COMPLETE_REVIEW_PENDING",
+  "component": {
+    "type": "DEDICATED_FORCED_ALIGNER",
+    "name": "Montreal Forced Aligner",
+    "cliVersion": "3.4.2.dev0+gf01293108.d20260711",
+    "containerImageDigest": "sha256:55e3849655fc3fc191e822328607f330c077b99a65fdea95f2dae816670c5473",
+    "model": "korean_mfa",
+    "embeddedModelVersion": "3.0",
+    "architecture": "gmm-hmm",
+    "modelSource": "https://huggingface.co/MontrealCorpusTools/korean_mfa",
+    "modelDocumentation": "https://mfa-models.readthedocs.io/en/latest/acoustic/Korean/Korean%20MFA%20acoustic%20model%20v2_0_0a.html",
+    "modelLicense": "CC-BY-4.0",
+    "acousticModelSha256": "46f7a73ab46828c679562b160e0577beecfb4a9a827efe5ab392aee947451a4d",
+    "g2pModelSha256": "6938db05d83fa92c5c80681bf76fd7dd7af7f3ea8c7d7df1093790c641ad0344",
+    "dictionarySha256": "b6c96a3fe93ea01da6602ac23e5f84308bdb420e27882dda06c7a97fb98c"
+  },
+  "capture": {
+    "executionMode": "offline-local-captured-port-no-production-provider-call",
+    "sampleCount": 48,
+    "wordTimestampOutputs": 47,
+    "failedSampleIds": ["ko_cv26_026"],
+    "nonemptyWordIntervals": 853,
+    "nonemptyPhoneIntervals": 1267,
+    "spnPhoneIntervals": 546,
+    "spnPhoneFraction": 0.430939226519337
+  },
+  "capabilityConclusion": {
+    "wordOrEojjeolTimestampCapture": "DEMONSTRATED_REVIEW_PENDING",
+    "phoneTimestampReleaseUse": "NOT_DEMONSTRATED",
+    "pronunciationScoring": "NOT_AUTHORIZED",
+    "fluencyScoring": "NOT_AUTHORIZED",
+    "holisticScoring": "NOT_AUTHORIZED"
+  },
+  "limitations": [
+    "No human timestamp gold set was available, so this capture does not establish alignment accuracy.",
+    "The model documentation states that goodness-of-pronunciation assessment is out of scope.",
+    "The 43.09 percent spn rate makes the captured phone tier unsuitable as release evidence for phoneme scoring.",
+    "Independent Korean SME or speech/acoustic review is required before acceptance."
+  ],
+  "sourceAnalysisSha256": "697372bccec174289101d46dc1596bef47e31f66006a60a66a9545f85c34a7f0",
+  "containsRawAudio": false,
+  "containsCredentials": false
+}

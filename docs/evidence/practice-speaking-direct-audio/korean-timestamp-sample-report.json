@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "ksh-speaking-evidence-report-v1",
+  "kind": "KOREAN_TIMESTAMP_SAMPLE_REPORT",
+  "captureDate": "2026-08-07",
+  "status": "TECHNICAL_CAPTURE_COMPLETE_REVIEW_PENDING",
+  "sampleSet": {
+    "requested": 48,
+    "aligned": 47,
+    "failedSampleIds": ["ko_cv26_026"],
+    "selection": "Validated Mozilla Common Voice Korean 26.0 clips with at least two up-votes, zero down-votes, transcript length 5 through 160, one selected clip per speaker."
+  },
+  "capturedExample": {
+    "sampleId": "ko_cv26_001",
+    "durationSeconds": 2.867656,
+    "wordIntervals": [
+      {"label": "<eps>", "startSeconds": 0.0, "endSeconds": 0.53},
+      {"label": "말", "startSeconds": 0.53, "endSeconds": 0.75},
+      {"label": "조심", "startSeconds": 0.75, "endSeconds": 1.04},
+      {"label": "해", "startSeconds": 1.04, "endSeconds": 1.53},
+      {"label": "<eps>", "startSeconds": 1.53, "endSeconds": 2.867656}
+    ]
+  },
+  "reviewScopeRequested": [
+    "Korean word boundary usability",
+    "pause and silence boundary behavior",
+    "risk of systematic boundary shifts",
+    "effect of Korean phonological processes on learner-facing use"
+  ],
+  "limitations": [
+    "The example and aggregate coverage are machine outputs, not SME-approved timestamps.",
+    "No human timestamp gold reference was collected.",
+    "The corpus does not label native versus non-native proficiency or speaking quality.",
+    "No learner-visible feedback or score may use these timestamps while review is pending."
+  ],
+  "sourceAnalysisSha256": "697372bccec174289101d46dc1596bef47e31f66006a60a66a9545f85c34a7f0",
+  "containsRawAudio": false,
+  "containsCredentials": false
+}

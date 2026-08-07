@@ -6,9 +6,10 @@ unredacted provider payloads in the repository.
 
 The authoritative intake file is
 `docs/operations/practice-speaking-direct-audio-release-evidence-manifest.json`.
-Its current `BLOCKED_EXTERNAL_EVIDENCE` state is intentional. Product/SME
-approval authorizes evidence collection and review; it is not evidence that a
-component, provider response, corpus result or acceptance threshold exists.
+Its current `BLOCKED_EXTERNAL_EVIDENCE` state is intentional. Six local
+aligner/calibration reports have been supplied for independent review, while
+the six provider artifacts remain missing. Product/SME approval authorizes
+evidence collection and review; it is not result acceptance.
 
 For each supplied report:
 
@@ -31,3 +32,9 @@ Even a fully accepted v1 intake may authorize only dark validation. Learner
 visibility, pronunciation/fluency scoring, holistic score and attempt points
 require a separate future score-release decision and are not representable in
 this manifest version.
+
+Review authority and separation-of-duties rules are defined in
+`speaking-scoring-review-and-acceptance-policy.md`. Current independent records
+are in `speaking-scoring-review-decisions-2026-08-07.json`. All six records are
+`PENDING`; none has a `reviewDecisionId`, and the developer has not self-accepted
+them.

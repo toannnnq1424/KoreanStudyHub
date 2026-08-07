@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "ksh-speaking-evidence-report-v1",
+  "kind": "REPEATABILITY_REPORT",
+  "captureDate": "2026-08-07",
+  "status": "TECHNICAL_CAPTURE_COMPLETE_REVIEW_PENDING",
+  "execution": {
+    "runCount": 2,
+    "requestedPerRun": 48,
+    "alignedPerRun": 47,
+    "commonAligned": 47,
+    "failedBothRuns": ["ko_cv26_026"],
+    "run1TextGridSetSha256": "12dd958de762649de702431c3e2bd6c605a142dffcead9e02627533a61c59148",
+    "run2TextGridSetSha256": "5147da4f5c109ecc7738d70c0ab1d45d59bbc9e98f97d6fe57388e0327a9ec90"
+  },
+  "comparison": {
+    "matchingLabelSequenceBoundaryComparisons": 3950,
+    "boundaryDeltaSeconds": {"mean": 0.003503797468354433, "p95": 0.009999999999999787, "max": 0.49},
+    "labelSequenceMismatchSamples": ["ko_cv26_008", "ko_cv26_021", "ko_cv26_028"],
+    "labelSequenceMismatchTierRecords": 6
+  },
+  "acceptance": {
+    "preApprovedTolerance": null,
+    "decision": "PENDING_INDEPENDENT_REVIEW",
+    "automaticAcceptanceAllowed": false
+  },
+  "limitations": [
+    "No pre-approved repeatability threshold exists.",
+    "Three common outputs changed word and phone label sequences between runs.",
+    "The maximum matching-sequence boundary delta was 0.49 seconds and requires reviewer interpretation.",
+    "Independent scoring, calibration, or release-owner review is required."
+  ],
+  "sourceAnalysisSha256": "697372bccec174289101d46dc1596bef47e31f66006a60a66a9545f85c34a7f0",
+  "containsRawAudio": false,
+  "containsCredentials": false
+}

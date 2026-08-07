@@ -2,9 +2,13 @@
 
 Status: `IN_PROGRESS / NO_GO`
 
-Baseline: `origin/main` at `3d38a2f0` (PR #67 merged)
+Baseline: `origin/main` at `7daa03d0` (canonical integration line)
 
-Branch: `codex/practice-pre15-release-closure`
+Branch: `codex/practice-pre15-integration`
+
+Historical checkpoints through section 6.44 were produced on the preserved
+evidence branch rooted at `3d38a2f0`; section 6.45 records their cumulative
+port onto the canonical integration line without rebasing that evidence branch.
 
 This gate prioritizes Pre-15 and then Phase 15 Manual UAT/release. Phase 14
 feature work remains explicitly deferred. No item in this report authorizes
@@ -2768,3 +2772,414 @@ Evidence commands used only read-only Git/source inspection. No Java/provider
 test was claimed because implementation was correctly stopped before mutation.
 No AI/provider/R2 call, secret, migration, database/container, learner surface,
 push, PR, merge or rebase occurred.
+
+### 6.45 Canonical-main cumulative port and V103-V111 integration gate
+
+Status: `PORT_GREEN / LOCAL_COMMIT_READY / V112_NOT_STARTED`.
+
+On `2026-08-07`, the approved integration worktree
+`/Users/toanlamsaoduocc/.codex/worktrees/pre15-ksh-integration` on branch
+`codex/practice-pre15-integration` was resumed from clean canonical baseline
+`origin/main@7daa03d0`. The preserved evidence worktree was not rebased or
+modified. The cumulative Practice delta was applied once, excluding the nine
+colliding V88-V96 filenames; no port or migration copy was repeated after the
+system-error checkpoint.
+
+Canonical `origin/main` migrations V1-V102 remain the only files at those
+versions. Their bytes were not rewritten. The Practice checksum manifests were
+re-anchored to those already-canonical bytes, including the protected subject
+catalog line and current V80. The nine abandoned-branch Practice migration
+payloads were reissued forward-only with identical SHA-256 bytes:
+
+| Evidence migration | Integrated migration | SHA-256 |
+|---|---|---|
+| V88 | V103 | `43054f3192d117ced01fde0621caea8862c6ad32f3b7ff70ee51e06a9fe1c1cb` |
+| V89 | V104 | `a7771157437cfc06d5078fb91908ef9f3fc70efe73276465c66105861220abc8` |
+| V90 | V105 | `0f9865c9e12a09a6ce65482af236728af9922ec792dd1205eb461a039ef6dd53` |
+| V91 | V106 | `9960c4df5afcdbde608705523755cd763a2c943c29e8b8119b91591b4c25f904` |
+| V92 | V107 | `70b45b86368970822bf2c3fd5769fa3bc26581575332cb26f10d2616686f74e9` |
+| V93 | V108 | `003c2c600e7b4ac42e1dc42622f569d6c21e51da08608812772e09db36a2fae4` |
+| V94 | V109 | `ab2c4db2ec4c43592351d49569d1a10dd0c6cdf9b8669ff549473c779dcf752f` |
+| V95 | V110 | `0fa5233a9acec93922e392d8febfd6f2e5c5fdee3c3e9b2133d592c207310d7b` |
+| V96 | V111 | `5c16e993c3fbbdcecc03bee1803b0ba7f177e0881692b296835a041684527c51` |
+
+JDK `17.0.19` `test-compile` passed before test mutation. A dedicated MySQL
+8.4 container named `ksh-pre15-integration-flyway-20260804`, port `33324`,
+served only explicitly named disposable catalogs. Fresh migration applied all
+111 unique migrations and `KshApplicationTests` passed `4/4`. The upgrade
+rehearsal first applied canonical V1-V102, verified max version `102` and zero
+failed rows, then applied exactly V103-V111; the post-upgrade application gate
+also passed `4/4`. Final SQL inspection reported both fresh and upgrade
+catalogs at max version `111` with zero failed Flyway rows.
+
+The compile gate exposed no semantic conflict with merged Non-Practice code.
+Focused integration fixes were limited to test/evidence reconciliation:
+canonical migration-count assertions now stop at V111; old `MCQ`/`GAP_FILL`
+aliases are asserted fail-closed instead of restored; publisher fixtures own a
+real section-bound question group; and Writing unavailable fixtures use the
+current typed normalizer/completeness envelope. No production validation was
+relaxed. The disposable JDBC URL explicitly forced the session timezone to
+`Asia/Ho_Chi_Minh`, avoiding a container-UTC false failure while leaving
+production time semantics unchanged.
+
+Gate evidence:
+
+- focused migration/compatibility/publisher/integration gate: `155/155`;
+- complete Practice test tree: `1673` executed, `0` failures, `0` errors and
+  `16` existing environment-gated skips;
+- protected Non-Practice/Admin smoke gate: `48/48`, covering the merged
+  learning-flow migrations/UI, library flow, question-bank import template,
+  Admin settings information architecture, fixed provider presets, secure
+  links and binding-status presentation;
+- fixed/fake transport tests only; real AI/provider/R2/storage calls and real
+  credentials: `0`;
+- the disposable MySQL container was monitored, restarted only after the heavy
+  Practice gate reduced free memory, and returned from about `93%` to `56%`
+  usage before the protected gate. No shared/developer catalog or object was
+  touched.
+
+This checkpoint authorizes only the isolated cumulative port commit. It does
+not implement the proposed V112 `RELEASE_CANDIDATE`/private-snapshot schema,
+does not make TOPIK 35 learner-visible, and does not release direct-audio or
+Writing scores. V112 remains the next separate forward-only slice after this
+commit. No push, PR or merge occurred.
+
+### 6.46 RELEASE_CANDIDATE/private immutable snapshot implementation
+
+Status: `V112_GREEN / PRIVATE_ADMIN_REVIEW_ONLY / LEARNER_RELEASE_NOT_IMPLEMENTED`.
+
+On `2026-08-07`, the isolated V112 slice was implemented on the canonical
+integration line after local commit `ded2e3e3`. V1-V111 remain byte-for-byte
+unchanged. New forward-only migration
+`V112__practice_release_candidate_private_snapshot.sql` adds the explicit
+`PRIVATE` scope, `RELEASE_CANDIDATE` set/version status, non-null
+`learner_visible`, and versioned editorial completeness state/count to the
+live set and immutable set/version snapshots. Existing rows receive
+`learner_visible=1`, `editorial_status=COMPLETE` and pending count `0`.
+
+The publisher web action now creates an immutable release candidate instead
+of redirecting to a learner page. It preserves structural, answer-key, typed
+answer-contract and source/provenance validation as blocking. Missing or stale
+detailed R/L explanations are counted and persisted as
+`EDITORIAL_PENDING`; they are shown as editorial warnings and are not invented.
+No explanation preparation/promotion event is emitted for a candidate, so this
+path cannot enqueue an explanation-provider job. The normal historical
+`publish` service method remains separate for compatibility and still requires
+approved detailed explanations.
+
+Candidate creation enforces all of the following in one transaction:
+
+- the live set is `RELEASE_CANDIDATE`, `PRIVATE`, has no class binding and has
+  `learner_visible=false`;
+- the immutable published-version row is separately marked
+  `RELEASE_CANDIDATE`, copies the editorial state/count and is also
+  non-learner-visible;
+- the immutable set snapshot copies `PRIVATE`, visibility and editorial state;
+- owner and existing authorized authoring collaborators are the only dashboard,
+  revision-history, preview and material readers; no parallel hard-coded
+  reviewer identity model was introduced;
+- learner catalogue queries require `learner_visible=true` in addition to
+  `PUBLISHED`; learner detail/service, attempt-start, immutable snapshot and
+  material access gates apply the same fail-closed requirement; and
+- candidate versions cannot be restored through the published-version UI or
+  used as attempt version locks. There is deliberately no release transaction
+  in this slice.
+
+MySQL does not permit a CHECK constraint to reference `class_id` while its
+foreign key uses `ON DELETE SET NULL`. The database constraint therefore
+enforces the security-relevant invariant `RELEASE_CANDIDATE =>
+scope=PRIVATE AND learner_visible=0`; `PracticeSet.markReleaseCandidate`
+additionally clears `class_id`, and the immutable set snapshot copies that
+null value. A direct invalid `GLOBAL`/learner-visible candidate insert was
+confirmed rejected by MySQL.
+
+JDK `17.0.19` and disposable DB evidence:
+
+- `mvnw -q -DskipTests test-compile`: passed;
+- focused publisher/controller/domain/access/service/catalog/material/UI gate:
+  `160/160`;
+- `PracticeSetRepositoryTest` against the V112 catalog: `1/1`, with generated
+  SQL visibly requiring `learner_visible=1` on learner queries;
+- opt-in schema integration gate: `1/1`; a fresh catalog applied all 112
+  migrations, a second catalog stopped at V111 and then applied exactly V112,
+  both ended at V112, and an existing V111 `PUBLISHED/GLOBAL` row retained
+  `learner_visible=1`, `COMPLETE`, pending count `0` after upgrade;
+- complete Practice test tree with the local Hikari pool bounded to two
+  connections: `1680` executed, `0` failures, `0` errors and `17` existing
+  environment-gated skips; peak observed test-JVM RSS was approximately
+  `2.1 GiB`, and no stale Maven/Surefire process remained;
+- protected merged-main smoke gate: `46/46`, covering Non-Practice learning
+  migrations/UI, library flow, Question Bank import/controller/static
+  contracts, Admin settings information architecture and the fixed secure
+  provider-preset controls;
+- schema gate catalogs were explicitly named
+  `ksh_test_pre15_v112_fresh` and `ksh_test_pre15_v112_upgrade`; no shared or
+  developer catalog was mutated; both disposable catalogs were removed after
+  the final gates; and
+- application/provider/R2/AI calls, real credentials, learner-visible TOPIK 35
+  rows, push, PR and merge: `0`.
+
+The local database is MySQL `9.7`; Flyway `11.7.2` completed successfully but
+reported its existing support warning that this MySQL version is newer than
+the latest tested line (`8.1`). That warning is support-line evidence, not a
+runtime migration failure. The remaining learner-facing gate is intentionally
+external and separate: a future explicit release transaction must re-run
+editorial/readiness authorization before changing candidate status/visibility.
+Writing remains `MANUAL_OR_EXPERIMENTAL_UNSCORED`, Listening timing remains
+optional post-test QA metadata, and Speaking acoustic score release remains
+locked by its independent readiness/evidence controls.
+
+### 6.47 Explicit GLOBAL learner release and durable AI-wait state
+
+Status: `LEARNER_RELEASE_GREEN / GLOBAL_STUDENT_VISIBLE / AI_PENDING_FAIL_CLOSED`.
+
+On `2026-08-07`, the product owner directed that an approved Practice release
+candidate may be made visible to every student account so learners can start
+attempts immediately and wait for available AI explanation/evaluation. This
+slice implements a separate CSRF-protected release action; candidate creation
+remains private and does not silently publish.
+
+The authorized release transaction now:
+
+- requires the existing `practice.publish` permission and owner/active
+  authoring-collaborator boundary;
+- accepts only the latest `RELEASE_CANDIDATE`, `PRIVATE`,
+  `learner_visible=false` snapshot;
+- verifies that the live graph still matches the candidate content hash before
+  changing visibility; stale content fails closed and requires a new candidate;
+- changes the live set to `PUBLISHED`, `GLOBAL`, no class binding and
+  `learner_visible=true`, making the catalogue independent of class enrollment
+  and therefore visible to every authenticated student account;
+- preserves `EDITORIAL_PENDING` and its exact count instead of claiming missing
+  explanations are complete;
+- creates a new immutable `PUBLISHED` set/test/section/group/question version
+  chain. The private candidate snapshot remains unchanged and non-learner
+  visible; and
+- emits `PublishedVersionExplanationEvent` after the release transaction so
+  eligible Reading/Listening explanations enter the existing bounded durable
+  preparation flow after commit.
+
+The published-content hash is now explicitly versioned as
+`practice-published-content-v2` and hashes only deterministic content identity.
+Lifecycle/access fields, timestamps and lock state are excluded; JSON objects
+are key-sorted and decimal scales normalized. An integration gate flushed and
+cleared the persistence context between candidate creation and release, proving
+the hash survives real database JSON/decimal/timestamp normalization while a
+content mismatch is still rejected.
+
+Learner result semantics remain honest:
+
+- objective R/L answers use their deterministic answer contracts; missing
+  detailed explanations show `PENDING` while the explanation task is queued;
+- Writing/Speaking submission uses the existing durable attempt-evaluation job
+  and presents `PENDING` without a zero/latest/best score while a configured
+  worker is processing it;
+- `MANUAL_OR_EXPERIMENTAL_UNSCORED`, disabled provider, missing governed audio,
+  failed readiness or exhausted contract validation becomes explicit
+  `UNAVAILABLE`/non-score-bearing, not an indefinite fake wait; and
+- direct-audio pronunciation/fluency score release remains governed by its
+  independent evidence/calibration/dark-rollout gates.
+
+JDK `17.0.19` evidence:
+
+- `mvnw -q -DskipTests test-compile`: passed;
+- focused domain/lifecycle/controller/UI/access/service gate: `103/103`;
+- fresh disposable MySQL catalogue migrated V1-V112 and
+  `PracticeSetRepositoryTest`: `1/1`;
+- end-to-end candidate -> CSRF denial -> authorized release -> GLOBAL catalogue
+  -> student attempt/version-lock gate: `1/1`;
+- async Writing queue plus R/L explanation/result presentation gate: green;
+- complete Practice test tree: `1684` executed, `0` failures, `0` errors and
+  `17` existing environment-gated skips; and
+- protected merged-main Non-Practice/Question Bank/Admin smoke gate: `46/46`,
+  plus publisher/live-report static contracts: `10/10`; and
+- real AI/provider/R2/storage calls, secrets, shared/developer DB mutations,
+  migration changes, push, PR and merge: `0`.
+
+The only database used was the explicitly named disposable catalogue
+`ksh_test_pre15_release_all`; it was removed after the final gates. Flyway
+`11.7.2` again completed V1-V112 on local MySQL `9.7` with the existing warning
+that this server is newer than Flyway's latest tested MySQL line (`8.1`).
+
+### 6.48 Explicit R/L explanation generation controls
+
+Status: `GREEN / EDITOR_CONFIRMATION / PUBLISHED_BATCH_QUEUE / ZERO_PROVIDER_CALL_IN_GATE`.
+
+On `2026-08-07`, the R/L explanation path was audited end to end. "Enqueued"
+means an immutable published question is bound to an explanation artifact and
+a durable background task; the learner answer remains usable while the result
+surface honestly shows the explanation as pending. The worker is enabled by
+default, claims at most `20` due tasks per scheduled pass, uses a five-minute
+lease, performs at most four attempts with bounded `30-900` second backoff, and
+ends exhausted or permanent failures as explicit `FAILED` rather than leaving
+an endless pending state.
+
+The editor already had a typed-v4 per-question generation action. It now says
+`AI tạo bản nháp` and requires an explicit browser confirmation before either
+autosave or the generation request. Cancelling therefore performs no write and
+no AI call. Generated content remains a draft and must pass exact strategy,
+schema and evidence validation plus lecturer approval before publication.
+
+The published-version recovery panel now also exposes a separate bulk action
+for the latest learner-visible `PUBLISHED` version. The action:
+
+- requires the existing lecturer plus set-scoped `practice.publish` boundary
+  and CSRF token;
+- displays the remaining count and the server-derived profile/model identity;
+- remains disabled unless the dedicated `PRACTICE_RL_EXPLANATION` binding is
+  available with strict native JSON-schema and image-input capability;
+- accepts only the current learner-visible published version, rejecting stale,
+  cross-set, candidate or hidden snapshots;
+- creates missing tasks idempotently and requeues only recognized recoverable
+  failures, including a previously absent profile after it has become ready;
+- never calls the provider in the web request. The existing bounded worker is
+  the sole data-plane caller, so duplicate clicks cannot create duplicate
+  artifact/task rows; and
+- returns only localized counts/status. Provider error bodies and secrets are
+  not rendered or placed in flash messages.
+
+JDK `17.0.19` evidence so far:
+
+- `mvnw -q -DskipTests compile`: passed;
+- focused coordinator/controller/editor/static/retry/preparation/transaction
+  gate: `61/61`, with authorization-before-lookup, stale-version rejection,
+  disabled/unbound zero-task behavior, idempotent pending behavior and zero
+  structured-generation calls asserted; and
+- complete Practice tree against the explicitly named fresh disposable catalog
+  `ksh_test_pre15_rl_controls`: `1690` executed, `0` failures, `0` errors and
+  `17` existing environment-gated skips. Flyway validated/applied all `112`
+  migrations on local MySQL `9.7.1`; the existing Flyway support warning still
+  records MySQL `8.1` as its latest tested line;
+- the first full-tree invocation was correctly stopped before DB connection by
+  `DisposableTestDatabaseEnvironmentGuard` because `TEST_DB_URL` was absent.
+  The successful rerun used a catalog-scoped temporary test account; after the
+  gate both catalog and account were removed and queries confirmed `0/0`
+  remaining;
+- the disposable catalog contained `0` Practice AI execution-audit rows and
+  `0` attempt-evaluation jobs after the gate. Two explanation tasks were test
+  fixtures only; no execution audit was created; and
+- migration changes, real AI/provider/R2/storage calls, production secrets,
+  shared/developer DB mutations, push, PR and merge: `0`.
+
+### 6.49 TOPIK 35 single continuous Listening program binding
+
+Status: `PRIVATE_BINDING_GREEN / UX_ONE_PLAY_ACCEPTED / NO_SERVER_ANTI_REPLAY_GUARANTEE`.
+
+On `2026-08-07`, the bounded TOPIK 35 Listening slice was reconciled against
+the canonical licensed-source package. The exact local source used by the
+disposable gate was `topik35-listening-youtube.mp3`, size `60,755,426` bytes,
+SHA-256
+`0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1`,
+duration `3,797,136 ms`, and immutable logical key
+`practice-seed/topik35-v1/derived/audio-mp3/0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1.mp3`.
+The source URL, user rights assertion, retrieval identity, hashes and logical
+key remain authoring/provenance metadata; neither an absolute local path nor a
+direct external URL is exposed to the learner contract.
+
+The new binder verifies the exact source size and digest before copying it
+through the existing LOCAL authoring-storage port. It creates or reuses only a
+DB-issued `MANUAL_UPLOAD`, `PRIVATE`, owner-scoped audio asset under the same
+owner as the TOPIK 35 draft. Cross-owner reuse is rejected. The draft stores
+only the internal material route and the R2-ready logical key; no bucket, R2
+URL or production storage configuration was invented. Binding and withdrawal
+are idempotent, and deletion remains governed by the existing asset reference,
+owner and lifecycle checks.
+
+The delivery contract represents exactly one ordered program covering all 50
+Listening questions. Learners navigate question groups themselves. The player
+does not seek, replay, auto-navigate, auto-highlight or change groups from QA
+timing metadata. Group timing remains optional post-test author/QA metadata and
+is not a publication prerequisite.
+
+The enforcement audit found an important boundary: the existing authenticated
+material route supports HTTP Range and repeated GET requests. The browser's
+`sessionStorage` guard limits the start action once per tab/session, but cannot
+prove a durable one-play rule across tabs, sessions or direct requests. On
+`2026-08-07`, the product owner explicitly accepted this best-effort UX
+restriction for the release scope. The contract therefore remains honestly
+named `CLIENT_SESSION_ONLY`, and the service continues to expose
+`hardOnePlayEnforced=false`; it is not a security or anti-replay guarantee.
+The former `LISTENING_EXAM_PROGRAM_SERVER_ENFORCEMENT_REQUIRED` publication
+blocker was removed. Invented enforcement names, external material URLs,
+malformed flags and seek/replay-enabled policy still fail closed.
+
+JDK `17.0.19` and disposable evidence:
+
+- `mvnw -q -DskipTests test-compile`: passed;
+- focused validator/service/binder/importer/material/controller/UI gate after
+  the client-only release decision: `173/173`; it asserts one continuous
+  player, session-scoped start guard, no seek control, no timestamp-driven
+  navigation/highlight, honest best-effort copy and rejection of invented
+  enforcement identities;
+- opt-in persistence/access gate using the exact source MP3 against fresh
+  catalog `ksh_test_topik35_candidate_listening_program`: `1/1`; it proved
+  DB-issued identity, PRIVATE owner isolation, repeat idempotence, digest
+  readback, outsider/cross-owner denial, referenced-delete denial, withdrawal
+  followed by owner deletion, internal-route-only persistence, explicit
+  client-only enforcement identity and zero provider calls;
+- full Practice tree against fresh disposable catalog
+  `ksh_test_pre15_listening_ux`: `1,697` executed, `0` failures, `0` errors
+  and `17` environment-gated skips;
+- protected Non-Practice/Question Bank/Admin smoke gate: `32/32`;
+- Flyway applied and validated exactly V1-V112 with `0` failed rows; the git
+  diff contains no migration file, so the applied migration bytes remain
+  unchanged; and
+- Practice AI execution-audit rows, capability-test runs, real AI/provider/R2
+  calls, secrets, shared/developer DB mutations, push, PR and merge: `0`.
+
+The rejected attempt-scoped backend design was not retained: there is no V113,
+playback table, token/cookie state or dedicated playback route. V1-V112 remain
+the complete migration line. The protected Non-Practice/Question Bank/Admin
+smoke gate was rerun after this decision and passed `32/32`.
+
+The disposable catalog, temporary database account and exact test upload
+directory were removed after the gate and verified absent. Manual auditory QA
+for the 20 optional group boundaries remains pending and must not drive the
+exam UI. Manual UAT may proceed with the accepted limitation that Range/repeat
+HTTP delivery can occur and the one-play behavior is best-effort UX only.
+Writing remains
+`MANUAL_OR_EXPERIMENTAL_UNSCORED`; Speaking score readiness and its external
+provider, policy, forced-alignment and calibration evidence gates were not
+changed by this slice.
+
+### 6.50 Speaking aligner/calibration evidence intake
+
+Status: `6 SUPPLIED_REVIEW_PENDING / 6 PROVIDER MISSING / SCORE RELEASE LOCKED`.
+
+On `2026-08-07`, the first six redacted Speaking evidence reports were bound to
+exact SHA-256 identities in the release manifest: aligner capability, Korean
+timestamp samples, corpus manifest, acoustic probes, fairness coverage and
+repeatability. Six independent review records are `PENDING`; no reviewer,
+acceptance or `reviewDecisionId` was invented, and engineering did not
+self-accept any artifact.
+
+The captured component is Montreal Forced Aligner
+`3.4.2.dev0+gf01293108.d20260711` with the `korean_mfa` embedded model version
+`3.0`. It produced word timestamps for `47/48` deterministic Mozilla Common
+Voice Korean 26.0 samples. This demonstrates a reviewable technical path, not
+timestamp accuracy: there is no human gold timestamp set, one sample failed,
+and the phone tier contained `546/1,267` (`43.09%`) `spn` intervals. MFA's own
+model documentation places goodness-of-pronunciation assessment out of scope.
+Phone-level and all score uses therefore remain prohibited.
+
+The sample contains 48 unique speakers with partial self-declared age/gender
+coverage. It has no speaking-quality, proficiency, native/non-native, genuine
+device/environment, repeated-take or SME-rater labels. Sixteen deterministic
+noise/band-limiting variants all aligned, but they are disclosed only as
+synthetic robustness probes and do not satisfy real acoustic coverage.
+Alignment coverage by demographic group is not score fairness.
+
+Two offline alignment runs produced the same `47` successful sample identities.
+For matching label sequences, `3,950` boundary comparisons had mean absolute
+delta `0.00350s`, p95 `0.01s` and maximum `0.49s`; three samples changed both
+word and phone label sequences. Because no tolerance was approved in advance,
+the repeatability artifact cannot be automatically accepted.
+
+The manifest remains fail closed. Its six provider artifacts are still
+`MISSING`: region, non-training, retention, deletion SLA, redacted captured
+request and redacted captured response receipt. Independent Korean SME,
+acoustic/data/fairness/calibration/release reviews and the missing human/genuine
+corpus evidence are also required. Learner visibility, pronunciation, fluency,
+holistic scoring and attempt points remain disabled until every prerequisite
+artifact is accepted for its exact digest and a later score-release decision is
+made.
