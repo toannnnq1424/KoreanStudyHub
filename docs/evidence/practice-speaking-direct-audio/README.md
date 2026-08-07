@@ -35,6 +35,8 @@ this manifest version.
 
 Review authority and separation-of-duties rules are defined in
 `speaking-scoring-review-and-acceptance-policy.md`. Current independent records
-are in `speaking-scoring-review-decisions-2026-08-07.json`. All six records are
-`PENDING`; none has a `reviewDecisionId`, and the developer has not self-accepted
-them.
+are in `speaking-scoring-review-decisions-2026-08-07.json`. User review feedback
+left the aligner capability record `PENDING` and marked the other five
+`CHANGES_REQUIRED`; none has a `reviewDecisionId`, and the developer has not
+self-accepted them. Thresholds registered before the next evaluation are in
+`speaking-scoring-calibration-preregistered-thresholds-v1.json`.

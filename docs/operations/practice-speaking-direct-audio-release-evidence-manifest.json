@@ -19,7 +19,7 @@
     "minimumReleaseCapability": "EOJJEOL_OR_WORD_TIMESTAMPS",
     "higherGranularityPolicy": "SYLLABLE_JAMO_PHONEME_REQUIRE_SEPARATE_CAPTURED_EVIDENCE",
     "evidence": [
-      {"kind": "ALIGNER_CAPABILITY_CAPTURE", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-422a8e8dab40", "relativePath": "docs/evidence/practice-speaking-direct-audio/aligner-capability-capture.json", "sha256": "422a8e8dab402edb50dcf4bedcfdebaa9ba017cba35b67d0d896944708444a6d", "reviewDecisionId": null},
+      {"kind": "ALIGNER_CAPABILITY_CAPTURE", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-5b417c17ff96", "relativePath": "docs/evidence/practice-speaking-direct-audio/aligner-capability-capture.json", "sha256": "5b417c17ff960e702c8dcf7bd4ff590a12ece32db6dc4f33d187a4777c959a3d", "reviewDecisionId": null},
       {"kind": "KOREAN_TIMESTAMP_SAMPLE_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-KOREAN-TIMESTAMP-SAMPLE-REPORT-20260807-68ce329355b3", "relativePath": "docs/evidence/practice-speaking-direct-audio/korean-timestamp-sample-report.json", "sha256": "68ce329355b34493645b25b6b9cf900758da2e45f5259835a14c3c05c0222a01", "reviewDecisionId": null}
     ]
   },

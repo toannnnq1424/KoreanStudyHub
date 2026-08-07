@@ -105,7 +105,7 @@ class DirectAudioReleaseEvidenceManifestTest {
     }
 
     @Test
-    void suppliedLocalEvidenceHasIndependentPendingDigestBoundReviews()
+    void suppliedLocalEvidenceHasIndependentDigestBoundReviewFeedback()
             throws Exception {
         JsonNode manifest = objectMapper.readTree(Files.readString(MANIFEST));
         JsonNode decisions = objectMapper.readTree(
@@ -114,10 +114,13 @@ class DirectAudioReleaseEvidenceManifestTest {
         assertThat(decisions).hasSize(6);
         Set<String> reviewedKinds = new HashSet<>();
         decisions.forEach(decision -> {
-            assertThat(decision.path("decision").asText()).isEqualTo("PENDING");
+            String kind = decision.path("artifact").asText();
+            assertThat(decision.path("decision").asText()).isEqualTo(
+                    "ALIGNER_CAPABILITY_CAPTURE".equals(kind)
+                            ? "PENDING" : "CHANGES_REQUIRED");
             assertThat(decision.has("reviewDecisionId")).isFalse();
             assertThat(decision.path("reviewer").isNull()).isTrue();
-            reviewedKinds.add(decision.path("artifact").asText());
+            reviewedKinds.add(kind);
 
             ObjectNode reference = references(manifest).stream()
                     .filter(candidate -> candidate.path("kind").asText()

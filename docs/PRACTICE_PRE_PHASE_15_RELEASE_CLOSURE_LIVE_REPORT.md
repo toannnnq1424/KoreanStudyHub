@@ -3144,14 +3144,17 @@ changed by this slice.
 
 ### 6.50 Speaking aligner/calibration evidence intake
 
-Status: `6 SUPPLIED_REVIEW_PENDING / 6 PROVIDER MISSING / SCORE RELEASE LOCKED`.
+Status: `1 REVIEW PENDING / 5 CHANGES_REQUIRED / 6 PROVIDER MISSING / SCORE RELEASE LOCKED`.
 
 On `2026-08-07`, the first six redacted Speaking evidence reports were bound to
 exact SHA-256 identities in the release manifest: aligner capability, Korean
 timestamp samples, corpus manifest, acoustic probes, fairness coverage and
-repeatability. Six independent review records are `PENDING`; no reviewer,
-acceptance or `reviewDecisionId` was invented, and engineering did not
-self-accept any artifact.
+repeatability. Subsequent user review feedback marked timestamp, corpus,
+acoustic, fairness and repeatability `CHANGES_REQUIRED`. Aligner capability is
+still `PENDING`, with an `ACCEPTABLE_FOR_ACCEPTANCE` recommendation limited to
+word/eojjeol candidate generation after exact JSON inspection. No formal
+reviewer identity, acceptance or `reviewDecisionId` was invented, and
+engineering did not self-accept any artifact.
 
 The captured component is Montreal Forced Aligner
 `3.4.2.dev0+gf01293108.d20260711` with the `korean_mfa` embedded model version
@@ -3183,3 +3186,10 @@ corpus evidence are also required. Learner visibility, pronunciation, fluency,
 holistic scoring and attempt points remain disabled until every prerequisite
 artifact is accepted for its exact digest and a later score-release decision is
 made.
+
+The review-proposed thresholds were registered before the next evaluation in
+`speaking-scoring-calibration-preregistered-thresholds-v1.json`. They cover the
+60-clip Korean timestamp gold set, genuine device/environment matrix, blind SME
+baseline, AI-score agreement, acoustic drift, fairness and five-run aligner and
+provider repeatability. Registration is not evidence that any threshold has
+passed.

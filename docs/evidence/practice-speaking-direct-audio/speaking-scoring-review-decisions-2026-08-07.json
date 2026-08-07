@@ -1,12 +1,15 @@
 {
   "schemaVersion": "ksh-speaking-review-decisions-v1",
   "recordDate": "2026-08-07",
+  "recordStatus": "USER_REVIEW_FEEDBACK_RECORDED_FORMAL_REVIEWER_IDENTITY_PENDING",
   "policyPath": "docs/evidence/practice-speaking-direct-audio/speaking-scoring-review-and-acceptance-policy.md",
+  "preregisteredThresholdsPath": "docs/evidence/practice-speaking-direct-audio/speaking-scoring-calibration-preregistered-thresholds-v1.json",
+  "preregisteredThresholdsSha256": "e428a7a640d05143f01421855cfe076a9327f6f8eba70c3e10f3a74224528f5e",
   "decisions": [
     {
       "artifact": "ALIGNER_CAPABILITY_CAPTURE",
-      "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-422a8e8dab40",
-      "artifactSha256": "422a8e8dab402edb50dcf4bedcfdebaa9ba017cba35b67d0d896944708444a6d",
+      "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-5b417c17ff96",
+      "artifactSha256": "5b417c17ff960e702c8dcf7bd4ff590a12ece32db6dc4f33d187a4777c959a3d",
       "reviewCategory": "KOREAN_SME_OR_ACOUSTIC",
       "requiredReviewerAuthority": "Korean pronunciation/phonetics SME or speech/acoustic reviewer",
       "reviewer": null,
@@ -15,8 +18,8 @@
       "evidenceReviewed": [],
       "scopeReviewed": null,
       "decision": "PENDING",
-      "findings": ["Technical word-timestamp capability captured for 47 of 48 samples; no accuracy acceptance."],
-      "conditionsAndLimitations": ["Phone-tier release use and all speaking scores remain prohibited."],
+      "findings": ["Reviewer feedback is ACCEPTABLE_FOR_ACCEPTANCE for WORD/EOJJEOL capability only after exact JSON inspection; the artifact now includes pinned model bytes, command/config provenance, sample identity, and output identities."],
+      "conditionsAndLimitations": ["Formal acceptance confirmation and reviewer identity/authority are still absent.", "Phone-tier release use and all speaking scores remain prohibited.", "Failed alignment must fail closed."],
       "decisionDate": null
     },
     {
@@ -30,7 +33,7 @@
       "reviewerAuthority": null,
       "evidenceReviewed": [],
       "scopeReviewed": null,
-      "decision": "PENDING",
+      "decision": "CHANGES_REQUIRED",
       "findings": ["Machine timestamps supplied without human gold timestamps."],
       "conditionsAndLimitations": ["Reviewer must assess Korean boundary usability and phonological-process risk."],
       "decisionDate": null
@@ -46,7 +49,7 @@
       "reviewerAuthority": null,
       "evidenceReviewed": [],
       "scopeReviewed": null,
-      "decision": "PENDING",
+      "decision": "CHANGES_REQUIRED",
       "findings": ["48-speaker demographic sample supplied; device, environment, proficiency, repeated-take, and SME labels remain missing."],
       "conditionsAndLimitations": ["Synthetic perturbations cannot be accepted as genuine device/environment coverage."],
       "decisionDate": null
@@ -62,7 +65,7 @@
       "reviewerAuthority": null,
       "evidenceReviewed": [],
       "scopeReviewed": null,
-      "decision": "PENDING",
+      "decision": "CHANGES_REQUIRED",
       "findings": ["Sixteen synthetic robustness probes aligned; full real acoustic calibration is not present."],
       "conditionsAndLimitations": ["Real supported-device/environment matrix and reject-or-rerecord thresholds are still required."],
       "decisionDate": null
@@ -78,7 +81,7 @@
       "reviewerAuthority": null,
       "evidenceReviewed": [],
       "scopeReviewed": null,
-      "decision": "PENDING",
+      "decision": "CHANGES_REQUIRED",
       "findings": ["Alignment coverage is reported by available self-declared gender and age groups; score fairness is not established."],
       "conditionsAndLimitations": ["Human score baselines and pre-approved disparity thresholds remain required."],
       "decisionDate": null
@@ -94,7 +97,7 @@
       "reviewerAuthority": null,
       "evidenceReviewed": [],
       "scopeReviewed": null,
-      "decision": "PENDING",
+      "decision": "CHANGES_REQUIRED",
       "findings": ["Two runs aligned the same 47 samples; three samples changed label sequences and maximum matching-boundary delta was 0.49 seconds."],
       "conditionsAndLimitations": ["No pre-approved tolerance exists, so automatic acceptance is forbidden."],
       "decisionDate": null

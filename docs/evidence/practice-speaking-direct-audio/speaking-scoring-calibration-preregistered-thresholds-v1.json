@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "ksh-speaking-calibration-preregistered-thresholds-v1",
+  "registeredDate": "2026-08-07",
+  "status": "PRE_REGISTERED_BEFORE_NEXT_EVALUATION",
+  "source": "User-provided review direction",
+  "scope": "Practice Speaking v1 calibration research only; thresholds do not authorize learner-visible scores.",
+  "koreanTimestampGold": {
+    "minimumClips": 60,
+    "minimumUniqueSpeakers": 20,
+    "smeAnnotators": 2,
+    "adjudicatorRequiredForMaterialDisagreement": true,
+    "requiredCoverage": ["받침", "연음", "비음화", "유음화", "경음화", "격음/ㅎ-related changes", "pauses", "hesitation", "slow speech", "fast speech", "learner pronunciation errors"],
+    "alignmentSuccessRateMinimum": 0.98,
+    "medianAbsoluteBoundaryErrorMillisecondsMaximum": 80,
+    "p95AbsoluteBoundaryErrorMillisecondsMaximum": 200,
+    "boundaryErrorOver500MillisecondsRateMaximum": 0.01,
+    "systematicPhonologicalStrataFailureAllowed": false
+  },
+  "genuineAcousticCorpus": {
+    "minimumDeviceClasses": ["IPHONE_BUILT_IN_MIC", "ANDROID_BUILT_IN_MIC"],
+    "requiredEnvironments": ["QUIET", "NORMAL_INDOOR", "MODERATE_REAL_NOISE"],
+    "minimumClipsPerDeviceEnvironmentCell": 10,
+    "minimumRepeatedTakePairs": 10,
+    "requiredCaptureType": "GENUINE_CAPTURE",
+    "unknownMetadataPolicy": "UNKNOWN_NOT_INFERRED",
+    "syntheticPerturbationMayFillGenuineCell": false
+  },
+  "smeBaseline": {
+    "blindClipCount": 60,
+    "strata": {"POOR": 20, "MID": 20, "GOOD": 20},
+    "raterCount": 2,
+    "dimensions": ["PRONUNCIATION_1_TO_5", "FLUENCY_1_TO_5"],
+    "adjudicateWhenAbsoluteRaterDifferenceAtLeast": 2,
+    "weightedKappaMinimum": 0.70,
+    "withinOnePointAgreementMinimum": 0.85
+  },
+  "aiScoreCalibration": {
+    "pronunciationMaeMaximumOnFivePointScale": 0.50,
+    "pronunciationSpearmanMinimum": 0.75,
+    "fluencyMaeMaximumOnFivePointScale": 0.50,
+    "fluencySpearmanMinimum": 0.75,
+    "withinOneLevelAccuracyMinimum": 0.95,
+    "exactLevelAccuracyMinimum": 0.80,
+    "catastrophicPoorGoodErrorRateMaximum": 0.02
+  },
+  "pairedAcousticCalibration": {
+    "scoreScale": "0_TO_100",
+    "medianPairedScoreDriftMaximum": 5,
+    "p95PairedScoreDriftMaximum": 10,
+    "poorMidGoodFlipRateMaximum": 0.10,
+    "cellMeanBiasVersusSmeMaximum": 8,
+    "belowQualityThresholdAction": "RECORDING_QUALITY_TOO_LOW_RECORD_AGAIN"
+  },
+  "fairness": {
+    "minimumUniqueSpeakersPerReportedSubgroup": 10,
+    "minimumClipsPerReportedSubgroup": 20,
+    "insufficientGroupStatus": "INSUFFICIENT_DATA",
+    "maeGapMaximumOnFivePointScale": 0.35,
+    "falseLowScoreRateGapPercentagePointsMaximum": 10,
+    "medianResidualGapMaximumOnFivePointScale": 0.5,
+    "missingMetadataPolicy": "UNKNOWN_NOT_INFERRED"
+  },
+  "alignerRepeatability": {
+    "runsPerClipMinimum": 5,
+    "successfulSampleSetIdentityRequired": 1.0,
+    "wordLabelSequenceIdentityRequired": 1.0,
+    "p95WordBoundaryDeltaMillisecondsMaximum": 20,
+    "maxWordBoundaryDeltaMillisecondsMaximum": 100,
+    "phoneTierIsV1ScoreGate": false
+  },
+  "providerScoreRepeatability": {
+    "runsPerClipMinimum": 5,
+    "pronunciationRangeMaximumOnFivePointScale": 0.25,
+    "fluencyRangeMaximumOnFivePointScale": 0.25,
+    "poorMidGoodCategoryFlipAllowed": false,
+    "applicability": "Only after an exact provider/model/prompt/rubric/config is selected and policy evidence is accepted."
+  }
+}

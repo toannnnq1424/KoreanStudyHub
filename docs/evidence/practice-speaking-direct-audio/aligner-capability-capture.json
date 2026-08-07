@@ -18,6 +18,20 @@
     "g2pModelSha256": "6938db05d83fa92c5c80681bf76fd7dd7af7f3ea8c7d7df1093790c641ad0344",
     "dictionarySha256": "b6c96a3fe93ea01da6602ac23e5f84308bdb420e27882dda06c7a97fb98c"
   },
+  "executionIdentity": {
+    "sampleManifestSha256": "419a3f7293e47986893c55ae5bd4d2c9f1611b11a435debf5e507df85684d0d5",
+    "sampleInputSetSha256": "3221a8f7a222c9f64e725af3f7110e9516991255ca68dfd599549bc3aa8bcc72",
+    "sampleInputSetDigestAlgorithm": "SHA-256 of sorted relative-file SHA-256 listing for the 48 MP3/transcript sample directory",
+    "commandHistorySha256": "6842e0f9e2f2c458326411866a45941b93dbf9927cf3f39a4130d921e8524195",
+    "containerBuildRecipeSha256": "be3b87e502e8cc0a8459bae84f7d3bfca472f850bf0c5a4b6f4452e036cbcee5",
+    "runCommands": [
+      "/env/bin/mfa align /work/sample-original /work/sample-final.dict korean_mfa /work/alignment-raw-run-1 --single_speaker --temporary_directory /work/mfa-raw-temp-1 --num_jobs 1 --no_use_mp --no_cleanup_textgrids --clean --overwrite",
+      "/env/bin/mfa align /work/sample-original /work/sample-final.dict korean_mfa /work/alignment-raw-run-2 --single_speaker --temporary_directory /work/mfa-raw-temp-2 --num_jobs 1 --no_use_mp --no_cleanup_textgrids --clean --overwrite"
+    ],
+    "run1OutputSetSha256": "12dd958de762649de702431c3e2bd6c605a142dffcead9e02627533a61c59148",
+    "run2OutputSetSha256": "5147da4f5c109ecc7738d70c0ab1d45d59bbc9e98f97d6fe57388e0327a9ec90",
+    "outputSetDigestAlgorithm": "SHA-256 over sorted TextGrid relative filename, NUL, file bytes, NUL"
+  },
   "capture": {
     "executionMode": "offline-local-captured-port-no-production-provider-call",
     "sampleCount": 48,
