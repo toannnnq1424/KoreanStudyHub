@@ -22,6 +22,11 @@
         oEl.classList.toggle('is-correct', checked);
     }
 
+    /**
+     * Derives the question type from how many options are ticked: 2+ correct
+     * answers means multi-response. Keeps the hidden input and badge in sync so
+     * the lecturer never has to pick MCQ/MR by hand.
+     */
     function syncQuestionType(qEl) {
         var correctCount = qEl.querySelectorAll('.lf-o-correct:checked').length;
         var type = correctCount > 1 ? 'MR' : 'MCQ';
@@ -71,8 +76,8 @@
 
         function refreshQuestionNumbers() {
             questionsHost.querySelectorAll('.lf-question').forEach(function (qEl, i) {
-                var number = qEl.querySelector('.lf-q-no');
-                if (number) number.textContent = 'Câu ' + (i + 1);
+                var no = qEl.querySelector('.lf-q-no');
+                if (no) no.textContent = 'Câu ' + (i + 1);
             });
         }
 
@@ -147,6 +152,7 @@
             node.querySelector('.lf-o-remove').addEventListener('click', function () {
                 node.remove();
                 refreshOptionLabels(qEl);
+                // Removing a ticked option can flip MR back to MCQ.
                 syncQuestionType(qEl);
             });
             qEl.querySelector('.lf-options').appendChild(node);
@@ -169,6 +175,7 @@
                 addOption(node, null);
                 addOption(node, null);
             }
+            // Derive the badge/hidden type from the options just loaded.
             syncQuestionType(node);
             node.querySelector('.lf-add-option').addEventListener('click', function () {
                 addOption(node, null);
@@ -193,7 +200,9 @@
                         correct: oEl.querySelector('.lf-o-correct').checked
                     });
                 });
-                var correctCount = options.filter(function (option) { return option.correct; }).length;
+                // Recompute rather than trusting the hidden input, so the saved
+                // type always matches the ticked options.
+                var correctCount = options.filter(function (o) { return o.correct; }).length;
                 questions.push({
                     id: parseId(qEl.dataset.questionId),
                     type: correctCount > 1 ? 'MR' : 'MCQ',

@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -20,6 +21,8 @@ import java.util.List;
  */
 public class KshUserDetails implements UserDetails {
 
+    @Serial
+    private static final long serialVersionUID = 6267742967770343470L;
     private final Long id;
     private final Role role;
     private final String username;
