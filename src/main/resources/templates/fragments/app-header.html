@@ -66,10 +66,31 @@
        th:href="@{/lecturer/dashboard}" th:classappend="${active == 'dashboard'} ? 'active'">Tổng quan</a>
     <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
        th:href="@{/lecturer/classes}" th:classappend="${active == 'classes'} ? 'active'">Lớp học</a>
-    <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
-       th:href="@{/lecturer/tests}" th:classappend="${active == 'tests'} ? 'active'">Kho bài test</a>
-    <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
-       th:href="@{/lecturer/library}" th:classappend="${active == 'library'} ? 'active'">Kho học liệu</a>
+    <div class="dropdown nav-library-dropdown"
+         sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')">
+      <div class="nav-library-trigger" th:classappend="${active == 'tests' or active == 'library'} ? 'active'">
+        <button type="button"
+                class="nav-library-link"
+                data-toggle="dropdown"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                aria-label="Mở menu Kho học liệu">
+          Kho học liệu
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+      <div class="menu left nav-library-menu" role="menu" aria-label="Kho học liệu">
+        <a th:href="@{/lecturer/tests}" class="menu-item" role="menuitem">
+          Kho bài kiểm tra
+        </a>
+        <a th:href="@{/lecturer/library/list}" class="menu-item" role="menuitem">
+          Kho bài giảng
+        </a>
+      </div>
+    </div>
     <!-- Lecturer contribution entry to the department-scoped shared question bank. -->
     <a sec:authorize="hasAnyRole('LECTURER','LEADER','ADMIN')"
        th:href="@{/lecturer/question-bank}" th:classappend="${active == 'question-bank'} ? 'active'">Ngân hàng câu hỏi</a>
@@ -124,7 +145,7 @@
           <a th:href="@{/lecturer/dashboard}" class="menu-item" role="menuitem">Tổng quan</a>
           <a th:href="@{/lecturer/classes}" class="menu-item" role="menuitem">Lớp học</a>
           <a th:href="@{/lecturer/tests}" class="menu-item" role="menuitem">Kho bài test</a>
-          <a th:href="@{/lecturer/library}" class="menu-item" role="menuitem">Kho học liệu</a>
+          <a th:href="@{/lecturer/library/list}" class="menu-item" role="menuitem">Kho học liệu</a>
           <a th:href="@{/lecturer/question-bank}" class="menu-item" role="menuitem">Ngân hàng câu hỏi</a>
         </th:block>
         <a sec:authorize="hasRole('LEADER')"

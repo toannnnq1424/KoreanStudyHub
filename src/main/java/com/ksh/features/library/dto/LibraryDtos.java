@@ -83,4 +83,15 @@ public final class LibraryDtos {
             String title
     ) {
     }
+
+    /** Subject with library statistics for the list view. */
+    public record SubjectLibraryStats(
+            Long id,
+            String code,
+            String name,
+            String description,
+            int chapterCount,
+            int lessonCount
+    ) {
+    }
 }

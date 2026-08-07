@@ -28,6 +28,7 @@ import com.ksh.features.library.dto.LibraryDtos.LessonTemplatePageView;
 import com.ksh.features.library.dto.LibraryDtos.LessonTemplateRow;
 import com.ksh.features.library.dto.LibraryDtos.SubjectContext;
 import com.ksh.features.library.dto.LibraryDtos.ChapterView;
+import com.ksh.features.library.dto.LibraryDtos.SubjectLibraryStats;
 import com.ksh.features.library.dto.LessonTemplateForm;
 import com.ksh.features.library.repository.LessonTemplateAttachmentRepository;
 import com.ksh.features.library.repository.LessonTemplateRepository;
@@ -221,6 +222,32 @@ public class LessonTemplateService {
         return subjectResolver.allowed(ownerId, role).stream()
                 .map(subject -> new SubjectContext(subject.getId(), subject.getCode(),
                         subject.getName(), subject.getDescription()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.ksh.features.library.dto.LibraryDtos.SubjectLibraryStats> getLibrarySubjectStats(Long ownerId, Role role) {
+        return subjectResolver.allowed(ownerId, role).stream()
+                .map(subject -> {
+                    List<LessonTemplate> templates = templateRepository
+                            .findBySubjectIdOrderByChapterOrderAscDisplayOrderAscTitleAsc(subject.getId());
+                    
+                    int chapterCount = (int) templates.stream()
+                            .map(LessonTemplate::getChapterOrder)
+                            .distinct()
+                            .count();
+                    
+                    int lessonCount = templates.size();
+                    
+                    return new com.ksh.features.library.dto.LibraryDtos.SubjectLibraryStats(
+                            subject.getId(),
+                            subject.getCode(),
+                            subject.getName(),
+                            subject.getDescription(),
+                            chapterCount,
+                            lessonCount
+                    );
+                })
                 .toList();
     }
 

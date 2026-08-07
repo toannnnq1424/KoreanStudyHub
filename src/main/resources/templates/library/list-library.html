@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Chọn kho học liệu', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/library.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('library')}"></header>
+
+<main class="library-list-page">
+  <div class="library-list-header">
+    <h1>Kho học liệu</h1>
+    <p>Chọn một mã môn để xem hoặc quản lý học liệu.</p>
+  </div>
+
+  <div class="library-list-search">
+    <label class="library-subject-search">
+      <span class="sr-only">Tìm mã môn trong Library</span>
+      <input type="search" placeholder="Gõ mã môn, ví dụ KOR311…"
+             autocomplete="off" data-library-list-filter>
+    </label>
+  </div>
+
+  <div class="library-list-container" th:if="${!librarySubjectStats.isEmpty()}">
+    <div class="library-subject-cards">
+      <a class="library-subject-card" th:each="subject : ${librarySubjectStats}"
+         th:href="@{/lecturer/library/templates(subjectId=${subject.id()})}"
+         th:attr="data-search-text=${subject.code() + ' ' + subject.name()}">
+        <div class="card-header">
+          <strong class="subject-code" th:text="${subject.code()}">KOR311</strong>
+          <span class="subject-name" th:text="${subject.name()}">Tiếng Hàn</span>
+        </div>
+        <p class="subject-description" th:if="${subject.description() != null}"
+           th:text="${subject.description()}"></p>
+        <div class="card-stats">
+          <span class="stat-item">
+            <span class="stat-value" th:text="${subject.chapterCount()}">0</span>
+            <span class="stat-label">chương</span>
+          </span>
+          <span class="stat-divider">·</span>
+          <span class="stat-item">
+            <span class="stat-value" th:text="${subject.lessonCount()}">0</span>
+            <span class="stat-label">bài học</span>
+          </span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="content-empty" th:if="${librarySubjectStats.isEmpty()}">
+    <h3>Chưa có mã môn nào</h3>
+    <p>Hiện tại bạn chưa có mã môn nào để quản lý học liệu.</p>
+  </div>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.querySelector('[data-library-list-filter]');
+    const cards = document.querySelectorAll('.library-subject-card');
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        cards.forEach(card => {
+          const searchText = card.getAttribute('data-search-text').toLowerCase();
+          card.style.display = searchText.includes(query) ? '' : 'none';
+        });
+      });
+    }
+  });
+</script>
+</body>
+</html>
