@@ -30,10 +30,8 @@ ALTER TABLE practice_ai_purpose_bindings
         purpose_code <> 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'
         OR enabled = FALSE
         OR (
-            NULLIF(TRIM(region_evidence_id), '') IS NOT NULL
-            AND NULLIF(TRIM(non_training_evidence_id), '') IS NOT NULL
+            NULLIF(TRIM(non_training_evidence_id), '') IS NOT NULL
             AND NULLIF(TRIM(retention_evidence_id), '') IS NOT NULL
-            AND NULLIF(TRIM(deletion_sla_evidence_id), '') IS NOT NULL
         )
     );
 

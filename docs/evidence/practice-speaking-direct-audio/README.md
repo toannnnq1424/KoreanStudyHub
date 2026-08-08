@@ -8,7 +8,7 @@ The authoritative intake file is
 `docs/operations/practice-speaking-direct-audio-release-evidence-manifest.json`.
 Its current `BLOCKED_EXTERNAL_EVIDENCE` state is intentional. Six local
 aligner/calibration reports have been supplied for independent review, while
-the six provider artifacts remain missing. Product/SME approval authorizes
+the four required provider artifacts remain missing. Product/SME approval authorizes
 evidence collection and review; it is not result acceptance.
 
 For each supplied report:

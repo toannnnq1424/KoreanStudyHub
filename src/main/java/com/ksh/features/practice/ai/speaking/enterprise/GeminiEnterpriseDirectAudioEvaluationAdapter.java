@@ -141,10 +141,8 @@ public final class GeminiEnterpriseDirectAudioEvaluationAdapter
                 || !endpointBound
                 || !endpointAudience.equals(binding.audience())
                 || !GOOGLE_CLOUD_PLATFORM_SCOPE.equals(binding.scope())
-                || blank(binding.regionEvidenceId())
                 || blank(binding.nonTrainingEvidenceId())
-                || blank(binding.retentionEvidenceId())
-                || blank(binding.deletionSlaEvidenceId())) {
+                || blank(binding.retentionEvidenceId())) {
             throw rejected("DIRECT_AUDIO_ENTERPRISE_BINDING_NOT_READY");
         }
     }

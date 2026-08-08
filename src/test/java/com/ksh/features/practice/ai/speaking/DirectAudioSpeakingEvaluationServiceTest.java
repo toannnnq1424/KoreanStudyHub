@@ -71,14 +71,15 @@ class DirectAudioSpeakingEvaluationServiceTest {
     }
 
     @Test
-    void missingReviewerProviderOrCalibrationEvidenceNeverReachesProvider() {
+    void missingReviewerMinimalProviderOrCalibrationEvidenceNeverReachesProvider() {
         DirectAudioSpeakingEvaluationService.Candidate valid = validCandidate();
         assertAllRejectedWithoutTransfer(List.of(
                 withReviewer(valid, new DirectAudioSpeakingEvaluationService.ReviewerPolicy(
                         "", true, true)),
                 withProvider(valid, new DirectAudioSpeakingEvaluationService.ProviderPolicy(
-                        "TEST-PROFILE", "", "TEST-NONTRAIN", "TEST-RETENTION",
-                        "TEST-DELETION")),
+                        "TEST-PROFILE", null, "", "TEST-RETENTION", null)),
+                withProvider(valid, new DirectAudioSpeakingEvaluationService.ProviderPolicy(
+                        "TEST-PROFILE", null, "TEST-NONTRAIN", "", null)),
                 withProvider(valid, new DirectAudioSpeakingEvaluationService.ProviderPolicy(
                         "UNAPPROVED-PROFILE", "TEST-REGION", "TEST-NONTRAINING",
                         "TEST-RETENTION", "TEST-DELETION-SLA")),
@@ -129,6 +130,24 @@ class DirectAudioSpeakingEvaluationServiceTest {
         assertThat(DirectAudioSpeakingEvaluationService.cacheIdentity(original))
                 .isNotEqualTo(DirectAudioSpeakingEvaluationService.cacheIdentity(changedConsent))
                 .isNotEqualTo(DirectAudioSpeakingEvaluationService.cacheIdentity(changedReviewer));
+    }
+
+    @Test
+    void optionalRegionAndDeletionMetadataDoNotGateOrChangePolicyIdentity() {
+        DirectAudioSpeakingEvaluationService.Candidate original = validCandidate();
+        DirectAudioSpeakingEvaluationService.Candidate informational = withProvider(
+                original, new DirectAudioSpeakingEvaluationService.ProviderPolicy(
+                        original.providerPolicy().providerProfileId(),
+                        "OPTIONAL-REGION-INFORMATION",
+                        original.providerPolicy().nonTrainingEvidenceId(),
+                        original.providerPolicy().retentionEvidenceId(),
+                        "OPTIONAL-DELETION-SLA-INFORMATION"));
+
+        assertThat(DirectAudioSpeakingEvaluationService.cacheIdentity(informational))
+                .isEqualTo(DirectAudioSpeakingEvaluationService.cacheIdentity(original));
+        assertThat(service(new AtomicReference<>(), new ArrayList<>(), true)
+                .evaluate(original).state())
+                .isEqualTo("DARK_CAPTURED_NON_SCORE_BEARING");
     }
 
     @Test
@@ -209,8 +228,8 @@ class DirectAudioSpeakingEvaluationServiceTest {
                 new DirectAudioSpeakingEvaluationService.ReviewerPolicy(
                         "TEST-REVIEWER-POLICY", true, true),
                 new DirectAudioSpeakingEvaluationService.ProviderPolicy(
-                        "TEST-PROVIDER-PROFILE", "TEST-REGION", "TEST-NONTRAINING",
-                        "TEST-RETENTION", "TEST-DELETION-SLA"),
+                        "TEST-PROVIDER-PROFILE", null, "TEST-NONTRAINING",
+                        "TEST-RETENTION", null),
                 new DirectAudioSpeakingEvaluationService.CalibrationEvidence(
                         "TEST-KOREAN-CORPUS", "TEST-ACOUSTIC-CALIBRATION",
                         "TEST-FAIRNESS", "TEST-REPEATABILITY"),

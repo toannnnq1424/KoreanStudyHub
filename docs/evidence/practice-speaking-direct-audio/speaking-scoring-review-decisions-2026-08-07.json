@@ -8,8 +8,8 @@
   "decisions": [
     {
       "artifact": "ALIGNER_CAPABILITY_CAPTURE",
-      "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-5b417c17ff96",
-      "artifactSha256": "5b417c17ff960e702c8dcf7bd4ff590a12ece32db6dc4f33d187a4777c959a3d",
+      "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-cad250d9827c",
+      "artifactSha256": "cad250d9827ccd1b3e474946e56a11ecdbd5565d0f5584ecbdf21dc84d09fea1",
       "reviewCategory": "KOREAN_SME_OR_ACOUSTIC",
       "requiredReviewerAuthority": "Korean pronunciation/phonetics SME or speech/acoustic reviewer",
       "reviewer": null,
@@ -18,7 +18,7 @@
       "evidenceReviewed": [],
       "scopeReviewed": null,
       "decision": "PENDING",
-      "findings": ["Reviewer feedback is ACCEPTABLE_FOR_ACCEPTANCE for WORD/EOJJEOL capability only after exact JSON inspection; the artifact now includes pinned model bytes, command/config provenance, sample identity, and output identities."],
+      "findings": ["Reviewer feedback is ACCEPTABLE_FOR_ACCEPTANCE for WORD/EOJJEOL capability only after exact JSON inspection; the artifact now includes corrected 64-character dictionary identity, pinned model bytes, five-run command/config provenance, sample identity, and output identities."],
       "conditionsAndLimitations": ["Formal acceptance confirmation and reviewer identity/authority are still absent.", "Phone-tier release use and all speaking scores remain prohibited.", "Failed alignment must fail closed."],
       "decisionDate": null
     },
@@ -88,8 +88,8 @@
     },
     {
       "artifact": "REPEATABILITY_REPORT",
-      "artifactId": "KSH-DA-EVIDENCE-REPEATABILITY-REPORT-20260807-72beebf8f6bf",
-      "artifactSha256": "72beebf8f6bf4be4ea7d5bfa85aec1bdc07a7d14417faa09863d00b3fbbfe135",
+      "artifactId": "KSH-DA-EVIDENCE-REPEATABILITY-REPORT-20260807-62415ff84da2",
+      "artifactSha256": "62415ff84da22017ec4974b7038956946d810f97d764cfb51f054d3a34e432c3",
       "reviewCategory": "REPEATABILITY",
       "requiredReviewerAuthority": "Scoring, calibration, or release owner using pre-defined thresholds",
       "reviewer": null,
@@ -98,8 +98,8 @@
       "evidenceReviewed": [],
       "scopeReviewed": null,
       "decision": "CHANGES_REQUIRED",
-      "findings": ["Two runs aligned the same 47 samples; three samples changed label sequences and maximum matching-boundary delta was 0.49 seconds."],
-      "conditionsAndLimitations": ["No pre-approved tolerance exists, so automatic acceptance is forbidden."],
+      "findings": ["Five pinned offline runs aligned the same 47 samples, but only 41/47 word-label sequences were identical across all runs; p95 word-boundary delta was 10 ms and maximum was 490 ms.", "The captured MFA logs show MFCC dither=1 and fMLLR=None. Two diagnostic runs changing only dither to 0 produced byte-identical TextGrid sets, isolating the repeatability trigger without treating the diagnostic as acceptance."],
+      "conditionsAndLimitations": ["The pre-registered 100 percent word-label identity and 100 ms maximum-boundary gates failed; automatic acceptance is forbidden.", "A revised deterministic configuration must be registered before a fresh independent five-run evaluation."],
       "decisionDate": null
     }
   ]

@@ -14,7 +14,7 @@ class PracticeAiDirectAudioControlPlaneMigrationStaticContractTest {
                     + "V90__practice_speaking_direct_audio_control_plane.sql");
 
     @Test
-    void v90ExtendsExistingControlPlaneWithoutChoosingOrCallingProvider()
+    void v105KeepsOptionalLegacyColumnsAndRequiresOnlyMinimalProviderPolicy()
             throws Exception {
         String sql = Files.readString(MIGRATION);
 
@@ -25,7 +25,11 @@ class PracticeAiDirectAudioControlPlaneMigrationStaticContractTest {
                         "retention_evidence_id", "deletion_sla_evidence_id")
                 .contains("chk_practice_ai_direct_audio_capability",
                         "chk_practice_ai_direct_audio_policy")
-                .contains("NULLIF(TRIM(region_evidence_id), '') IS NOT NULL")
+                .contains("NULLIF(TRIM(non_training_evidence_id), '') IS NOT NULL")
+                .contains("NULLIF(TRIM(retention_evidence_id), '') IS NOT NULL")
+                .doesNotContain(
+                        "NULLIF(TRIM(region_evidence_id), '') IS NOT NULL",
+                        "NULLIF(TRIM(deletion_sla_evidence_id), '') IS NOT NULL")
                 .doesNotContain("INSERT INTO", "credential_secret", "/models",
                         "api.openai.com", "generativelanguage.googleapis.com");
     }

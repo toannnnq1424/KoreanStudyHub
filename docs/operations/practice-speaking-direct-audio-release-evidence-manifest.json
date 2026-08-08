@@ -19,7 +19,7 @@
     "minimumReleaseCapability": "EOJJEOL_OR_WORD_TIMESTAMPS",
     "higherGranularityPolicy": "SYLLABLE_JAMO_PHONEME_REQUIRE_SEPARATE_CAPTURED_EVIDENCE",
     "evidence": [
-      {"kind": "ALIGNER_CAPABILITY_CAPTURE", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-5b417c17ff96", "relativePath": "docs/evidence/practice-speaking-direct-audio/aligner-capability-capture.json", "sha256": "5b417c17ff960e702c8dcf7bd4ff590a12ece32db6dc4f33d187a4777c959a3d", "reviewDecisionId": null},
+      {"kind": "ALIGNER_CAPABILITY_CAPTURE", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-ALIGNER-CAPABILITY-CAPTURE-20260807-cad250d9827c", "relativePath": "docs/evidence/practice-speaking-direct-audio/aligner-capability-capture.json", "sha256": "cad250d9827ccd1b3e474946e56a11ecdbd5565d0f5584ecbdf21dc84d09fea1", "reviewDecisionId": null},
       {"kind": "KOREAN_TIMESTAMP_SAMPLE_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-KOREAN-TIMESTAMP-SAMPLE-REPORT-20260807-68ce329355b3", "relativePath": "docs/evidence/practice-speaking-direct-audio/korean-timestamp-sample-report.json", "sha256": "68ce329355b34493645b25b6b9cf900758da2e45f5259835a14c3c05c0222a01", "reviewDecisionId": null}
     ]
   },
@@ -34,10 +34,8 @@
       "provider_cache_identity", "provenance_digest"
     ],
     "evidence": [
-      {"kind": "REGION_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
       {"kind": "NON_TRAINING_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
       {"kind": "RETENTION_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
-      {"kind": "DELETION_SLA_POLICY", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
       {"kind": "REDACTED_CAPTURED_REQUEST", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null},
       {"kind": "REDACTED_CAPTURED_RESPONSE_RECEIPT", "state": "MISSING", "artifactId": null, "relativePath": null, "sha256": null, "reviewDecisionId": null}
     ]
@@ -55,7 +53,7 @@
       {"kind": "CORPUS_MANIFEST_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-CORPUS-MANIFEST-REPORT-20260807-427c1cd12f52", "relativePath": "docs/evidence/practice-speaking-direct-audio/corpus-manifest-report.json", "sha256": "427c1cd12f52a11ce1ef01b3e237c8bab6dc18dd92d33268dbd5bf96fd5ed98c", "reviewDecisionId": null},
       {"kind": "ACOUSTIC_CALIBRATION_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-ACOUSTIC-CALIBRATION-REPORT-20260807-71b2d47890d5", "relativePath": "docs/evidence/practice-speaking-direct-audio/acoustic-calibration-report.json", "sha256": "71b2d47890d5deb8c3e69788fec91403ca6edfb86dcdfca35b7da86dced0cec0", "reviewDecisionId": null},
       {"kind": "FAIRNESS_REVIEW_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-FAIRNESS-REVIEW-REPORT-20260807-17c5e67186bc", "relativePath": "docs/evidence/practice-speaking-direct-audio/fairness-review-report.json", "sha256": "17c5e67186bc0d326f3ca32156655f1049aff76173a31a1a1f6b12ecb081f4d1", "reviewDecisionId": null},
-      {"kind": "REPEATABILITY_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-REPEATABILITY-REPORT-20260807-72beebf8f6bf", "relativePath": "docs/evidence/practice-speaking-direct-audio/repeatability-report.json", "sha256": "72beebf8f6bf4be4ea7d5bfa85aec1bdc07a7d14417faa09863d00b3fbbfe135", "reviewDecisionId": null}
+      {"kind": "REPEATABILITY_REPORT", "state": "SUPPLIED_REVIEW_PENDING", "artifactId": "KSH-DA-EVIDENCE-REPEATABILITY-REPORT-20260807-62415ff84da2", "relativePath": "docs/evidence/practice-speaking-direct-audio/repeatability-report.json", "sha256": "62415ff84da22017ec4974b7038956946d810f97d764cfb51f054d3a34e432c3", "reviewDecisionId": null}
     ]
   },
   "releaseGate": {

@@ -57,9 +57,10 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("Chi tiết kỹ thuật / Nâng cao")
                 .contains("connectTimeoutMs", "readTimeoutMs", "maxRetries")
                 .contains("maxRequestBytes", "maxResponseBytes", "retentionCode")
-                .contains("directAudioInput", "regionEvidenceId",
-                        "nonTrainingEvidenceId", "retentionEvidenceId",
-                        "deletionSlaEvidenceId")
+                .contains("directAudioInput", "nonTrainingEvidenceId",
+                        "retentionEvidenceId")
+                .contains("Khu vực xử lý và SLA xóa phía nhà cung cấp không phải release gate")
+                .doesNotContain("id=\"regionEvidenceId\"", "id=\"deletionSlaEvidenceId\"")
                 .contains("Gợi ý đã xác minh")
                 .contains("model tùy chỉnh hoặc model mới")
                 .contains("Có thể lưu nháp nhưng không thể bật hoặc gửi audio")

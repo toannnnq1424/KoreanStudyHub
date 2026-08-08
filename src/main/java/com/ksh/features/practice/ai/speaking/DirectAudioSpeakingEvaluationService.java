@@ -23,7 +23,7 @@ public final class DirectAudioSpeakingEvaluationService {
             "purpose=" + PURPOSE,
             "consent=explicit-active-withdrawable-v1",
             "reviewer=explicit-least-privilege-v1",
-            "provider=region-nontraining-retention-deletion-v1",
+            "provider=nontraining-retention-captured-request-response-v2",
             "calibration=korean-corpus-fairness-repeatability-v1",
             "rollout=dark-capture-no-score-v1");
     public static final String POLICY_BUNDLE_FINGERPRINT =
@@ -86,10 +86,8 @@ public final class DirectAudioSpeakingEvaluationService {
                 candidate.consent().disclosureVersion(),
                 candidate.reviewerPolicy().evidenceId(),
                 candidate.providerPolicy().providerProfileId(),
-                candidate.providerPolicy().regionEvidenceId(),
                 candidate.providerPolicy().nonTrainingEvidenceId(),
                 candidate.providerPolicy().retentionEvidenceId(),
-                candidate.providerPolicy().deletionSlaEvidenceId(),
                 candidate.calibration().corpusEvidenceId(),
                 candidate.calibration().acousticCalibrationEvidenceId(),
                 candidate.calibration().fairnessEvidenceId(),
@@ -128,10 +126,8 @@ public final class DirectAudioSpeakingEvaluationService {
         ProviderPolicy providerPolicy = candidate.providerPolicy();
         if (providerPolicy == null
                 || !present(providerPolicy.providerProfileId())
-                || !present(providerPolicy.regionEvidenceId())
                 || !present(providerPolicy.nonTrainingEvidenceId())
                 || !present(providerPolicy.retentionEvidenceId())
-                || !present(providerPolicy.deletionSlaEvidenceId())
                 || !readiness.providerPolicyAllowed(providerPolicy)) {
             return "PROVIDER_DATA_POLICY_UNVERIFIED";
         }
@@ -207,9 +203,11 @@ public final class DirectAudioSpeakingEvaluationService {
 
     public record ProviderPolicy(
             String providerProfileId,
+            /** Optional informational metadata retained for compatibility. */
             String regionEvidenceId,
             String nonTrainingEvidenceId,
             String retentionEvidenceId,
+            /** Deprecated optional metadata; never a readiness or deletion claim. */
             String deletionSlaEvidenceId) {
     }
 

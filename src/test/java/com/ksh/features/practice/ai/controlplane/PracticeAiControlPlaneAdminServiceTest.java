@@ -99,12 +99,17 @@ class PracticeAiControlPlaneAdminServiceTest {
     }
 
     @Test
-    void enabledDirectAudioBindingRequiresAllPolicyEvidenceBeforePersistence() {
+    void enabledDirectAudioBindingRequiresNonTrainingAndRetentionEvidence() {
         when(profiles.findById(7L)).thenReturn(Optional.of(profile()));
 
         assertThatThrownBy(() -> service.saveBinding(
                 directAudioForm(true, true,
-                        "region/1", "non-training/1", "retention/1", ""), 9L))
+                        "", "", "retention/1", ""), 9L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
+        assertThatThrownBy(() -> service.saveBinding(
+                directAudioForm(true, true,
+                        "", "non-training/1", "", ""), 9L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
         verify(bindings, never()).save(any());
@@ -123,7 +128,7 @@ class PracticeAiControlPlaneAdminServiceTest {
 
         assertThatThrownBy(() -> service.saveBinding(
                 directAudioFormWithModel("future-audio-model", true, true,
-                        "region/1", "non-training/1", "retention/1", "deletion/1"),
+                        "", "non-training/1", "retention/1", ""),
                 9L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("DIRECT_AUDIO_CAPABILITY_VERIFICATION_REQUIRED");
@@ -150,8 +155,8 @@ class PracticeAiControlPlaneAdminServiceTest {
 
         assertThatThrownBy(() -> service.saveBinding(directAudioFormWithModel(
                 PracticeDirectAudioCapabilityRegistry.GEMINI_ENTERPRISE_MODEL,
-                true, true, "region/1", "non-training/1",
-                "retention/1", "deletion/1"), 9L))
+                true, true, "", "non-training/1",
+                "retention/1", ""), 9L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED");
     }

@@ -18,21 +18,22 @@ Việc đồng ý là tự nguyện. Nếu không đồng ý, bản ghi âm khô
 đánh giá trực tiếp. Các chức năng dựa trên transcript có thể vẫn hoạt động,
 nhưng điểm hoặc nhận xét cần phân tích âm thanh sẽ không xuất hiện.
 
-Trước khi bạn xác nhận, màn hình consent phải hiển thị tên nhà cung cấp, khu
-vực xử lý, thời hạn lưu dữ liệu và thời hạn hoàn tất yêu cầu xóa đang có hiệu
-lực. KSH chỉ được bật chức năng khi nhà cung cấp cam kết không sử dụng bản ghi
-âm để huấn luyện mô hình và các thông tin trên đã được kiểm chứng.
+Trước khi bạn xác nhận, màn hình consent phải hiển thị tên nhà cung cấp và hành
+vi lưu giữ dữ liệu đã được công bố. Khu vực xử lý có thể được hiển thị dưới dạng
+thông tin nếu có; `UNKNOWN` được chấp nhận và không được suy đoán. KSH chỉ được
+bật chức năng khi tài liệu xác nhận không sử dụng bản ghi âm để huấn luyện mô
+hình và hành vi lưu giữ đã được review.
 
 Chỉ reviewer được cấp quyền riêng cho đúng bài làm và trong thời hạn giới hạn
 mới được nghe bản ghi âm. Quyền này có thể bị thu hồi và không được suy ra chỉ
 từ vai trò giảng viên thông thường.
 
 Bạn có thể rút lại sự đồng ý. Sau khi rút lại, KSH phải chặn mọi lần gửi mới và
-mọi quyền nghe của reviewer, đồng thời yêu cầu xóa những bản sao đã gửi tới nhà
-cung cấp. Trạng thái chỉ được ghi là đã xóa sau khi có xác nhận; trong thời gian
-chờ sẽ hiển thị là đang xóa. Metadata tối thiểu về consent và quá trình xóa có
-thể được giữ lại để chứng minh yêu cầu đã được thực hiện, nhưng không chứa âm
-thanh, storage key, secret hoặc provider request ID thô.
+mọi quyền nghe của reviewer, đánh dấu audio do KSH quản lý để xóa và đưa object
+đó qua cleanup lifecycle hiện có. Local withdrawal không chờ xác nhận xóa phía
+nhà cung cấp. KSH không tuyên bố dữ liệu phía nhà cung cấp đã bị xóa nếu không có
+bằng chứng riêng. Audit local chỉ ghi `LOCAL_DATA_DELETION_REQUESTED` hoặc
+`LOCAL_DATA_DELETED`; không tạo provider deletion receipt giả.
 
 Bạn có thể tiếp tục bài luyện mà không đồng ý. KSH không được phát hành điểm
 phát âm, độ trôi chảy hoặc điểm Speaking tổng hợp nếu chưa chứng minh audio đã
@@ -47,10 +48,12 @@ Checkbox bắt buộc, mặc định bỏ chọn:
 
 - Purpose: `PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION` only.
 - Consent scope: learner + attempt; exact media ID and digest bind at transfer.
-- Local/provider audio retention ceiling: 30 days, or earlier withdrawal/
+- KSH-controlled audio retention ceiling: 30 days, or earlier withdrawal/
   attempt deletion, whichever occurs first.
-- Provider deletion request SLA ceiling: 7 calendar days. A shorter verified
-  provider SLA may be displayed; a longer SLA fails readiness.
+- Provider readiness requires reviewed non-training and retention documentation.
+  Region and provider deletion SLA are not release gates.
+- KSH does not claim provider-side deletion guarantees unless separately
+  documented.
 - Reviewer grant ceiling: 7 days; named reviewer + attempt + purpose only.
 - Grant managers: `ACADEMIC_LEADER` and `PRIVACY_RELEASE_OWNER`. `LEADER` maps
   to `ACADEMIC_LEADER`; `PRIVACY_RELEASE_OWNER` requires a separately named
@@ -62,7 +65,7 @@ Checkbox bắt buộc, mặc định bỏ chọn:
   cannot provide valid consent themselves, direct audio must remain disabled
   until a guardian/legal-basis flow is implemented and approved.
 
-Provider name, region and evidence IDs are runtime-bound fields, not text that
-may be invented in this artifact. Any material purpose, retention, deletion,
-reviewer-access or training-policy change requires a new immutable disclosure
-version.
+Provider name and evidence IDs are runtime-bound fields, not text that may be
+invented in this artifact. Provider region is optional informational metadata;
+`UNKNOWN` is valid. Any material purpose, retention, reviewer-access or
+training-policy change requires a new immutable disclosure version.

@@ -441,17 +441,13 @@ public class PracticeAiControlPlaneAdminService {
     }
 
     private static boolean policyEvidenceComplete(BindingForm form) {
-        return present(form.regionEvidenceId())
-                && present(form.nonTrainingEvidenceId())
-                && present(form.retentionEvidenceId())
-                && present(form.deletionSlaEvidenceId());
+        return present(form.nonTrainingEvidenceId())
+                && present(form.retentionEvidenceId());
     }
 
     private static boolean policyEvidenceComplete(PracticeAiPurposeBinding binding) {
-        return present(binding.getRegionEvidenceId())
-                && present(binding.getNonTrainingEvidenceId())
-                && present(binding.getRetentionEvidenceId())
-                && present(binding.getDeletionSlaEvidenceId());
+        return present(binding.getNonTrainingEvidenceId())
+                && present(binding.getRetentionEvidenceId());
     }
 
     private static void assertDirectAudioCandidate(

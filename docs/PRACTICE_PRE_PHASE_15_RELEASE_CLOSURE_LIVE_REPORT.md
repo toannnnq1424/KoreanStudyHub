@@ -3193,3 +3193,69 @@ The review-proposed thresholds were registered before the next evaluation in
 baseline, AI-score agreement, acoustic drift, fairness and five-run aligner and
 provider repeatability. Registration is not evidence that any threshold has
 passed.
+
+### 6.51 Speaking forced-aligner five-run repeatability gate
+
+Status: `CHANGES_REQUIRED / 2 OF 5 GATES FAILED / NO REVIEW DECISION / SCORE RELEASE LOCKED`.
+
+On `2026-08-07`, the exact offline MFA capture was repeated to five gate runs
+with the pinned image `sha256:55e384...c5473`, Korean acoustic model, G2P model,
+64-character dictionary SHA-256 `b6c96a3f...fb98c`, sample manifest and sample
+set. Runs were sequential, `--num_jobs 1 --no_use_mp`, with distinct clean temp
+and output directories. No provider, production AI, R2 or shared storage call
+was made. Each run aligned the same `47/48` samples and failed
+`ko_cv26_026`, so successful-sample-set identity was `100%`.
+
+The pre-registered word-tier evaluation compared all ten run pairs. Only
+`41/47` (`87.23%`) common samples retained an identical word-label sequence,
+failing the required `100%`. The six mismatch samples were
+`ko_cv26_008/017/021/024/028/039`; the earlier `008/021/028` changes were a
+run-2-only placement change of `<eps>`, while later runs exposed three more
+unstable samples. Across `15,924` boundary comparisons whose complete word
+sequence matched, p95 was `10ms` (passes `<=20ms`) but maximum was `490ms`
+(fails `<=100ms`). The maximum occurred in `ko_cv26_033` at the boundary from
+`는` to `자네`, alternating between `1,840ms` and `2,330ms`. Phone-tier output
+was deliberately excluded because it is not a v1 gate.
+
+The cause investigation is evidence-based. All five MFCC logs record
+`dither: 1`; their feature and TextGrid set digests differ. All five align logs
+record `fMLLR: None`, excluding speaker adaptation. Sequential single-job
+execution and per-run temp directories exclude concurrency and shared-temp
+reuse. Two additional diagnostic runs changed only MFCC dither from `1` to `0`
+and produced byte-identical 47-file TextGrid sets with digest
+`fbba4476...aa9f`, zero word-label mismatches and `0ms` maximum boundary delta.
+This isolates MFCC dithering as the nondeterminism trigger in the captured
+toolchain, but the diagnostic is not substituted for the pinned five-run gate.
+
+The repeatability artifact therefore remains `CHANGES_REQUIRED`; the
+`100%` word-label identity and `100ms` maximum-boundary gates failed. No
+`ACCEPT`, reviewer identity or `reviewDecisionId` was created. Before another
+evaluation, a deterministic configuration must be registered, then evaluated
+in a fresh independent five-run gate. Pronunciation, fluency, holistic and
+attempt score release remain disabled.
+
+### 6.52 Direct-audio provider-governance simplification and V105 compatibility
+
+Status: `IMPLEMENTED / VERIFIED FAIL-CLOSED / SCORE RELEASE LOCKED`.
+
+With explicit authorization to amend the already-applied migration, V105 now
+requires only non-training and retention evidence to enable the direct-audio
+binding. The legacy `region_evidence_id` and `deletion_sla_evidence_id` columns
+remain nullable for compatibility but are not read by readiness, policy-cache
+identity or the admin required-field check. Provider readiness now has exactly
+four artifacts: `NON_TRAINING_POLICY`, `RETENTION_POLICY`,
+`REDACTED_CAPTURED_REQUEST`, and `REDACTED_CAPTURED_RESPONSE_RECEIPT`.
+
+`REGION_POLICY` and `DELETION_SLA_POLICY` no longer block release. Region may
+be recorded as optional metadata, including `UNKNOWN`; no region is inferred.
+There is no provider deletion-SLA or seven-day claim. Learner withdrawal still
+blocks future transfer and reviewer access, and queues KSH-controlled audio for
+the existing local cleanup lifecycle. It records only local deletion events and
+does not claim or fabricate provider-side deletion confirmation.
+
+The direct-audio focused suite is green after this change, including manifest,
+policy disclosure, binding resolver/admin form, V105 static migration contract,
+withdrawal/cleanup/reviewer playback and dark-observation controls. This does
+not reduce any of the six calibration gates: the current repeatability report
+is still `CHANGES_REQUIRED`, all learner-visible Speaking scores remain off,
+and the four provider artifacts remain external evidence blockers.

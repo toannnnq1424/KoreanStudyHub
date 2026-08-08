@@ -38,6 +38,7 @@ public class PracticeAiPurposeBinding {
     @Column(name = "retention_code", nullable = false, length = 64)
     private String retentionCode;
 
+    /** Optional/deprecated provider information; not a readiness gate. */
     @Column(name = "region_evidence_id", length = 160)
     private String regionEvidenceId;
 
@@ -47,6 +48,7 @@ public class PracticeAiPurposeBinding {
     @Column(name = "retention_evidence_id", length = 160)
     private String retentionEvidenceId;
 
+    /** Optional/deprecated metadata; never proof that provider data was deleted. */
     @Column(name = "deletion_sla_evidence_id", length = 160)
     private String deletionSlaEvidenceId;
 

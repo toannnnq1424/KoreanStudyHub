@@ -46,10 +46,8 @@ class DirectAudioReleaseEvidenceManifestTest {
     private static final Set<String> REQUIRED_EVIDENCE = Set.of(
             "ALIGNER_CAPABILITY_CAPTURE",
             "KOREAN_TIMESTAMP_SAMPLE_REPORT",
-            "REGION_POLICY",
             "NON_TRAINING_POLICY",
             "RETENTION_POLICY",
-            "DELETION_SLA_POLICY",
             "REDACTED_CAPTURED_REQUEST",
             "REDACTED_CAPTURED_RESPONSE_RECEIPT",
             "CORPUS_MANIFEST_REPORT",
@@ -60,14 +58,13 @@ class DirectAudioReleaseEvidenceManifestTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void repositoryIntakeHasSixPendingSixMissingAndRemainsNonScoreBearing() throws Exception {
+    void repositoryIntakeHasSixCalibrationPendingFourProviderMissingAndRemainsNonScoreBearing() throws Exception {
         JsonNode root = objectMapper.readTree(Files.readString(MANIFEST));
 
         Validation validation = validate(root, Path.of("."));
 
         assertThat(validation.missingKinds()).containsExactlyInAnyOrder(
-                "REGION_POLICY", "NON_TRAINING_POLICY", "RETENTION_POLICY",
-                "DELETION_SLA_POLICY", "REDACTED_CAPTURED_REQUEST",
+                "NON_TRAINING_POLICY", "RETENTION_POLICY", "REDACTED_CAPTURED_REQUEST",
                 "REDACTED_CAPTURED_RESPONSE_RECEIPT");
         assertThat(validation.pendingKinds()).containsExactlyInAnyOrder(
                 "ALIGNER_CAPABILITY_CAPTURE", "KOREAN_TIMESTAMP_SAMPLE_REPORT",
@@ -84,6 +81,7 @@ class DirectAudioReleaseEvidenceManifestTest {
         assertThat(root.path("releaseGate").path("scoreReleaseEligible").asBoolean())
                 .isFalse();
         assertThat(root.toString()).doesNotContain(
+                "REGION_POLICY", "DELETION_SLA_POLICY",
                 "TEST-", "FAKE-", "PLACEHOLDER", "SCORE_RELEASE_READY");
     }
 
@@ -168,6 +166,32 @@ class DirectAudioReleaseEvidenceManifestTest {
         assertThat(validation.missingKinds()).isEmpty();
         assertThat(validation.acceptedKinds())
                 .containsExactlyInAnyOrderElementsOf(REQUIRED_EVIDENCE);
+    }
+
+    @Test
+    void everyMinimalProviderArtifactStillFailsClosedWhenMissing(
+            @TempDir Path repositoryRoot) throws Exception {
+        for (String kind : List.of(
+                "NON_TRAINING_POLICY", "RETENTION_POLICY",
+                "REDACTED_CAPTURED_REQUEST",
+                "REDACTED_CAPTURED_RESPONSE_RECEIPT")) {
+            ObjectNode root = (ObjectNode) objectMapper.readTree(
+                    Files.readString(MANIFEST));
+            makeAcceptedDarkManifest(root, repositoryRoot);
+            ObjectNode evidence = references(root).stream()
+                    .filter(candidate -> kind.equals(candidate.path("kind").asText()))
+                    .findFirst()
+                    .orElseThrow();
+            evidence.put("state", "MISSING");
+            evidence.putNull("artifactId");
+            evidence.putNull("relativePath");
+            evidence.putNull("sha256");
+            evidence.putNull("reviewDecisionId");
+
+            assertThatThrownBy(() -> validate(root, repositoryRoot))
+                    .as(kind)
+                    .hasMessageContaining("accepted evidence");
+        }
     }
 
     @Test

@@ -132,7 +132,7 @@
             "provider_cache_identity", "provenance_digest"
           ]
         },
-        "evidence": {"type": "array", "minItems": 6, "items": {"$ref": "#/$defs/evidenceRef"}}
+        "evidence": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/evidenceRef"}}
       }
     },
     "calibration": {

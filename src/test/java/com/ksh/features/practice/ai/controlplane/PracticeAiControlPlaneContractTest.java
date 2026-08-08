@@ -60,7 +60,7 @@ class PracticeAiControlPlaneContractTest {
     }
 
     @Test
-    void directAudioResolutionRequiresEveryPolicyEvidenceId() {
+    void directAudioResolutionRequiresOnlyNonTrainingAndRetentionEvidence() {
         PracticeAiPurposeBindingRepository repository =
                 mock(PracticeAiPurposeBindingRepository.class);
         PracticeAiProviderProfile profile = new PracticeAiProviderProfile(
@@ -79,8 +79,8 @@ class PracticeAiControlPlaneContractTest {
                 .extracting(error -> ((PracticeAiControlPlaneException) error).errorCode())
                 .isEqualTo("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
 
-        binding.updatePolicyEvidence("region/1", "non-training/1",
-                "retention/1", "deletion-sla/1");
+        binding.updatePolicyEvidence(null, "non-training/1",
+                "retention/1", null);
         assertThat(resolver.resolve(
                 PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION)
                 .snapshot().capabilities().directAudioInput()).isTrue();

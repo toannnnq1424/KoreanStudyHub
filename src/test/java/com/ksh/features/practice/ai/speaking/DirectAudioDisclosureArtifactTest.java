@@ -29,8 +29,14 @@ class DirectAudioDisclosureArtifactTest {
         assertThat(artifact.at("/consent/withdrawal_supported").asBoolean()).isTrue();
         assertThat(artifact.at("/limits/audio_retention_ceiling").asText())
                 .isEqualTo("P30D");
-        assertThat(artifact.at("/limits/provider_deletion_sla_ceiling").asText())
-                .isEqualTo("P7D");
+        assertThat(artifact.at("/limits/provider_deletion_sla_ceiling").isMissingNode())
+                .isTrue();
+        assertThat(artifact.at("/provider_requirements/retention_documentation_reviewed")
+                .asBoolean()).isTrue();
+        assertThat(artifact.at("/provider_requirements/unknown_provider_region_allowed")
+                .asBoolean()).isTrue();
+        assertThat(artifact.at("/local_withdrawal/provider_deletion_receipt_required")
+                .asBoolean()).isFalse();
         assertThat(artifact.path("score_release").asText())
                 .isEqualTo("BLOCKED_UNTIL_AUTHORIZED_CONSUMPTION_AND_READINESS_GREEN");
         assertThat(artifact.path("grant_manager_authorities").toString())
@@ -46,10 +52,12 @@ class DirectAudioDisclosureArtifactTest {
                 .contains("Việc đồng ý là tự nguyện")
                 .contains("không sử dụng bản ghi âm để huấn luyện mô hình")
                 .contains("Bạn có thể rút lại sự đồng ý")
-                .contains("đang xóa")
+                .contains("LOCAL_DATA_DELETION_REQUESTED", "LOCAL_DATA_DELETED")
                 .contains("mặc định bỏ chọn")
-                .contains("30 days", "7 calendar days")
+                .contains("30 days")
                 .contains("PRIVACY_RELEASE_OWNER")
+                .doesNotContain("7 calendar days", "sau khi có xác nhận",
+                        "yêu cầu xóa những bản sao đã gửi")
                 .doesNotContain("OpenAI", "Cloudflare", "AWS", "Seoul");
     }
 }

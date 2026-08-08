@@ -21,8 +21,10 @@ Valid reviewer authority by artifact class:
 - `FAIRNESS_REVIEW_REPORT`: Korean SME, acoustic reviewer, or fairness owner.
 - `REPEATABILITY_REPORT`: scoring, calibration, or release owner, but only
   against thresholds that were defined before acceptance.
-- Provider policy and captured-request/receipt artifacts: data, privacy, or
-  security owner, or a release owner explicitly delegated that authority.
+- `NON_TRAINING_POLICY`, `RETENTION_POLICY`, and captured-request/receipt
+  artifacts: data, privacy, or security owner, or a release owner explicitly
+  delegated that authority. Region and provider deletion SLA are optional
+  information, not acceptance gates.
 
 Every review record must identify the artifact, exact digest, review category,
 reviewer name/role/authority, evidence reviewed, scope, findings, conditions,

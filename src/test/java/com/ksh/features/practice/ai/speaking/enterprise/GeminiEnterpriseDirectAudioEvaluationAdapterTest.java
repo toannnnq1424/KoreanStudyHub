@@ -307,10 +307,10 @@ class GeminiEnterpriseDirectAudioEvaluationAdapterTest {
                 PracticeDirectAudioCapabilityRegistry.ENTERPRISE_AUDIO_INPUT_EVIDENCE,
                 PracticeDirectAudioCapabilityRegistry.ENTERPRISE_STRICT_OUTPUT_EVIDENCE,
                 PracticeDirectAudioCapabilityRegistry.ENTERPRISE_AUTH_ENDPOINT_EVIDENCE,
-                "region/evidence/1",
+                null,
                 "non-training/evidence/1",
                 "retention/evidence/1",
-                "deletion/evidence/1");
+                null);
     }
 
     private static GeminiEnterpriseDirectAudioEvaluationAdapter
@@ -366,8 +366,8 @@ class GeminiEnterpriseDirectAudioEvaluationAdapterTest {
                         "reviewer/1", true, true),
                 new DirectAudioSpeakingEvaluationService.ProviderPolicy(
                         PracticeDirectAudioCapabilityRegistry.GEMINI_ENTERPRISE_CODE,
-                        "region/evidence/1", "non-training/evidence/1",
-                        "retention/evidence/1", "deletion/evidence/1"),
+                        null, "non-training/evidence/1",
+                        "retention/evidence/1", null),
                 new DirectAudioSpeakingEvaluationService.CalibrationEvidence(
                         "corpus/1", "acoustic/1", "fairness/1", "repeatability/1"),
                 rollout);
