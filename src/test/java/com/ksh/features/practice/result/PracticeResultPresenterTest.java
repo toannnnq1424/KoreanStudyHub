@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.entities.PracticeAttempt;
 import com.ksh.entities.PracticePublishedVersion;
+import com.ksh.entities.PracticeQuestionGroupVersion;
 import com.ksh.entities.PracticeQuestionVersion;
 import com.ksh.entities.PracticeSectionVersion;
 import com.ksh.entities.PracticeSetVersion;
@@ -16,9 +17,9 @@ import com.ksh.features.practice.ai.speaking.SpeakingEvaluationNormalizer;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationTestFixtures;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluatorCapability;
-import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.speaking.SpeakingFeedbackContractParser;
 import com.ksh.features.practice.ai.speaking.SpeakingRubricCriterion;
-import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingFeedbackContractParser;
 import com.ksh.features.practice.ai.writing.WritingFeedbackViewMapper;
 import com.ksh.features.practice.ai.writing.WritingContractTestFixtures;
 import com.ksh.features.practice.ai.writing.WritingDiagnosticContract;
@@ -185,7 +186,7 @@ class PracticeResultPresenterTest {
         assertThat(payload.groups()).singleElement().satisfies(group -> {
             assertThat(group.displayLabel()).isEqualTo("Phần nghe 1");
             assertThat(group.sourceLabel())
-                    .isEqualTo("Câu độc lập không có nguồn chung");
+                    .isEqualTo("Nhóm câu hỏi đã khóa");
             assertThat(group.firstQuestionId()).isEqualTo(111L);
             assertThat(group.questionTypeLabels())
                     .containsExactly("Trắc nghiệm một đáp án");
@@ -196,7 +197,7 @@ class PracticeResultPresenterTest {
     }
 
     @Test
-    void objectiveAliasesShareCanonicalGroupsAndUnsupportedTypesFailClosed() {
+    void objectiveAliasesAndUnsupportedTypesFailClosed() {
         AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
         QuestionTypeResolver typeResolver = new QuestionTypeResolver();
         AssessmentScoringEngine scoringEngine = mock(AssessmentScoringEngine.class);
@@ -204,13 +205,13 @@ class PracticeResultPresenterTest {
         ObjectiveResultPresenter presenter = new ObjectiveResultPresenter(
                 codec, typeResolver, scoringEngine, explanations, objectMapper);
         List<PracticeQuestionVersion> questions = List.of(
-                objectiveQuestion(115L, "MCQ"),
-                objectiveQuestion(116L, "MCQ_SINGLE"),
-                objectiveQuestion(117L, "SINGLE_CHOICE"),
-                objectiveQuestion(118L, "TFNG"),
-                objectiveQuestion(119L, "TRUE_FALSE_NOT_GIVEN"),
-                objectiveQuestion(120L, "GAP_FILL"),
-                objectiveQuestion(121L, "FILL_BLANK"),
+                objectiveQuestion(115L, "SINGLE_CHOICE"),
+                objectiveQuestion(116L, "TRUE_FALSE_NOT_GIVEN"),
+                objectiveQuestion(117L, "FILL_BLANK"),
+                objectiveQuestion(118L, "MCQ"),
+                objectiveQuestion(119L, "MCQ_SINGLE"),
+                objectiveQuestion(120L, "TFNG"),
+                objectiveQuestion(121L, "GAP_FILL"),
                 objectiveQuestion(122L, "ALIEN_LEGACY_TYPE"));
         when(codec.adaptLegacyContent(any(), anyString())).thenReturn(QuestionContent.empty());
         when(codec.adaptLegacyAnswerSpec(anyString(), any(), any())).thenReturn(mock(AnswerSpec.class));
@@ -232,17 +233,17 @@ class PracticeResultPresenterTest {
         assertThat(payload.breakdown()).hasSize(4);
         assertThat(payload.breakdown().get(0).questionType()).isEqualTo("SINGLE_CHOICE");
         assertThat(payload.breakdown().get(0).label()).isEqualTo("Trắc nghiệm một đáp án");
-        assertThat(payload.breakdown().get(0).answers().total()).isEqualTo(3);
+        assertThat(payload.breakdown().get(0).answers().total()).isEqualTo(1);
         assertThat(payload.breakdown().get(1).questionType()).isEqualTo("TRUE_FALSE_NOT_GIVEN");
         assertThat(payload.breakdown().get(1).label())
                 .isEqualTo("Đúng, sai hoặc không có thông tin");
-        assertThat(payload.breakdown().get(1).answers().total()).isEqualTo(2);
+        assertThat(payload.breakdown().get(1).answers().total()).isEqualTo(1);
         assertThat(payload.breakdown().get(2).questionType()).isEqualTo("FILL_BLANK");
         assertThat(payload.breakdown().get(2).label()).isEqualTo("Điền từ");
-        assertThat(payload.breakdown().get(2).answers().total()).isEqualTo(2);
+        assertThat(payload.breakdown().get(2).answers().total()).isEqualTo(1);
         assertThat(payload.breakdown().get(3).questionType()).isEqualTo("UNSCORABLE");
         assertThat(payload.breakdown().get(3).label()).isEqualTo("Loại câu hỏi không thể chấm");
-        assertThat(payload.breakdown().get(3).answers().unscorable()).isEqualTo(1);
+        assertThat(payload.breakdown().get(3).answers().unscorable()).isEqualTo(5);
         assertThat(payload.breakdown())
                 .extracting(row -> row.questionType())
                 .doesNotContain("MCQ", "MCQ_SINGLE", "TFNG", "GAP_FILL",
@@ -1059,7 +1060,7 @@ class PracticeResultPresenterTest {
     }
 
     @Test
-    void writingDetailDoesNotPromoteLegacyFlatOrPendingQualitativeArtifacts() {
+    void writingDetailDoesNotPromoteMalformedOrPendingQualitativeArtifacts() {
         PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
         PracticeAttempt legacyAttempt = mock(PracticeAttempt.class);
         when(legacyAttempt.getAiFeedbackJson()).thenReturn("""
@@ -1090,18 +1091,26 @@ class PracticeResultPresenterTest {
         assertThat(legacyDetail.upgrade().evaluatorSample().available()).isFalse();
         assertThat(legacyDetail.diagnosticFindings()).isEmpty();
         assertThat(legacyDetail.tasks()).singleElement().satisfies(task -> {
-            assertThat(task.feedback().state()).isEqualTo("LEGACY_UNVERIFIED");
+            assertThat(task.feedback().state()).isEqualTo("FAILED");
             assertThat(task.score().available()).isFalse();
             assertThat(task.officialCriteria()).isEmpty();
         });
         assertThat(legacyDetail.diagnosticAvailability())
-                .isEqualTo("TASK_IDENTITY_UNAVAILABLE");
+                .isEqualTo("FEEDBACK_UNAVAILABLE");
 
         PracticeAttempt pendingAttempt = mock(PracticeAttempt.class);
         when(pendingAttempt.getAiFeedbackJson()).thenReturn("""
                 {"153":{
                   "evaluation_status":"PROCESSING",
+                  "evaluation_source":"SYSTEM",
+                  "evaluation_reason":"EVALUATION_PROCESSING",
+                  "evaluation_retryable":true,
                   "score_available":false,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE",
+                    "reason_code":"EVALUATION_PROCESSING",
+                    "rejected_item_count":0},
                   "task_type":"Q53",
                   "upgraded_answer":"대기 중 산출물",
                   "sample_answer":"대기 중 참고 답안"
@@ -1132,7 +1141,7 @@ class PracticeResultPresenterTest {
     }
 
     @Test
-    void writingDetailFailsClosedWhenCurrentTrustMarkersAreMissingLegacyOrMismatched() {
+    void writingDetailFailsClosedWhenCurrentTrustMarkersAreMissingOrMismatched() {
         PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
         List<String> untrustedEntries = List.of(
                 """
@@ -1144,22 +1153,6 @@ class PracticeResultPresenterTest {
                     {"criterionId":"W_LANGUAGE_EXPRESSION","score":7,"maxScore":9}
                   ],
                   "upgraded_answer":"유형 없는 산출물"
-                }}
-                """,
-                """
-                {"153":{
-                  "raw_score":8,"raw_score_max":9,"score_available":true,
-                  "task_type":"Q53",
-                  "scoring_contract":"LEGACY_BAND_V1",
-                  "engine":"KSH_WRITING_EVALUATOR_V2",
-                  "evaluation_status":"EVALUATED","evaluation_source":"PROVIDER",
-                  "evaluation_reason":"NONE","evaluation_retryable":false,
-                  "rubric_scores":[
-                    {"criterionId":"W_CONTENT_TASK_ACHIEVEMENT","score":3,"maxScore":12},
-                    {"criterionId":"W_ORGANIZATION_COHERENCE","score":3,"maxScore":9},
-                    {"criterionId":"W_LANGUAGE_EXPRESSION","score":2,"maxScore":9}
-                  ],
-                  "upgraded_answer":"레거시 밴드 산출물"
                 }}
                 """,
                 """
@@ -1209,13 +1202,13 @@ class PracticeResultPresenterTest {
             assertThat(detail.scoreCriteria()).isEmpty();
             assertThat(detail.tasks()).singleElement().satisfies(task -> {
                 assertThat(task.score().available()).isFalse();
-                assertThat(task.feedback().state()).isEqualTo("LEGACY_UNVERIFIED");
+                assertThat(task.feedback().state()).isEqualTo("FAILED");
                 assertThat(task.officialCriteria()).isEmpty();
             });
-            assertThat(detail.feedback().state()).isEqualTo("LEGACY_UNVERIFIED");
+            assertThat(detail.feedback().state()).isEqualTo("FAILED");
             assertThat(detail.diagnosticFindings()).isEmpty();
             assertThat(detail.diagnosticAvailability())
-                    .isEqualTo("TASK_IDENTITY_UNAVAILABLE");
+                    .isEqualTo("FEEDBACK_UNAVAILABLE");
             assertThat(detail.upgrade().learnerDerivedUpgrade().available()).isFalse();
             assertThat(detail.upgrade().evaluatorSample().available()).isFalse();
         }
@@ -1251,7 +1244,15 @@ class PracticeResultPresenterTest {
         PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn("""
-                {"153":{"evaluation_status":"PROCESSING","score_available":false}}
+                {"153":{"evaluation_status":"PROCESSING",
+                  "evaluation_source":"SYSTEM",
+                  "evaluation_reason":"EVALUATION_PROCESSING",
+                  "evaluation_retryable":true,"score_available":false,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE",
+                    "reason_code":"EVALUATION_PROCESSING",
+                    "rejected_item_count":0}}}
                 """);
         WritingResultPresenter presenter = writingPresenter();
 
@@ -1368,13 +1369,13 @@ class PracticeResultPresenterTest {
         WritingResultPayload payload =
                 (WritingResultPayload) result.payload();
 
-        assertThat(result.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
         assertThat(result.answers().scoredDenominator()).isZero();
         assertThat(result.answers().unscorable()).isEqualTo(1);
         assertThat(result.score().available()).isFalse();
         assertThat(payload.tasks()).singleElement().satisfies(task -> {
             assertThat(task.feedback().state())
-                    .isEqualTo("LEGACY_UNVERIFIED");
+                    .isEqualTo("FAILED");
             assertThat(task.score().available()).isFalse();
             assertThat(task.officialCriteria()).isEmpty();
         });
@@ -1435,11 +1436,11 @@ class PracticeResultPresenterTest {
                             153L);
 
             assertThat(presentation.feedback().state())
-                    .isEqualTo("UNAVAILABLE");
+                    .isEqualTo("FAILED");
             assertThat(presentation.score().available()).isFalse();
             assertThat(payload.tasks()).singleElement().satisfies(task -> {
                 assertThat(task.feedback().state())
-                        .isEqualTo("LEGACY_UNVERIFIED");
+                        .isEqualTo("FAILED");
                 assertThat(task.score().available()).isFalse();
                 assertThat(task.officialCriteria()).isEmpty();
             });
@@ -1455,7 +1456,14 @@ class PracticeResultPresenterTest {
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn("""
                 {"154":{"evaluation_status":"EVALUATION_UNAVAILABLE",
-                  "evaluation_reason":"PROVIDER_UNAVAILABLE","score_available":false}}
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"PROVIDER_UNAVAILABLE",
+                  "evaluation_retryable":true,"score_available":false,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE",
+                    "reason_code":"PROVIDER_UNAVAILABLE",
+                    "rejected_item_count":0}}}
                 """);
 
         PracticeResultPresenter.Presentation result = writingPresenter().present(context(
@@ -1473,6 +1481,41 @@ class PracticeResultPresenterTest {
         assertThat(payload.tasks().get(0).score().scaleLabel()).isEqualTo("Thang điểm 50");
         assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
         assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
+    }
+
+    @Test
+    void writingPartialFeedbackIsLabelledPartialAndNeverBecomesScore() {
+        PracticeQuestionVersion question =
+                writingQuestion(154L, 54, WritingTaskType.Q54);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"154":{"evaluation_status":"EVALUATION_PARTIAL_NON_SCORE",
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"DIAGNOSTIC_ITEMS_REJECTED",
+                  "evaluation_retryable":false,"score_available":false,
+                  "raw_score":45,"raw_score_max":50,"score":90,
+                  "result_completeness":{
+                    "version":"practice-ai-result-completeness-v1",
+                    "status":"PARTIAL_NON_SCORE",
+                    "reason_code":"DIAGNOSTIC_ITEMS_REJECTED",
+                    "rejected_item_count":2},
+                  "task_type":"Q54","engine":"KSH_WRITING_EVALUATOR_V3",
+                  "scoring_contract":"TASK_NATIVE_RUBRIC_V1",
+                  "policy_bundle_id":"KSH_WRITING_POLICY_BUNDLE_V3"}}
+                """);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(
+                context("WRITING", List.of(question),
+                        Map.of("154", "Bài viết đã nộp"), attempt));
+        WritingResultPayload payload = (WritingResultPayload) result.payload();
+
+        assertThat(result.feedback().state()).isEqualTo("PARTIAL");
+        assertThat(result.score().available()).isFalse();
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(payload.tasks().get(0).feedback().state())
+                .isEqualTo("PARTIAL");
+        assertThat(payload.tasks().get(0).score().available()).isFalse();
+        assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
     }
 
     @Test
@@ -1609,9 +1652,7 @@ class PracticeResultPresenterTest {
                 Map.of(201L, firstResult, 202L, secondResult)));
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
+                new SpeakingFeedbackContractParser());
 
         PracticeResultContext speakingContext = context(
                 "SPEAKING",
@@ -1826,9 +1867,7 @@ class PracticeResultPresenterTest {
                                 "갑니다"))));
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
+                new SpeakingFeedbackContractParser());
         PracticeResultContext context = context(
                 "SPEAKING",
                 List.of(question),
@@ -1905,9 +1944,7 @@ class PracticeResultPresenterTest {
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
+                new SpeakingFeedbackContractParser());
 
         when(attempt.getAiFeedbackJson()).thenReturn(currentSpeakingFeedback(
                 "alpha beta gamma",
@@ -2063,9 +2100,7 @@ class PracticeResultPresenterTest {
                 attempt);
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
+                new SpeakingFeedbackContractParser());
         PracticeResultPresenter.Presentation presentation = presenter.present(context);
 
         SpeakingDetailPayload detail = (SpeakingDetailPayload) presenter.presentDetail(
@@ -2109,9 +2144,7 @@ class PracticeResultPresenterTest {
                 attempt);
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper(),
+                new SpeakingFeedbackContractParser(),
                 mediaService,
                 true);
         PracticeResultPresenter.Presentation presentation = presenter.present(context);
@@ -2146,9 +2179,7 @@ class PracticeResultPresenterTest {
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper()).present(context(
+                new SpeakingFeedbackContractParser()).present(context(
                 "SPEAKING", List.of(ready, pending),
                 Map.of("201", "ready transcript", "202", "pending transcript"), attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
@@ -2185,9 +2216,7 @@ class PracticeResultPresenterTest {
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper()).present(context(
+                new SpeakingFeedbackContractParser()).present(context(
                 "SPEAKING", List.of(question), Map.of("201", "들은 문장"), attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
@@ -2236,49 +2265,6 @@ class PracticeResultPresenterTest {
         });
     }
 
-    @Test
-    void speakingMixedLowConfidenceTranscriptAndLegacyKeepsAcousticRowsNotScorable() {
-        PracticeQuestionVersion speaking = speakingQuestion(201L);
-        PracticeQuestionVersion legacyEssay = speakingLegacyEssayQuestion(202L);
-        PracticeAttempt attempt = mock(PracticeAttempt.class);
-        SpeakingEvaluationResult lowConfidence =
-                SpeakingEvaluationTestFixtures.currentResult(
-                        objectMapper,
-                        "들은 문장",
-                        new BigDecimal("16"),
-                        provider -> provider.put(
-                                "transcript_confidence", 0.31));
-        when(attempt.getAiFeedbackJson()).thenReturn(
-                speakingMixedFeedback(
-                        201L, lowConfidence, 202L));
-        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
-                objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
-        PracticeResultContext context = context(
-                "SPEAKING",
-                List.of(speaking, legacyEssay),
-                Map.of("201", "들은 문장", "202", "legacy written response"),
-                attempt);
-        PracticeResultPresenter.Presentation presentation = presenter.present(context);
-        SpeakingResultPayload payload = (SpeakingResultPayload) presentation.payload();
-
-        assertThat(payload.evidenceMode()).isEqualTo("TRANSCRIPT_ONLY");
-        assertThat(payload.contractTrust()).isEqualTo("MIXED_WITH_LEGACY_UNVERIFIED");
-        assertThat(payload.criteria().subList(0, 4)).allSatisfy(criterion ->
-                assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED"));
-        assertThat(payload.criteria().subList(4, 6)).allSatisfy(criterion -> {
-            assertThat(criterion.availability()).isEqualTo("NOT_SCORABLE");
-            assertThat(criterion.score()).isNull();
-            assertThat(criterion.weight()).isNull();
-        });
-
-        SpeakingDetailPayload detail = (SpeakingDetailPayload) presenter.presentDetail(
-                context, overview("SPEAKING", presentation), null);
-        assertThat(detail.scoreCriteria().subList(4, 6)).allSatisfy(criterion ->
-                assertThat(criterion.availability()).isEqualTo("NOT_SCORABLE"));
-    }
 
     @Test
     void speakingReservedDirectAudioCapabilityFailsClosedUntilGovernedFlagsAreEnabled() {
@@ -2307,75 +2293,23 @@ class PracticeResultPresenterTest {
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper()).present(context(
+                new SpeakingFeedbackContractParser()).present(context(
                 "SPEAKING", List.of(question), Map.of("201", "submitted transcript"), attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
         assertThat(result.feedback().state()).isEqualTo("FAILED");
         assertThat(result.score().available()).isFalse();
-        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
+        assertThat(payload.profileState()).isEqualTo("FAILED");
         assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
         assertThat(payload.evidenceMode()).isEqualTo("UNKNOWN");
         assertThat(payload.policyBundleId()).isNull();
         assertThat(payload.policyBundleFingerprint()).isNull();
         assertThat(payload.holisticScoreAvailable()).isFalse();
         assertThat(payload.criteria()).allSatisfy(criterion -> {
-            assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
+            assertThat(criterion.availability()).isEqualTo("UNAVAILABLE");
             assertThat(criterion.score()).isNull();
             assertThat(criterion.weight()).isNull();
         });
-    }
-
-    @Test
-    void speakingLegacySixCriterionScoreIsIdentifiedAndNeverUpgraded() {
-        PracticeQuestionVersion question = speakingQuestion(201L);
-        PracticeAttempt attempt = mock(PracticeAttempt.class);
-        when(attempt.getAiFeedbackJson()).thenReturn("""
-                {"speaking_feedback_by_question":{"201":{
-                  "score":8,"percentage":88.89,"summary_vi":"Kết quả cũ",
-                  "rubric_scores":[
-                    {"score":8},{"score":8},{"score":8},
-                    {"score":8},{"score":8},{"score":8}
-                  ]
-                }}}
-                """);
-
-        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
-                objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
-        PracticeResultContext legacyContext = context(
-                "SPEAKING", List.of(question), Map.of("201", "legacy transcript"), attempt);
-        PracticeResultPresenter.Presentation result = presenter.present(legacyContext);
-        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
-
-        assertThat(result.score().available()).isFalse();
-        assertThat(result.feedback().state()).isEqualTo("FAILED");
-        assertThat(payload.coveredSegments()).isZero();
-        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
-        assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
-        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
-        assertThat(payload.evidenceContractVersion()).isNull();
-        assertThat(payload.policyBundleId()).isNull();
-        assertThat(payload.policyBundleFingerprint()).isNull();
-        assertThat(payload.holisticScoreAvailable()).isFalse();
-        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
-        assertThat(payload.criteria()).allSatisfy(criterion -> {
-            assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
-            assertThat(criterion.score()).isNull();
-            assertThat(criterion.weight()).isNull();
-            assertThat(criterion.percentage()).isNull();
-            assertThat(criterion.scoreDisplay()).isNull();
-        });
-        SpeakingDetailPayload detail = (SpeakingDetailPayload) presenter.presentDetail(
-                legacyContext, overview("SPEAKING", result), 201L);
-        assertThat(detail.evidence().transcriptText()).isBlank();
-        assertThat(detail.transcriptSegments())
-                .extracting(SpeakingTextSegment::text)
-                .containsExactly("");
     }
 
     @Test
@@ -2387,9 +2321,7 @@ class PracticeResultPresenterTest {
                 """);
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
+                new SpeakingFeedbackContractParser());
 
         PracticeResultPresenter.Presentation result = presenter.present(context(
                 "SPEAKING",
@@ -2428,9 +2360,7 @@ class PracticeResultPresenterTest {
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper()).present(context(
+                new SpeakingFeedbackContractParser()).present(context(
                 "SPEAKING", List.of(question), Map.of("201", "submitted transcript"), attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
@@ -2466,9 +2396,7 @@ class PracticeResultPresenterTest {
 
         PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper()).present(context(
+                new SpeakingFeedbackContractParser()).present(context(
                 "SPEAKING", List.of(question), Map.of("201", "submitted transcript"), attempt));
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
 
@@ -2483,140 +2411,6 @@ class PracticeResultPresenterTest {
         });
     }
 
-    @Test
-    void speakingOverviewIncludesLegacyEssaySegmentWithoutReturningPerQuestionPanels() throws Exception {
-        PracticeQuestionVersion speaking = speakingQuestion(201L);
-        PracticeQuestionVersion legacyEssay = speakingLegacyEssayQuestion(202L);
-        PracticeAttempt attempt = mock(PracticeAttempt.class);
-        when(attempt.getAiFeedbackJson()).thenReturn("""
-                {
-                  "_contract":"speaking_mixed_v1",
-                  "speaking_feedback_by_question":{
-                    "201":{
-                      "summary_vi":"Phần nói rõ ý.",
-                      "score":4,
-                      "rubric_scores":[
-                        {"score":4,"feedback":"Nội dung"},{"score":4,"feedback":"Ngữ pháp"},
-                        {"score":4,"feedback":"Từ vựng"},{"score":4,"feedback":"Mạch lạc"},
-                        {"score":4,"feedback":"Lưu loát"},{"score":4,"feedback":"Phát âm"}
-                      ]
-                    }
-                  },
-                  "essay_feedback_by_question":{
-                    "202":{
-                      "raw_score":8,"raw_score_max":10,
-                      "summary_vi":"Phần trả lời viết lịch sử đã được giữ lại."
-                    }
-                  }
-                }
-                """);
-        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
-                objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
-
-        PracticeResultPresenter.Presentation result = presenter.present(context(
-                "SPEAKING",
-                List.of(speaking, legacyEssay),
-                Map.of("201", "spoken transcript", "202", "legacy written response"),
-                attempt));
-        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
-
-        assertThat(result.feedback().state()).isEqualTo("FAILED");
-        assertThat(payload.coveredSegments()).isZero();
-        assertThat(payload.totalSegments()).isEqualTo(2);
-        assertThat(payload.overallSummaries()).isEmpty();
-        assertThat(payload.criteria())
-                .allSatisfy(criterion -> {
-                    assertThat(criterion.coveredSegments()).isZero();
-                    assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
-                    assertThat(criterion.score()).isNull();
-                });
-        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(2);
-        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
-        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
-        assertThat(payload.holisticScoreAvailable()).isFalse();
-        assertThat(objectMapper.writeValueAsString(payload)).doesNotContain("questionId");
-    }
-
-    @Test
-    void speakingMixedCurrentTranscriptAndLegacyEssayCountsOnlyCurrentCoverage() {
-        PracticeQuestionVersion speaking = speakingQuestion(211L);
-        PracticeQuestionVersion legacyEssay = speakingLegacyEssayQuestion(212L);
-        PracticeAttempt attempt = mock(PracticeAttempt.class);
-        when(attempt.getAiFeedbackJson()).thenReturn(
-                speakingMixedFeedback(
-                        211L,
-                        SpeakingEvaluationTestFixtures.currentResult(
-                                objectMapper,
-                                "current transcript",
-                                new BigDecimal("16")),
-                        212L));
-
-        PracticeResultPresenter.Presentation result = new SpeakingResultPresenter(
-                objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper()).present(context(
-                "SPEAKING", List.of(speaking, legacyEssay),
-                Map.of("211", "current transcript", "212", "legacy written response"), attempt));
-        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
-
-        assertThat(result.feedback().state()).isEqualTo("PARTIAL");
-        assertThat(payload.coveredSegments()).isEqualTo(1);
-        assertThat(payload.totalSegments()).isEqualTo(2);
-        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
-        assertThat(payload.contractTrust()).isEqualTo("MIXED_WITH_LEGACY_UNVERIFIED");
-        assertThat(payload.evaluatorCapability())
-                .isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
-        assertThat(payload.policyBundleId())
-                .isEqualTo(SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
-        assertThat(payload.policyBundleFingerprint())
-                .isEqualTo(SpeakingAssessmentPolicyBundle.fingerprint());
-        assertThat(payload.profileState()).isEqualTo("PARTIAL");
-        assertThat(payload.criteria().stream().filter(SpeakingCriterionResult::scored))
-                .hasSize(4)
-                .allSatisfy(row -> assertThat(row.coveredSegments()).isEqualTo(1));
-        assertThat(payload.holisticScoreAvailable()).isFalse();
-    }
-
-    @Test
-    void speakingOverviewKeepsSingleFlatLegacyEssayFeedback() throws Exception {
-        PracticeQuestionVersion legacyEssay = speakingLegacyEssayQuestion(202L);
-        PracticeAttempt attempt = mock(PracticeAttempt.class);
-        when(attempt.getAiFeedbackJson()).thenReturn("""
-                {
-                  "score":7,
-                  "percentage":77.78,
-                  "summary_vi":"Phản hồi phẳng của câu lịch sử vẫn khả dụng."
-                }
-                """);
-        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
-                objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
-
-        PracticeResultPresenter.Presentation result = presenter.present(context(
-                "SPEAKING",
-                List.of(legacyEssay),
-                Map.of("202", "legacy written response"),
-                attempt));
-        SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
-
-        assertThat(result.feedback().state()).isEqualTo("FAILED");
-        assertThat(payload.coveredSegments()).isZero();
-        assertThat(payload.overallSummaries()).isEmpty();
-        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
-        assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
-        assertThat(payload.profileState()).isEqualTo("LEGACY_UNVERIFIED");
-        assertThat(payload.criteria()).allSatisfy(criterion -> {
-            assertThat(criterion.availability()).isEqualTo("LEGACY_UNVERIFIED");
-            assertThat(criterion.score()).isNull();
-        });
-        assertThat(objectMapper.writeValueAsString(payload)).doesNotContain("questionId");
-    }
 
     @Test
     void speakingOverviewRejectsUnknownFeedbackContract() {
@@ -2632,9 +2426,7 @@ class PracticeResultPresenterTest {
                 """);
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
+                new SpeakingFeedbackContractParser());
 
         PracticeResultPresenter.Presentation result = presenter.present(context(
                 "SPEAKING",
@@ -2646,7 +2438,7 @@ class PracticeResultPresenterTest {
         assertThat(result.answers().unscorable()).isEqualTo(1);
         assertThat(result.score().available()).isFalse();
         SpeakingResultPayload payload = (SpeakingResultPayload) result.payload();
-        assertThat(payload.legacyUnverifiedSegments()).isEqualTo(1);
+        assertThat(payload.legacyUnverifiedSegments()).isZero();
         assertThat(payload.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
         assertThat(payload.contractTrust()).isEqualTo("LEGACY_UNVERIFIED");
         assertThat(payload.holisticScoreAvailable()).isFalse();
@@ -2659,9 +2451,7 @@ class PracticeResultPresenterTest {
         when(attempt.getAiFeedbackJson()).thenReturn("[not-json");
         SpeakingResultPresenter presenter = new SpeakingResultPresenter(
                 objectMapper,
-                new SpeakingFeedbackCompatibilityReader(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
-                new WritingFeedbackViewMapper());
+                new SpeakingFeedbackContractParser());
 
         PracticeResultPresenter.Presentation result = presenter.present(context(
                 "SPEAKING",
@@ -2791,7 +2581,7 @@ class PracticeResultPresenterTest {
         return new WritingResultPresenter(
                 objectMapper,
                 new WritingFeedbackViewMapper(),
-                new WritingFeedbackCompatibilityReader(objectMapper),
+                new WritingFeedbackContractParser(objectMapper),
                 new AssessmentContractCodec(objectMapper, typeResolver),
                 typeResolver,
                 new AssessmentScoringEngine());
@@ -3135,24 +2925,6 @@ class PracticeResultPresenterTest {
         return json(root);
     }
 
-    private String speakingMixedFeedback(
-            long speakingQuestionId,
-            SpeakingEvaluationResult result,
-            long essayQuestionId
-    ) {
-        ObjectNode root = objectMapper.createObjectNode();
-        root.put("_contract", "speaking_mixed_v1");
-        root.putObject("speaking_feedback_by_question")
-                .set(String.valueOf(speakingQuestionId),
-                        objectMapper.valueToTree(result));
-        root.putObject("essay_feedback_by_question")
-                .putObject(String.valueOf(essayQuestionId))
-                .put("raw_score", 8)
-                .put("raw_score_max", 10)
-                .put("summary_vi",
-                        "Bản sao lịch sử chỉ để đọc.");
-        return json(root);
-    }
 
     private String json(ObjectNode root) {
         try {
@@ -3216,12 +2988,25 @@ class PracticeResultPresenterTest {
         when(section.getId()).thenReturn(13L);
         when(section.getSectionId()).thenReturn(20L);
         when(section.getSkill()).thenReturn(skill);
+        List<PracticeQuestionGroupVersion> groups = List.of();
+        if (("READING".equals(skill) || "LISTENING".equals(skill))
+                && !questions.isEmpty()) {
+            PracticeQuestionGroupVersion group =
+                    mock(PracticeQuestionGroupVersion.class);
+            when(group.getId()).thenReturn(901L);
+            when(group.getGroupId()).thenReturn(801L);
+            when(group.getDisplayOrder()).thenReturn(0);
+            when(group.getGroupLabel()).thenReturn("Nhóm câu hỏi đã khóa");
+            questions.forEach(question ->
+                    when(question.getGroupVersionId()).thenReturn(901L));
+            groups = List.of(group);
+        }
         return new PracticeVersionSnapshot(
                 published,
                 set,
                 test,
                 section,
-                List.of(),
+                groups,
                 questions);
     }
 
@@ -3263,16 +3048,6 @@ class PracticeResultPresenterTest {
         return question;
     }
 
-    private static PracticeQuestionVersion speakingLegacyEssayQuestion(Long id) {
-        PracticeQuestionVersion question = mock(PracticeQuestionVersion.class);
-        when(question.getId()).thenReturn(id + 1000);
-        when(question.getQuestionId()).thenReturn(id);
-        when(question.getQuestionNo()).thenReturn(id.intValue());
-        when(question.getQuestionType()).thenReturn("ESSAY");
-        when(question.getPrompt()).thenReturn("Legacy speaking prompt " + id);
-        when(question.getDisplayOrder()).thenReturn(id.intValue());
-        return question;
-    }
 
     private static AssessmentScoreResult score(
             AssessmentScoreStatus status,

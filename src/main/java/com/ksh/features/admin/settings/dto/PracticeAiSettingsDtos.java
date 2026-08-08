@@ -29,6 +29,8 @@ public final class PracticeAiSettingsDtos {
             @NotBlank(message = "Vui lòng nhập tên dễ nhận biết")
             @Size(max = 120, message = "Tên tối đa 120 ký tự") String displayName,
             @NotBlank @Pattern(regexp = "OPENAI_COMPATIBLE") String providerFamily,
+            @NotBlank @Pattern(regexp = "STATIC_BEARER|GOOGLE_CLOUD_ADC")
+            String credentialMode,
             @NotBlank(message = "Vui lòng nhập Base URL")
             @Size(max = 500, message = "Base URL tối đa 500 ký tự")
             @Pattern(regexp = "^https?://.+", message = "Base URL phải bắt đầu bằng http:// hoặc https://")
@@ -39,7 +41,7 @@ public final class PracticeAiSettingsDtos {
         public static ProfileForm empty() {
             return new ProfileForm(
                     null, null, "PRACTICE_PRIMARY", "",
-                    "OPENAI_COMPATIBLE", "", "", false);
+                    "OPENAI_COMPATIBLE", "STATIC_BEARER", "", "", false);
         }
     }
 
@@ -48,11 +50,39 @@ public final class PracticeAiSettingsDtos {
             String profileCode,
             String displayName,
             String providerFamily,
+            String credentialMode,
             String baseUrl,
             boolean enabled,
             long revision,
-            LocalDateTime updatedAt
+            LocalDateTime updatedAt,
+            boolean verificationRequired
     ) {
+        public String statusCode() {
+            if (verificationRequired) {
+                return "check";
+            }
+            return enabled ? "ready" : "paused";
+        }
+
+        public String statusLabel() {
+            if (verificationRequired) {
+                return "Cần kiểm tra";
+            }
+            return enabled ? "Sẵn sàng" : "Tạm tắt";
+        }
+    }
+
+    public record FixedProviderPresetRow(
+            String key,
+            String profileCode,
+            String displayName,
+            String baseUrl,
+            String keyConsoleUrl,
+            Long configuredProfileId
+    ) {
+        public boolean configured() {
+            return configuredProfileId != null;
+        }
     }
 
     public record BindingForm(
@@ -67,6 +97,11 @@ public final class PracticeAiSettingsDtos {
             @Min(16384) @Max(8388608) int maxResponseBytes,
             @NotBlank @Size(max = 64)
             @Pattern(regexp = "^[A-Z][A-Z0-9_]{1,63}$") String retentionCode,
+            boolean directAudioInput,
+            @Size(max = 160) String regionEvidenceId,
+            @Size(max = 160) String nonTrainingEvidenceId,
+            @Size(max = 160) String retentionEvidenceId,
+            @Size(max = 160) String deletionSlaEvidenceId,
             boolean enabled,
             Long revision
     ) {
@@ -86,6 +121,8 @@ public final class PracticeAiSettingsDtos {
                     2_097_152,
                     defaultRetention(purpose),
                     false,
+                    "", "", "", "",
+                    false,
                     null);
         }
 
@@ -101,6 +138,11 @@ public final class PracticeAiSettingsDtos {
                     maxRequestBytes,
                     maxResponseBytes,
                     retentionCode,
+                    directAudioInput,
+                    regionEvidenceId,
+                    nonTrainingEvidenceId,
+                    retentionEvidenceId,
+                    deletionSlaEvidenceId,
                     enabled,
                     revision);
         }
@@ -111,6 +153,8 @@ public final class PracticeAiSettingsDtos {
                 case PRACTICE_RL_EXPLANATION -> "PUBLISHED_EXPLANATION_V1";
                 case PRACTICE_WRITING_EVALUATION -> "WRITING_EVALUATION_V1";
                 case PRACTICE_SPEAKING_EVALUATION -> "SPEAKING_TRANSCRIPT_EVAL_V1";
+                case PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION ->
+                        "SPEAKING_DIRECT_AUDIO_EVAL_V1";
                 case PRACTICE_SPEAKING_STT -> "SPEAKING_AUDIO_STT_V1";
                 case PRACTICE_SPEAKING_TTS -> "LECTURER_PROMPT_TTS_V1";
             };
@@ -128,6 +172,8 @@ public final class PracticeAiSettingsDtos {
             long revision,
             String retentionCode,
             LocalDateTime updatedAt,
+            boolean providerModelVerified,
+            boolean policyEvidenceComplete,
             List<CapabilityRunRow> recentRuns
     ) {
         public boolean configured() {
@@ -137,6 +183,10 @@ public final class PracticeAiSettingsDtos {
         public String statusCode() {
             if (!configured()) {
                 return "missing";
+            }
+            if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                    && (!providerModelVerified || !policyEvidenceComplete)) {
+                return "check";
             }
             if (!enabled) {
                 return "paused";

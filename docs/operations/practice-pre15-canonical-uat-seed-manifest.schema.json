@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-pre15-canonical-uat-seed-manifest-v1",
+  "title": "Practice Pre-15 canonical UAT seed manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "manifestId", "status", "sourceAuthority", "policyContracts", "skills", "blockers"],
+  "properties": {
+    "schemaVersion": {"const": "practice-pre15-canonical-uat-seed-manifest-v1"},
+    "manifestId": {"type": "string", "pattern": "^KSH-PRE15-UAT-[A-Z0-9-]+$"},
+    "status": {"enum": ["BLOCKED_SME_REQUIRED", "READY_FOR_LOAD"]},
+    "sourceAuthority": {"const": "REPO_MANIFEST_ONLY_DO_NOT_LOAD"},
+    "policyContracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readingListening", "writing", "speaking"],
+      "properties": {
+        "readingListening": {"type": "object", "required": ["inputSchema", "explanationSchema"]},
+        "writing": {"type": "object", "required": ["policyBundleId"]},
+        "speaking": {"type": "object", "required": ["policyBundleId", "capability", "evidenceMode", "holisticScore"]}
+      }
+    },
+    "skills": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/skill"}
+    },
+    "blockers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/blocker"}
+    }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "classification", "required", "status"],
+      "properties": {
+        "role": {"enum": ["QUESTION_IMAGE", "LISTENING_AUDIO", "SPEAKING_PROMPT_AUDIO", "LEARNER_RECORDING_TARGET"]},
+        "classification": {"enum": ["TECHNICAL", "SME_REQUIRED"]},
+        "required": {"type": "boolean"},
+        "status": {"enum": ["SPECIFIED", "BLOCKED_SME_REQUIRED"]}
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seedKey", "questionNo", "questionType", "classification", "contentStatus", "grouped", "immutableVersionLockRequired", "assets"],
+      "properties": {
+        "seedKey": {"type": "string", "pattern": "^Q-[RLSW]-[A-Z0-9-]+$"},
+        "questionNo": {"type": "integer", "minimum": 1},
+        "questionType": {"enum": ["SINGLE_CHOICE", "FILL_BLANK", "TRUE_FALSE_NOT_GIVEN", "ESSAY", "SPEAKING"]},
+        "writingTask": {"enum": ["Q51", "Q52", "Q53", "Q54"]},
+        "points": {"type": "integer", "enum": [10, 30, 50]},
+        "classification": {"enum": ["TECHNICAL", "SME_REQUIRED"]},
+        "contentStatus": {"enum": ["STRUCTURE_ONLY", "BLOCKED_SME_REQUIRED", "SME_APPROVED"]},
+        "grouped": {"const": true},
+        "immutableVersionLockRequired": {"const": true},
+        "assets": {"type": "array", "items": {"$ref": "#/$defs/asset"}}
+      }
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill", "testSeedKey", "sectionSeedKey", "groupSeedKey", "classification", "versionLocks", "questions"],
+      "properties": {
+        "skill": {"enum": ["READING", "LISTENING", "WRITING", "SPEAKING"]},
+        "testSeedKey": {"type": "string"},
+        "sectionSeedKey": {"type": "string"},
+        "groupSeedKey": {"type": "string"},
+        "classification": {"enum": ["TECHNICAL", "SME_REQUIRED"]},
+        "versionLocks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["SET_VERSION", "TEST_VERSION", "SECTION_VERSION", "GROUP_VERSION", "QUESTION_VERSION"]}
+        },
+        "questions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/question"}}
+      }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "classification", "owner", "requiredEvidence"],
+      "properties": {
+        "id": {"type": "string"},
+        "classification": {"const": "SME_REQUIRED"},
+        "owner": {"type": "string"},
+        "requiredEvidence": {"type": "string"}
+      }
+    }
+  }
+}

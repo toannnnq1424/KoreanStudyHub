@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-topik35-writing-import-audit-v1",
+  "title": "Canonical TOPIK 35 Writing import audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageId", "bundleId", "capturedAt", "status", "skill", "sourceBindings", "targetContract", "assetBindings", "questions", "rubricAudit", "loadPolicy", "qaBlockers", "validationSummary"],
+  "properties": {
+    "schemaVersion": {"const": "practice-topik35-writing-import-audit-v1"},
+    "packageId": {"const": "topik35-v1-writing-import-audit-v1"},
+    "bundleId": {"const": "topik35-v1"},
+    "capturedAt": {"type": "string", "format": "date"},
+    "status": {"const": "SOURCE_PROMPT_ANSWER_AND_ASSET_QA_COMPLETE_IMPORT_LOAD_BLOCKED"},
+    "skill": {"const": "WRITING"},
+    "sourceBindings": {"$ref": "#/$defs/sourceBindings"},
+    "targetContract": {"$ref": "#/$defs/targetContract"},
+    "assetBindings": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/asset"}},
+    "questions": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/question"}},
+    "rubricAudit": {"$ref": "#/$defs/rubricAudit"},
+    "loadPolicy": {"$ref": "#/$defs/loadPolicy"},
+    "qaBlockers": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "validationSummary": {"$ref": "#/$defs/validationSummary"}
+  },
+  "$defs": {
+    "questionDocument": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "sha256", "pdfPages", "printedPages", "displayedIdentity"],
+      "properties": {
+        "artifactId": {"const": "topik35-listening-writing-pdf"},
+        "logicalKey": {"const": "practice-seed/topik35-v1/source/document/cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323.pdf"},
+        "sha256": {"const": "cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323"},
+        "pdfPages": {"const": [16, 17]},
+        "printedPages": {"const": [14, 15]},
+        "displayedIdentity": {"type": "string", "minLength": 1}
+      }
+    },
+    "answerDocument": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "sha256", "pdfPage", "displayedIdentity"],
+      "properties": {
+        "artifactId": {"const": "topik35-answer-key-pdf"},
+        "logicalKey": {"const": "practice-seed/topik35-v1/source/document/60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b.pdf"},
+        "sha256": {"const": "60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b"},
+        "pdfPage": {"const": 2},
+        "displayedIdentity": {"type": "string", "minLength": 1}
+      }
+    },
+    "sourceBindings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionDocument", "answerDocument"],
+      "properties": {
+        "questionDocument": {"$ref": "#/$defs/questionDocument"},
+        "answerDocument": {"$ref": "#/$defs/answerDocument"}
+      }
+    },
+    "targetContract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionContentSchema", "canonicalQuestionType", "languageTag", "structuredBlankSchema", "structuredBlankAuthoritySchema", "normalization", "whitespacePolicy", "candidateMaterialized"],
+      "properties": {
+        "questionContentSchema": {"const": "question-content-v3"},
+        "canonicalQuestionType": {"const": "ESSAY"},
+        "languageTag": {"const": "ko"},
+        "structuredBlankSchema": {"const": "writing-blanks.v1"},
+        "structuredBlankAuthoritySchema": {"const": "writing-blank-authority.v1"},
+        "normalization": {"const": "NFC"},
+        "whitespacePolicy": {"const": "TRIM_COLLAPSE"},
+        "candidateMaterialized": {"const": false}
+      }
+    },
+    "cropRect": {
+      "type": "object", "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {"const": 295}, "y": {"const": 395},
+        "width": {"const": 1120}, "height": {"const": 620}
+      }
+    },
+    "asset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assetId", "questionNumber", "role", "logicalKey", "mediaType", "sha256", "sizeBytes", "widthPx", "heightPx", "sourceArtifactId", "sourcePdfPage", "sourcePrintedPage", "renderDpi", "cropRectPx", "visualQaStatus"],
+      "properties": {
+        "assetId": {"const": "topik35-writing-q53-chart"},
+        "questionNumber": {"const": 53}, "role": {"const": "QUESTION_CHART"},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/derived/page-image/[0-9a-f]{64}\\.png$"},
+        "mediaType": {"const": "image/png"},
+        "sha256": {"const": "47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1"},
+        "sizeBytes": {"const": 143548}, "widthPx": {"const": 1120}, "heightPx": {"const": 620},
+        "sourceArtifactId": {"const": "topik35-listening-writing-pdf"},
+        "sourcePdfPage": {"const": 17}, "sourcePrintedPage": {"const": 15},
+        "renderDpi": {"const": 200}, "cropRectPx": {"$ref": "#/$defs/cropRect"},
+        "visualQaStatus": {"const": "VISUALLY_VERIFIED"}
+      }
+    },
+    "blankDefinition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["blankId", "ordinal", "sourceMarker"],
+      "properties": {
+        "blankId": {"type": "string", "pattern": "^topik35-q5[12]-b[12]$"},
+        "ordinal": {"type": "integer", "minimum": 1, "maximum": 2},
+        "sourceMarker": {"enum": ["㉠", "㉡"]}
+      }
+    },
+    "modelAnswer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["blankId", "text"],
+      "properties": {
+        "blankId": {"type": "string", "pattern": "^topik35-q5[12]-b[12]$"},
+        "text": {"type": "string", "minLength": 1}
+      }
+    },
+    "clozeAnswerExpectation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "answerSourcePdfPage", "modelAnswers", "exactOnly", "semanticEquivalentAlternativesApproved"],
+      "properties": {
+        "kind": {"const": "SOURCE_MODEL_ANSWERS_WITH_REVIEWED_EQUIVALENCE"},
+        "answerSourcePdfPage": {"const": 2},
+        "modelAnswers": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/modelAnswer"}},
+        "exactOnly": {"const": false},
+        "semanticEquivalentAlternativesApproved": {"const": false}
+      }
+    },
+    "ageData": {
+      "type": "object", "additionalProperties": false,
+      "required": ["hospitalPharmacy", "performanceCultureCenter", "park", "other"],
+      "properties": {
+        "hospitalPharmacy": {"type": "integer", "minimum": 0, "maximum": 100},
+        "performanceCultureCenter": {"type": "integer", "minimum": 0, "maximum": 100},
+        "park": {"type": "integer", "minimum": 0, "maximum": 100},
+        "other": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "chartData": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sample", "age30", "age60"],
+      "properties": {
+        "sample": {"const": "30대와 60대 성인 남녀 500명"},
+        "age30": {"$ref": "#/$defs/ageData"},
+        "age60": {"$ref": "#/$defs/ageData"}
+      }
+    },
+    "q53AnswerExpectation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "answerSourcePdfPage", "modelAnswerPresent", "modelAnswerMaterialized", "requiredPromptCoverage", "chartData"],
+      "properties": {
+        "kind": {"const": "SOURCE_CHART_COMPARISON_AND_MODEL_RESPONSE"},
+        "answerSourcePdfPage": {"const": 2}, "modelAnswerPresent": {"const": true},
+        "modelAnswerMaterialized": {"const": false},
+        "requiredPromptCoverage": {"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": {"type": "string"}},
+        "chartData": {"$ref": "#/$defs/chartData"}
+      }
+    },
+    "q54AnswerExpectation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "answerSourcePdfPage", "modelAnswerPresent", "modelAnswerMaterialized", "requiredPromptCoverage"],
+      "properties": {
+        "kind": {"const": "SOURCE_PROMPT_COVERAGE_AND_MODEL_RESPONSE"},
+        "answerSourcePdfPage": {"const": 2}, "modelAnswerPresent": {"const": true},
+        "modelAnswerMaterialized": {"const": false},
+        "requiredPromptCoverage": {"type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "question": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionNumber", "seedKey", "taskType", "questionType", "points", "responseMode", "sourcePdfPage", "sourcePrintedPage", "promptInstruction", "promptText", "blankDefinitions", "answerExpectation", "assetIds", "sourceQaStatus"],
+      "properties": {
+        "questionNumber": {"type": "integer", "minimum": 51, "maximum": 54},
+        "seedKey": {"type": "string", "pattern": "^topik35-writing-q5[1-4]$"},
+        "taskType": {"enum": ["Q51", "Q52", "Q53", "Q54"]},
+        "questionType": {"const": "ESSAY"},
+        "points": {"enum": [10, 30, 50]},
+        "responseMode": {"enum": ["STRUCTURED_BLANKS", "ESSAY_TEXT"]},
+        "sourcePdfPage": {"enum": [16, 17]}, "sourcePrintedPage": {"enum": [14, 15]},
+        "promptInstruction": {"type": "string", "minLength": 1},
+        "promptText": {"type": "string", "minLength": 1},
+        "blankDefinitions": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/blankDefinition"}},
+        "answerExpectation": {"oneOf": [{"$ref": "#/$defs/clozeAnswerExpectation"}, {"$ref": "#/$defs/q53AnswerExpectation"}, {"$ref": "#/$defs/q54AnswerExpectation"}]},
+        "assetIds": {"type": "array", "maxItems": 1, "uniqueItems": true, "items": {"const": "topik35-writing-q53-chart"}},
+        "sourceQaStatus": {"const": "VISUALLY_VERIFIED"}
+      }
+    },
+    "pointMap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["Q51", "Q52", "Q53", "Q54"],
+      "properties": {"Q51": {"const": 10}, "Q52": {"const": 10}, "Q53": {"const": 30}, "Q54": {"const": 50}}
+    },
+    "internalProfile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profileId", "contract", "totalsMatchSourceMaxPoints", "bindingStatus"],
+      "properties": {
+        "profileId": {"const": "KSH_INTERNAL_TASK_NATIVE_V1"},
+        "contract": {"const": "TASK_NATIVE_RUBRIC_V1"},
+        "totalsMatchSourceMaxPoints": {"const": true},
+        "bindingStatus": {"const": "NOT_BOUND_SOURCE_DOES_NOT_AUTHORIZE_INTERNAL_SUBWEIGHTS"}
+      }
+    },
+    "taskRequirementProfile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "q53BindingStatus", "q53MismatchEvidence", "requiredResolution"],
+      "properties": {
+        "version": {"const": "writing-task-requirements-v1"},
+        "q53BindingStatus": {"const": "REJECTED_SOURCE_INCOMPATIBLE"},
+        "q53MismatchEvidence": {"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": {"enum": ["Q53_FOUR_TRANSPORT_MODES", "Q53_DATA_2024", "Q53_DATA_2026"]}},
+        "requiredResolution": {"const": "CREATE_SOURCE_BOUND_TOPIK35_REQUIREMENT_PROFILE_BEFORE_LOAD"}
+      }
+    },
+    "rubricAudit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourcePublishedMaxPoints", "sourcePublishedDetailedSubweights", "internalProfile", "taskRequirementProfile"],
+      "properties": {
+        "sourcePublishedMaxPoints": {"$ref": "#/$defs/pointMap"},
+        "sourcePublishedDetailedSubweights": {"const": false},
+        "internalProfile": {"$ref": "#/$defs/internalProfile"},
+        "taskRequirementProfile": {"$ref": "#/$defs/taskRequirementProfile"}
+      }
+    },
+    "loadPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["auditOnly", "disposableLocalOnly", "databaseLoadPerformed", "migrationPerformed", "objectStoreWritePerformed", "providerCallPerformed", "aiScoringInvoked", "learnerScoresCreated", "bulkSetIngestionAllowed", "loadReady"],
+      "properties": {
+        "auditOnly": {"const": true}, "disposableLocalOnly": {"const": true},
+        "databaseLoadPerformed": {"const": false}, "migrationPerformed": {"const": false},
+        "objectStoreWritePerformed": {"const": false}, "providerCallPerformed": {"const": false},
+        "aiScoringInvoked": {"const": false}, "learnerScoresCreated": {"const": false},
+        "bulkSetIngestionAllowed": {"const": false}, "loadReady": {"const": false}
+      }
+    },
+    "validationSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["questionCount", "sourcePointTotal", "structuredBlankQuestionCount", "essayTextQuestionCount", "assetCount", "sourcePromptQaComplete", "sourceAnswerQaComplete", "sourceAssetQaComplete", "loadReady"],
+      "properties": {
+        "questionCount": {"const": 4}, "sourcePointTotal": {"const": 100},
+        "structuredBlankQuestionCount": {"const": 2}, "essayTextQuestionCount": {"const": 2},
+        "assetCount": {"const": 1}, "sourcePromptQaComplete": {"const": true},
+        "sourceAnswerQaComplete": {"const": true}, "sourceAssetQaComplete": {"const": true},
+        "loadReady": {"const": false}
+      }
+    }
+  }
+}

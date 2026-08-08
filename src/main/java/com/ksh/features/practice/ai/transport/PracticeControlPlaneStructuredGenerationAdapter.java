@@ -16,10 +16,18 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class PracticeControlPlaneStructuredGenerationAdapter
         implements PracticeStructuredGenerationPort {
+
+    private static final Set<String> FULL_REPLACEMENT_CATEGORIES = Set.of(
+            "PROVIDER_REFUSAL",
+            "PROVIDER_TRUNCATED_RESPONSE",
+            "PROVIDER_MALFORMED_STRUCTURED_OUTPUT",
+            "PROVIDER_NON_OBJECT_STRUCTURED_OUTPUT",
+            "PROVIDER_EMPTY_RESPONSE");
 
     private final PracticeAiBindingResolver resolver;
     private final PracticeAiExecutionAuditService auditService;
@@ -77,7 +85,7 @@ public class PracticeControlPlaneStructuredGenerationAdapter
         String idempotencyKey = idempotencyKey(
                 request.idempotencyKey(), inputPayload.sha256());
         CanonicalPracticeJson.CanonicalPayload requestBody = canonicalJson.serialize(
-                wireBody(request, binding.snapshot().model(), inputPayload.json()));
+                wireBody(request, binding.snapshot().model(), inputPayload.json(), null));
         if (requestBody.json().getBytes(StandardCharsets.UTF_8).length
                 > binding.snapshot().limits().maxRequestBytes()) {
             throw new PracticeAiContractException("PROVIDER_REQUEST_TOO_LARGE", false);
@@ -97,12 +105,10 @@ public class PracticeControlPlaneStructuredGenerationAdapter
                 binding.snapshot().purpose().dataClass());
         try {
             resolver.assertCurrent(binding.snapshot());
-            byte[] rawResponse = callWithRetry(
-                    binding, requestBody.json(), idempotencyKey);
             StrictOpenAiStructuredResponseDecoder.DecodedResponse decoded =
-                    decoder.decode(
-                            rawResponse,
-                            binding.snapshot().limits().maxResponseBytes());
+                    callAndDecodeWithBoundedReplacement(
+                            binding, request, inputPayload.json(), requestBody.json(),
+                            idempotencyKey, contractIdentity);
             auditService.success(auditId);
             return new PracticeStructuredGenerationResponse(
                     decoded.output(),
@@ -128,6 +134,79 @@ public class PracticeControlPlaneStructuredGenerationAdapter
         }
     }
 
+    private StrictOpenAiStructuredResponseDecoder.DecodedResponse
+    callAndDecodeWithBoundedReplacement(
+            PracticeAiResolvedBinding binding,
+            PracticeStructuredGenerationRequest request,
+            String structuredInputJson,
+            String initialRequestJson,
+            String initialIdempotencyKey,
+            String contractIdentity) {
+        int totalBudget = binding.snapshot().limits().maxRetries() + 1;
+        TransportCall initial = callWithRetry(
+                binding, initialRequestJson, initialIdempotencyKey, totalBudget);
+        try {
+            return decode(binding, initial.body());
+        } catch (PracticeAiContractException firstFailure) {
+            int remainingBudget = totalBudget - initial.calls();
+            if (remainingBudget < 1
+                    || !FULL_REPLACEMENT_CATEGORIES.contains(
+                            firstFailure.category())) {
+                throw firstFailure;
+            }
+
+            resolver.assertCurrent(binding.snapshot());
+            String replacementOperation = request.operation()
+                    + "_FULL_REPLACEMENT";
+            Long replacementAuditId = auditService.start(
+                    binding.snapshot(),
+                    replacementOperation,
+                    contractIdentity + "|replacement=" + firstFailure.category(),
+                    binding.snapshot().purpose().dataClass());
+            try {
+                CanonicalPracticeJson.CanonicalPayload replacementBody =
+                        canonicalJson.serialize(wireBody(
+                                request,
+                                binding.snapshot().model(),
+                                structuredInputJson,
+                                firstFailure.category()));
+                if (replacementBody.json().getBytes(StandardCharsets.UTF_8).length
+                        > binding.snapshot().limits().maxRequestBytes()) {
+                    throw new PracticeAiContractException(
+                            "PROVIDER_REQUEST_TOO_LARGE", false);
+                }
+                String replacementIdempotencyKey = replacementIdempotencyKey(
+                        initialIdempotencyKey, firstFailure.category());
+                TransportCall replacement = callWithRetry(
+                        binding,
+                        replacementBody.json(),
+                        replacementIdempotencyKey,
+                        remainingBudget);
+                StrictOpenAiStructuredResponseDecoder.DecodedResponse decoded =
+                        decode(binding, replacement.body());
+                auditService.success(replacementAuditId);
+                return decoded;
+            } catch (PracticeAiControlPlaneException exception) {
+                auditService.failure(replacementAuditId, exception.errorCode());
+                throw exception;
+            } catch (PracticeAiContractException exception) {
+                auditService.failure(replacementAuditId, exception.category());
+                throw exception;
+            } catch (RuntimeException exception) {
+                auditService.failure(
+                        replacementAuditId, "PROVIDER_TRANSPORT_ERROR");
+                throw exception;
+            }
+        }
+    }
+
+    private StrictOpenAiStructuredResponseDecoder.DecodedResponse decode(
+            PracticeAiResolvedBinding binding, byte[] rawResponse) {
+        return decoder.decode(
+                rawResponse,
+                binding.snapshot().limits().maxResponseBytes());
+    }
+
     private static void requireSupported(
             PracticeStructuredGenerationRequest request,
             PracticeAiExecutionSnapshot snapshot) {
@@ -149,14 +228,14 @@ public class PracticeControlPlaneStructuredGenerationAdapter
         }
     }
 
-    private byte[] callWithRetry(
+    private TransportCall callWithRetry(
             PracticeAiResolvedBinding binding,
             String requestJson,
-            String idempotencyKey) {
+            String idempotencyKey,
+            int maximumCalls) {
         PracticeAiProviderTransport.ProviderResponse last = null;
-        for (int attempt = 0;
-                attempt <= binding.snapshot().limits().maxRetries();
-                attempt++) {
+        int calls = 0;
+        while (calls < maximumCalls) {
             if (Thread.currentThread().isInterrupted()) {
                 throw new PracticeAiControlPlaneException(
                         "EVALUATION_INTERRUPTED", false);
@@ -168,12 +247,13 @@ public class PracticeControlPlaneStructuredGenerationAdapter
                     MediaType.APPLICATION_JSON,
                     requestJson,
                     Map.of("Idempotency-Key", idempotencyKey));
+            calls++;
             if (response.successful()) {
-                return response.body();
+                return new TransportCall(response.body(), calls);
             }
             last = response;
             if (!retryable(response.status())
-                    || attempt >= binding.snapshot().limits().maxRetries()) {
+                    || calls >= maximumCalls) {
                 break;
             }
         }
@@ -208,11 +288,19 @@ public class PracticeControlPlaneStructuredGenerationAdapter
     private static Map<String, Object> wireBody(
             PracticeStructuredGenerationRequest request,
             String model,
-            String structuredInputJson) {
+            String structuredInputJson,
+            String replacementReason) {
         List<Map<String, Object>> messages = new ArrayList<>();
         messages.add(message("system", request.systemInstruction()));
         if (!request.developerInstruction().isBlank()) {
             messages.add(message("developer", request.developerInstruction()));
+        }
+        if (replacementReason != null) {
+            messages.add(message("developer", String.join(" ",
+                    "The previous response was unusable due to",
+                    replacementReason + ".",
+                    "Return one complete replacement that satisfies the supplied JSON schema.",
+                    "Do not mention, quote, patch, or depend on the previous response.")));
         }
         messages.add(message("user", userContent(structuredInputJson, request.images())));
 
@@ -264,6 +352,14 @@ public class PracticeControlPlaneStructuredGenerationAdapter
         return requested;
     }
 
+    private String replacementIdempotencyKey(String original, String reason) {
+        String digest = canonicalJson.serialize(Map.of(
+                "originalIdempotencyKey", original,
+                "replacementReason", reason,
+                "replacementAttempt", 1)).sha256();
+        return "ksh-practice-full-replacement-" + digest;
+    }
+
     private static PracticeModelCapabilityProfile capabilityProfile(
             PracticeAiExecutionSnapshot snapshot) {
         return new PracticeModelCapabilityProfile(
@@ -284,5 +380,16 @@ public class PracticeControlPlaneStructuredGenerationAdapter
     private static boolean retryable(int status) {
         return status == 429 || status == 500 || status == 502
                 || status == 503 || status == 504;
+    }
+
+    private record TransportCall(byte[] body, int calls) {
+        private TransportCall {
+            body = body == null ? new byte[0] : body.clone();
+        }
+
+        @Override
+        public byte[] body() {
+            return body.clone();
+        }
     }
 }

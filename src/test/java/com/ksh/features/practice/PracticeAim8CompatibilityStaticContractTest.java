@@ -26,7 +26,7 @@ class PracticeAim8CompatibilityStaticContractTest {
             "V(\\d+)__.+\\.sql");
 
     @Test
-    void migrationChainIsContinuousThroughV87AndHistoricalBytesStayLockedThroughV85()
+    void migrationChainIsContinuousThroughV96AndHistoricalBytesStayLockedThroughV85()
             throws Exception {
         List<Path> migrations;
         try (var paths = Files.list(MIGRATIONS)) {
@@ -38,11 +38,11 @@ class PracticeAim8CompatibilityStaticContractTest {
                             PracticeAim8CompatibilityStaticContractTest::version))
                     .toList();
         }
-        assertThat(migrations).hasSize(87);
+        assertThat(migrations).hasSize(96);
         assertThat(migrations.stream().map(
                 PracticeAim8CompatibilityStaticContractTest::version).toList())
                 .containsExactlyElementsOf(
-                        java.util.stream.IntStream.rangeClosed(1, 87)
+                        java.util.stream.IntStream.rangeClosed(1, 96)
                                 .boxed().toList());
 
         List<String> manifestEntries = new ArrayList<>();
@@ -111,6 +111,30 @@ class PracticeAim8CompatibilityStaticContractTest {
     }
 
     @Test
+    void currentContractDoesNotAdvertiseRetiredLegacyExcelReader()
+            throws Exception {
+        String excelService = read(
+                "src/main/java/com/ksh/features/practice/manage/service/"
+                        + "PracticeAssessmentExcelService.java");
+        String contract = read(
+                "docs/architecture/practice/"
+                        + "PRACTICE_AUTHORING_IMPORT_MODERNIZATION_CONTRACT.md");
+
+        assertThat(excelService)
+                .contains("LEGACY_EXCEL_V1_RETIRED")
+                .doesNotContain("LegacyPracticeAssessmentExcelCodec");
+        assertThat(contract)
+                .contains(
+                        "current interactive workbook entry point "
+                                + "deterministically rejects legacy v1",
+                        "Retain the enum/schema identity until stored "
+                                + "candidate inventory authorizes removal")
+                .doesNotContain(
+                        "Current bounded legacy reader semantics; "
+                                + "no new legacy writer");
+    }
+
+    @Test
     void explicitApplyIsTheOnlyCandidatePackageDraftWriter()
             throws Exception {
         Path packageRoot = javaPath("manage/authoringcandidate");
@@ -146,7 +170,8 @@ class PracticeAim8CompatibilityStaticContractTest {
                         "PRACTICE_WRITING_EVALUATION",
                         "PRACTICE_SPEAKING_EVALUATION",
                         "PRACTICE_SPEAKING_STT",
-                        "PRACTICE_SPEAKING_TTS");
+                        "PRACTICE_SPEAKING_TTS",
+                        "PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION");
         assertThat(StorageProfileCode.values()).extracting(Enum::name)
                 .containsExactlyInAnyOrder(
                         "GENERAL_UPLOADS",

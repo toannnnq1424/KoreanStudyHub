@@ -127,8 +127,7 @@ public class PracticePublishedVersionService {
                     groupVersionIds.put(group.getId(), groupVersion.getId());
                 }
                 for (PracticeQuestion question : questions.stream()
-                        .filter(question -> groupVersionIds.containsKey(question.getGroupId()) ||
-                                (question.getGroupId() == null && testSections.size() == 1))
+                        .filter(question -> groupVersionIds.containsKey(question.getGroupId()))
                         .sorted(Comparator.comparing(PracticeQuestion::getDisplayOrder, Comparator.nullsLast(Integer::compareTo))
                                 .thenComparing(PracticeQuestion::getQuestionNo, Comparator.nullsLast(Integer::compareTo)))
                         .toList()) {
@@ -136,7 +135,7 @@ public class PracticePublishedVersionService {
                             questionVersionRepository.save(new PracticeQuestionVersion(
                             publishedVersion.getId(),
                             sectionVersion.getId(),
-                            question.getGroupId() == null ? null : groupVersionIds.get(question.getGroupId()),
+                            groupVersionIds.get(question.getGroupId()),
                             question));
                     if (questionVersionIdByQuestionId.put(
                             question.getId(), savedQuestionVersion.getId()) != null) {
@@ -162,21 +161,9 @@ public class PracticePublishedVersionService {
         if (!hasUngroupedQuestions) {
             return;
         }
-        for (PracticeTest test : tests) {
-            long sectionCount = sections.stream()
-                    .filter(section -> test.getId().equals(section.getTestId()))
-                    .count();
-            if (sectionCount > 1) {
-                throw new IllegalStateException(
-                        "Cannot publish immutable practice version for setId=" + setId +
-                        " because ungrouped questions are ambiguous in multi-section testId=" + test.getId());
-            }
-        }
-        if (tests.size() > 1) {
-            throw new IllegalStateException(
-                    "Cannot publish immutable practice version for setId=" + setId +
-                    " because ungrouped questions are ambiguous across multiple tests.");
-        }
+        throw new IllegalStateException(
+                "Cannot publish immutable practice version for setId=" + setId
+                        + " because every question requires canonical group ownership.");
     }
 
     @Transactional(readOnly = true)

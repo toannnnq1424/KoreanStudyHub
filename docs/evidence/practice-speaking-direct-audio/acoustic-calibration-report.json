@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "ksh-speaking-evidence-report-v1",
+  "kind": "ACOUSTIC_CALIBRATION_REPORT",
+  "captureDate": "2026-08-07",
+  "status": "TECHNICAL_CAPTURE_COMPLETE_REVIEW_PENDING",
+  "probeDesign": {
+    "baseClips": 8,
+    "syntheticPinkNoise": {
+      "count": 8,
+      "method": "Deterministic amplitude-0.01 pink-noise injection",
+      "warning": "Not an exact SNR measurement and not a genuine recorded environment."
+    },
+    "syntheticTelephonyBand": {
+      "count": 8,
+      "method": "300-3400 Hz band with 8 kHz roundtrip resampled to 16 kHz",
+      "warning": "Not a genuine device capture."
+    }
+  },
+  "results": {
+    "requested": 16,
+    "aligned": 16,
+    "telephonyDirectlyComparableBoundaryCount": 24,
+    "telephonyBoundaryDeltaSeconds": {"mean": 0.016971333333333376, "p95": 0.050000000000000044, "max": 0.050000000000000044},
+    "pinkNoiseDirectlyComparableBoundaryCount": 0,
+    "interpretation": "Most perturbation outputs changed label sequences, so they cannot be compared boundary-by-boundary without a reviewed normalization rule."
+  },
+  "releaseAssessment": {
+    "supportedDeviceMatrix": "MISSING",
+    "genuineEnvironmentMatrix": "MISSING",
+    "lowQualityRejectOrRerecordThresholds": "MISSING",
+    "scoreVarianceTolerance": "MISSING",
+    "scoreUseAuthorized": false
+  },
+  "limitations": [
+    "This report is a synthetic robustness probe, not full acoustic calibration.",
+    "No real phone, laptop, headset, microphone-distance, clipping, echo, or low-SNR matrix was captured.",
+    "No numeric acceptance thresholds were pre-approved.",
+    "Independent speech/acoustic or qualified Korean SME review is required."
+  ],
+  "sourceAnalysisSha256": "697372bccec174289101d46dc1596bef47e31f66006a60a66a9545f85c34a7f0",
+  "containsRawAudio": false,
+  "containsCredentials": false
+}

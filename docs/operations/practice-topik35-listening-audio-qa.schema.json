@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/schemas/practice-topik35-listening-audio-qa-v1",
+  "title": "Canonical TOPIK 35 Listening source and manual boundary QA",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packageId", "bundleId", "verifiedAt", "status", "sourceIdentity", "sourceAudio", "derivedProgram", "manualBoundaryQa", "deliveryPolicy", "validationSummary"],
+  "properties": {
+    "schemaVersion": {"const": "practice-topik35-listening-audio-qa-v1"},
+    "packageId": {"const": "topik35-v1-listening-audio-qa-v1"},
+    "bundleId": {"const": "topik35-v1"},
+    "verifiedAt": {"type": "string", "format": "date-time"},
+    "status": {"const": "SOURCE_IDENTITY_AND_AUDIO_DERIVATION_VERIFIED_BOUNDARY_QA_BLOCKED"},
+    "sourceIdentity": {"$ref": "#/$defs/sourceIdentity"},
+    "sourceAudio": {"$ref": "#/$defs/sourceAudio"},
+    "derivedProgram": {"$ref": "#/$defs/derivedProgram"},
+    "manualBoundaryQa": {"$ref": "#/$defs/manualBoundaryQa"},
+    "deliveryPolicy": {"$ref": "#/$defs/deliveryPolicy"},
+    "validationSummary": {"$ref": "#/$defs/validationSummary"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sourceIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceUrl", "videoId", "title", "channel", "channelId", "uploadDate", "identityDecision", "verificationTool", "verificationMode"],
+      "properties": {
+        "sourceUrl": {"const": "https://www.youtube.com/watch?v=zqd7AQTKk6k"},
+        "videoId": {"const": "zqd7AQTKk6k"},
+        "title": {"type": "string", "pattern": "TOPIK 35"},
+        "channel": {"const": "huongiu"},
+        "channelId": {"const": "UCYOLS4hFNIpCGbwSSzz-WvA"},
+        "uploadDate": {"const": "2019-09-11"},
+        "identityDecision": {"const": "MATCHED_TOPIK_35_LISTENING"},
+        "verificationTool": {"const": "yt-dlp 2026.07.04"},
+        "verificationMode": {"const": "LIVE_METADATA_CHECK_NO_BINARY_REDIRECT_CAPTURED"}
+      }
+    },
+    "sourceAudio": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "mediaType", "formatId", "container", "codec", "sampleRateHz", "channels", "durationMs", "sha256", "sizeBytes", "acquisitionMode"],
+      "properties": {
+        "artifactId": {"const": "topik35-listening-youtube-original-audio"},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/source/audio/[0-9a-f]{64}\\.m4a$"},
+        "mediaType": {"const": "audio/mp4"}, "formatId": {"const": "140"},
+        "container": {"const": "m4a"}, "codec": {"const": "aac"},
+        "sampleRateHz": {"const": 44100}, "channels": {"const": 2},
+        "durationMs": {"const": 3797136}, "sha256": {"$ref": "#/$defs/digest"},
+        "sizeBytes": {"const": 61453300},
+        "acquisitionMode": {"const": "REUSED_EXISTING_BYTE_IDENTICAL_CAPTURE_AFTER_LIVE_IDENTITY_CHECK"}
+      }
+    },
+    "derivedProgram": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactId", "logicalKey", "mediaType", "container", "codec", "sampleRateHz", "channels", "bitRateBps", "durationMs", "sha256", "sizeBytes", "conversionTool", "conversionProfile"],
+      "properties": {
+        "artifactId": {"const": "topik35-listening-program-mp3"},
+        "logicalKey": {"type": "string", "pattern": "^practice-seed/topik35-v1/derived/audio-mp3/[0-9a-f]{64}\\.mp3$"},
+        "mediaType": {"const": "audio/mpeg"}, "container": {"const": "mp3"},
+        "codec": {"const": "mp3"}, "sampleRateHz": {"const": 44100},
+        "channels": {"const": 2}, "bitRateBps": {"const": 128002},
+        "durationMs": {"const": 3797136}, "sha256": {"$ref": "#/$defs/digest"},
+        "sizeBytes": {"const": 60755426},
+        "conversionTool": {"const": "ffmpeg 8.1.2 libmp3lame"},
+        "conversionProfile": {"const": "CBR_128K_44100HZ_STEREO_SINGLE_PROGRAM"}
+      }
+    },
+    "group": {
+      "type": "object", "additionalProperties": false,
+      "required": ["groupId", "questionFrom", "questionTo", "status", "startMs", "endMs", "reviewerEvidenceId"],
+      "properties": {
+        "groupId": {"type": "string", "pattern": "^L[0-9]{2}_[0-9]{2}$"},
+        "questionFrom": {"type": "integer", "minimum": 1, "maximum": 50},
+        "questionTo": {"type": "integer", "minimum": 1, "maximum": 50},
+        "status": {"const": "PENDING_HUMAN_AUDITORY_QA"},
+        "startMs": {"type": "null"}, "endMs": {"type": "null"},
+        "reviewerEvidenceId": {"type": "null"}
+      }
+    },
+    "manualBoundaryQa": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requiredMethod", "authoritativeTranscriptPackageId", "questionPackageId", "captionsAllowedForTimestampInference", "captionsUsedForTimestampInference", "automatedSpeechRecognitionUsed", "signalScanRole", "signalScanAcceptedAsBoundaryEvidence", "auditoryReviewerAvailable", "blockerCode", "reviewInstructions", "groups"],
+      "properties": {
+        "requiredMethod": {"const": "HUMAN_AUDITORY_REVIEW_AGAINST_AUTHORITATIVE_TRANSCRIPT"},
+        "authoritativeTranscriptPackageId": {"const": "topik35-v1-listening-transcript-payload-v1"},
+        "questionPackageId": {"const": "topik35-v1-listening-question-payload-v1"},
+        "captionsAllowedForTimestampInference": {"const": false},
+        "captionsUsedForTimestampInference": {"const": false},
+        "automatedSpeechRecognitionUsed": {"const": false},
+        "signalScanRole": {"const": "NON_AUTHORITATIVE_CANDIDATE_DISCOVERY_ONLY"},
+        "signalScanAcceptedAsBoundaryEvidence": {"const": false},
+        "auditoryReviewerAvailable": {"const": false},
+        "blockerCode": {"const": "HUMAN_AUDITORY_BOUNDARY_REVIEW_NOT_AVAILABLE_IN_AUTOMATION_ENVIRONMENT"},
+        "reviewInstructions": {"type": "string", "minLength": 1},
+        "groups": {"type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/group"}}
+      }
+    },
+    "deliveryPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["singleContinuousProgram", "binaryCommitted", "directExternalAudioExposedToLearner", "logicalKeyOnly", "deliveryResolvedServerSide", "databaseLoadPerformed", "objectStoreWritePerformed"],
+      "properties": {
+        "singleContinuousProgram": {"const": true}, "binaryCommitted": {"const": false},
+        "directExternalAudioExposedToLearner": {"const": false}, "logicalKeyOnly": {"const": true},
+        "deliveryResolvedServerSide": {"const": true}, "databaseLoadPerformed": {"const": false},
+        "objectStoreWritePerformed": {"const": false}
+      }
+    },
+    "validationSummary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceIdentityVerified", "sourceDigestVerified", "derivedDigestVerified", "sourceAndDerivedDurationMatch", "groupCount", "boundaryReadyGroupCount", "loadReady"],
+      "properties": {
+        "sourceIdentityVerified": {"const": true}, "sourceDigestVerified": {"const": true},
+        "derivedDigestVerified": {"const": true}, "sourceAndDerivedDurationMatch": {"const": true},
+        "groupCount": {"const": 20}, "boundaryReadyGroupCount": {"const": 0},
+        "loadReady": {"const": false}
+      }
+    }
+  }
+}

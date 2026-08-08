@@ -667,6 +667,14 @@ class QuestionExplanationReadServiceTest {
             Long id,
             String status,
             String explanationJson) {
+        if (explanationJson != null
+                && explanationJson.contains("\"schemaVersion\":\"v4\"")) {
+            explanationJson = "{\"result_completeness\":"
+                    + "{\"version\":\"practice-ai-result-completeness-v1\","
+                    + "\"status\":\"COMPLETE\",\"reason_code\":\"NONE\","
+                    + "\"rejected_item_count\":0},"
+                    + explanationJson.substring(explanationJson.indexOf('{') + 1);
+        }
         QuestionExplanationArtifact artifact = instantiate(QuestionExplanationArtifact.class);
         ReflectionTestUtils.setField(artifact, "id", id);
         ReflectionTestUtils.setField(

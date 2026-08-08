@@ -14,7 +14,7 @@ import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
 import com.ksh.features.practice.ai.writing.WritingEvaluationNormalizer;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.writing.WritingEvidenceLedgerVerifier;
-import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingFeedbackContractParser;
 import com.ksh.features.practice.ai.writing.WritingScoreAnchorPolicy;
 import com.ksh.features.practice.ai.writing.WritingTaskRequirementPolicy;
 import com.ksh.features.practice.dto.PracticeDtos;
@@ -97,7 +97,7 @@ public class PracticeProgressService {
     private final PracticeTestVersionRepository testVersionRepository;
     private final PracticeSectionVersionRepository sectionVersionRepository;
     private final PracticeQuestionVersionRepository questionVersionRepository;
-    private final WritingFeedbackCompatibilityReader writingFeedbackReader;
+    private final WritingFeedbackContractParser writingFeedbackParser;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -109,7 +109,7 @@ public class PracticeProgressService {
             PracticeTestVersionRepository testVersionRepository,
             PracticeSectionVersionRepository sectionVersionRepository,
             PracticeQuestionVersionRepository questionVersionRepository,
-            WritingFeedbackCompatibilityReader writingFeedbackReader,
+            WritingFeedbackContractParser writingFeedbackParser,
             ObjectMapper objectMapper
     ) {
         this(
@@ -119,7 +119,7 @@ public class PracticeProgressService {
                 testVersionRepository,
                 sectionVersionRepository,
                 questionVersionRepository,
-                writingFeedbackReader,
+                writingFeedbackParser,
                 objectMapper,
                 Clock.systemDefaultZone());
     }
@@ -131,7 +131,7 @@ public class PracticeProgressService {
             PracticeTestVersionRepository testVersionRepository,
             PracticeSectionVersionRepository sectionVersionRepository,
             PracticeQuestionVersionRepository questionVersionRepository,
-            WritingFeedbackCompatibilityReader writingFeedbackReader,
+            WritingFeedbackContractParser writingFeedbackParser,
             ObjectMapper objectMapper,
             Clock clock
     ) {
@@ -141,7 +141,7 @@ public class PracticeProgressService {
         this.testVersionRepository = testVersionRepository;
         this.sectionVersionRepository = sectionVersionRepository;
         this.questionVersionRepository = questionVersionRepository;
-        this.writingFeedbackReader = writingFeedbackReader;
+        this.writingFeedbackParser = writingFeedbackParser;
         this.objectMapper = objectMapper;
         this.clock = clock;
     }
@@ -1035,9 +1035,6 @@ public class PracticeProgressService {
                 if (root == null || !root.isObject()) {
                     payloadReason =
                             ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED;
-                } else if (writingFeedbackReader.isLegacyFlatFeedback(root)) {
-                    payloadReason =
-                            ProgressExclusionReason.WRITING_LEGACY_SCORE_EVIDENCE;
                 }
             } catch (Exception ex) {
                 payloadReason =
@@ -1121,13 +1118,13 @@ public class PracticeProgressService {
             WritingTaskType immutableTask,
             JsonNode entry
     ) {
-        WritingFeedbackCompatibilityReader.EntryResult parsed =
-                writingFeedbackReader.parseStoredEntry(entry);
-        if (parsed.status() == WritingFeedbackCompatibilityReader.Status.MISSING) {
+        WritingFeedbackContractParser.EntryResult parsed =
+                writingFeedbackParser.parseStoredEntry(entry);
+        if (parsed.status() == WritingFeedbackContractParser.Status.MISSING) {
             return WritingEvidence.excluded(
                     ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MISSING);
         }
-        if (parsed.status() != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+        if (parsed.status() != WritingFeedbackContractParser.Status.VALID_CURRENT
                 || parsed.value() == null) {
             return WritingEvidence.excluded(
                     ProgressExclusionReason.WRITING_SCORE_EVIDENCE_MALFORMED);
@@ -1146,11 +1143,7 @@ public class PracticeProgressService {
             return WritingEvidence.excluded(
                     ProgressExclusionReason.WRITING_EVALUATION_NOT_SCORE_BEARING);
         }
-        if ("LEGACY_EVALUATED".equals(value.evaluationStatus())
-                || "LEGACY".equals(value.evaluationSource())
-                || WritingFeedbackCompatibilityReader.LEGACY_SCORING_CONTRACT
-                .equals(value.scoringContract())
-                || value.scoringContract() == null
+        if (value.scoringContract() == null
                 || value.scoringContract().isBlank()
                 || !WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
                 value.policyBundleId())) {

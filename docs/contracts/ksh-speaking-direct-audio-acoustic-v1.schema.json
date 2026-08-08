@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ksh.local/contracts/ksh-speaking-direct-audio-acoustic-v1.schema.json",
+  "title": "KSH Speaking direct-audio acoustic observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "language", "evidence_mode", "evaluation_status",
+    "evaluator", "policy", "calibration", "audio_consumption",
+    "audio_duration_ms", "observations", "provider_observation_total",
+    "provider_confidence", "score_release"
+  ],
+  "properties": {
+    "contract_version": { "const": "ksh-speaking-direct-audio-acoustic-v1" },
+    "language": { "const": "ko-KR" },
+    "evidence_mode": { "const": "DIRECT_AUDIO" },
+    "evaluation_status": { "const": "OBSERVED" },
+    "evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluator_id", "model", "capability_id"],
+      "properties": {
+        "evaluator_id": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "capability_id": { "const": "KSH_DIRECT_AUDIO_ACOUSTIC_EVALUATION_V1" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_bundle_id", "policy_bundle_fingerprint"],
+      "properties": {
+        "policy_bundle_id": { "const": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1" },
+        "policy_bundle_fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id", "version", "corpus_evidence_id",
+        "acoustic_calibration_evidence_id", "fairness_evidence_id",
+        "repeatability_evidence_id"
+      ],
+      "properties": {
+        "profile_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "corpus_evidence_id": { "type": "string", "minLength": 1 },
+        "acoustic_calibration_evidence_id": { "type": "string", "minLength": 1 },
+        "fairness_evidence_id": { "type": "string", "minLength": 1 },
+        "repeatability_evidence_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "audio_consumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_request_id", "audio_consumed", "audio_digest",
+        "provider_cache_identity", "provenance_digest"
+      ],
+      "properties": {
+        "provider_request_id": { "type": "string", "minLength": 1 },
+        "audio_consumed": { "const": true },
+        "audio_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "provider_cache_identity": { "type": "string", "minLength": 1 },
+        "provenance_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "audio_duration_ms": { "type": "integer", "minimum": 1, "maximum": 600000 },
+    "observations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/dimensionObservation" }
+    },
+    "provider_observation_total": { "type": "number", "minimum": 0, "maximum": 2 },
+    "provider_confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "score_release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligible", "reason"],
+      "properties": {
+        "eligible": { "const": false },
+        "reason": { "const": "DARK_ROLLOUT_ONLY" }
+      }
+    }
+  },
+  "$defs": {
+    "dimensionObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "signal_value", "confidence", "evidence"],
+      "properties": {
+        "dimension": { "enum": ["PRONUNCIATION", "FLUENCY"] },
+        "signal_value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidenceSpan" }
+        }
+      }
+    },
+    "evidenceSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "start_ms", "end_ms", "confidence", "observation"],
+      "properties": {
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "start_ms": { "type": "integer", "minimum": 0 },
+        "end_ms": { "type": "integer", "minimum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "observation": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

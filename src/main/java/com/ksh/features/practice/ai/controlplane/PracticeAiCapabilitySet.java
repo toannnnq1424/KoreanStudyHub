@@ -8,8 +8,19 @@ public record PracticeAiCapabilitySet(
         boolean imageInput,
         boolean transcriptTextInput,
         boolean batchTranscription,
-        boolean speechSynthesis
+        boolean speechSynthesis,
+        boolean directAudioInput
 ) {
+    public PracticeAiCapabilitySet(
+            boolean strictJsonSchema,
+            boolean imageInput,
+            boolean transcriptTextInput,
+            boolean batchTranscription,
+            boolean speechSynthesis) {
+        this(strictJsonSchema, imageInput, transcriptTextInput,
+                batchTranscription, speechSynthesis, false);
+    }
+
     public Set<String> enabledCodes() {
         Set<String> result = new LinkedHashSet<>();
         if (strictJsonSchema) {
@@ -26,6 +37,9 @@ public record PracticeAiCapabilitySet(
         }
         if (speechSynthesis) {
             result.add("SPEECH_SYNTHESIS");
+        }
+        if (directAudioInput) {
+            result.add("DIRECT_AUDIO_INPUT");
         }
         return Set.copyOf(result);
     }

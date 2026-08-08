@@ -145,17 +145,12 @@ class SpeakingEvaluationReusePolicyTest {
     }
 
     @Test
-    void legacyOrMockIsNotReusableWhenRealProviderIsEnabled() {
+    void mockIsNotReusableWhenRealProviderIsEnabled() {
         SpeakingEvaluationIdentity identity = audioIdentity(
                 1L, 2L, 12L, 3L, "gpt-4o-mini-transcribe",
                 "models/gemini-2.5-flash", "speaking-eval-v1",
                 "speaking-rubric-v1", "speaking-schema-v1");
 
-        assertThat(policy.decide(result(SpeakingEvaluationStatus.LEGACY_RESULT,
-                SpeakingEvaluationSource.LEGACY, true, false, 12L, 3L,
-                "gpt-4o-mini-transcribe", "models/gemini-2.5-flash",
-                "speaking-eval-v1", "speaking-rubric-v1", "speaking-schema-v1",
-                "저는 학생입니다."), identity, true).reuse()).isFalse();
         assertThat(policy.decide(result(SpeakingEvaluationStatus.MOCK_EVALUATED,
                 SpeakingEvaluationSource.MOCK, true, false, 12L, 3L,
                 "gpt-4o-mini-transcribe", "models/gemini-2.5-flash",
@@ -406,15 +401,13 @@ class SpeakingEvaluationReusePolicyTest {
         promptVersion = currentPromptVersion(promptVersion);
         rubricVersion = currentRubricVersion(rubricVersion);
         schemaVersion = currentSchemaVersion(schemaVersion);
-        boolean legacy = status == SpeakingEvaluationStatus.LEGACY_RESULT
-                || status == SpeakingEvaluationStatus.MOCK_EVALUATED
-                || source == SpeakingEvaluationSource.LEGACY
+        boolean nonCurrent = status == SpeakingEvaluationStatus.MOCK_EVALUATED
                 || source == SpeakingEvaluationSource.MOCK;
         boolean successfulCurrentContract =
                 status == SpeakingEvaluationStatus.EVALUATED
                         || status
                         == SpeakingEvaluationStatus.TEXT_FALLBACK_EVALUATED;
-        if (!legacy && successfulCurrentContract) {
+        if (!nonCurrent && successfulCurrentContract) {
             String effectiveTranscript = actuallyHeardTranscript == null
                     ? "저는 학생입니다." : actuallyHeardTranscript;
             String finalPromptVersion = promptVersion;
@@ -459,13 +452,13 @@ class SpeakingEvaluationReusePolicyTest {
                 promptVersion,
                 rubricVersion,
                 schemaVersion,
-                legacy ? null
+                nonCurrent ? null
                         : SpeakingAssessmentPolicyBundle.POLICY_BUNDLE_ID,
-                legacy ? SpeakingEvaluatorCapability.LEGACY_UNKNOWN
+                nonCurrent ? SpeakingEvaluatorCapability.LEGACY_UNKNOWN
                         : SpeakingEvaluatorCapability.TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
-                legacy ? SpeakingEvidenceMode.UNKNOWN : SpeakingEvidenceMode.TRANSCRIPT_ONLY,
-                legacy ? null : SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
-                legacy ? SpeakingContractTrust.LEGACY_UNVERIFIED
+                nonCurrent ? SpeakingEvidenceMode.UNKNOWN : SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                nonCurrent ? null : SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION,
+                nonCurrent ? SpeakingContractTrust.LEGACY_UNVERIFIED
                         : SpeakingContractTrust.CURRENT_VERIFIED,
                 null,
                 null,

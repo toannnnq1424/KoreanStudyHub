@@ -1,0 +1,260 @@
+{
+  "schemaVersion": "practice-topik35-canonical-seed-bundle-v1",
+  "bundleId": "topik35-v1",
+  "capturedAt": "2026-08-03",
+  "status": "PROVENANCE_CAPTURED_CONTENT_QA_PENDING",
+  "sourceAuthority": "REPO_MANIFEST_LOCAL_ASSETS_DO_NOT_LOAD",
+  "loadPolicy": {
+    "disposableLocalOnly": true,
+    "sharedDatabaseAllowed": false,
+    "productionDatabaseAllowed": false,
+    "flywayMigration": false,
+    "massQuestionImport": false
+  },
+  "rights": {
+    "assertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+    "assertedBy": "USER_DATA_OWNER",
+    "scope": "EXPERIMENTAL_REUSE_OF_SUPPLIED_URLS_AND_LINKED_ROUTES_INCLUDING_YOUTUBE_AUDIO_TO_MP3",
+    "learnerAttributionRequired": false,
+    "metadataVisibility": "OPERATIONS_ONLY"
+  },
+  "storageContract": {
+    "port": "AssetStorageService",
+    "profileCode": "PRACTICE_AUTHORING",
+    "currentBackend": "LOCAL",
+    "futureBackendCompatible": "R2",
+    "logicalKeyOnly": true,
+    "absoluteLocalPathAllowed": false,
+    "bucketOrDeliveryUrlStored": false,
+    "deliveryResolvedServerSide": true,
+    "legacyAudioUrlColumnsLoaded": false,
+    "prefixes": [
+      "practice-seed/topik35-v1/source/document/",
+      "practice-seed/topik35-v1/source/audio/",
+      "practice-seed/topik35-v1/source/image/",
+      "practice-seed/topik35-v1/derived/audio-mp3/",
+      "practice-seed/topik35-v1/derived/page-image/",
+      "practice-seed/topik35-v1/derived/transcript/",
+      "practice-seed/topik35-v1/review/artifact/"
+    ]
+  },
+  "artifacts": [
+    {
+      "artifactId": "topik35-source-index",
+      "role": "SOURCE_DOCUMENT",
+      "logicalKey": "practice-seed/topik35-v1/source/document/3feaac13d1080d46bc990656d0275624853aa4ad22772a7077074287e64c5818.html",
+      "mediaType": "text/html",
+      "originalSource": "https://giasutamtaiduc.com/tai-de-thi-topik-35.html",
+      "sourceUrls": ["https://giasutamtaiduc.com/tai-de-thi-topik-35.html"],
+      "originalIdentity": "tai-de-thi-topik-35",
+      "sha256": "3feaac13d1080d46bc990656d0275624853aa4ad22772a7077074287e64c5818",
+      "sizeBytes": 78248,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "CAPTURED",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-listening-writing-pdf",
+      "role": "SOURCE_DOCUMENT",
+      "logicalKey": "practice-seed/topik35-v1/source/document/cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323.pdf",
+      "mediaType": "application/pdf",
+      "originalSource": "https://drive.google.com/file/d/1Z9rSAlv3pE6LIc00WsaRfhetTVVyDIX3/view",
+      "sourceUrls": [
+        "https://drive.google.com/file/d/1Z9rSAlv3pE6LIc00WsaRfhetTVVyDIX3/view",
+        "https://drive.google.com/file/d/1Y32w64vfZXIyWrJm-EWMbRU7jr7lGYXW/preview"
+      ],
+      "originalIdentity": "drive-files-1Z9rSAlv3pE6LIc00WsaRfhetTVVyDIX3-and-1Y32w64vfZXIyWrJm-EWMbRU7jr7lGYXW-byte-identical",
+      "sha256": "cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323",
+      "sizeBytes": 949386,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "CAPTURED_ALIAS_BYTES_IDENTICAL",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-reading-pdf",
+      "role": "SOURCE_DOCUMENT",
+      "logicalKey": "practice-seed/topik35-v1/source/document/d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd.pdf",
+      "mediaType": "application/pdf",
+      "originalSource": "https://drive.google.com/file/d/1l3ZJmgYIJgusIMqt3LDuLc0T_-0sLWMn/preview",
+      "sourceUrls": ["https://drive.google.com/file/d/1l3ZJmgYIJgusIMqt3LDuLc0T_-0sLWMn/preview"],
+      "originalIdentity": "drive-file-1l3ZJmgYIJgusIMqt3LDuLc0T_-0sLWMn",
+      "sha256": "d3618891f8afdb4739754067ab8268632998fc522ee0a5519b1286984454a4cd",
+      "sizeBytes": 13902947,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "CAPTURED_FONT_EXTRACTION_QA_REQUIRED",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-answer-key-pdf",
+      "role": "SOURCE_DOCUMENT",
+      "logicalKey": "practice-seed/topik35-v1/source/document/60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b.pdf",
+      "mediaType": "application/pdf",
+      "originalSource": "https://drive.google.com/file/d/1x_Obz1lCrqEcqdA5jCwUQMyBWdE0xy02/preview",
+      "sourceUrls": ["https://drive.google.com/file/d/1x_Obz1lCrqEcqdA5jCwUQMyBWdE0xy02/preview"],
+      "originalIdentity": "drive-file-1x_Obz1lCrqEcqdA5jCwUQMyBWdE0xy02",
+      "sha256": "60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b",
+      "sizeBytes": 261669,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "CAPTURED",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-listening-transcript-pdf",
+      "role": "SOURCE_DOCUMENT",
+      "logicalKey": "practice-seed/topik35-v1/source/document/25caa51ee044b020f84b75fae2f64b5d95fbb35ebef07f58d5d8fc9186df3922.pdf",
+      "mediaType": "application/pdf",
+      "originalSource": "https://drive.google.com/file/d/1axfQN8lFoWYQ_e4JNmLsyATTBYLH1tGt/preview",
+      "sourceUrls": ["https://drive.google.com/file/d/1axfQN8lFoWYQ_e4JNmLsyATTBYLH1tGt/preview"],
+      "originalIdentity": "drive-file-1axfQN8lFoWYQ_e4JNmLsyATTBYLH1tGt",
+      "sha256": "25caa51ee044b020f84b75fae2f64b5d95fbb35ebef07f58d5d8fc9186df3922",
+      "sizeBytes": 951996,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "CAPTURED_CONTENT_QA_PENDING",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-listening-youtube-original-audio",
+      "role": "SOURCE_AUDIO",
+      "logicalKey": "practice-seed/topik35-v1/source/audio/beb8c362a7ebe9905467fdfd637aa9db15ebfdd8fb28e22f08ed574f3ef0fcaf.m4a",
+      "mediaType": "audio/mp4",
+      "originalSource": "https://www.youtube.com/watch?v=zqd7AQTKk6k",
+      "sourceUrls": ["https://www.youtube.com/watch?v=zqd7AQTKk6k"],
+      "originalIdentity": "youtube-video-zqd7AQTKk6k-format-140-aac-44100hz-stereo-upload-20190911-channel-UCYOLS4hFNIpCGbwSSzz-WvA",
+      "sha256": "beb8c362a7ebe9905467fdfd637aa9db15ebfdd8fb28e22f08ed574f3ef0fcaf",
+      "sizeBytes": 61453300,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "CAPTURED",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-listening-program-mp3",
+      "role": "DERIVED_AUDIO_MP3",
+      "logicalKey": "practice-seed/topik35-v1/derived/audio-mp3/0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1.mp3",
+      "mediaType": "audio/mpeg",
+      "originalSource": "topik35-listening-youtube-original-audio",
+      "sourceUrls": ["https://www.youtube.com/watch?v=zqd7AQTKk6k"],
+      "originalIdentity": "ffmpeg-8.1.2-libmp3lame-cbr-128k-44100hz-stereo-duration-ms-3797136",
+      "sha256": "0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1",
+      "sizeBytes": 60755426,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "DERIVED_CAPTURED",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-youtube-auto-caption",
+      "role": "DERIVED_TRANSCRIPT",
+      "logicalKey": "practice-seed/topik35-v1/derived/transcript/50bfb72cddb954cc2fe3c235591f128917b33c9a91832bb13ebc88209b672bb7.vtt",
+      "mediaType": "text/vtt",
+      "originalSource": "topik35-listening-youtube-original-audio",
+      "sourceUrls": ["https://www.youtube.com/watch?v=zqd7AQTKk6k"],
+      "originalIdentity": "youtube-korean-original-auto-caption-vtt",
+      "sha256": "50bfb72cddb954cc2fe3c235591f128917b33c9a91832bb13ebc88209b672bb7",
+      "sizeBytes": 233498,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "NON_AUTHORITATIVE_AUTO_CAPTION_QA_ONLY",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-youtube-capture-metadata",
+      "role": "REVIEW_ARTIFACT",
+      "logicalKey": "practice-seed/topik35-v1/review/artifact/a75a506b38d61fc6661e99652c44b4e68968c125aff91e9424ea874ca2ce53a6.json",
+      "mediaType": "application/json",
+      "originalSource": "topik35-listening-youtube-original-audio",
+      "sourceUrls": ["https://www.youtube.com/watch?v=zqd7AQTKk6k"],
+      "originalIdentity": "yt-dlp-2026.7.4-capture-info-json",
+      "sha256": "a75a506b38d61fc6661e99652c44b4e68968c125aff91e9424ea874ca2ce53a6",
+      "sizeBytes": 554700,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "REVIEW_ONLY_CAPTURED",
+      "learnerVisible": false
+    },
+    {
+      "artifactId": "topik35-writing-q53-chart",
+      "role": "DERIVED_PAGE_IMAGE",
+      "logicalKey": "practice-seed/topik35-v1/derived/page-image/47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1.png",
+      "mediaType": "image/png",
+      "originalSource": "topik35-listening-writing-pdf",
+      "sourceUrls": [
+        "https://drive.google.com/file/d/1Z9rSAlv3pE6LIc00WsaRfhetTVVyDIX3/view",
+        "https://drive.google.com/file/d/1Y32w64vfZXIyWrJm-EWMbRU7jr7lGYXW/preview"
+      ],
+      "originalIdentity": "pdf-page-17-printed-15-render-200dpi-crop-x295-y395-w1120-h620",
+      "sha256": "47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1",
+      "sizeBytes": 143548,
+      "retrievedAt": "2026-08-03",
+      "rightsAssertionId": "TOPIK35-EXPERIMENTAL-REUSE-USER-ASSERTION-20260803",
+      "provenanceStatus": "DERIVED_VISUALLY_VERIFIED",
+      "learnerVisible": false
+    }
+  ],
+  "listening": {
+    "questionCount": 50,
+    "singleOrderedAudioProgram": true,
+    "audioLogicalKey": "practice-seed/topik35-v1/derived/audio-mp3/0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1.mp3",
+    "examPlaybackPolicy": {
+      "startOnce": true,
+      "continuousPlayback": true,
+      "seekAllowed": false,
+      "replayAllowed": false,
+      "learnerControlsQuestionNavigation": true,
+      "timestampAutoNavigation": false,
+      "timestampAutoHighlight": false,
+      "timestampDrivenAssistance": false
+    },
+    "timingAuthority": {
+      "use": "AUTHOR_QA_PROVENANCE_AND_POST_TEST_REVIEW_ONLY",
+      "examModeUse": "FORBIDDEN",
+      "captionArtifactId": "topik35-youtube-auto-caption",
+      "captionTimestampUse": "PROHIBITED_FOR_TIMESTAMP_INFERENCE",
+      "allRangesRequireManualQa": true
+    },
+    "groups": [
+      {"groupId":"L01_03","questionFrom":1,"questionTo":3,"instruction":"다음을 듣고 알맞은 그림을 고르십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L04_08","questionFrom":4,"questionTo":8,"instruction":"다음 대화를 잘 듣고 이어질 수 있는 말을 고르십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L09_12","questionFrom":9,"questionTo":12,"instruction":"다음 대화를 잘 듣고 여자가 이어서 할 행동으로 알맞은 것을 고르십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L13_16","questionFrom":13,"questionTo":16,"instruction":"다음을 듣고 내용과 일치하는 것을 고르십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L17_20","questionFrom":17,"questionTo":20,"instruction":"다음을 듣고 남자의 중심 생각을 고르십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L21_22","questionFrom":21,"questionTo":22,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L23_24","questionFrom":23,"questionTo":24,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L25_26","questionFrom":25,"questionTo":26,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L27_28","questionFrom":27,"questionTo":28,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L29_30","questionFrom":29,"questionTo":30,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L31_32","questionFrom":31,"questionTo":32,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L33_34","questionFrom":33,"questionTo":34,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L35_36","questionFrom":35,"questionTo":36,"instruction":"다음을 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L37_38","questionFrom":37,"questionTo":38,"instruction":"다음은 교양 프로그램입니다. 잘 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L39_40","questionFrom":39,"questionTo":40,"instruction":"다음은 대담입니다. 잘 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L41_42","questionFrom":41,"questionTo":42,"instruction":"다음은 강연입니다. 잘 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L43_44","questionFrom":43,"questionTo":44,"instruction":"다음은 다큐멘터리입니다. 잘 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L45_46","questionFrom":45,"questionTo":46,"instruction":"다음은 강연입니다. 잘 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L47_48","questionFrom":47,"questionTo":48,"instruction":"다음은 인터뷰입니다. 잘 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"},
+      {"groupId":"L49_50","questionFrom":49,"questionTo":50,"instruction":"다음은 강연입니다. 잘 듣고 물음에 답하십시오.","startMs":null,"endMs":null,"timingStatus":"PENDING_MANUAL_QA"}
+    ]
+  },
+  "postTestReview": {
+    "enabledByThisBundle": false,
+    "targetLayout": {
+      "leftPane": "TRANSCRIPT",
+      "rightPane": "EXPLANATION"
+    },
+    "testModePlaybackPolicyUnchanged": true,
+    "timingMayBeUsedAfterManualQa": true
+  },
+  "contentScope": {
+    "seededNow": "PROVENANCE_STORAGE_AND_GROUP_STRUCTURE_ONLY",
+    "questionBodiesSeeded": false,
+    "answerKeyLoaded": false,
+    "transcriptPublished": false,
+    "explanationsGenerated": false,
+    "remainingGate": "MANUAL_CONTENT_TRANSCRIPTION_IMAGE_MAPPING_AND_TIMING_QA"
+  }
+}

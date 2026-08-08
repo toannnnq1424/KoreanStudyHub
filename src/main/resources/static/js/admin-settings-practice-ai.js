@@ -25,7 +25,23 @@
     var providerOptions = document.getElementById('provider-profile-options');
     var modelInput = document.getElementById('model');
     var suggestions = document.getElementById('model-suggestions');
+    var directAudioVerification = document.getElementById('direct-audio-model-verification');
     var modelSearchQuery = '';
+    var credentialMode = document.getElementById('credentialMode');
+    var credentialSecret = document.getElementById('credentialSecret');
+
+    function syncCredentialMode() {
+      if (!credentialMode || !credentialSecret) return;
+      var adc = credentialMode.value === 'GOOGLE_CLOUD_ADC';
+      credentialSecret.disabled = adc;
+      credentialSecret.required = !adc;
+      if (adc) credentialSecret.value = '';
+    }
+
+    if (credentialMode && credentialSecret) {
+      credentialMode.addEventListener('change', syncCredentialMode);
+      syncCredentialMode();
+    }
 
     function comboboxOption(value) {
       if (!providerOptions) return null;
@@ -115,6 +131,11 @@
         var path = parsed.pathname.replace(/\/+$/, '');
         if (parsed.hostname === 'api.openai.com' && path === '/v1') return 'openai';
         if (parsed.hostname === 'generativelanguage.googleapis.com' && path === '/v1beta/openai') return 'gemini';
+        if ((parsed.hostname === 'aiplatform.googleapis.com'
+          || /^[a-z0-9-]+-aiplatform\.googleapis\.com$/.test(parsed.hostname))
+          && /^\/v1(?:beta1)?\/projects\/[^/]+\/locations\/[^/]+\/endpoints\/openapi$/.test(path)) {
+          return 'gemini-enterprise';
+        }
         if (parsed.hostname === 'api.deepseek.com' && path === '/v1') return 'deepseek';
         var alibabaHost = parsed.hostname === 'dashscope.aliyuncs.com'
           || parsed.hostname === 'dashscope-intl.aliyuncs.com'
@@ -161,6 +182,19 @@
       if (empty) empty.hidden = matching.length > 0 || !group.querySelector('[data-model]');
     }
 
+    function syncDirectAudioVerification() {
+      if (!directAudioVerification || !modelInput) return;
+      var group = currentModelGroup();
+      var verified = group && Array.from(group.querySelectorAll(
+        '[data-model][data-verification="verified"]')).some(function (button) {
+          return button.getAttribute('data-model') === modelInput.value.trim();
+        });
+      directAudioVerification.classList.toggle('is-unverified', !verified);
+      directAudioVerification.textContent = verified
+        ? 'Gợi ý provider/model đã xác minh kỹ thuật. Vẫn cần đủ policy evidence và readiness trước khi bật.'
+        : 'Model tùy chỉnh · Cần kiểm tra. Có thể lưu nháp nhưng không thể bật hoặc gửi audio.';
+    }
+
     function openModelSuggestions() {
       if (!modelInput || !suggestions || !providerSelect?.value || modelInput.disabled) return;
       suggestions.hidden = false;
@@ -195,6 +229,7 @@
       modelSearchQuery = '';
       closeModelSuggestions();
       filterModelSuggestions();
+      syncDirectAudioVerification();
     }
 
     if (providerSelect && modelInput && suggestions) {
@@ -205,6 +240,7 @@
         modelInput.value = button.getAttribute('data-model');
         modelSearchQuery = '';
         modelInput.dispatchEvent(new Event('change', { bubbles: true }));
+        syncDirectAudioVerification();
         modelInput.focus();
         closeModelSuggestions();
         announce('Đã điền model ' + modelInput.value);
@@ -222,6 +258,7 @@
         modelSearchQuery = modelInput.value;
         openModelSuggestions();
         filterModelSuggestions();
+        syncDirectAudioVerification();
       });
       modelInput.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {

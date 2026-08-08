@@ -401,7 +401,9 @@ class PracticeFunctionalUiContractTest {
 
         assertThat(fullCommand).contains(
                 "requireReEvaluationAttempt",
-                "loadWritingReEvaluationSnapshot",
+                "loadWritingReEvaluationSnapshot");
+        assertThat(fullCommand).doesNotContain(
+                "NonWritingEssayGradingSnapshot",
                 "loadNonWritingEssayReEvaluationSnapshot");
         assertThat(fullCommand.indexOf("requireReEvaluationAttempt"))
                 .isLessThan(
@@ -700,7 +702,7 @@ class PracticeFunctionalUiContractTest {
                         "Mã dẫn chứng", "Digest tài sản",
                         "data-strategy-code", "data-strategy-renderer",
                         "aiArtifactProvenance()", "learnerAnswerProvenance()",
-                        "legacyFallback()", "constructRegistryNote()",
+                        "constructRegistryNote()",
                         "prd-objective-inline-evidence",
                         "prd-objective-all-evidence",
                         "prd-objective-tfng-proof",

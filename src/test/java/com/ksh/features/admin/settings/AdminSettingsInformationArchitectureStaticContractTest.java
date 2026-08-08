@@ -19,6 +19,8 @@ class AdminSettingsInformationArchitectureStaticContractTest {
             "https://aistudio.google.com/apikey",
             "https://platform.deepseek.com/api_keys",
             "https://www.alibabacloud.com/help/en/model-studio/get-api-key",
+            "https://console.x.ai/team/default/api-keys",
+            "https://console.groq.com/keys",
             "https://developers.cloudflare.com/r2/api/tokens/");
 
     @Test
@@ -35,13 +37,13 @@ class AdminSettingsInformationArchitectureStaticContractTest {
     }
 
     @Test
-    void practiceAiIsSimpleFirstThreeStepControlPlaneWithSixPurposeStates() throws Exception {
+    void practiceAiIsSimpleFirstThreeStepCapabilityAwareControlPlane() throws Exception {
         String list = read("settings-practice-ai.html");
         String profile = read("settings-practice-ai-profile-form.html");
         String binding = read("settings-practice-ai-binding-form.html");
         assertThat(list)
                 .contains("Chọn nhà cung cấp", "Chọn model", "Gán cho mục đích")
-                .contains("enabledBindingCount == 6", "0 / 6 sẵn sàng")
+                .contains("enabledBindingCount == purposeCount", "purposeCount + ' đã bật'")
                 .contains("Chưa thiết lập", "Sẵn sàng", "Tạm tắt", "Cần kiểm tra")
                 .contains("không fallback sang AI toàn hệ thống")
                 .doesNotContain("<table", ">ACTIVE<", ">DISABLED<", ">MISSING<");
@@ -55,6 +57,13 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("Chi tiết kỹ thuật / Nâng cao")
                 .contains("connectTimeoutMs", "readTimeoutMs", "maxRetries")
                 .contains("maxRequestBytes", "maxResponseBytes", "retentionCode")
+                .contains("directAudioInput", "nonTrainingEvidenceId",
+                        "retentionEvidenceId")
+                .contains("Khu vực xử lý và SLA xóa phía nhà cung cấp không phải release gate")
+                .doesNotContain("id=\"regionEvidenceId\"", "id=\"deletionSlaEvidenceId\"")
+                .contains("Gợi ý đã xác minh")
+                .contains("model tùy chỉnh hoặc model mới")
+                .contains("Có thể lưu nháp nhưng không thể bật hoặc gửi audio")
                 .contains("không fallback global")
                 .contains("th:href=\"@{/admin/settings/practice-ai/profiles/new}\"")
                 .contains("Thêm nhà cung cấp")
@@ -195,7 +204,8 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 "withProviderProfileId");
         assertThat(controller)
                 .contains("/edit?profileId=", "@RequestParam(required = false) Long profileId")
-                .contains("Đã lưu nhà cung cấp. Tiếp theo");
+                .contains("Đã lưu nhà cung cấp. Tiếp theo")
+                .contains("isDirectAudioProfile(form)");
         assertThat(profile).contains("Lưu và chọn model", "Chưa thể lưu nhà cung cấp");
         assertThat(profile).contains("Các dịch vụ dưới đây có endpoint OpenAI-compatible")
                 .contains("Practice vẫn kiểm tra strict schema và audio riêng");
@@ -221,6 +231,17 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("parsed.hostname === 'api.deepseek.com'")
                 .contains("parsed.hostname === 'dashscope-intl.aliyuncs.com'")
                 .contains("path === '/compatible-mode/v1'");
+        assertThat(practiceAiJs)
+                .contains("syncDirectAudioVerification")
+                .contains("data-verification=\"verified\"")
+                .contains("Model tùy chỉnh · Cần kiểm tra");
+        assertThat(css).contains(".settings-model-verification.is-unverified");
+        assertThat(profile)
+                .contains("GOOGLE_CLOUD_ADC", "không lưu secret")
+                .contains("id=\"credentialMode\"");
+        assertThat(practiceAiJs)
+                .contains("syncCredentialMode", "credentialSecret.disabled = adc")
+                .contains("credentialSecret.value = ''");
 
         assertThat(editor)
                 .contains("pi-body practice-editor-body")

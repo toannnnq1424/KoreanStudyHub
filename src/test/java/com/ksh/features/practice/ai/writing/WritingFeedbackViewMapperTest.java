@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import com.ksh.features.practice.dto.PracticeDtos.WritingFeedbackView;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,7 @@ class WritingFeedbackViewMapperTest {
 
     @Test
     void legacyCriterionWithoutLabelsOrEvidenceScopeRemainsReadable() throws Exception {
-        JsonNode payload = objectMapper.readTree("""
+        JsonNode payload = current("""
                 {"strengths":[{"criterionId":"W_SENTENCE_VARIETY","evidence":"답안","explanationVi":"ok","correction":""}]}
                 """);
 
@@ -37,7 +38,7 @@ class WritingFeedbackViewMapperTest {
 
     @Test
     void mapsAllConfirmedFieldsAndPreservesOrder() throws Exception {
-        JsonNode node = objectMapper.readTree("""
+        JsonNode node = current("""
                 {
                   "raw_score":8.5,
                   "raw_score_max":10,
@@ -94,7 +95,7 @@ class WritingFeedbackViewMapperTest {
 
     @Test
     void providerLabelsCannotOverrideKshDescriptorLabels() throws Exception {
-        JsonNode payload = objectMapper.readTree("""
+        JsonNode payload = current("""
                 {"needs_improvement":[{
                   "criterionId":"W_GRAMMAR_ERRORS",
                   "category":"Content",
@@ -115,7 +116,7 @@ class WritingFeedbackViewMapperTest {
     @Test
     void providerCategoryCannotReclassifyAnnotationAndUnknownOrInactiveIdsAreRejected()
             throws Exception {
-        JsonNode payload = objectMapper.readTree("""
+        JsonNode payload = current("""
                 {"annotations":[
                   {"id":"valid","criterionId":"W_GRAMMAR_ERRORS","category":"CONTENT",
                    "start":0,"end":4,"evidence":"문법","explanationVi":"Lỗi ngữ pháp"},
@@ -143,6 +144,9 @@ class WritingFeedbackViewMapperTest {
         node.put("raw_score", new BigDecimal("0.12345678901234567890"));
         node.put("raw_score_max", 10);
         node.put("score", new BigDecimal("7.00000000000000000001"));
+        node.set(PracticeAiResultCompleteness.FIELD,
+                objectMapper.valueToTree(
+                        PracticeAiResultCompleteness.complete().toMap()));
 
         WritingFeedbackView view = mapper.map(node);
 
@@ -153,7 +157,7 @@ class WritingFeedbackViewMapperTest {
 
     @Test
     void textualNumbersAndNonTextScalarsBecomeNull() throws Exception {
-        JsonNode node = objectMapper.readTree("""
+        JsonNode node = current("""
                 {"raw_score":"8","raw_score_max":true,"score":{},"summary":7,"summary_vi":null,"upgraded_answer":["bad"],"sample_answer":false}
                 """);
 
@@ -170,7 +174,7 @@ class WritingFeedbackViewMapperTest {
 
     @Test
     void optionalArraysDefaultEmptyAndIgnoreNonObjectElements() throws Exception {
-        JsonNode node = objectMapper.readTree("""
+        JsonNode node = current("""
                 {
                   "rubric_scores":"bad",
                   "strengths":null,
@@ -197,7 +201,7 @@ class WritingFeedbackViewMapperTest {
 
     @Test
     void unknownFieldsAreIgnoredAndInputIsNotMutated() throws Exception {
-        JsonNode node = objectMapper.readTree("""
+        JsonNode node = current("""
                 {"raw_score":8,"raw_score_max":10,"unknown":{"nested":true},"rubric_scores":[{"name":"n","score":8,"feedback":"f","extra":"x"}]}
                 """);
         String before = node.toString();
@@ -217,8 +221,37 @@ class WritingFeedbackViewMapperTest {
     }
 
     @Test
+    void missingCompletenessCannotReachThePresenterMapper() throws Exception {
+        assertNull(mapper.map(objectMapper.readTree(
+                "{\"raw_score\":8,\"score_available\":true}")));
+    }
+
+    @Test
+    void partialDiagnosticsNeverRenderAZeroOrProviderScore() throws Exception {
+        ObjectNode node = (ObjectNode) objectMapper.readTree("""
+                {"raw_score":8,"raw_score_max":10,"score":80,
+                 "evaluation_status":"EVALUATION_PARTIAL_NON_SCORE",
+                 "score_available":false,
+                 "strengths":[{"criterionId":"W_GRAMMAR_ERRORS",
+                   "evidence":"문법","explanationVi":"Có bằng chứng"}]}
+                """);
+        node.set(PracticeAiResultCompleteness.FIELD,
+                objectMapper.valueToTree(PracticeAiResultCompleteness.partial(
+                        "DIAGNOSTIC_ITEMS_REJECTED", 1).toMap()));
+
+        WritingFeedbackView view = mapper.map(node);
+
+        assertNull(view.rawScore());
+        assertNull(view.rawScoreMax());
+        assertNull(view.score());
+        assertFalse(view.scoreAvailable());
+        assertEquals("EVALUATION_PARTIAL_NON_SCORE", view.evaluationStatus());
+        assertEquals(1, view.strengths().size());
+    }
+
+    @Test
     void serializesWritingFeedbackUsingCurrentFrontendPropertyNames() throws Exception {
-        WritingFeedbackView view = mapper.map(objectMapper.readTree("""
+        WritingFeedbackView view = mapper.map(current("""
                 {"raw_score":8,"raw_score_max":10,"score":7,"summary":"s","summary_vi":"sv","rubric_scores":[{"name":"n","score":8,"feedback":"f"}],"needs_improvement":[{"criterionId":"c"}],"upgraded_answer":"u","sentence_rewrites":[{"original":"o","upgraded":"n","reason":"r"}],"sample_answer":"sample"}
                 """));
 
@@ -242,5 +275,13 @@ class WritingFeedbackViewMapperTest {
     void typedViewContractDoesNotExposeJsonNodeOrObjectNodeFields() {
         assertFalse(Arrays.stream(WritingFeedbackView.class.getRecordComponents())
                 .anyMatch(component -> JsonNode.class.isAssignableFrom(component.getType())));
+    }
+
+    private JsonNode current(String json) throws Exception {
+        ObjectNode node = (ObjectNode) objectMapper.readTree(json);
+        node.set(PracticeAiResultCompleteness.FIELD,
+                objectMapper.valueToTree(
+                        PracticeAiResultCompleteness.complete().toMap()));
+        return node;
     }
 }

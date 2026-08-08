@@ -1,0 +1,16 @@
+[
+  { "case": "unknown_root_field", "op": "add", "pointer": "/unexpected", "value": true, "expected_code": "DIRECT_AUDIO_SCHEMA_ROOT_INVALID" },
+  { "case": "transcript_only", "op": "replace", "pointer": "/evidence_mode", "value": "TRANSCRIPT_ONLY", "expected_code": "DIRECT_AUDIO_EVIDENCE_MODE_INVALID" },
+  { "case": "wrong_model", "op": "replace", "pointer": "/evaluator/model", "value": "unverified-model", "expected_code": "DIRECT_AUDIO_MODEL_MISMATCH" },
+  { "case": "wrong_capability", "op": "replace", "pointer": "/evaluator/capability_id", "value": "TRANSCRIPT_ONLY", "expected_code": "DIRECT_AUDIO_CAPABILITY_MISMATCH" },
+  { "case": "wrong_policy", "op": "replace", "pointer": "/policy/policy_bundle_id", "value": "OTHER_POLICY", "expected_code": "DIRECT_AUDIO_POLICY_MISMATCH" },
+  { "case": "wrong_calibration", "op": "replace", "pointer": "/calibration/version", "value": "UNKNOWN", "expected_code": "DIRECT_AUDIO_CALIBRATION_NOT_READY" },
+  { "case": "missing_receipt", "op": "remove", "pointer": "/audio_consumption", "expected_code": "DIRECT_AUDIO_SCHEMA_ROOT_INVALID" },
+  { "case": "audio_not_consumed", "op": "replace", "pointer": "/audio_consumption/audio_consumed", "value": false, "expected_code": "DIRECT_AUDIO_CONSUMPTION_UNPROVEN" },
+  { "case": "invalid_timestamp", "op": "replace", "pointer": "/observations/0/evidence/0/end_ms", "value": 6000, "expected_code": "DIRECT_AUDIO_EVIDENCE_TIMESTAMP_INVALID" },
+  { "case": "signal_out_of_range", "op": "replace", "pointer": "/observations/0/signal_value", "value": 1.1, "expected_code": "DIRECT_AUDIO_SIGNAL_INVALID" },
+  { "case": "inconsistent_total", "op": "replace", "pointer": "/provider_observation_total", "value": 1.4, "expected_code": "DIRECT_AUDIO_TOTAL_INCONSISTENT" },
+  { "case": "inconsistent_confidence", "op": "replace", "pointer": "/provider_confidence", "value": 0.75, "expected_code": "DIRECT_AUDIO_CONFIDENCE_INCONSISTENT" },
+  { "case": "unsupported_language", "op": "replace", "pointer": "/language", "value": "en-US", "expected_code": "DIRECT_AUDIO_LANGUAGE_UNSUPPORTED" },
+  { "case": "provider_attempts_release", "op": "replace", "pointer": "/score_release/eligible", "value": true, "expected_code": "DIRECT_AUDIO_SCORE_RELEASE_FORBIDDEN" }
+]

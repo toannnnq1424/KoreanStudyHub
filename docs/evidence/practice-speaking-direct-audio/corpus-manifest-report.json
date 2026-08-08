@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "ksh-speaking-evidence-report-v1",
+  "kind": "CORPUS_MANIFEST_REPORT",
+  "captureDate": "2026-08-07",
+  "status": "TECHNICAL_CAPTURE_COMPLETE_REVIEW_PENDING",
+  "source": {
+    "name": "Mozilla Common Voice Scripted Speech Korean 26.0",
+    "datasetPage": "https://mozilladatacollective.com/datasets/cmqi922c5001pnq07dmj0oypw",
+    "license": "CC0-1.0",
+    "archiveSha256": "169b269b86f0acd959d3f2fd1c098838ec458dbe0d4077a62b4bdb31ab2e8c4b",
+    "publishedClipCount": 7178,
+    "publishedHours": 10.38,
+    "publishedSpeakerCount": 210,
+    "validatedClipCount": 1758,
+    "validatedHours": 2.54,
+    "restrictions": [
+      "Do not identify speakers.",
+      "Do not commit, rehost, or redistribute raw recordings from this repository."
+    ]
+  },
+  "selectedSample": {
+    "clipCount": 48,
+    "uniqueSpeakerCount": 48,
+    "genderSelfDeclared": {
+      "female_feminine": 15,
+      "male_masculine": 15,
+      "non-binary": 1,
+      "do_not_wish_to_say": 1,
+      "unspecified": 16
+    },
+    "ageSelfDeclared": {
+      "teens": 6,
+      "twenties": 13,
+      "thirties": 11,
+      "fourties": 4,
+      "fifties": 2,
+      "unspecified": 12
+    },
+    "durationSeconds": {"min": 2.376, "median": 5.868, "p95": 8.4798, "max": 10.656},
+    "nonSpaceCharacterCount": {"min": 5, "median": 25.0, "p95": 34.0, "max": 38},
+    "nonSpaceCharactersPerSecondProxy": {"min": 1.7361111111111112, "median": 3.79550018521768, "p95": 5.701826720698646, "max": 6.296296296296296},
+    "proxyWarning": "Orthographic character rate is not a fluency or proficiency label."
+  },
+  "coverage": {
+    "voiceDemographics": "PARTIAL_SELF_DECLARED",
+    "device": "MISSING",
+    "environment": "MISSING",
+    "repeatedTake": "MISSING",
+    "smeRater": "MISSING",
+    "nativeNonNative": "MISSING",
+    "proficiency": "MISSING",
+    "speakingQuality": "MISSING"
+  },
+  "syntheticProbes": {
+    "pinkNoiseClips": 8,
+    "telephonyBandClips": 8,
+    "disclosure": "Synthetic probes are not genuine device or environment observations and do not close those coverage requirements."
+  },
+  "limitations": [
+    "Common Voice votes represent transcript agreement, not speaking quality.",
+    "The dataset cannot supply good-versus-poor speaking labels or SME scoring acceptance.",
+    "Independent Korean SME, data, or calibration-owner review is required."
+  ],
+  "sourceAnalysisSha256": "697372bccec174289101d46dc1596bef47e31f66006a60a66a9545f85c34a7f0",
+  "containsRawAudio": false,
+  "containsCredentials": false
+}

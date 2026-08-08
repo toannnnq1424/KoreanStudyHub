@@ -175,6 +175,54 @@ class OpenAiCompatibleSpeakingEvaluationClientTest {
     }
 
     @Test
+    void transcriptScorerTransportOmitsAllLearnerAudioMetadata() {
+        TestPracticeStructuredGenerationPort port = port();
+        OpenAiCompatibleSpeakingEvaluationClient client = clientWithPort(port);
+        SpeakingEvaluationRequest base =
+                SpeakingEvaluationPromptBuilderTest.request(false);
+        SpeakingEvaluationRequest requestWithSensitiveMediaMetadata =
+                new SpeakingEvaluationRequest(
+                        base.attemptId(), base.questionId(),
+                        base.questionVersionId(), base.promptContext(),
+                        base.promptContextFingerprint(),
+                        base.promptContextContractIdentity(),
+                        base.questionText(), base.targetLevel(),
+                        base.expectedAnswerGuidance(), base.imageEvidence(),
+                        9_876_543_210L, 123_456_789L,
+                        "audio/x-pre15-must-not-leave-process",
+                        98_765_432L, 7_654_321L,
+                        base.transcriptionProvider(),
+                        base.transcriptionModel(), base.language(),
+                        base.transcript(), base.normalizedTranscript(),
+                        base.actuallyHeardTranscript(),
+                        base.interpretedIntent(),
+                        base.transcriptConfidence(), base.textFallback(),
+                        base.promptVersion(), base.rubricVersion(),
+                        base.schemaVersion(), base.policyBundleId(),
+                        SpeakingEvaluatorCapability
+                                .TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION,
+                        SpeakingEvidenceMode.TRANSCRIPT_ONLY,
+                        SpeakingPromptRules.EVIDENCE_CONTRACT_VERSION);
+
+        SpeakingEvaluationProviderResult result =
+                client.evaluate(requestWithSensitiveMediaMetadata);
+
+        assertThat(result.success()).isTrue();
+        assertThat(port.calls()).isEqualTo(1);
+        assertThat(port.lastRequest().authority().strategyCode())
+                .isEqualTo("TRANSCRIPT_ONLY");
+        assertThat(port.lastRequest().images())
+                .allMatch(image -> "QUESTION_IMAGE".equals(image.role()));
+        assertThat(port.lastRequest().input()).doesNotContainKeys(
+                "audio_media_id", "media_version", "mime_type",
+                "byte_size", "duration_ms", "audio", "audio_url");
+        assertThat(port.lastRequest().toString()).doesNotContain(
+                "9876543210", "123456789",
+                "audio/x-pre15-must-not-leave-process",
+                "98765432", "7654321");
+    }
+
+    @Test
     void stalePolicyBundleOrVersionCannotCallProvider() {
         TestPracticeStructuredGenerationPort port = port();
         OpenAiCompatibleSpeakingEvaluationClient client =

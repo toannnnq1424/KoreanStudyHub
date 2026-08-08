@@ -1,0 +1,73 @@
+{
+  "contract_version": "ksh-speaking-korean-alignment-v1",
+  "language": "ko-KR",
+  "evidence_mode": "DIRECT_AUDIO_ALIGNMENT",
+  "alignment_status": "COMPLETE",
+  "alignment_reason": "NONE",
+  "audio": {
+    "duration_ms": 2400,
+    "audio_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "authorized_handle_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "transcript": {
+    "identity": "TEST-TRANSCRIPT-V1",
+    "text_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "offset_unit": "UTF16_CODE_UNIT"
+  },
+  "engine": {
+    "component_type": "DEDICATED_FORCED_ALIGNER",
+    "provider": "TEST-ALIGNER",
+    "model": "TEST-KOREAN-ALIGNER",
+    "version": "TEST-V1",
+    "capability_evidence_id": "TEST-KOREAN-TIMESTAMP-EVIDENCE"
+  },
+  "provenance": {
+    "provider_request_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "policy_bundle_id": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1",
+    "calibration_profile_id": "TEST-CALIBRATION-PROFILE"
+  },
+  "spans": [
+    {
+      "span_id": "eojjeol-1",
+      "level": "EOJJEOL",
+      "parent_span_id": null,
+      "token_id": "token-1",
+      "surface_ko": "한국어를",
+      "utf16_start": 0,
+      "utf16_end": 4,
+      "start_ms": 100,
+      "end_ms": 1100,
+      "expected_pronunciation": "TEST-EXPECTED",
+      "observed_pronunciation": "TEST-OBSERVED",
+      "issue_code": "NONE",
+      "confidence": 0.94,
+      "evidence": {
+        "source": "FORCED_ALIGNMENT",
+        "evidence_id": "TEST-ALIGNMENT-EVIDENCE-1"
+      }
+    },
+    {
+      "span_id": "syllable-1",
+      "level": "SYLLABLE",
+      "parent_span_id": "eojjeol-1",
+      "token_id": "token-1",
+      "surface_ko": "한",
+      "utf16_start": 0,
+      "utf16_end": 1,
+      "start_ms": 100,
+      "end_ms": 360,
+      "expected_pronunciation": "TEST-EXPECTED-SYLLABLE",
+      "observed_pronunciation": "TEST-OBSERVED-SYLLABLE",
+      "issue_code": "LOW_CONFIDENCE",
+      "confidence": 0.61,
+      "evidence": {
+        "source": "ACOUSTIC_CLASSIFIER",
+        "evidence_id": "TEST-ALIGNMENT-EVIDENCE-2"
+      }
+    }
+  ],
+  "score_release": {
+    "eligible": false,
+    "reason": "ALIGNMENT_DARK_ONLY"
+  }
+}

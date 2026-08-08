@@ -1,0 +1,43 @@
+{
+  "artifact_id": "KSH-SPEAKING-DIRECT-AUDIO-DISCLOSURE-V1",
+  "status": "PREPRODUCTION_PRODUCT_PRIVACY_BASELINE",
+  "purpose": "PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION",
+  "policy_bundle_id": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1",
+  "consent": {
+    "scope": "LEARNER_ATTEMPT_WITH_MEDIA_BOUND_AT_TRANSFER",
+    "optional": true,
+    "default_checked": false,
+    "withdrawal_supported": true
+  },
+  "limits": {
+    "audio_retention_ceiling": "P30D",
+    "reviewer_grant_ceiling": "P7D"
+  },
+  "provider_requirements": {
+    "non_training": true,
+    "retention_documentation_reviewed": true,
+    "provider_side_deletion_guarantee": "NOT_CLAIMED_UNLESS_SEPARATELY_DOCUMENTED",
+    "runtime_disclosure_fields": [
+      "provider_display_name",
+      "effective_retention",
+      "policy_evidence_ids"
+    ],
+    "optional_informational_fields": ["provider_region"],
+    "unknown_provider_region_allowed": true
+  },
+  "local_withdrawal": {
+    "blocks_future_transfer": true,
+    "blocks_reviewer_access": true,
+    "ksh_owned_audio_cleanup_lifecycle": true,
+    "provider_deletion_receipt_required": false,
+    "allowed_audit_events": [
+      "LOCAL_DATA_DELETION_REQUESTED",
+      "LOCAL_DATA_DELETED"
+    ]
+  },
+  "grant_manager_authorities": [
+    "ACADEMIC_LEADER",
+    "PRIVACY_RELEASE_OWNER"
+  ],
+  "score_release": "BLOCKED_UNTIL_AUTHORIZED_CONSUMPTION_AND_READINESS_GREEN"
+}

@@ -12,8 +12,7 @@ public enum SpeakingEvaluationStatus {
     AUDIO_MISSING(false),
     AUDIO_UNAVAILABLE(false),
     TEXT_FALLBACK_EVALUATED(true),
-    MOCK_EVALUATED(true),
-    LEGACY_RESULT(true);
+    MOCK_EVALUATED(true);
 
     private final boolean scoreBearing;
 

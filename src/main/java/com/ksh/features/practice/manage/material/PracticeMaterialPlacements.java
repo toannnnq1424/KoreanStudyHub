@@ -10,6 +10,9 @@ import java.util.Set;
  */
 public final class PracticeMaterialPlacements {
 
+    public static final String LISTENING_CHECK_AUDIO =
+            "LISTENING_CHECK_AUDIO";
+
     public static final String SPEAKING_PROMPT_ORIGINAL =
             "SPEAKING_PROMPT_ORIGINAL";
     public static final String SPEAKING_PROMPT_TTS =

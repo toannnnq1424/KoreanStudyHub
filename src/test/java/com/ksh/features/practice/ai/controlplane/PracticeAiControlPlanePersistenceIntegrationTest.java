@@ -41,7 +41,7 @@ class PracticeAiControlPlanePersistenceIntegrationTest {
     private PracticeAiControlPlaneCodec codec;
 
     @Test
-    void freshV84SchemaPersistsSixBindingsSnapshotsAndRedactedAudits() {
+    void freshV91SchemaPersistsPurposeBindingsSnapshotsAndRedactedAudits() {
         assertFreshMigrationAndSchema();
 
         Long actorId = jdbcTemplate.queryForObject(
@@ -51,29 +51,55 @@ class PracticeAiControlPlanePersistenceIntegrationTest {
                         "AIM5_DISPOSABLE_PRIMARY",
                         "AIM-5 disposable profile",
                         PracticeAiBindingResolver.PROVIDER_FAMILY,
-                        "https://provider.invalid/v1",
+                        PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_BASE_URL,
                         "AIM5_TEST_SECRET_NEVER_SENT",
                         true,
                         actorId));
+        PracticeAiProviderProfile enterprise = profileRepository.saveAndFlush(
+                new PracticeAiProviderProfile(
+                        "AIM5_DISPOSABLE_ENTERPRISE",
+                        "AIM-5 disposable Enterprise profile",
+                        PracticeAiBindingResolver.PROVIDER_FAMILY,
+                        "https://aiplatform.googleapis.com/v1/projects/ksh-test/"
+                                + "locations/asia-southeast1/endpoints/openapi",
+                        PracticeAiCredentialMode.GOOGLE_CLOUD_ADC.name(),
+                        null,
+                        false,
+                        actorId));
+        assertThat(enterprise.getCredentialSecret()).isNull();
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT credential_secret IS NULL
+                FROM practice_ai_provider_profiles
+                WHERE profile_code = 'AIM5_DISPOSABLE_ENTERPRISE'
+                """, Boolean.class)).isTrue();
 
         Map<PracticeAiPurpose, PracticeAiExecutionSnapshot> snapshots =
                 new EnumMap<>(PracticeAiPurpose.class);
         for (PracticeAiPurpose purpose : PracticeAiPurpose.values()) {
-            bindingRepository.saveAndFlush(new PracticeAiPurposeBinding(
+            PracticeAiPurposeBinding binding = new PracticeAiPurposeBinding(
                     purpose,
                     profile,
-                    "aim5-" + purpose.name().toLowerCase(),
+                    purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                            ? PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_MODEL
+                            : "aim5-" + purpose.name().toLowerCase(),
                     PracticeAiBindingResolver.TRANSPORT_DIALECT,
-                    codec.capabilityJson(purpose, false),
+                    codec.capabilityJson(purpose, false,
+                            purpose == PracticeAiPurpose
+                                    .PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION),
                     codec.limitsJson(1_000, 5_000, 1, 1_048_576, 1_048_576),
                     retention(purpose),
                     true,
-                    actorId));
+                    actorId);
+            if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION) {
+                binding.updatePolicyEvidence("region/test", "non-training/test",
+                        "retention/test", "deletion-sla/test");
+            }
+            bindingRepository.saveAndFlush(binding);
             snapshots.put(purpose, resolver.resolve(purpose).snapshot());
         }
 
-        assertThat(bindingRepository.count()).isEqualTo(6);
-        assertThat(snapshots).hasSize(6);
+        assertThat(bindingRepository.count()).isEqualTo(7);
+        assertThat(snapshots).hasSize(7);
         assertThat(snapshots.values())
                 .allSatisfy(snapshot -> {
                     assertThat(snapshot.bindingRevision()).isZero();
@@ -152,13 +178,21 @@ class PracticeAiControlPlanePersistenceIntegrationTest {
     private void assertFreshMigrationAndSchema() {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1",
-                Integer.class)).isEqualTo(84);
+                Integer.class)).isEqualTo(91);
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0",
                 Integer.class)).isZero();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history",
-                Integer.class)).isEqualTo(84);
+                Integer.class)).isEqualTo(91);
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'practice_ai_provider_profiles'
+                  AND column_name = 'credential_mode'
+                  AND is_nullable = 'NO'
+                """, Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM information_schema.tables
@@ -185,6 +219,8 @@ class PracticeAiControlPlanePersistenceIntegrationTest {
             case PRACTICE_RL_EXPLANATION -> "PUBLISHED_EXPLANATION_V1";
             case PRACTICE_WRITING_EVALUATION -> "WRITING_EVALUATION_V1";
             case PRACTICE_SPEAKING_EVALUATION -> "SPEAKING_TRANSCRIPT_EVAL_V1";
+            case PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION ->
+                    "SPEAKING_DIRECT_AUDIO_EVAL_V1";
             case PRACTICE_SPEAKING_STT -> "SPEAKING_AUDIO_STT_V1";
             case PRACTICE_SPEAKING_TTS -> "LECTURER_PROMPT_TTS_V1";
         };

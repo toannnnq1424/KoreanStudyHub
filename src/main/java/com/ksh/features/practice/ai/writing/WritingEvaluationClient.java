@@ -92,7 +92,7 @@ public class WritingEvaluationClient {
                 evaluatorModel(),
                 properties.connectTimeout().toString(),
                 properties.readTimeout().toString(),
-                "max-retries=5",
+                "retry-authority=purpose-binding-0..3-plus-at-most-one-full-replacement-within-budget",
                 WritingPromptRules.PROMPT_VERSION,
                 WritingPromptRules.RUBRIC_VERSION,
                 cacheSchemaVersion(),

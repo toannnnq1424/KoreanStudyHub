@@ -406,7 +406,6 @@ public record SpeakingEvaluationResult(
         return contractTrust == SpeakingContractTrust.CURRENT_VERIFIED
                 && evaluationStatus != null
                 && source != null
-                && evaluationStatus != SpeakingEvaluationStatus.LEGACY_RESULT
                 && evaluationStatus != SpeakingEvaluationStatus.MOCK_EVALUATED
                 && source != SpeakingEvaluationSource.LEGACY
                 && source != SpeakingEvaluationSource.MOCK

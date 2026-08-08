@@ -42,10 +42,11 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
     @Modifying
     @Query(value = """
             INSERT INTO practice_speaking_media_cleanup_tasks
-                (cleanup_reason, media_id, storage_provider, storage_profile_code,
+                (cleanup_reason, authorization_evidence_id, media_id,
+                 storage_provider, storage_profile_code,
                  storage_key, due_at, next_attempt_at, status, attempt_count)
             VALUES
-                (:reason, :mediaId, :provider, :profileCode,
+                (:reason, :authorizationEvidenceId, :mediaId, :provider, :profileCode,
                  :storageKey, :dueAt, :nextAttemptAt, 'PENDING', 0)
             ON DUPLICATE KEY UPDATE
                 media_id = CASE
@@ -56,12 +57,19 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
                     THEN VALUES(due_at) ELSE due_at END,
                 next_attempt_at = CASE
                     WHEN status IN ('PENDING','RETRY')
+                         AND VALUES(cleanup_reason) = 'CONSENT_WITHDRAWAL'
+                         AND next_attempt_at > VALUES(next_attempt_at)
+                    THEN VALUES(next_attempt_at)
+                    WHEN status IN ('PENDING','RETRY')
                          AND cleanup_reason IN ('SUPERSEDED_RETENTION','TEMPORARY_EXPIRY')
                          AND VALUES(cleanup_reason) IN
                              ('LOGICAL_DELETE','DISCARD_ATTEMPT','ACTIVATION_COMPENSATION')
                          AND next_attempt_at > VALUES(next_attempt_at)
                     THEN VALUES(next_attempt_at) ELSE next_attempt_at END,
                 cleanup_reason = CASE
+                    WHEN status IN ('PENDING','RETRY')
+                         AND VALUES(cleanup_reason) = 'CONSENT_WITHDRAWAL'
+                    THEN VALUES(cleanup_reason)
                     WHEN status IN ('PENDING','RETRY')
                          AND cleanup_reason IN ('SUPERSEDED_RETENTION','TEMPORARY_EXPIRY')
                          AND VALUES(cleanup_reason) IN
@@ -71,10 +79,16 @@ public interface PracticeSpeakingMediaCleanupTaskRepository
                          AND cleanup_reason IN ('LOGICAL_DELETE','DISCARD_ATTEMPT')
                          AND VALUES(cleanup_reason) = 'ACTIVATION_COMPENSATION'
                     THEN VALUES(cleanup_reason)
-                    ELSE cleanup_reason END
+                    ELSE cleanup_reason END,
+                authorization_evidence_id = CASE
+                    WHEN status IN ('PENDING','RETRY')
+                         AND VALUES(cleanup_reason) = 'CONSENT_WITHDRAWAL'
+                    THEN VALUES(authorization_evidence_id)
+                    ELSE authorization_evidence_id END
             """, nativeQuery = true)
     int insertOrKeepExistingExact(
             @Param("reason") String reason,
+            @Param("authorizationEvidenceId") String authorizationEvidenceId,
             @Param("mediaId") Long mediaId,
             @Param("provider") String provider,
             @Param("profileCode") String profileCode,

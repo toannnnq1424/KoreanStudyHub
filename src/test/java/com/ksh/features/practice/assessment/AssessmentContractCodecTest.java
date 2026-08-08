@@ -35,6 +35,44 @@ class AssessmentContractCodecTest {
     }
 
     @Test
+    void manualWritingEvaluationModeRoundTripsButIsRejectedForOtherSkills() {
+        QuestionContent writing = contentFor(CanonicalQuestionType.ESSAY);
+        AnswerSpec manual = new AnswerSpec(
+                AnswerSpec.SCHEMA_VERSION_V2,
+                CanonicalQuestionType.ESSAY,
+                List.of(),
+                null,
+                List.of(),
+                ScoringPolicyCode.PROFILE_BASED,
+                null,
+                AnswerSpec.EvaluationMode
+                        .MANUAL_OR_EXPERIMENTAL_UNSCORED);
+
+        String json = codec.writeAnswerSpec(manual, writing);
+
+        assertThat(codec.readAnswerSpec(json, writing)).isEqualTo(manual);
+        assertThat(json).contains(
+                "\"schemaVersion\":\"answer-spec-v2\"",
+                "\"evaluationMode\":\"MANUAL_OR_EXPERIMENTAL_UNSCORED\"");
+
+        AnswerSpec invalidSpeaking = new AnswerSpec(
+                AnswerSpec.SCHEMA_VERSION_V2,
+                CanonicalQuestionType.SPEAKING,
+                List.of(),
+                null,
+                List.of(),
+                ScoringPolicyCode.PROFILE_BASED,
+                null,
+                AnswerSpec.EvaluationMode
+                        .MANUAL_OR_EXPERIMENTAL_UNSCORED);
+        assertThatThrownBy(() -> codec.writeAnswerSpec(
+                invalidSpeaking,
+                contentFor(CanonicalQuestionType.SPEAKING)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("only supported for Writing ESSAY");
+    }
+
+    @Test
     void learnerAnswersRoundTripWithoutLegacyShape() {
         LearnerAnswer answer = new LearnerAnswer(
                 LearnerAnswer.SCHEMA_VERSION,

@@ -21,14 +21,14 @@ import com.ksh.features.practice.ai.writing.WritingEvaluationResult;
 import com.ksh.features.practice.ai.writing.WritingEvaluationNormalizer;
 import com.ksh.features.practice.ai.writing.WritingAssessmentPolicyBundle;
 import com.ksh.features.practice.ai.writing.WritingEvidenceLedgerVerifier;
-import com.ksh.features.practice.ai.writing.WritingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.writing.WritingFeedbackContractParser;
 import com.ksh.features.practice.ai.writing.WritingScoreAnchorPolicy;
 import com.ksh.features.practice.ai.writing.WritingScoringPolicy;
 import com.ksh.features.practice.ai.writing.WritingTaskRequirementPolicy;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationResult;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationApplicationService;
 import com.ksh.features.practice.ai.speaking.SpeakingEvaluationStatus;
-import com.ksh.features.practice.ai.speaking.SpeakingFeedbackCompatibilityReader;
+import com.ksh.features.practice.ai.speaking.SpeakingFeedbackContractParser;
 import com.ksh.features.practice.ai.speaking.SpeakingScorePolicy;
 import com.ksh.features.practice.assessment.AnswerSpec;
 import com.ksh.features.practice.assessment.AssessmentContractCodec;
@@ -97,8 +97,9 @@ public class PracticeService {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeService.class);
     private static final String SPEAKING_AI_CONTRACT = "speaking_ai_v1";
-    private static final String SPEAKING_MIXED_CONTRACT_FIELD = "_contract";
-    private static final String SPEAKING_MIXED_SPEAKING_FIELD = "speaking_feedback_by_question";
+    private static final String SPEAKING_CONTRACT_FIELD = "_contract";
+    private static final String SPEAKING_FEEDBACK_BY_QUESTION_FIELD =
+            "speaking_feedback_by_question";
     private static final Pattern MARKDOWN_IMAGE_PATTERN =
             Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
     private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
@@ -123,8 +124,8 @@ public class PracticeService {
             attemptEvaluationJobRepository;
     private final PracticeTestRepository testRepository;
     private final WritingEvaluationClient evaluationClient;
-    private final WritingFeedbackCompatibilityReader writingFeedbackReader;
-    private final SpeakingFeedbackCompatibilityReader speakingFeedbackReader;
+    private final WritingFeedbackContractParser writingFeedbackParser;
+    private final SpeakingFeedbackContractParser speakingFeedbackParser;
     private SpeakingEvaluationApplicationService speakingEvaluationApplicationService;
     private PracticeSpeakingMediaService speakingMediaService;
     private PracticePublishedVersionService publishedVersionService;
@@ -151,8 +152,8 @@ public class PracticeService {
                                    attemptEvaluationJobRepository,
                            PracticeTestRepository testRepository,
                            WritingEvaluationClient evaluationClient,
-                           WritingFeedbackCompatibilityReader writingFeedbackReader,
-                           SpeakingFeedbackCompatibilityReader speakingFeedbackReader,
+                           WritingFeedbackContractParser writingFeedbackParser,
+                           SpeakingFeedbackContractParser speakingFeedbackParser,
                            PracticePublishedVersionService publishedVersionService,
                            ObjectMapper objectMapper,
                            PlatformTransactionManager transactionManager) {
@@ -166,8 +167,8 @@ public class PracticeService {
                 attemptEvaluationJobRepository;
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
-        this.writingFeedbackReader = writingFeedbackReader;
-        this.speakingFeedbackReader = speakingFeedbackReader;
+        this.writingFeedbackParser = writingFeedbackParser;
+        this.speakingFeedbackParser = speakingFeedbackParser;
         this.publishedVersionService = publishedVersionService;
         this.objectMapper = objectMapper;
         this.questionTypeResolver = new QuestionTypeResolver();
@@ -216,8 +217,8 @@ public class PracticeService {
         this.attemptEvaluationJobRepository = null;
         this.testRepository = testRepository;
         this.evaluationClient = evaluationClient;
-        this.writingFeedbackReader = new WritingFeedbackCompatibilityReader(objectMapper);
-        this.speakingFeedbackReader = new SpeakingFeedbackCompatibilityReader(objectMapper, new com.ksh.features.practice.ai.speaking.SpeakingEvaluationNormalizer());
+        this.writingFeedbackParser = new WritingFeedbackContractParser(objectMapper);
+        this.speakingFeedbackParser = new SpeakingFeedbackContractParser(objectMapper, new com.ksh.features.practice.ai.speaking.SpeakingEvaluationNormalizer());
         this.publishedVersionService = null;
         this.objectMapper = objectMapper;
         this.questionTypeResolver = new QuestionTypeResolver();
@@ -277,14 +278,6 @@ public class PracticeService {
         if (snapshot != null) {
             WritingGradingResult result = executeNonTransactional(() -> gradeWritingSnapshot(snapshot, true));
             return executeWrite(() -> persistWritingReEvaluationResult(snapshot, result));
-        }
-        NonWritingEssayGradingSnapshot essaySnapshot =
-                executeRead(() ->
-                        loadNonWritingEssayReEvaluationSnapshot(gatedAttempt));
-        if (essaySnapshot != null) {
-            NonWritingEssayGradingResult result =
-                    executeNonTransactional(() -> gradeNonWritingEssaySnapshot(essaySnapshot, true));
-            return executeWrite(() -> persistNonWritingEssayReEvaluationResult(essaySnapshot, result));
         }
         return executeWrite(() -> reEvaluateInTransaction(attemptId, userId));
     }
@@ -541,13 +534,15 @@ public class PracticeService {
     private boolean isSpeakingAiEnvelope(JsonNode rootNode) {
         return rootNode != null
                 && rootNode.isObject()
-                && SPEAKING_AI_CONTRACT.equals(rootNode.path(SPEAKING_MIXED_CONTRACT_FIELD).asText(null));
+                && SPEAKING_AI_CONTRACT.equals(
+                rootNode.path(SPEAKING_CONTRACT_FIELD).asText(null));
     }
 
     public String speakingAiFeedbackEnvelope(Map<Long, SpeakingEvaluationResult> feedbackByQuestionId) {
         com.fasterxml.jackson.databind.node.ObjectNode envelope = objectMapper.createObjectNode();
-        envelope.put(SPEAKING_MIXED_CONTRACT_FIELD, SPEAKING_AI_CONTRACT);
-        com.fasterxml.jackson.databind.node.ObjectNode byQuestion = envelope.putObject(SPEAKING_MIXED_SPEAKING_FIELD);
+        envelope.put(SPEAKING_CONTRACT_FIELD, SPEAKING_AI_CONTRACT);
+        com.fasterxml.jackson.databind.node.ObjectNode byQuestion =
+                envelope.putObject(SPEAKING_FEEDBACK_BY_QUESTION_FIELD);
         if (feedbackByQuestionId != null) {
             feedbackByQuestionId.forEach((questionId, feedback) -> {
                 if (questionId != null && feedback != null) {
@@ -954,7 +949,8 @@ public class PracticeService {
                 reference);
     }
 
-    private String listeningCheckAudioReference(String deliveryJson, String legacyFallback) {
+    private String listeningCheckAudioReference(
+            String deliveryJson, String fallbackReference) {
         String canonicalReference = null;
         if (deliveryJson != null && !deliveryJson.isBlank()) {
             try {
@@ -970,8 +966,10 @@ public class PracticeService {
             }
         }
         String canonicalSafeReference = safeListeningCheckAudioReference(canonicalReference);
-        String legacySafeReference = safeListeningCheckAudioReference(legacyFallback);
-        String reference = firstNonBlank(canonicalSafeReference, legacySafeReference);
+        String safeFallbackReference =
+                safeListeningCheckAudioReference(fallbackReference);
+        String reference = firstNonBlank(
+                canonicalSafeReference, safeFallbackReference);
         if (isBlank(reference)) {
             throw new IllegalStateException(
                     "Phần Listening chưa có audio thử loa bất biến hợp lệ.");
@@ -1450,10 +1448,10 @@ public class PracticeService {
         BigDecimal expectedMaximum = BigDecimal.valueOf(
                 WritingScoringPolicy.rubricFor(
                         expectedTaskType).totalMaxScore());
-        WritingFeedbackCompatibilityReader.EntryResult parsed =
-                writingFeedbackReader.parseGeneratedEntry(node);
+        WritingFeedbackContractParser.EntryResult parsed =
+                writingFeedbackParser.parseGeneratedEntry(node);
         if (parsed.status()
-                != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+                != WritingFeedbackContractParser.Status.VALID_CURRENT
                 || !isCurrentWritingEnvelope(
                         parsed.value(),
                         expectedTaskType,
@@ -1966,21 +1964,6 @@ public class PracticeService {
                     expectedLockVersion,
                     deadlineExpired));
         }
-        if (!"SPEAKING".equals(guard.getSkill())) {
-            NonWritingEssayGradingSnapshot essaySnapshot =
-                    executeRead(() ->
-                            loadNonWritingEssaySubmitSnapshot(
-                                    attemptId, userId, effectiveForm));
-            if (essaySnapshot != null) {
-                NonWritingEssayGradingResult result =
-                        executeNonTransactional(() ->
-                                gradeNonWritingEssaySnapshot(
-                                        essaySnapshot, false));
-                return executeWrite(() ->
-                        persistNonWritingEssaySubmitResult(
-                                essaySnapshot, result));
-            }
-        }
         SpeakingGradingSnapshot speakingSnapshot =
                 executeRead(() ->
                         loadSpeakingSubmitSnapshot(
@@ -2005,17 +1988,6 @@ public class PracticeService {
         if (snapshot != null) {
             WritingGradingResult result = executeNonTransactional(() -> gradeWritingSnapshot(snapshot, false));
             return executeWrite(() -> persistWritingSubmitResult(snapshot, result));
-        }
-        NonWritingEssayGradingSnapshot essaySnapshot =
-                executeRead(() -> loadNonWritingEssaySubmitSnapshot(attemptId, userId, form));
-        if (essaySnapshot != null) {
-            if ("SPEAKING".equals(essaySnapshot.skill())) {
-                throw new IllegalStateException(
-                        "Speaking submission requires canonical audio-backed questions.");
-            }
-            NonWritingEssayGradingResult result =
-                    executeNonTransactional(() -> gradeNonWritingEssaySnapshot(essaySnapshot, false));
-            return executeWrite(() -> persistNonWritingEssaySubmitResult(essaySnapshot, result));
         }
         SpeakingGradingSnapshot speakingSnapshot =
                 executeRead(() -> loadSpeakingSubmitSnapshot(attemptId, userId, form));
@@ -2512,102 +2484,6 @@ public class PracticeService {
         );
     }
 
-    private NonWritingEssayGradingSnapshot loadNonWritingEssaySubmitSnapshot(
-            Long attemptId,
-            Long userId,
-            Map<String, String> form
-    ) {
-        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(attemptId, userId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Không tìm thấy lượt làm bài"));
-        if ("WRITING".equals(attempt.getSkill())) {
-            throw new IllegalStateException("Writing attempt must use snapshot grading path.");
-        }
-        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw new IllegalStateException("Lượt làm bài đã được nộp hoặc chấm điểm.");
-        }
-
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-        validateAttemptSection(attempt, section);
-        validateKnownSkill(attempt.getSkill());
-        loadPublished(attempt.getSetId());
-
-        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, section.getId());
-        if (!containsEssay(questions)) {
-            return null;
-        }
-
-        Map<String, String> answers = new LinkedHashMap<>();
-        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
-            try {
-                Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
-                answers.putAll(prev);
-            } catch (Exception e) {
-                log.warn("[submitAttempt] Failed to parse previous in-progress answers exception={}",
-                        exceptionCategory(e));
-            }
-        }
-        PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(
-                answers,
-                form,
-                questions.stream().map(QuestionSnapshot::questionId).toList());
-
-        return new NonWritingEssayGradingSnapshot(
-                attempt.getId(),
-                attempt.getUserId(),
-                attempt.getSetId(),
-                attempt.getTestId(),
-                attempt.getSectionId(),
-                attempt.getSkill(),
-                PracticeAttempt.STATUS_IN_PROGRESS,
-                attempt.getLockVersion(),
-                attempt.getAnswersJson(),
-                attempt.getAiFeedbackJson(),
-                attempt.getScore(),
-                attempt.getTotalPoints(),
-                writeJson(answers),
-                answers,
-                questions
-        );
-    }
-
-    private NonWritingEssayGradingSnapshot
-    loadNonWritingEssayReEvaluationSnapshot(PracticeAttempt attempt) {
-        if ("WRITING".equals(attempt.getSkill())) {
-            throw new IllegalStateException("Writing attempt must use snapshot grading path.");
-        }
-
-        PracticeSection section = sectionRepository.findById(attempt.getSectionId())
-                .orElseThrow(() -> new EntityNotFoundException("Section không tồn tại"));
-        validateAttemptSection(attempt, section);
-        validateKnownSkill(attempt.getSkill());
-        loadPublished(attempt.getSetId());
-
-        List<QuestionSnapshot> questions = loadQuestionSnapshots(attempt, section.getId());
-        if (!containsEssay(questions)) {
-            return null;
-        }
-        Map<String, String> answers = readAnswers(attempt.getAnswersJson());
-
-        return new NonWritingEssayGradingSnapshot(
-                attempt.getId(),
-                attempt.getUserId(),
-                attempt.getSetId(),
-                attempt.getTestId(),
-                attempt.getSectionId(),
-                attempt.getSkill(),
-                attempt.getStatus(),
-                attempt.getLockVersion(),
-                attempt.getAnswersJson(),
-                attempt.getAiFeedbackJson(),
-                attempt.getScore(),
-                attempt.getTotalPoints(),
-                writeJson(answers),
-                answers,
-                questions
-        );
-    }
-
     private SpeakingGradingSnapshot loadSpeakingSubmitSnapshot(
             Long attemptId,
             Long userId,
@@ -2804,10 +2680,6 @@ public class PracticeService {
         );
     }
 
-    private boolean containsEssay(List<QuestionSnapshot> questions) {
-        return questions.stream().anyMatch(q -> PracticeQuestion.TYPE_ESSAY.equals(q.questionType()));
-    }
-
     private void validateAttemptSection(PracticeAttempt attempt, PracticeSection section) {
         if (!attempt.getSetId().equals(section.getSetId()) ||
             !attempt.getTestId().equals(section.getTestId()) ||
@@ -2829,53 +2701,6 @@ public class PracticeService {
                 throw new IllegalStateException("Invalid configured points for question ID: " + q.questionId());
             }
         }
-    }
-
-    private NonWritingEssayGradingResult gradeNonWritingEssaySnapshot(
-            NonWritingEssayGradingSnapshot snapshot,
-            boolean isReEvaluate
-    ) {
-        BigDecimal legacyFlatScore = BigDecimal.ZERO;
-        boolean scoreAvailable = true;
-        BigDecimal total = BigDecimal.ZERO;
-        String aiFeedback = null;
-
-        for (QuestionSnapshot q : snapshot.questions()) {
-            total = total.add(q.points());
-            String answer = snapshot.answers().getOrDefault(String.valueOf(q.questionId()), "").trim();
-
-            Optional<AssessmentScoreResult> objectiveScore = scoreObjective(q, answer);
-            if (objectiveScore.isPresent()) {
-                if (scoreAvailable) {
-                    legacyFlatScore = legacyFlatScore.add(
-                            objectiveScore.get().earnedPoints());
-                }
-            } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
-                String perQuestionFeedback = evaluateWriting(
-                        snapshot.userId(), q.prompt(), answer, isReEvaluate,
-                        q.writingTaskType(), questionImageReference(q));
-                aiFeedback = perQuestionFeedback;
-                BigDecimal generatedScore = extractAiScore(
-                        perQuestionFeedback,
-                        q.writingTaskType());
-                if (generatedScore == null) {
-                    scoreAvailable = false;
-                } else if (scoreAvailable) {
-                    legacyFlatScore = generatedScore;
-                }
-            } else if (PracticeQuestion.TYPE_SPEAKING.equals(q.questionType())) {
-                throw new IllegalStateException(
-                        "Legacy mixed Speaking text scoring is disabled.");
-            } else {
-                throw new IllegalStateException("Unsupported question type for question ID "
-                        + q.questionId() + ": " + q.questionType());
-            }
-        }
-        return new NonWritingEssayGradingResult(
-                scoreAvailable ? legacyFlatScore : null,
-                total,
-                snapshot.answersToPersistJson(),
-                aiFeedback);
     }
 
     private SpeakingGradingResult gradeSpeakingSnapshot(SpeakingGradingSnapshot snapshot) {
@@ -2964,7 +2789,7 @@ public class PracticeService {
         if (!isSpeakingAiEnvelope(root)) {
             return Map.of();
         }
-        JsonNode byQuestion = root.path(SPEAKING_MIXED_SPEAKING_FIELD);
+        JsonNode byQuestion = root.path(SPEAKING_FEEDBACK_BY_QUESTION_FIELD);
         if (!byQuestion.isObject()) {
             return Map.of();
         }
@@ -2973,7 +2798,7 @@ public class PracticeService {
             try {
                 Long questionId = Long.valueOf(entry.getKey());
                 if (entry.getValue() != null && entry.getValue().isObject()) {
-                    results.put(questionId, speakingFeedbackReader.read(entry.getValue()));
+                    results.put(questionId, speakingFeedbackParser.read(entry.getValue()));
                 }
             } catch (RuntimeException ignored) {
                 // Ignore malformed stored question keys during reuse; fresh evaluation can replace them.
@@ -2998,6 +2823,14 @@ public class PracticeService {
             if (objectiveScore.isPresent()) {
                 attemptEarnedPoints = attemptEarnedPoints.add(objectiveScore.get().earnedPoints());
             } else if (PracticeQuestion.TYPE_ESSAY.equals(q.questionType())) {
+                if (manualOrExperimentalWritingUnscored(q)) {
+                    com.fasterxml.jackson.databind.node.ObjectNode node =
+                            manualWritingUnscored(q);
+                    readGeneratedWritingScore(node, q);
+                    allEvaluationsScoreBearing = false;
+                    feedbackMap.set(String.valueOf(q.questionId()), node);
+                    continue;
+                }
                 String singleFeedback = evaluateWriting(snapshot.userId(), q.prompt(), answer,
                         isReEvaluate, q.writingTaskType(), questionImageReference(q));
                 com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
@@ -3045,6 +2878,20 @@ public class PracticeService {
     private WritingGradingResult gradeWritingQuestionSnapshot(WritingQuestionReEvaluationSnapshot snapshot) {
         requireEvaluationThreadActive();
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = buildValidatedFeedbackMapBeforeTargetEvaluation(snapshot);
+
+        if (manualOrExperimentalWritingUnscored(snapshot.targetQuestion())) {
+            com.fasterxml.jackson.databind.node.ObjectNode targetNode =
+                    manualWritingUnscored(snapshot.targetQuestion());
+            readGeneratedWritingScore(targetNode, snapshot.targetQuestion());
+            feedbackMap.set(String.valueOf(
+                    snapshot.targetQuestion().questionId()), targetNode);
+            return new WritingGradingResult(
+                    null,
+                    null,
+                    snapshot.expectedAnswersJson(),
+                    feedbackMap.toString(),
+                    null);
+        }
 
         String targetAnswer = snapshot.answers().getOrDefault(String.valueOf(snapshot.targetQuestion().questionId()), "").trim();
         String targetFeedback = evaluateWriting(
@@ -3104,10 +2951,6 @@ public class PracticeService {
                 .toList();
         JsonNode root = readExistingWritingFeedbackRoot(snapshot.expectedAiFeedbackJson());
         com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
-
-        if (writingFeedbackReader.isLegacyFlatFeedback(root)) {
-            throw unsupportedPerQuestionFeedback();
-        }
 
         if (!root.isObject()) {
             throw unsupportedPerQuestionFeedback();
@@ -3200,8 +3043,8 @@ public class PracticeService {
     private WritingEvaluationResult readStoredWritingScore(
             JsonNode node,
             QuestionSnapshot question) {
-        WritingFeedbackCompatibilityReader.EntryResult parsed = writingFeedbackReader.parseStoredEntry(node);
-        if (parsed.status() != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+        WritingFeedbackContractParser.EntryResult parsed = writingFeedbackParser.parseStoredEntry(node);
+        if (parsed.status() != WritingFeedbackContractParser.Status.VALID_CURRENT
                 || !isCurrentWritingEnvelope(parsed.value(), question)
                 || !hasExactCurrentWritingEnvelopeShape(
                         node, parsed.value())) {
@@ -3213,8 +3056,8 @@ public class PracticeService {
     private WritingEvaluationResult readGeneratedWritingScore(
             JsonNode node,
             QuestionSnapshot question) {
-        WritingFeedbackCompatibilityReader.EntryResult parsed = writingFeedbackReader.parseGeneratedEntry(node);
-        if (parsed.status() != WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+        WritingFeedbackContractParser.EntryResult parsed = writingFeedbackParser.parseGeneratedEntry(node);
+        if (parsed.status() != WritingFeedbackContractParser.Status.VALID_CURRENT
                 || !isCurrentWritingEnvelope(parsed.value(), question)
                 || !hasExactCurrentWritingEnvelopeShape(
                         node, parsed.value())) {
@@ -3225,7 +3068,7 @@ public class PracticeService {
         return parsed.value();
     }
 
-    private static boolean isCurrentWritingEnvelope(
+    private boolean isCurrentWritingEnvelope(
             WritingEvaluationResult value,
             QuestionSnapshot question) {
         if (question == null
@@ -3235,6 +3078,19 @@ public class PracticeService {
             return false;
         }
         String expectedTaskType = question.writingTaskType().name();
+        if (manualOrExperimentalWritingUnscored(question)) {
+            return value != null
+                    && !value.scoreAvailableFlag()
+                    && "EVALUATION_UNAVAILABLE".equals(
+                    value.evaluationStatus())
+                    && "SYSTEM".equals(value.evaluationSource())
+                    && "MANUAL_OR_EXPERIMENTAL_UNSCORED".equals(
+                    value.evaluationReason())
+                    && !value.evaluationRetryable()
+                    && "KSH_WRITING_EVALUATOR_STATUS".equals(value.engine())
+                    && WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
+                    value.policyBundleId());
+        }
         BigDecimal expectedMaximum = BigDecimal.valueOf(
                 WritingScoringPolicy.rubricFor(
                         expectedTaskType).totalMaxScore());
@@ -3243,6 +3099,49 @@ public class PracticeService {
         }
         return isCurrentWritingEnvelope(
                 value, expectedTaskType, expectedMaximum);
+    }
+
+    private boolean manualOrExperimentalWritingUnscored(
+            QuestionSnapshot question) {
+        if (question == null
+                || isBlank(question.answerSpecJson())) {
+            return false;
+        }
+        if (isBlank(question.questionContentJson())) {
+            throw new IllegalStateException(
+                    "Writing evaluation policy requires typed question content.");
+        }
+        CanonicalQuestionType type = questionTypeResolver.resolve(
+                question.questionType());
+        QuestionContent content = assessmentContractCodec.readQuestionContent(
+                question.questionContentJson(), type);
+        AnswerSpec spec = assessmentContractCodec.readAnswerSpec(
+                question.answerSpecJson(), content);
+        return spec.effectiveEvaluationMode()
+                == AnswerSpec.EvaluationMode
+                .MANUAL_OR_EXPERIMENTAL_UNSCORED;
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode
+    manualWritingUnscored(QuestionSnapshot question) {
+        com.fasterxml.jackson.databind.node.ObjectNode node =
+                objectMapper.createObjectNode();
+        node.put("task_type", question.writingTaskType().name());
+        node.put("engine", "KSH_WRITING_EVALUATOR_STATUS");
+        node.put("policy_bundle_id",
+                WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
+        node.put("evaluation_status", "EVALUATION_UNAVAILABLE");
+        node.put("evaluation_source", "SYSTEM");
+        node.put("evaluation_reason",
+                "MANUAL_OR_EXPERIMENTAL_UNSCORED");
+        node.put("evaluation_retryable", false);
+        node.put("score_available", false);
+        node.set("result_completeness", objectMapper.valueToTree(
+                com.ksh.features.practice.ai.contract
+                        .PracticeAiResultCompleteness.unavailable(
+                                "MANUAL_OR_EXPERIMENTAL_UNSCORED", 0)
+                        .toMap()));
+        return node;
     }
 
     private static boolean isCurrentWritingEnvelope(
@@ -3350,87 +3249,6 @@ public class PracticeService {
         } catch (IllegalArgumentException exception) {
             return false;
         }
-    }
-
-    private Long persistNonWritingEssaySubmitResult(
-            NonWritingEssayGradingSnapshot snapshot,
-            NonWritingEssayGradingResult result
-    ) {
-        PracticeAttempt attempt = attemptRepository
-                .findByIdAndUserIdForUpdate(
-                        snapshot.attemptId(), snapshot.userId())
-                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
-        verifyNonWritingSnapshotIdentity(attempt, snapshot);
-        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(attempt.getStatus())) {
-            throw conflict();
-        }
-        if (attempt.isExpired(LocalDateTime.now())
-                && !Objects.equals(
-                        normalizeJsonForCompare(
-                                snapshot.answersToPersistJson()),
-                        normalizeJsonForCompare(
-                                attempt.getAnswersJson()))) {
-            throw new PracticeAttemptDeadlineExpiredException(
-                    attempt.getDeadlineAt());
-        }
-        if (!Objects.equals(normalizeJsonForCompare(snapshot.expectedExistingAnswersJson()), normalizeJsonForCompare(attempt.getAnswersJson()))) {
-            throw conflict();
-        }
-        verifyNonWritingSnapshotVersion(attempt, snapshot);
-        if (result.aiFeedbackJson() == null) {
-            attempt.markSubmitted(result.score(), result.totalPoints(), result.answersJson());
-        } else if (result.score() == null) {
-            attempt.markSubmitted(null, result.totalPoints(), result.answersJson());
-            attempt.setAiFeedbackJson(result.aiFeedbackJson());
-        } else {
-            attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.aiFeedbackJson());
-        }
-        flushAttempt(attempt);
-        log.info("[PracticeService] Submitted PracticeAttempt id={} score={} / {}", attempt.getId(), result.score(), result.totalPoints());
-        return attempt.getId();
-    }
-
-    private Long persistNonWritingEssayReEvaluationResult(
-            NonWritingEssayGradingSnapshot snapshot,
-            NonWritingEssayGradingResult result
-    ) {
-        PracticeAttempt attempt = attemptRepository.findByIdAndUserId(snapshot.attemptId(), snapshot.userId())
-                .orElseThrow(() -> new EntityNotFoundException("Bài làm đã thay đổi trong lúc chấm. Vui lòng tải lại và thử lại."));
-        verifyNonWritingSnapshotIdentity(attempt, snapshot);
-        if (!Objects.equals(snapshot.expectedStatus(), attempt.getStatus())) {
-            throw conflict();
-        }
-        if (!Objects.equals(normalizeJsonForCompare(snapshot.expectedExistingAnswersJson()), normalizeJsonForCompare(attempt.getAnswersJson()))) {
-            throw conflict();
-        }
-        if (!Objects.equals(snapshot.expectedAiFeedbackJson(), attempt.getAiFeedbackJson())) {
-            throw conflict();
-        }
-        if (!Objects.equals(snapshot.expectedScore(), attempt.getScore())
-                || !Objects.equals(snapshot.expectedTotalPoints(), attempt.getTotalPoints())) {
-            throw conflict();
-        }
-        verifyNonWritingSnapshotVersion(attempt, snapshot);
-        if (result.score() == null
-                && snapshot.expectedScore() != null
-                && snapshot.expectedAiFeedbackJson() != null
-                && !snapshot.expectedAiFeedbackJson().isBlank()) {
-            log.info(
-                    "[PracticeService] Retained prior non-Writing essay result for PracticeAttempt id={} because re-evaluation was unavailable",
-                    attempt.getId());
-            return attempt.getId();
-        }
-        if (result.aiFeedbackJson() == null) {
-            attempt.markSubmitted(result.score(), result.totalPoints(), result.answersJson());
-        } else if (result.score() == null) {
-            attempt.markSubmitted(null, result.totalPoints(), result.answersJson());
-            attempt.setAiFeedbackJson(result.aiFeedbackJson());
-        } else {
-            attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.aiFeedbackJson());
-        }
-        flushAttempt(attempt);
-        log.info("[PracticeService] Re-evaluated PracticeAttempt id={} score={} / {}", attempt.getId(), result.score(), result.totalPoints());
-        return attempt.getId();
     }
 
     private Long persistSpeakingGradingResult(
@@ -3548,21 +3366,6 @@ public class PracticeService {
 
     private void verifySnapshotVersion(PracticeAttempt attempt, WritingGradingSnapshot snapshot) {
         if (!Objects.equals(attempt.getLockVersion(), snapshot.lockVersion())) {
-            throw conflict();
-        }
-    }
-
-    private void verifyNonWritingSnapshotVersion(PracticeAttempt attempt, NonWritingEssayGradingSnapshot snapshot) {
-        if (!Objects.equals(attempt.getLockVersion(), snapshot.lockVersion())) {
-            throw conflict();
-        }
-    }
-
-    private void verifyNonWritingSnapshotIdentity(PracticeAttempt attempt, NonWritingEssayGradingSnapshot snapshot) {
-        if (!Objects.equals(attempt.getSetId(), snapshot.setId())
-                || !Objects.equals(attempt.getTestId(), snapshot.testId())
-                || !Objects.equals(attempt.getSectionId(), snapshot.sectionId())
-                || !Objects.equals(attempt.getSkill(), snapshot.skill())) {
             throw conflict();
         }
     }
@@ -3874,12 +3677,12 @@ public class PracticeService {
                                 : iterable(root.elements());
                 for (JsonNode value : feedbackEntries) {
                     if (value == null || !value.isObject()) continue;
-                    WritingFeedbackCompatibilityReader.EntryResult parsed =
-                            writingFeedbackReader.parseGeneratedEntry(value);
+                    WritingFeedbackContractParser.EntryResult parsed =
+                            writingFeedbackParser.parseGeneratedEntry(value);
                     WritingEvaluationResult evaluation = parsed.value();
                     boolean currentEnvelope =
                             parsed.status()
-                                    == WritingFeedbackCompatibilityReader.Status.VALID_CURRENT
+                                    == WritingFeedbackContractParser.Status.VALID_CURRENT
                             && isSelfConsistentCurrentWritingEnvelope(
                                     value,
                                     evaluation);
@@ -4142,25 +3945,6 @@ public class PracticeService {
     ) {
     }
 
-    private record NonWritingEssayGradingSnapshot(
-            Long attemptId,
-            Long userId,
-            Long setId,
-            Long testId,
-            Long sectionId,
-            String skill,
-            String expectedStatus,
-            Long lockVersion,
-            String expectedExistingAnswersJson,
-            String expectedAiFeedbackJson,
-            BigDecimal expectedScore,
-            BigDecimal expectedTotalPoints,
-            String answersToPersistJson,
-            Map<String, String> answers,
-            List<QuestionSnapshot> questions
-    ) {
-    }
-
     private record SpeakingGradingSnapshot(
             Long attemptId,
             Long userId,
@@ -4209,14 +3993,6 @@ public class PracticeService {
             String answersJson,
             String feedbackJson,
             String failureMetadataJson
-    ) {
-    }
-
-    private record NonWritingEssayGradingResult(
-            BigDecimal score,
-            BigDecimal totalPoints,
-            String answersJson,
-            String aiFeedbackJson
     ) {
     }
 

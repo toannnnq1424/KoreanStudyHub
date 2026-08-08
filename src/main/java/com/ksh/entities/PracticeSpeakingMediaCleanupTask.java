@@ -31,6 +31,9 @@ public class PracticeSpeakingMediaCleanupTask {
     @Column(name = "cleanup_reason", nullable = false, length = 40)
     private PracticeSpeakingMediaCleanupReason cleanupReason;
 
+    @Column(name = "authorization_evidence_id", length = 160)
+    private String authorizationEvidenceId;
+
     @Column(name = "media_id")
     private Long mediaId;
 
@@ -91,8 +94,23 @@ public class PracticeSpeakingMediaCleanupTask {
             String storageKey,
             LocalDateTime dueAt,
             LocalDateTime nextAttemptAt) {
+        return pendingExact(cleanupReason, mediaId, storageProvider,
+                storageProfileCode, storageKey, dueAt, nextAttemptAt, null);
+    }
+
+    public static PracticeSpeakingMediaCleanupTask pendingExact(
+            PracticeSpeakingMediaCleanupReason cleanupReason,
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey,
+            LocalDateTime dueAt,
+            LocalDateTime nextAttemptAt,
+            String authorizationEvidenceId) {
         PracticeSpeakingMediaCleanupTask task = new PracticeSpeakingMediaCleanupTask();
         task.cleanupReason = require(cleanupReason, "cleanupReason");
+        task.authorizationEvidenceId = authorizationEvidence(
+                cleanupReason, authorizationEvidenceId);
         task.storageProvider = require(storageProvider, "storageProvider");
         task.storageKey = canonicalStorageKey(storageKey);
         task.dueAt = require(dueAt, "dueAt");
@@ -105,6 +123,22 @@ public class PracticeSpeakingMediaCleanupTask {
         task.mediaId = mediaId;
         task.storageProfileCode = storageProfileCode;
         return task;
+    }
+
+    private static String authorizationEvidence(
+            PracticeSpeakingMediaCleanupReason reason, String value) {
+        if (reason != PracticeSpeakingMediaCleanupReason.CONSENT_WITHDRAWAL) {
+            if (value != null) {
+                throw new IllegalArgumentException(
+                        "authorizationEvidenceId is only valid for consent withdrawal.");
+            }
+            return null;
+        }
+        if (value == null || value.isBlank() || value.length() > 160
+                || value.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("authorizationEvidenceId is invalid.");
+        }
+        return value.trim();
     }
 
     public void claim(Long expectedLockVersion,
@@ -259,6 +293,7 @@ public class PracticeSpeakingMediaCleanupTask {
 
     public Long getId() { return id; }
     public PracticeSpeakingMediaCleanupReason getCleanupReason() { return cleanupReason; }
+    public String getAuthorizationEvidenceId() { return authorizationEvidenceId; }
     public Long getMediaId() { return mediaId; }
     public PracticeSpeakingStorageProvider getStorageProvider() { return storageProvider; }
     public String getStorageProfileCode() { return storageProfileCode; }

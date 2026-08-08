@@ -13,18 +13,21 @@ class PracticeAiControlPlaneStaticContractTest {
 
     @Test
     void migrationUsesOnePrimaryKeyRowPerExactPurpose() throws Exception {
-        String sql = Files.readString(Path.of(
+        String foundation = Files.readString(Path.of(
                 "src/main/resources/db/migration/V84__practice_ai_control_plane.sql"));
-        assertThat(sql)
+        String current = foundation + Files.readString(Path.of(
+                "src/main/resources/db/migration/"
+                        + "V90__practice_speaking_direct_audio_control_plane.sql"));
+        assertThat(foundation)
                 .contains("purpose_code VARCHAR(64) PRIMARY KEY")
                 .contains("practice_ai_provider_profiles")
                 .contains("practice_ai_purpose_bindings")
                 .contains("practice_ai_capability_test_runs")
                 .contains("practice_ai_execution_audits");
         for (PracticeAiPurpose purpose : PracticeAiPurpose.values()) {
-            assertThat(sql).contains("'" + purpose.name() + "'");
+            assertThat(current).contains("'" + purpose.name() + "'");
         }
-        assertThat(sql).doesNotContain(
+        assertThat(current).doesNotContain(
                 "GENERAL_UPLOADS",
                 "storage_profiles",
                 "R2",
@@ -79,6 +82,29 @@ class PracticeAiControlPlaneStaticContractTest {
                 .contains("/audio/transcriptions")
                 .contains("/audio/speech")
                 .doesNotContain("fallback", "AiClient", "ai_providers");
+    }
+
+    @Test
+    void directAudioUiOffersVerifiedPresetsAndCustomDraftWithoutDiscovery()
+            throws Exception {
+        String template = Files.readString(Path.of(
+                "src/main/resources/templates/admin/"
+                        + "settings-practice-ai-binding-form.html"));
+        String script = Files.readString(Path.of(
+                "src/main/resources/static/js/admin-settings-practice-ai.js"));
+
+        assertThat(template)
+                .contains("gemini-3.6-flash")
+                .contains("gemini-3.5-flash")
+                .contains("Gợi ý đã xác minh")
+                .contains("data-verification=\"verified\"")
+                .contains("model tùy chỉnh hoặc model mới")
+                .contains("không thể bật hoặc gửi audio")
+                .contains("DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED")
+                .doesNotContain("fetch('/models", "fetch(\"/models");
+        assertThat(script)
+                .contains("gemini-enterprise")
+                .doesNotContain("/models");
     }
 
     @Test

@@ -32,27 +32,27 @@
             <li class="settings-step" th:classappend="${enabledProfileCount > 0} ? ' is-complete' : ' is-current'"
                 th:attr="aria-current=${enabledProfileCount == 0} ? 'step' : null">
                 <span class="settings-step-number">1</span>
-                <span><strong>Chọn nhà cung cấp</strong><small>Nhập khóa và bật profile.</small></span>
+                <span><strong>Chọn nhà cung cấp</strong><small>Chọn API key hoặc ADC rồi bật profile.</small></span>
             </li>
             <li class="settings-step" th:classappend="${configuredBindingCount > 0} ? ' is-complete' : (${enabledProfileCount > 0} ? ' is-current' : '')"
                 th:attr="aria-current=${enabledProfileCount > 0 and configuredBindingCount == 0} ? 'step' : null">
                 <span class="settings-step-number">2</span>
                 <span><strong>Chọn model</strong><small>Chọn model phù hợp cho tính năng.</small></span>
             </li>
-            <li class="settings-step" th:classappend="${enabledBindingCount == 6} ? ' is-complete' : (${configuredBindingCount > 0} ? ' is-current' : '')"
-                th:attr="aria-current=${configuredBindingCount > 0 and enabledBindingCount < 6} ? 'step' : null">
+            <li class="settings-step" th:classappend="${enabledBindingCount == purposeCount} ? ' is-complete' : (${configuredBindingCount > 0} ? ' is-current' : '')"
+                th:attr="aria-current=${configuredBindingCount > 0 and enabledBindingCount < purposeCount} ? 'step' : null">
                 <span class="settings-step-number">3</span>
-                <span><strong>Gán cho mục đích</strong><small>Hoàn tất đủ sáu mục đích riêng.</small></span>
+                <span><strong>Gán cho mục đích</strong><small>Hoàn tất từng mục đích riêng.</small></span>
             </li>
         </ol>
 
         <section class="settings-next-action" aria-labelledby="practice-next-action">
             <div>
                 <span class="settings-zone-kicker">Việc cần làm tiếp theo</span>
-                <h2 id="practice-next-action"><span th:if="${enabledProfileCount == 0}">Thêm và bật nhà cung cấp đầu tiên</span><span th:if="${enabledProfileCount > 0 and configuredBindingCount == 0}">Chọn model cho mục đích đầu tiên</span><span th:if="${configuredBindingCount > 0 and enabledBindingCount < 6}">Hoàn thiện các mục đích còn lại</span><span th:if="${enabledBindingCount == 6}">Kiểm tra định kỳ từng mục đích</span></h2>
-                <p th:if="${enabledProfileCount == 0}">Khóa chỉ được gửi khi lưu; trang danh sách không chứa secret.</p>
-                <p th:if="${enabledProfileCount > 0 and enabledBindingCount < 6}">Mỗi mục đích phải chọn đúng profile và model trước khi bật.</p>
-                <p th:if="${enabledBindingCount == 6}">Cả sáu binding đã bật. Chạy kiểm tra khi bạn chủ động yêu cầu.</p>
+                <h2 id="practice-next-action"><span th:if="${enabledProfileCount == 0}">Thêm và bật nhà cung cấp đầu tiên</span><span th:if="${enabledProfileCount > 0 and configuredBindingCount == 0}">Chọn model cho mục đích đầu tiên</span><span th:if="${configuredBindingCount > 0 and enabledBindingCount < purposeCount}">Hoàn thiện các mục đích còn lại</span><span th:if="${enabledBindingCount == purposeCount}">Kiểm tra định kỳ từng mục đích</span></h2>
+                <p th:if="${enabledProfileCount == 0}">Bearer chỉ được gửi khi lưu; profile ADC không lưu secret và trang danh sách không chứa credential.</p>
+                <p th:if="${enabledProfileCount > 0 and enabledBindingCount < purposeCount}">Mỗi mục đích phải chọn đúng profile và model trước khi bật.</p>
+                <p th:if="${enabledBindingCount == purposeCount}">Mọi binding đã bật. Chạy kiểm tra khi bạn chủ động yêu cầu.</p>
             </div>
             <a th:if="${enabledProfileCount == 0}" class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Bắt đầu bước 1</a>
             <a th:if="${enabledProfileCount > 0 and nextBinding != null}" class="btn btn-primary"
@@ -61,13 +61,50 @@
 
         <section class="settings-content-section" aria-labelledby="practice-providers-title">
             <div class="settings-section-head">
-                <div><span class="settings-step-label">Bước 1</span><h2 id="practice-providers-title">Nhà cung cấp và khóa</h2>
-                    <p>Profile chỉ phục vụ Practice; secret luôn được che trên trang này.</p></div>
+                <div><span class="settings-step-label">Bước 1</span><h2 id="practice-providers-title">Nhà cung cấp và xác thực</h2>
+                    <p>Profile chỉ phục vụ Practice; bearer luôn được che và ADC không lưu secret.</p></div>
                 <a class="btn-ghost" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm nhà cung cấp</a>
+            </div>
+            <aside class="settings-boundary-note">
+                <strong>Preset OpenAI-compatible cố định · Cần kiểm tra</strong>
+                <span>xAI/Grok và Groq chỉ ghim đúng endpoint chính thức; không ghim model,
+                    không gọi <code>/models</code> và không chứng minh capability. Mỗi preset
+                    được tạo thành profile riêng, luôn tắt cho tới khi có verification riêng.</span>
+            </aside>
+            <div class="settings-card-list settings-fixed-provider-presets">
+                <article class="settings-provider-card" th:each="preset : ${fixedProviderPresets}">
+                    <div class="settings-card-main">
+                        <span class="settings-provider-mark" aria-hidden="true">AI</span>
+                        <div>
+                            <h3 th:text="${preset.displayName}">Preset cho Practice</h3>
+                            <p th:text="${preset.baseUrl}">https://provider.invalid/v1</p>
+                            <code class="settings-meta-code" th:text="${preset.profileCode}">PRACTICE_PROVIDER</code>
+                            <small>Bearer tĩnh · secret chỉ lưu phía server</small>
+                        </div>
+                    </div>
+                    <div class="settings-card-side">
+                        <span class="settings-status settings-status-check">Cần kiểm tra</span>
+                        <div class="settings-actions">
+                            <a th:if="${preset.configured}" class="btn-ghost"
+                               th:href="@{'/admin/settings/practice-ai/profiles/' + ${preset.configuredProfileId} + '/edit'}">Nhập / thay key</a>
+                            <form th:unless="${preset.configured}" method="post"
+                                  th:action="@{'/admin/settings/practice-ai/profiles/presets/' + ${preset.key}}">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                                <button class="btn-ghost" type="submit">Tạo profile tắt</button>
+                            </form>
+                            <a th:if="${preset.key == 'XAI_GROK'}"
+                               href="https://console.x.ai/team/default/api-keys" target="_blank"
+                               rel="noopener noreferrer">Lấy key xAI chính thức <span aria-hidden="true">↗</span></a>
+                            <a th:if="${preset.key == 'GROQ'}"
+                               href="https://console.groq.com/keys" target="_blank"
+                               rel="noopener noreferrer">Lấy key Groq chính thức <span aria-hidden="true">↗</span></a>
+                        </div>
+                    </div>
+                </article>
             </div>
             <div th:if="${#lists.isEmpty(profiles)}" class="settings-empty" role="status">
                 <strong>Chưa thiết lập nhà cung cấp</strong>
-                <p>Thêm endpoint tương thích OpenAI và khóa truy cập để bắt đầu.</p>
+                <p>Thêm endpoint tương thích OpenAI và chọn API key hoặc Google Cloud ADC.</p>
                 <a class="btn btn-primary" th:href="@{/admin/settings/practice-ai/profiles/new}">Thêm nhà cung cấp đầu tiên</a>
             </div>
             <div class="settings-card-list" th:unless="${#lists.isEmpty(profiles)}">
@@ -78,17 +115,19 @@
                             <h3 th:text="${profile.displayName}">Nhà cung cấp chính</h3>
                             <p th:text="${profile.baseUrl}">https://example.invalid/v1</p>
                             <code class="settings-meta-code" th:text="${profile.profileCode}">PRACTICE_PRIMARY</code>
+                            <small th:text="${profile.credentialMode == 'GOOGLE_CLOUD_ADC' ? 'Google Cloud ADC · không lưu secret' : 'Bearer tĩnh · secret được che'}">Xác thực</small>
                         </div>
                     </div>
                     <div class="settings-card-side">
-                        <span class="settings-status" th:classappend="${profile.enabled} ? ' settings-status-ready' : ' settings-status-paused'"
-                              th:text="${profile.enabled} ? 'Sẵn sàng' : 'Tạm tắt'">Tạm tắt</span>
+                        <span class="settings-status" th:classappend="${' settings-status-' + profile.statusCode}"
+                              th:text="${profile.statusLabel}">Tạm tắt</span>
                         <div class="settings-actions">
                             <a class="btn-ghost" th:href="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/edit'}">Sửa</a>
-                            <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/toggle'}">
+                            <form th:unless="${profile.verificationRequired}" method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/toggle'}">
                                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                                 <button class="btn-ghost" type="submit" th:text="${profile.enabled} ? 'Tạm tắt' : 'Bật lại'">Bật lại</button>
                             </form>
+                            <span th:if="${profile.verificationRequired}" class="settings-meta-code">Không thể bật trước verification</span>
                             <form method="post" th:action="@{'/admin/settings/practice-ai/profiles/' + ${profile.id} + '/delete'}">
                                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                                 <button class="btn-ghost settings-danger-action" type="submit">Xóa nếu chưa gán</button>
@@ -102,9 +141,9 @@
 
         <section class="settings-content-section" aria-labelledby="practice-purposes-title">
             <div class="settings-section-head">
-                <div><span class="settings-step-label">Bước 2–3</span><h2 id="practice-purposes-title">Model và sáu mục đích</h2>
+                <div><span class="settings-step-label">Bước 2–3</span><h2 id="practice-purposes-title">Model và các mục đích</h2>
                     <p>Trạng thái phản ánh cấu hình của từng mục đích; không có fallback ngầm.</p></div>
-                <span class="settings-count" th:text="${enabledBindingCount + ' / 6 sẵn sàng'}">0 / 6 sẵn sàng</span>
+                <span class="settings-count" th:text="${enabledBindingCount + ' / ' + purposeCount + ' đã bật'}">0 / 7 đã bật</span>
             </div>
             <div class="settings-status-legend" aria-label="Ý nghĩa trạng thái"><span><i class="settings-status-dot settings-status-missing"></i>Chưa thiết lập</span><span><i class="settings-status-dot settings-status-ready"></i>Sẵn sàng</span><span><i class="settings-status-dot settings-status-paused"></i>Tạm tắt</span><span><i class="settings-status-dot settings-status-check"></i>Cần kiểm tra</span></div>
             <div class="settings-purpose-grid">
@@ -129,6 +168,8 @@
                             <div><dt>Capability</dt><dd th:text="${binding.requiredCapabilities}">STRICT_JSON_SCHEMA</dd></div>
                             <div><dt>Revision</dt><dd th:text="${binding.configured ? binding.revision : '—'}">—</dd></div>
                             <div><dt>Retention</dt><dd th:text="${binding.retentionCode ?: '—'}">—</dd></div>
+                            <div th:if="${binding.purpose.name() == 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'}"><dt>Policy evidence</dt><dd th:text="${binding.policyEvidenceComplete ? 'Đủ ID' : 'Thiếu ID'}">Thiếu ID</dd></div>
+                            <div th:if="${binding.purpose.name() == 'PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION'}"><dt>Provider/model</dt><dd th:text="${binding.providerModelVerified ? 'Preset đã xác minh' : 'Tùy chỉnh · Cần kiểm tra'}">Cần kiểm tra</dd></div>
                             <div><dt>Kiểm tra gần nhất</dt><dd th:text="${#lists.isEmpty(binding.recentRuns) ? 'Chưa kiểm tra' : (binding.recentRuns[0].status ?: 'Đang chạy')}">Chưa kiểm tra</dd></div>
                         </dl>
                     </details>

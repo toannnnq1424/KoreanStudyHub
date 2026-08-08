@@ -88,6 +88,18 @@ public class PracticeSpeakingMediaCleanupTaskService {
                 mediaId, storageProvider, storageProfileCode, storageKey, now());
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Long enqueueConsentWithdrawal(
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey,
+            String authorizationEvidenceId) {
+        return enqueueExact(PracticeSpeakingMediaCleanupReason.CONSENT_WITHDRAWAL,
+                mediaId, storageProvider, storageProfileCode, storageKey, now(),
+                authorizationEvidenceId);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Long enqueueCompensationOrphan(
             PracticeSpeakingStorageProvider storageProvider,
@@ -232,9 +244,22 @@ public class PracticeSpeakingMediaCleanupTaskService {
             String storageProfileCode,
             String storageKey,
             LocalDateTime dueAt) {
-        PracticeSpeakingMediaCleanupTask candidate = PracticeSpeakingMediaCleanupTask.pendingExact(reason, mediaId,
-                storageProvider, storageProfileCode, storageKey, dueAt, dueAt);
-        repository.insertOrKeepExistingExact(reason.name(), mediaId,
+        return enqueueExact(reason, mediaId, storageProvider, storageProfileCode,
+                storageKey, dueAt, null);
+    }
+
+    private Long enqueueExact(
+            PracticeSpeakingMediaCleanupReason reason,
+            Long mediaId,
+            PracticeSpeakingStorageProvider storageProvider,
+            String storageProfileCode,
+            String storageKey,
+            LocalDateTime dueAt,
+            String authorizationEvidenceId) {
+        PracticeSpeakingMediaCleanupTask candidate = PracticeSpeakingMediaCleanupTask.pendingExact(
+                reason, mediaId, storageProvider, storageProfileCode, storageKey,
+                dueAt, dueAt, authorizationEvidenceId);
+        repository.insertOrKeepExistingExact(reason.name(), authorizationEvidenceId, mediaId,
                 storageProvider.name(), storageProfileCode, candidate.getStorageKey(), dueAt, dueAt);
         return repository.findByStorageProfileCodeAndStorageKey(
                         storageProfileCode, candidate.getStorageKey())

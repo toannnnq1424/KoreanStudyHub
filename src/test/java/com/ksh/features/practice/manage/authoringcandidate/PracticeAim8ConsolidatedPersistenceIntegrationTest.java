@@ -72,7 +72,7 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
         assertCurrentIntegratedSchema();
         Long ownerId = authorizedLecturer();
         Map<PracticeAiPurpose, PracticeAiExecutionSnapshot> snapshots =
-                persistSixPurposeBindings(ownerId);
+                persistPurposeBindings(ownerId);
 
         PracticeDraft draft = drafts.saveAndFlush(new PracticeDraft(
                 "AIM-8 cross-source candidate journey", "", "GLOBAL", null,
@@ -83,8 +83,7 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
         Map<SourceKind, CandidateView> created = new EnumMap<>(SourceKind.class);
         for (SourceKind kind : new SourceKind[] {
                 SourceKind.QUICK_EXCEL,
-                SourceKind.ADVANCED_EXCEL_V2,
-                SourceKind.LEGACY_EXCEL_V1}) {
+                SourceKind.ADVANCED_EXCEL_V2}) {
             CreateCommand command = excelCommand(
                     kind, ownerId, draft.getId(), approvedGroups(kind));
             CandidateView first = candidateService.createOrReuse(command);
@@ -109,7 +108,7 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
         assertThat(beforeApply.getVersion()).isZero();
         assertThat(beforeApply.getDraftJson()).isEqualTo(originalDraft);
         assertThat(applyEvents.count()).isZero();
-        assertThat(candidates.count()).isEqualTo(4);
+        assertThat(candidates.count()).isEqualTo(3);
 
         CandidateView quickReady = ready(created.get(SourceKind.QUICK_EXCEL), ownerId);
         CandidateView advancedReady = ready(
@@ -131,19 +130,7 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
                 .path("sections").get(0).path("groups")).hasSize(1);
         assertThat(applyEvents.count()).isEqualTo(2);
 
-        CandidateView legacy = created.get(SourceKind.LEGACY_EXCEL_V1);
-        String beforePreview = drafts.findById(draft.getId()).orElseThrow()
-                .getDraftJson();
-        assertThatThrownBy(() -> previewService.preview(
-                legacy.candidateId(), ownerId,
-                legacy.version(), legacy.contentDigest()))
-                .isInstanceOf(PracticeAuthoringCandidateException.class)
-                .extracting(error -> ((PracticeAuthoringCandidateException) error).code())
-                .isEqualTo("TARGET_DRAFT_VERSION_CONFLICT");
-        assertThat(drafts.findById(draft.getId()).orElseThrow().getDraftJson())
-                .isEqualTo(beforePreview);
-
-        assertThat(snapshots).hasSize(6);
+        assertThat(snapshots).hasSize(7);
         assertThat(snapshots.values()).allSatisfy(snapshot -> {
             assertThat(snapshot.providerProfileCode())
                     .startsWith("AIM8_DISPOSABLE_");
@@ -175,14 +162,14 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
     private void assertCurrentIntegratedSchema() {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1",
-                Integer.class)).isEqualTo(87);
+                Integer.class)).isEqualTo(90);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0",
                 Integer.class)).isZero();
         assertThat(jdbc.queryForObject(
                 "SELECT MAX(CAST(version AS UNSIGNED)) "
                         + "FROM flyway_schema_history",
-                Integer.class)).isEqualTo(87);
+                Integer.class)).isEqualTo(90);
         assertThat(storageProfiles.findAll()).hasSize(3)
                 .extracting(profile -> profile.getProfileCode())
                 .containsExactlyInAnyOrder(StorageProfileCode.values());
@@ -197,7 +184,7 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
     }
 
     private Map<PracticeAiPurpose, PracticeAiExecutionSnapshot>
-            persistSixPurposeBindings(Long actorId) {
+            persistPurposeBindings(Long actorId) {
         assertThat(aiBindings.count()).isZero();
         PracticeAiProviderProfile profile = aiProfiles.saveAndFlush(
                 new PracticeAiProviderProfile(
@@ -212,20 +199,27 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
         Map<PracticeAiPurpose, PracticeAiExecutionSnapshot> snapshots =
                 new EnumMap<>(PracticeAiPurpose.class);
         for (PracticeAiPurpose purpose : PracticeAiPurpose.values()) {
-            aiBindings.saveAndFlush(new PracticeAiPurposeBinding(
+            PracticeAiPurposeBinding binding = new PracticeAiPurposeBinding(
                     purpose,
                     profile,
                     "aim8-" + purpose.name().toLowerCase(),
                     PracticeAiBindingResolver.TRANSPORT_DIALECT,
-                    aiCodec.capabilityJson(purpose, false),
+                    aiCodec.capabilityJson(purpose, false,
+                            purpose == PracticeAiPurpose
+                                    .PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION),
                     aiCodec.limitsJson(
                             1_000, 5_000, 1, 1_048_576, 1_048_576),
                     retention(purpose),
                     true,
-                    actorId));
+                    actorId);
+            if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION) {
+                binding.updatePolicyEvidence("region/test", "non-training/test",
+                        "retention/test", "deletion-sla/test");
+            }
+            aiBindings.saveAndFlush(binding);
             snapshots.put(purpose, aiResolver.resolve(purpose).snapshot());
         }
-        assertThat(aiBindings.count()).isEqualTo(6);
+        assertThat(aiBindings.count()).isEqualTo(7);
         return snapshots;
     }
 
@@ -343,6 +337,8 @@ class PracticeAim8ConsolidatedPersistenceIntegrationTest {
             case PRACTICE_RL_EXPLANATION -> "PUBLISHED_EXPLANATION_V1";
             case PRACTICE_WRITING_EVALUATION -> "WRITING_EVALUATION_V1";
             case PRACTICE_SPEAKING_EVALUATION -> "SPEAKING_TRANSCRIPT_EVAL_V1";
+            case PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION ->
+                    "SPEAKING_DIRECT_AUDIO_EVAL_V1";
             case PRACTICE_SPEAKING_STT -> "SPEAKING_AUDIO_STT_V1";
             case PRACTICE_SPEAKING_TTS -> "LECTURER_PROMPT_TTS_V1";
         };

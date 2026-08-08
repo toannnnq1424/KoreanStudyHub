@@ -16,17 +16,18 @@ public class SpeakingEvaluationReusePolicy {
         if (currentIdentity == null) {
             return Decision.evaluate("MISSING_CURRENT_IDENTITY");
         }
-        if (realProviderEnabled && (stored.evaluationStatus() == SpeakingEvaluationStatus.LEGACY_RESULT
-                || stored.evaluationStatus() == SpeakingEvaluationStatus.MOCK_EVALUATED)) {
-            return Decision.evaluate("LEGACY_OR_MOCK_NOT_REUSABLE_WITH_REAL_PROVIDER");
+        if (realProviderEnabled
+                && stored.evaluationStatus()
+                == SpeakingEvaluationStatus.MOCK_EVALUATED) {
+            return Decision.evaluate("MOCK_NOT_REUSABLE_WITH_REAL_PROVIDER");
         }
         if (!currentIdentity.matches(stored)) {
             return Decision.evaluate("IDENTITY_CHANGED");
         }
         if (stored.evaluationStatus() != null
                 && stored.evaluationStatus().scoreBearing()
-                && stored.evaluationStatus() != SpeakingEvaluationStatus.MOCK_EVALUATED
-                && stored.evaluationStatus() != SpeakingEvaluationStatus.LEGACY_RESULT) {
+                && stored.evaluationStatus()
+                != SpeakingEvaluationStatus.MOCK_EVALUATED) {
             return stored.profileAvailable()
                     ? Decision.reuse("MATCHING_TRANSCRIPT_LANGUAGE_PROFILE")
                     : Decision.evaluate("MATCHING_RESULT_MISSING_LANGUAGE_PROFILE");
@@ -49,7 +50,6 @@ public class SpeakingEvaluationReusePolicy {
                 && currentIdentity != null
                 && currentIdentity.matches(stored)
                 && stored.profileAvailable()
-                && stored.evaluationStatus() != SpeakingEvaluationStatus.LEGACY_RESULT
                 && stored.evaluationStatus() != SpeakingEvaluationStatus.MOCK_EVALUATED) {
             return stored;
         }

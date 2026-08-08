@@ -1,0 +1,38 @@
+{
+  "artifact_id": "KSH_PRACTICE_DIRECT_AUDIO_CAPABILITY_VERIFICATION_V1",
+  "verified_at": "2026-08-03",
+  "scope": "TECHNICAL_CAPABILITY_AND_AUTH_ENDPOINT_ONLY",
+  "policy_evidence_required_separately": true,
+  "presets": [
+    {
+      "code": "GEMINI_DEVELOPER_DIRECT_AUDIO",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "model": "gemini-3.6-flash",
+      "credential_mode": "STATIC_BEARER",
+      "runtime_auth_ready": true,
+      "audio_input_evidence_id": "KSH-DA-AUDIO-GEMINI-DEVELOPER-2026-08-03",
+      "strict_structured_output_evidence_id": "KSH-DA-STRICT-OUTPUT-GEMINI-DEVELOPER-2026-08-03",
+      "auth_endpoint_evidence_id": "KSH-DA-AUTH-ENDPOINT-GEMINI-DEVELOPER-2026-08-03",
+      "official_sources": [
+        "https://ai.google.dev/gemini-api/docs/openai"
+      ]
+    },
+    {
+      "code": "GEMINI_ENTERPRISE_DIRECT_AUDIO",
+      "base_url_pattern": "https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/endpoints/openapi",
+      "model": "gemini-3.5-flash",
+      "credential_mode": "GOOGLE_CLOUD_ADC",
+      "runtime_auth_ready": false,
+      "audio_input_evidence_id": "KSH-DA-AUDIO-GEMINI-ENTERPRISE-2026-08-03",
+      "strict_structured_output_evidence_id": "KSH-DA-STRICT-OUTPUT-GEMINI-ENTERPRISE-2026-08-03",
+      "auth_endpoint_evidence_id": "KSH-DA-AUTH-ENDPOINT-GEMINI-ENTERPRISE-2026-08-03",
+      "official_sources": [
+        "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-flash",
+        "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/migrate/openai/auth-and-credentials"
+      ],
+      "blocking_reason": "DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED"
+    }
+  ],
+  "custom_model_state": "UNVERIFIED",
+  "custom_model_enablement": "FAIL_CLOSED_UNTIL_REGISTRY_EVIDENCE_ADDED"
+}

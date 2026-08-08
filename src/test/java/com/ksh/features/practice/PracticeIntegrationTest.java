@@ -992,10 +992,9 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void testLegacySubmissionResultRedirectStillTargetsAttemptRoute() throws Exception {
+    void retiredSubmissionResultRouteIsNotMapped() throws Exception {
         mockMvc.perform(get("/practice/submissions/123"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/attempts/123/result"));
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -1084,18 +1083,16 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void legacyModeRedirectsToSetDetail() throws Exception {
+    void retiredModeRouteIsNotMapped() throws Exception {
         mockMvc.perform(get("/practice/" + practiceSet.getId() + "/mode"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/sets/" + practiceSet.getId()));
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
-    void legacyRoomRedirectsToSetDetail() throws Exception {
+    void retiredRoomRouteIsNotMapped() throws Exception {
         mockMvc.perform(get("/practice/" + practiceSet.getId() + "/room"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/practice/sets/" + practiceSet.getId()));
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -1594,294 +1591,6 @@ class PracticeIntegrationTest {
                 PracticeAttempt.ANALYSIS_QUEUED);
     }
 
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssaySubmitRunsEvaluatorOutsideTransactionAndKeepsSingleFeedbackShape() throws Exception {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Reading Essay Submit Boundary", false, true);
-        final boolean[] evaluatorSawTransaction = {true};
-        try {
-            String feedback = currentWritingFeedback(
-                    WritingTaskType.Q51,
-                    "7",
-                    "Đánh giá bài tự luận",
-                    "Essay answer");
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
-                    .thenAnswer(invocation -> {
-                        evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
-                        return feedback;
-                    });
-
-            Long result = practiceService.submitAttempt(
-                    fixture.attemptId(),
-                    student.getId(),
-                    Map.of(
-                            "answer_" + fixture.mcqQuestionId(), "1",
-                            "answer_" + fixture.essayQuestionId(), "Essay answer"
-                    ));
-
-            assertEquals(fixture.attemptId(), result);
-            assertFalse(evaluatorSawTransaction[0]);
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(70.00)));
-            assertEquals(0, attempt.getTotalPoints().compareTo(BigDecimal.valueOf(15)));
-            assertEquals(objectMapper.readTree(feedback), objectMapper.readTree(attempt.getAiFeedbackJson()));
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
-
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssayReEvaluateRunsEvaluatorOutsideTransaction() throws Exception {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Reading Essay Reevaluate Boundary", true, true);
-        final boolean[] evaluatorSawTransaction = {true};
-        try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(true), any()))
-                    .thenAnswer(invocation -> {
-                        evaluatorSawTransaction[0] = TransactionSynchronizationManager.isActualTransactionActive();
-                        return currentWritingFeedback(
-                                WritingTaskType.Q51,
-                                "8",
-                                "Đánh giá lại bài tự luận",
-                                invocation.getArgument(2, String.class));
-                    });
-
-            practiceService.reEvaluate(fixture.attemptId(), student.getId());
-
-            assertFalse(evaluatorSawTransaction[0]);
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
-
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssaySubmitRejectsStaleScoreProvenanceWithoutMutation() {
-        NonWritingEssayAttemptFixture fixture =
-                createNonWritingEssayAttemptFixture(
-                        "Reading Essay Stale Score", false, true);
-        try {
-            String staleScore = currentWritingFeedback(
-                    WritingTaskType.Q51,
-                    "7",
-                    "Stale score",
-                    "Essay answer")
-                    .replace(
-                            "\"evaluation_reason\":\"NONE\"",
-                            "\"evaluation_reason\":\"EMPTY_OR_TOO_SHORT\"");
-            when(writingEvaluationClient.evaluate(
-                    eq(student.getId()),
-                    eq(fixture.essayPrompt()),
-                    anyString(),
-                    eq(false),
-                    any()))
-                    .thenReturn(staleScore);
-
-            assertThrows(
-                    IllegalStateException.class,
-                    () -> practiceService.submitAttempt(
-                            fixture.attemptId(),
-                            student.getId(),
-                            Map.of(
-                                    "answer_" + fixture.mcqQuestionId(),
-                                    "1",
-                                    "answer_" + fixture.essayQuestionId(),
-                                    "Essay answer")));
-
-            PracticeAttempt preserved = attemptRepository.findById(
-                    fixture.attemptId()).orElseThrow();
-            assertEquals(
-                    PracticeAttempt.STATUS_IN_PROGRESS,
-                    preserved.getStatus());
-            assertEquals("{}", preserved.getAnswersJson());
-            assertNull(preserved.getScore());
-            assertNull(preserved.getTotalPoints());
-            assertNull(preserved.getAiFeedbackJson());
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
-
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssayReEvaluateRejectsRetryableScoreWithoutMutation() {
-        NonWritingEssayAttemptFixture fixture =
-                createNonWritingEssayAttemptFixture(
-                        "Reading Essay Retryable Score", true, true);
-        try {
-            PracticeAttempt before = attemptRepository.findById(
-                    fixture.attemptId()).orElseThrow();
-            String expectedStatus = before.getStatus();
-            String expectedAnswers = before.getAnswersJson();
-            String expectedFeedback = before.getAiFeedbackJson();
-            BigDecimal expectedScore = before.getScore();
-            BigDecimal expectedTotal = before.getTotalPoints();
-            String retryableScore = currentWritingFeedback(
-                    WritingTaskType.Q51,
-                    "8",
-                    "Retryable score",
-                    "Existing essay")
-                    .replace(
-                            "\"evaluation_retryable\":false",
-                            "\"evaluation_retryable\":true");
-            when(writingEvaluationClient.evaluate(
-                    eq(student.getId()),
-                    eq(fixture.essayPrompt()),
-                    anyString(),
-                    eq(true),
-                    any()))
-                    .thenReturn(retryableScore);
-
-            assertThrows(
-                    IllegalStateException.class,
-                    () -> practiceService.reEvaluate(
-                            fixture.attemptId(),
-                            student.getId()));
-
-            PracticeAttempt preserved = attemptRepository.findById(
-                    fixture.attemptId()).orElseThrow();
-            assertEquals(expectedStatus, preserved.getStatus());
-            assertEquals(expectedAnswers, preserved.getAnswersJson());
-            assertEquals(expectedFeedback, preserved.getAiFeedbackJson());
-            assertEquals(0, expectedScore.compareTo(preserved.getScore()));
-            assertEquals(0, expectedTotal.compareTo(
-                    preserved.getTotalPoints()));
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
-
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssayReEvaluateUnavailablePreservesPreviousResult() {
-        NonWritingEssayAttemptFixture fixture =
-                createNonWritingEssayAttemptFixture(
-                        "Reading Essay Unavailable Re-evaluation",
-                        true,
-                        true);
-        try {
-            PracticeAttempt before = attemptRepository.findById(
-                    fixture.attemptId()).orElseThrow();
-            String expectedStatus = before.getStatus();
-            String expectedAnswers = before.getAnswersJson();
-            String expectedFeedback = before.getAiFeedbackJson();
-            BigDecimal expectedScore = before.getScore();
-            BigDecimal expectedTotal = before.getTotalPoints();
-            Long expectedLockVersion = before.getLockVersion();
-            when(writingEvaluationClient.evaluate(
-                    eq(student.getId()),
-                    eq(fixture.essayPrompt()),
-                    anyString(),
-                    eq(true),
-                    any()))
-                    .thenReturn(currentWritingUnavailable(
-                            WritingTaskType.Q51,
-                            "EVALUATION_UNAVAILABLE",
-                            "MISSING_API_KEY",
-                            false));
-
-            assertEquals(
-                    fixture.attemptId(),
-                    practiceService.reEvaluate(
-                            fixture.attemptId(),
-                            student.getId()));
-
-            PracticeAttempt preserved = attemptRepository.findById(
-                    fixture.attemptId()).orElseThrow();
-            assertEquals(expectedStatus, preserved.getStatus());
-            assertEquals(expectedAnswers, preserved.getAnswersJson());
-            assertEquals(expectedFeedback, preserved.getAiFeedbackJson());
-            assertEquals(0, expectedScore.compareTo(preserved.getScore()));
-            assertEquals(0, expectedTotal.compareTo(
-                    preserved.getTotalPoints()));
-            assertEquals(expectedLockVersion, preserved.getLockVersion());
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
-
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testPublishedLegacySpeakingEssaySubmitFailsClosedWithoutProvider() {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Legacy Speaking Essay", false, true, "SPEAKING");
-        try {
-            assertThrows(IllegalStateException.class, () ->
-                    practiceService.submitAttempt(
-                            fixture.attemptId(),
-                            student.getId(),
-                            Map.of(
-                                    "answer_" + fixture.mcqQuestionId(), "1",
-                                    "answer_" + fixture.essayQuestionId(),
-                                    "Legacy essay answer")));
-
-            PracticeAttempt preserved = attemptRepository
-                    .findById(fixture.attemptId()).orElseThrow();
-            assertEquals(
-                    PracticeAttempt.STATUS_IN_PROGRESS,
-                    preserved.getStatus());
-            assertNull(preserved.getScore());
-            assertNull(preserved.getAiFeedbackJson());
-            verify(writingEvaluationClient, never()).evaluate(
-                    anyLong(), anyString(), anyString(), anyBoolean(), any());
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
-
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssaySubmitEvaluatorFailureDoesNotMutateAttempt() {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Reading Essay Submit Failure Boundary", false, true);
-        try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
-                    .thenThrow(new RuntimeException("provider unavailable"));
-
-            assertThrows(RuntimeException.class, () -> practiceService.submitAttempt(
-                    fixture.attemptId(),
-                    student.getId(),
-                    Map.of(
-                            "answer_" + fixture.mcqQuestionId(), "1",
-                            "answer_" + fixture.essayQuestionId(), "Essay answer"
-                    )));
-
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(PracticeAttempt.STATUS_IN_PROGRESS, attempt.getStatus());
-            assertEquals("{}", attempt.getAnswersJson());
-            assertNull(attempt.getAiFeedbackJson());
-            assertNull(attempt.getScore());
-            assertNull(attempt.getTotalPoints());
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
-
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingMcqOnlySubmitDoesNotCallWritingEvaluator() {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Reading MCQ Only", false, false);
-        try {
-            practiceService.submitAttempt(
-                    fixture.attemptId(),
-                    student.getId(),
-                    Map.of("answer_" + fixture.mcqQuestionId(), "1"));
-
-            verify(writingEvaluationClient, never()).evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any());
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(PracticeAttempt.STATUS_SUBMITTED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(5)));
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
 
     @Test
     void testPracticeAttemptLockVersionIncrementsOnUpdate() {
@@ -4007,43 +3716,6 @@ class PracticeIntegrationTest {
         }
     }
 
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssaySubmitStaleAnswersConflictPreservesWinner() {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Reading Essay Submit Stale Answers", false, true);
-        try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
-                    .thenAnswer(invocation -> {
-                        practiceService.saveInProgressAnswers(
-                                fixture.attemptId(),
-                                student.getId(),
-                                Map.of("answer_" + fixture.essayQuestionId(), "Autosaved essay"));
-                        return currentWritingFeedback(
-                                WritingTaskType.Q51,
-                                "8",
-                                "Đánh giá trước xung đột",
-                                invocation.getArgument(2, String.class));
-                    });
-
-            assertThrows(PracticeAttemptConflictException.class,
-                    () -> practiceService.submitAttempt(
-                            fixture.attemptId(),
-                            student.getId(),
-                            Map.of(
-                                    "answer_" + fixture.mcqQuestionId(), "1",
-                                    "answer_" + fixture.essayQuestionId(), "Submitted essay"
-                            )));
-
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(PracticeAttempt.STATUS_IN_PROGRESS, attempt.getStatus());
-            assertTrue(attempt.getAnswersJson().contains("Autosaved essay"));
-            assertFalse(attempt.getAnswersJson().contains("Submitted essay"));
-            assertNull(attempt.getAiFeedbackJson());
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
 
     @Test
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
@@ -4084,46 +3756,6 @@ class PracticeIntegrationTest {
         }
     }
 
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testNonWritingEssayReEvaluateStaleResultConflictPreservesWinner() throws Exception {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Reading Essay Reevaluate Stale Result", true, true);
-        String winnerFeedback = currentWritingFeedback(
-                WritingTaskType.Q51,
-                "6",
-                "Kết quả thắng xung đột",
-                "Existing essay");
-        try {
-            when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(true), any()))
-                    .thenAnswer(invocation -> {
-                        TransactionTemplate template = new TransactionTemplate(transactionManager);
-                        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                        template.execute(status -> {
-                            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-                            attempt.markGraded(BigDecimal.valueOf(60.00), BigDecimal.valueOf(15),
-                                    attempt.getAnswersJson(), winnerFeedback);
-                            attemptRepository.saveAndFlush(attempt);
-                            return null;
-                        });
-                        return currentWritingFeedback(
-                                WritingTaskType.Q51,
-                                "9",
-                                "Đánh giá bị xung đột",
-                                invocation.getArgument(2, String.class));
-                    });
-
-            assertThrows(PracticeAttemptConflictException.class,
-                    () -> practiceService.reEvaluate(fixture.attemptId(), student.getId()));
-
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(60.00)));
-            assertEquals(objectMapper.readTree(winnerFeedback), objectMapper.readTree(attempt.getAiFeedbackJson()));
-        } finally {
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
@@ -4588,64 +4220,6 @@ class PracticeIntegrationTest {
         }
     }
 
-    @Test
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    void testConcurrentNonWritingEssaySubmitOnlyOneCommit() throws Exception {
-        NonWritingEssayAttemptFixture fixture = createNonWritingEssayAttemptFixture(
-                "Concurrent Reading Essay Submit", false, true);
-        CyclicBarrier evaluatorBarrier = new CyclicBarrier(2);
-        AtomicInteger evaluatorCalls = new AtomicInteger();
-        when(writingEvaluationClient.evaluate(eq(student.getId()), eq(fixture.essayPrompt()), anyString(), eq(false), any()))
-                .thenAnswer(invocation -> {
-                    evaluatorCalls.incrementAndGet();
-                    evaluatorBarrier.await(5, TimeUnit.SECONDS);
-                    return currentWritingFeedback(
-                            WritingTaskType.Q51,
-                            "8",
-                            "Đánh giá đồng thời",
-                            invocation.getArgument(2, String.class));
-                });
-
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        try {
-            Callable<Object> submit = () -> {
-                try {
-                    return practiceService.submitAttempt(
-                            fixture.attemptId(),
-                            student.getId(),
-                            Map.of(
-                                    "answer_" + fixture.mcqQuestionId(), "1",
-                                    "answer_" + fixture.essayQuestionId(), "Concurrent essay"
-                            ));
-                } catch (Exception ex) {
-                    return ex;
-                }
-            };
-
-            Future<Object> first = executor.submit(submit);
-            Future<Object> second = executor.submit(submit);
-            Object firstResult = first.get(10, TimeUnit.SECONDS);
-            Object secondResult = second.get(10, TimeUnit.SECONDS);
-
-            long successes = List.of(firstResult, secondResult).stream()
-                    .filter(result -> result instanceof Long)
-                    .count();
-            long conflicts = List.of(firstResult, secondResult).stream()
-                    .filter(result -> result instanceof PracticeAttemptConflictException)
-                    .count();
-
-            assertEquals(1, successes);
-            assertEquals(1, conflicts);
-            assertEquals(2, evaluatorCalls.get());
-
-            PracticeAttempt attempt = attemptRepository.findById(fixture.attemptId()).orElseThrow();
-            assertEquals(PracticeAttempt.STATUS_GRADED, attempt.getStatus());
-            assertEquals(0, attempt.getScore().compareTo(BigDecimal.valueOf(80.00)));
-        } finally {
-            executor.shutdownNow();
-            deleteNonWritingEssayAttemptFixture(fixture);
-        }
-    }
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
@@ -5519,100 +5093,6 @@ class PracticeIntegrationTest {
     ) {
     }
 
-    private NonWritingEssayAttemptFixture createNonWritingEssayAttemptFixture(
-            String title,
-            boolean graded,
-            boolean includeEssay
-    ) {
-        return createNonWritingEssayAttemptFixture(title, graded, includeEssay, "READING");
-    }
-
-    private NonWritingEssayAttemptFixture createNonWritingEssayAttemptFixture(
-            String title,
-            boolean graded,
-            boolean includeEssay,
-            String skill
-    ) {
-        PracticeSet readingSet = setRepository.saveAndFlush(new PracticeSet(
-                title, "Desc", skill, "GLOBAL", null, null, "{}", "PUBLISHED", lecturer.getId()
-        ));
-        PracticeTest test = testRepository.saveAndFlush(new PracticeTest(readingSet.getId(), "Test 1", "Desc", 1, 40));
-        PracticeSection section = new PracticeSection(readingSet.getId(), skill + " Section", skill, "MIXED", "Desc", 40, BigDecimal.valueOf(15), 1);
-        section.setTestId(test.getId());
-        section = sectionRepository.saveAndFlush(section);
-        PracticeQuestionGroup group = new PracticeQuestionGroup(readingSet.getId(), "Group 1", 1, 2, "Desc", null, null, 1);
-        group.setSectionId(section.getId());
-        group = groupRepository.saveAndFlush(group);
-
-        PracticeQuestion mcq = new PracticeQuestion(readingSet.getId(), 1, "SINGLE_CHOICE", "Prompt MCQ " + title, "[\"A\",\"B\"]", "1", "Explain", BigDecimal.valueOf(5), 0);
-        mcq.setGroupId(group.getId());
-        mcq = questionRepository.saveAndFlush(mcq);
-
-        PracticeQuestion essay = null;
-        if (includeEssay) {
-            essay = new PracticeQuestion(readingSet.getId(), 51, "ESSAY", "Prompt Essay " + title, "[]", "", "Explain", BigDecimal.TEN, 1);
-            essay.setWritingTaskType(WritingTaskType.Q51);
-            essay.setGroupId(group.getId());
-            essay = questionRepository.saveAndFlush(essay);
-        }
-
-        publishVersion(readingSet.getId());
-        Long attemptId = practiceService.startAttempt(
-                readingSet.getId(),
-                test.getId(),
-                section.getId(),
-                student.getId());
-        PracticeAttempt attempt =
-                attemptRepository.findById(attemptId).orElseThrow();
-        String answersJson = includeEssay
-                ? "{\"" + mcq.getId() + "\":\"1\",\"" + essay.getId() + "\":\"Existing essay\"}"
-                : "{\"" + mcq.getId() + "\":\"1\"}";
-        String oldFeedbackJson = "{\"score\":7.0,\"overall_score\":7.0,\"raw_score\":7.0,\"raw_score_max\":10.0}";
-        if (graded) {
-            attempt.markGraded(BigDecimal.valueOf(77.78), BigDecimal.valueOf(includeEssay ? 15 : 5),
-                    answersJson, includeEssay ? oldFeedbackJson : null);
-        } else {
-            attempt.setStatus(PracticeAttempt.STATUS_IN_PROGRESS);
-            attempt.setAnswersJson("{}");
-        }
-        attempt = attemptRepository.saveAndFlush(attempt);
-
-        return new NonWritingEssayAttemptFixture(
-                readingSet.getId(),
-                test.getId(),
-                section.getId(),
-                group.getId(),
-                mcq.getId(),
-                essay == null ? null : essay.getId(),
-                attempt.getId(),
-                essay == null ? null : essay.getPrompt()
-        );
-    }
-
-    private void deleteNonWritingEssayAttemptFixture(NonWritingEssayAttemptFixture fixture) {
-        attemptRepository.findById(fixture.attemptId()).ifPresent(attemptRepository::delete);
-        deletePublishedVersionFixture(fixture.setId());
-        if (fixture.essayQuestionId() != null) {
-            questionRepository.findById(fixture.essayQuestionId()).ifPresent(questionRepository::delete);
-        }
-        questionRepository.findById(fixture.mcqQuestionId()).ifPresent(questionRepository::delete);
-        groupRepository.findById(fixture.groupId()).ifPresent(groupRepository::delete);
-        sectionRepository.findById(fixture.sectionId()).ifPresent(sectionRepository::delete);
-        testRepository.findById(fixture.testId()).ifPresent(testRepository::delete);
-        setRepository.findById(fixture.setId()).ifPresent(setRepository::delete);
-    }
-
-    private record NonWritingEssayAttemptFixture(
-            Long setId,
-            Long testId,
-            Long sectionId,
-            Long groupId,
-            Long mcqQuestionId,
-            Long essayQuestionId,
-            Long attemptId,
-            String essayPrompt
-    ) {
-    }
 
     private WritingMixedAttemptFixture createWritingMixedAttemptFixture(String title) {
         PracticeSet writingSet = setRepository.saveAndFlush(new PracticeSet(

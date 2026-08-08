@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "ksh-speaking-evidence-report-v1",
+  "kind": "REPEATABILITY_REPORT",
+  "captureDate": "2026-08-07",
+  "status": "TECHNICAL_CAPTURE_COMPLETE_CHANGES_REQUIRED",
+  "thresholdIdentity": {
+    "relativePath": "docs/evidence/practice-speaking-direct-audio/speaking-scoring-calibration-preregistered-thresholds-v1.json",
+    "sha256": "e428a7a640d05143f01421855cfe076a9327f6f8eba70c3e10f3a74224528f5e"
+  },
+  "pinnedInputIdentity": {
+    "containerImageDigest": "sha256:55e3849655fc3fc191e822328607f330c077b99a65fdea95f2dae816670c5473",
+    "mfaVersion": "3.4.2.dev0+gf01293108.d20260711",
+    "acousticModel": "korean_mfa",
+    "acousticModelVersion": "3.0",
+    "acousticModelSha256": "46f7a73ab46828c679562b160e0577beecfb4a9a827efe5ab392aee947451a4d",
+    "g2pModelSha256": "6938db05d83fa92c5c80681bf76fd7dd7af7f3ea8c7d7df1093790c641ad0344",
+    "dictionarySha256": "b6c96a3fe93ea01da6602ac23e5f84308bdbebeb420e27882dda06c7a97fb98c",
+    "sampleManifestSha256": "419a3f7293e47986893c55ae5bd4d2c9f1611b11a435debf5e507df85684d0d5",
+    "sampleInputSetSha256": "3221a8f7a222c9f64e725af3f7110e9516991255ca68dfd599549bc3aa8bcc72",
+    "globalConfigSha256": "40cc80ae68b52e172c704d513b3f1bfff8c10a661569fac5d6c2778db215ed0e"
+  },
+  "execution": {
+    "runCount": 5,
+    "requestedPerRun": 48,
+    "alignedPerRun": 47,
+    "commonAligned": 47,
+    "failedEveryRun": [
+      "ko_cv26_026"
+    ],
+    "sequential": true,
+    "numJobs": 1,
+    "multiprocessing": false,
+    "singleSpeaker": true,
+    "speakerAdaptationObserved": false,
+    "speakerAdaptationEvidence": "Every captured align log records fMLLR: None; MFA help states --single_speaker disables speaker adaptation.",
+    "distinctTemporaryDirectoryPerRun": true,
+    "cleanAndOverwrite": true,
+    "textGridCleanup": false,
+    "mfccDither": 1,
+    "runTextGridSetSha256": {
+      "1": "12dd958de762649de702431c3e2bd6c605a142dffcead9e02627533a61c59148",
+      "2": "5147da4f5c109ecc7738d70c0ab1d45d59bbc9e98f97d6fe57388e0327a9ec90",
+      "3": "422752927e6a8290db69c289bfe5aa41cbb32b48831efa3d3eaeab848cceb496",
+      "4": "9162eb5ae7a55de5465c1ad1cd88cfabc07d661a76ae870c573563c21e0f3fb9",
+      "5": "57136741950a8d352275024f8292e14db01024a2db08aa3208a472b7bca612ee"
+    },
+    "outputSetDigestAlgorithm": "SHA-256 over sorted TextGrid relative filename, NUL, file bytes, NUL"
+  },
+  "comparison": {
+    "tier": "words",
+    "pairing": "All ten run pairs; a sample pair contributes boundary deltas only when its complete word-label sequence is identical.",
+    "successfulSampleSetIdentity": 1.0,
+    "wordLabelSequenceIdentity": 0.8723404255319149,
+    "wordLabelSequenceIdentityNumerator": 41,
+    "wordLabelSequenceIdentityDenominator": 47,
+    "matchingLabelSequenceBoundaryComparisons": 15924,
+    "boundaryDeltaSeconds": {
+      "mean": 0.004732479276563678,
+      "p95": 0.010000000000000009,
+      "max": 0.49
+    },
+    "maximumBoundaryDeltaEvidence": {
+      "sampleId": "ko_cv26_033",
+      "runPartitionsByBoundaryMilliseconds": {
+        "2330": [1, 4],
+        "1840": [2, 3, 5]
+      },
+      "boundary": "end of word 는 / start of word 자네",
+      "deltaMilliseconds": 490
+    },
+    "labelSequenceMismatchSamples": [
+      {
+        "sampleId": "ko_cv26_008",
+        "majorityRuns": [1, 3, 4, 5],
+        "differentRuns": [2],
+        "observedDifference": "Run 2 places an <eps> interval after 고; runs 1/3/4/5 place it before 고."
+      },
+      {
+        "sampleId": "ko_cv26_017",
+        "majorityRuns": [1, 2, 3, 4],
+        "differentRuns": [5],
+        "observedDifference": "Run 5 places an <eps> interval before 자기; runs 1/2/3/4 place that interval after 자기."
+      },
+      {
+        "sampleId": "ko_cv26_021",
+        "majorityRuns": [1, 3, 4, 5],
+        "differentRuns": [2],
+        "observedDifference": "Run 2 starts with <eps>; runs 1/3/4/5 place the interval between 국회의원 and 의."
+      },
+      {
+        "sampleId": "ko_cv26_024",
+        "majorityRuns": [1, 2, 3, 5],
+        "differentRuns": [4],
+        "observedDifference": "Run 4 adds an <eps> interval before 을 that is absent from runs 1/2/3/5."
+      },
+      {
+        "sampleId": "ko_cv26_028",
+        "majorityRuns": [1, 3, 4, 5],
+        "differentRuns": [2],
+        "observedDifference": "Run 2 places an <eps> interval between 이 and 면; runs 1/3/4/5 place it between 면 and 내."
+      },
+      {
+        "sampleId": "ko_cv26_039",
+        "majorityRuns": [1, 2, 3, 5],
+        "differentRuns": [4],
+        "observedDifference": "Run 4 places an additional <eps> interval before 다."
+      }
+    ]
+  },
+  "causeInvestigation": {
+    "concurrency": "EXCLUDED_BY_CAPTURE: all five gate runs were executed sequentially with --num_jobs 1 and --no_use_mp.",
+    "sharedTemporaryState": "EXCLUDED_BY_CAPTURE: every gate run used a distinct temporary and output directory with --clean --overwrite.",
+    "speakerAdaptation": "EXCLUDED_BY_LOG: all five align logs record fMLLR: None.",
+    "inputOrModelDrift": "EXCLUDED_BY_DIGEST: container, model, dictionary, sample manifest, sample set and global config identities were unchanged.",
+    "mfccDither": {
+      "verdict": "CAUSAL_TRIGGER_DEMONSTRATED_IN_CAPTURED_TOOLCHAIN",
+      "gateRunEvidence": "Every gate-run MFCC log records dither: 1, and every gate-run feature/output digest differs.",
+      "singleVariableControl": "Two additional diagnostic runs changed only dither from 1 to 0. They produced 47 identical successful sample IDs and byte-identical TextGrid sets.",
+      "controlConfigSha256": "0c7ab4dec7abc1f1ed6f5f7d599168e943524d1e8cc44f7c30631e7442f13dd2",
+      "controlTextGridSetSha256": "fbba4476c559dbd0bb90b4e4da805e44601bb8ed717d0f37540d025dbf36aa9f",
+      "controlWordLabelSequenceIdentity": 1.0,
+      "controlP95WordBoundaryDeltaMilliseconds": 0,
+      "controlMaxWordBoundaryDeltaMilliseconds": 0,
+      "acceptanceUse": "DIAGNOSTIC_ONLY_NOT_A_GATE_RERUN; the pre-registered gate result remains the five-run pinned dither=1 result."
+    }
+  },
+  "acceptance": {
+    "decision": "CHANGES_REQUIRED",
+    "automaticAcceptanceAllowed": false,
+    "reviewDecisionId": null,
+    "gates": {
+      "runsPerClipMinimum5": "PASS",
+      "successfulSampleSetIdentity100Percent": "PASS",
+      "wordLabelSequenceIdentity100Percent": "FAIL",
+      "p95WordBoundaryDeltaMillisecondsMaximum20": "PASS",
+      "maxWordBoundaryDeltaMillisecondsMaximum100": "FAIL",
+      "phoneTier": "NOT_A_V1_GATE"
+    },
+    "requiredNextAction": "Register a revised deterministic aligner configuration before a new evaluation, then run a fresh independent five-run gate. Do not reinterpret the diagnostic control as acceptance."
+  },
+  "limitations": [
+    "This repeatability evaluation does not establish timestamp accuracy because no human timestamp gold set was used.",
+    "The five-run pinned configuration failed two pre-registered gates and cannot authorize learner-visible pronunciation, fluency, holistic or attempt scores.",
+    "The diagnostic dither=0 control isolates the observed nondeterminism trigger but is not itself the pre-registered acceptance run.",
+    "The phone tier is not evaluated as a v1 repeatability gate."
+  ],
+  "containsRawAudio": false,
+  "containsCredentials": false
+}

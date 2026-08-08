@@ -77,6 +77,7 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertThat(columns).contains(
                 "id",
                 "cleanup_reason",
+                "authorization_evidence_id",
                 "storage_provider",
                 "storage_key",
                 "due_at",
@@ -136,6 +137,17 @@ class PracticeSpeakingMediaCleanupTaskServiceTest {
         assertThat(deleted.getCleanupReason()).isEqualTo(PracticeSpeakingMediaCleanupReason.LOGICAL_DELETE);
         assertThat(deleted.getDueAt()).isEqualTo(NOW);
         assertThat(deleted.getNextAttemptAt()).isEqualTo(NOW);
+
+        String withdrawalKey = "learner-speaking/ready/consent-withdrawal-secret";
+        Long withdrawalTaskId = inTransaction(() -> taskService.enqueueConsentWithdrawal(
+                null, PracticeSpeakingStorageProvider.LOCAL, PROFILE, withdrawalKey,
+                "WITHDRAWAL-EVIDENCE-1"));
+        var withdrawal = repository.findById(withdrawalTaskId).orElseThrow();
+        assertThat(withdrawal.getCleanupReason()).isEqualTo(
+                PracticeSpeakingMediaCleanupReason.CONSENT_WITHDRAWAL);
+        assertThat(withdrawal.getAuthorizationEvidenceId())
+                .isEqualTo("WITHDRAWAL-EVIDENCE-1");
+        assertThat(withdrawal.getDueAt()).isEqualTo(NOW);
     }
 
     @Test

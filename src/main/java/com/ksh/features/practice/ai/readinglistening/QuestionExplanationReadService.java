@@ -7,6 +7,7 @@ import com.ksh.entities.QuestionVersionExplanationBinding;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
 import com.ksh.features.practice.assessment.QuestionTypeResolver;
 import com.ksh.features.practice.assessment.ObjectiveExplanationStrategyRegistry;
+import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import com.ksh.features.practice.dto.PracticeDtos.ResultFeedbackAvailability;
 import com.ksh.features.practice.repository.QuestionExplanationArtifactRepository;
 import com.ksh.features.practice.repository.QuestionVersionExplanationBindingRepository;
@@ -218,7 +219,15 @@ public class QuestionExplanationReadService {
                 "strategyCode",
                 "strategyVersion",
                 "questionType",
-                "explanation"));
+                "explanation",
+                PracticeAiResultCompleteness.FIELD));
+        PracticeAiResultCompleteness completeness =
+                PracticeAiResultCompleteness.require(root);
+        if (completeness.status()
+                != PracticeAiResultCompleteness.Status.COMPLETE) {
+            throw new IllegalArgumentException(
+                    "v4 explanation is not complete");
+        }
         if (!ReadingListeningExplanationClient.EXPLANATION_SCHEMA_VERSION
                         .equals(text(root, "schemaVersion"))
                 || !selection.registryVersion().equals(

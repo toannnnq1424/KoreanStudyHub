@@ -48,6 +48,8 @@ public class PracticeAiBindingResolver {
         PracticeAiProviderProfile profile = current.getProviderProfile();
         if (!current.isEnabled()
                 || !profile.isEnabled()
+                || PracticeAiFixedProviderPresetRegistry
+                        .findByProfileCode(profile.getProfileCode()).isPresent()
                 || current.getRevision() != snapshot.bindingRevision()
                 || profile.getRevision() != snapshot.providerProfileRevision()
                 || !current.getModel().equals(snapshot.model())
@@ -67,6 +69,11 @@ public class PracticeAiBindingResolver {
             PracticeAiPurpose purpose,
             PracticeAiPurposeBinding binding) {
         PracticeAiProviderProfile profile = binding.getProviderProfile();
+        if (PracticeAiFixedProviderPresetRegistry
+                .findByProfileCode(profile.getProfileCode()).isPresent()) {
+            throw new PracticeAiControlPlaneException(
+                    "PRACTICE_AI_PROVIDER_PRESET_VERIFICATION_REQUIRED", false);
+        }
         if (!binding.isEnabled() || !profile.isEnabled()) {
             throw unavailable();
         }
@@ -77,10 +84,32 @@ public class PracticeAiBindingResolver {
         }
         String model = required(binding.getModel());
         String retentionCode = required(binding.getRetentionCode());
-        String secret = required(profile.getCredentialSecret());
         URI baseUrl = validateBaseUrl(profile.getBaseUrl());
         PracticeAiCapabilitySet capabilities = codec.parseCapabilities(
                 purpose, binding.getCapabilityJson());
+        if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION
+                && (!requiredEvidence(binding.getNonTrainingEvidenceId())
+                || !requiredEvidence(binding.getRetentionEvidenceId()))) {
+            throw new PracticeAiControlPlaneException(
+                    "DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE", false);
+        }
+        if (purpose == PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION) {
+            var verification = PracticeDirectAudioCapabilityRegistry
+                    .assess(profile.getBaseUrl(), binding.getModel());
+            if (!verification.verified()) {
+                throw new PracticeAiControlPlaneException(
+                        "DIRECT_AUDIO_CAPABILITY_VERIFICATION_REQUIRED", false);
+            }
+            if (!verification.credentialMode().name().equals(profile.getCredentialMode())) {
+                throw new PracticeAiControlPlaneException(
+                        "DIRECT_AUDIO_CREDENTIAL_MODE_MISMATCH", false);
+            }
+            if (!verification.runtimeAuthReady()) {
+                throw new PracticeAiControlPlaneException(
+                        "DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED", false);
+            }
+        }
+        String secret = required(profile.getCredentialSecret());
         PracticeAiLimits limits = codec.parseLimits(binding.getLimitsJson());
         PracticeAiExecutionSnapshot snapshot = new PracticeAiExecutionSnapshot(
                 purpose,
@@ -133,6 +162,10 @@ public class PracticeAiBindingResolver {
             throw unavailable();
         }
         return raw.trim();
+    }
+
+    private static boolean requiredEvidence(String value) {
+        return value != null && !value.isBlank();
     }
 
     private static PracticeAiControlPlaneException unavailable() {

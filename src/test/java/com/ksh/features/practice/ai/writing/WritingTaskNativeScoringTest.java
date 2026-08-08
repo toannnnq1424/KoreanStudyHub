@@ -207,7 +207,9 @@ class WritingTaskNativeScoringTest {
                 source,
                 reason,
                 retryable,
-                true);
+                true,
+                com.ksh.features.practice.ai.contract
+                        .PracticeAiResultCompleteness.complete());
         return WritingAssessmentPolicyBundle
                 .hasExactCurrentScoreProvenance(value);
     }

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "ksh-speaking-evidence-report-v1",
+  "kind": "FAIRNESS_REVIEW_REPORT",
+  "captureDate": "2026-08-07",
+  "status": "TECHNICAL_CAPTURE_COMPLETE_REVIEW_PENDING",
+  "alignmentCoverageBySelfDeclaredGender": {
+    "female_feminine": {"aligned": 15, "total": 15},
+    "male_masculine": {"aligned": 15, "total": 15},
+    "non-binary": {"aligned": 1, "total": 1},
+    "do_not_wish_to_say": {"aligned": 1, "total": 1},
+    "unspecified": {"aligned": 15, "total": 16}
+  },
+  "alignmentCoverageBySelfDeclaredAge": {
+    "teens": {"aligned": 6, "total": 6},
+    "twenties": {"aligned": 13, "total": 13},
+    "thirties": {"aligned": 11, "total": 11},
+    "fourties": {"aligned": 4, "total": 4},
+    "fifties": {"aligned": 2, "total": 2},
+    "unspecified": {"aligned": 11, "total": 12}
+  },
+  "fairnessConclusion": "NOT_ESTABLISHED",
+  "missingComparisons": [
+    "Human SME score baselines",
+    "Native versus non-native Korean labels",
+    "Proficiency bands",
+    "Dialect or regional accent labels",
+    "Genuine device and environment strata",
+    "Repeated takes",
+    "Pre-approved group disparity thresholds"
+  ],
+  "limitations": [
+    "Alignment coverage is not score fairness.",
+    "Groups with one or two observations cannot support acceptance conclusions.",
+    "No pronunciation, fluency, holistic, or proficiency scores were generated.",
+    "Independent Korean SME, acoustic, or fairness-owner review is required."
+  ],
+  "sourceAnalysisSha256": "697372bccec174289101d46dc1596bef47e31f66006a60a66a9545f85c34a7f0",
+  "containsRawAudio": false,
+  "containsCredentials": false
+}

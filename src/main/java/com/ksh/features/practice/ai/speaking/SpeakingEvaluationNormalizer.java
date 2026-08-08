@@ -717,7 +717,6 @@ public class SpeakingEvaluationNormalizer {
         }
         return switch (status) {
             case MOCK_EVALUATED -> SpeakingEvaluationSource.MOCK;
-            case LEGACY_RESULT -> SpeakingEvaluationSource.LEGACY;
             case TEXT_FALLBACK_EVALUATED -> SpeakingEvaluationSource.TEXT_FALLBACK;
             default -> SpeakingEvaluationSource.PROVIDER;
         };

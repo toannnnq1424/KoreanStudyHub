@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "practice-topik35-writing-import-audit-v1",
+  "packageId": "topik35-v1-writing-import-audit-v1",
+  "bundleId": "topik35-v1",
+  "capturedAt": "2026-08-03",
+  "status": "SOURCE_PROMPT_ANSWER_AND_ASSET_QA_COMPLETE_IMPORT_LOAD_BLOCKED",
+  "skill": "WRITING",
+  "sourceBindings": {
+    "questionDocument": {
+      "artifactId": "topik35-listening-writing-pdf",
+      "logicalKey": "practice-seed/topik35-v1/source/document/cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323.pdf",
+      "sha256": "cc21da6b877b27f0d7d3550c732282d610dadcea03a80842881f17eda3d51323",
+      "pdfPages": [16, 17],
+      "printedPages": [14, 15],
+      "displayedIdentity": "제35회 한국어능력시험 II B형 1교시 (듣기, 쓰기)"
+    },
+    "answerDocument": {
+      "artifactId": "topik35-answer-key-pdf",
+      "logicalKey": "practice-seed/topik35-v1/source/document/60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b.pdf",
+      "sha256": "60fb5fa5e5a211609d0d6e36bc1cacc490c34ff5a0009e6952e931f9a850d17b",
+      "pdfPage": 2,
+      "displayedIdentity": "제35회 TOPIK II 쓰기 정답 및 채점기준표"
+    }
+  },
+  "targetContract": {
+    "questionContentSchema": "question-content-v3",
+    "canonicalQuestionType": "ESSAY",
+    "languageTag": "ko",
+    "structuredBlankSchema": "writing-blanks.v1",
+    "structuredBlankAuthoritySchema": "writing-blank-authority.v1",
+    "normalization": "NFC",
+    "whitespacePolicy": "TRIM_COLLAPSE",
+    "candidateMaterialized": false
+  },
+  "assetBindings": [
+    {
+      "assetId": "topik35-writing-q53-chart",
+      "questionNumber": 53,
+      "role": "QUESTION_CHART",
+      "logicalKey": "practice-seed/topik35-v1/derived/page-image/47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1.png",
+      "mediaType": "image/png",
+      "sha256": "47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1",
+      "sizeBytes": 143548,
+      "widthPx": 1120,
+      "heightPx": 620,
+      "sourceArtifactId": "topik35-listening-writing-pdf",
+      "sourcePdfPage": 17,
+      "sourcePrintedPage": 15,
+      "renderDpi": 200,
+      "cropRectPx": {"x": 295, "y": 395, "width": 1120, "height": 620},
+      "visualQaStatus": "VISUALLY_VERIFIED"
+    }
+  ],
+  "questions": [
+    {
+      "questionNumber": 51,
+      "seedKey": "topik35-writing-q51",
+      "taskType": "Q51",
+      "questionType": "ESSAY",
+      "points": 10,
+      "responseMode": "STRUCTURED_BLANKS",
+      "sourcePdfPage": 16,
+      "sourcePrintedPage": 14,
+      "promptInstruction": "다음을 읽고 ㉠과 ㉡에 들어갈 말을 각각 한 문장으로 쓰십시오.",
+      "promptText": "무료로 드립니다\n저는 유학생인데 공부를 마치고 다음 주에 고향으로 돌아갑니다. 그래서 지금 저는 [BLANK_1]. 책상, 의자, 컴퓨터, 경영학 전공 책 등이 있습니다. 이번 주 금요일까지 방을 비워 줘야 합니다. [BLANK_2]. 제 전화번호는 010-1234-5678입니다.",
+      "blankDefinitions": [
+        {"blankId": "topik35-q51-b1", "ordinal": 1, "sourceMarker": "㉠"},
+        {"blankId": "topik35-q51-b2", "ordinal": 2, "sourceMarker": "㉡"}
+      ],
+      "answerExpectation": {
+        "kind": "SOURCE_MODEL_ANSWERS_WITH_REVIEWED_EQUIVALENCE",
+        "answerSourcePdfPage": 2,
+        "modelAnswers": [
+          {"blankId": "topik35-q51-b1", "text": "그동안 사용했던 제 물건들을 정리하려고 합니다"},
+          {"blankId": "topik35-q51-b2", "text": "그러니까 물건이 필요하신 분들은 금요일 전까지 연락해 주시기 바랍니다"}
+        ],
+        "exactOnly": false,
+        "semanticEquivalentAlternativesApproved": false
+      },
+      "assetIds": [],
+      "sourceQaStatus": "VISUALLY_VERIFIED"
+    },
+    {
+      "questionNumber": 52,
+      "seedKey": "topik35-writing-q52",
+      "taskType": "Q52",
+      "questionType": "ESSAY",
+      "points": 10,
+      "responseMode": "STRUCTURED_BLANKS",
+      "sourcePdfPage": 16,
+      "sourcePrintedPage": 14,
+      "promptInstruction": "다음을 읽고 ㉠과 ㉡에 들어갈 말을 각각 한 문장으로 쓰십시오.",
+      "promptText": "퍼즐은 여러 개의 조각을 모두 제 위치에 놓아야 하나의 그림이 완성된다. 그런데 만일 [BLANK_1]. 사회와 개인의 관계도 마찬가지이다. 사회를 구성하는 모든 개인도 있어야 할 자리에 있어야 한다. 그래야 [BLANK_2].",
+      "blankDefinitions": [
+        {"blankId": "topik35-q52-b1", "ordinal": 1, "sourceMarker": "㉠"},
+        {"blankId": "topik35-q52-b2", "ordinal": 2, "sourceMarker": "㉡"}
+      ],
+      "answerExpectation": {
+        "kind": "SOURCE_MODEL_ANSWERS_WITH_REVIEWED_EQUIVALENCE",
+        "answerSourcePdfPage": 2,
+        "modelAnswers": [
+          {"blankId": "topik35-q52-b1", "text": "퍼즐 조각이 제 자리에 놓이지 않으면 그림은 완성되지 않는다"},
+          {"blankId": "topik35-q52-b2", "text": "비로소 사회가 하나로 돌아가기 때문이다"}
+        ],
+        "exactOnly": false,
+        "semanticEquivalentAlternativesApproved": false
+      },
+      "assetIds": [],
+      "sourceQaStatus": "VISUALLY_VERIFIED"
+    },
+    {
+      "questionNumber": 53,
+      "seedKey": "topik35-writing-q53",
+      "taskType": "Q53",
+      "questionType": "ESSAY",
+      "points": 30,
+      "responseMode": "ESSAY_TEXT",
+      "sourcePdfPage": 17,
+      "sourcePrintedPage": 15,
+      "promptInstruction": "다음 그래프를 보고, 연령대에 따라 필요하다고 생각하는 공공시설이 무엇인지 비교하여 그에 대한 자신의 생각을 200~300자로 쓰십시오.",
+      "promptText": "30대와 60대 성인 남녀 500명을 대상으로 ‘필요하다고 생각하는 공공시설’에 대해 설문 조사를 하였다.",
+      "blankDefinitions": [],
+      "answerExpectation": {
+        "kind": "SOURCE_CHART_COMPARISON_AND_MODEL_RESPONSE",
+        "answerSourcePdfPage": 2,
+        "modelAnswerPresent": true,
+        "modelAnswerMaterialized": false,
+        "requiredPromptCoverage": [
+          "COMPARE_30S_AND_60S_PUBLIC_FACILITY_PREFERENCES",
+          "STATE_OWN_VIEW",
+          "LENGTH_200_300_KOREAN_CHARACTERS"
+        ],
+        "chartData": {
+          "sample": "30대와 60대 성인 남녀 500명",
+          "age30": {"hospitalPharmacy": 28, "performanceCultureCenter": 40, "park": 22, "other": 10},
+          "age60": {"hospitalPharmacy": 50, "performanceCultureCenter": 23, "park": 22, "other": 5}
+        }
+      },
+      "assetIds": ["topik35-writing-q53-chart"],
+      "sourceQaStatus": "VISUALLY_VERIFIED"
+    },
+    {
+      "questionNumber": 54,
+      "seedKey": "topik35-writing-q54",
+      "taskType": "Q54",
+      "questionType": "ESSAY",
+      "points": 50,
+      "responseMode": "ESSAY_TEXT",
+      "sourcePdfPage": 17,
+      "sourcePrintedPage": 15,
+      "promptInstruction": "다음을 주제로 하여 자신의 생각을 600~700자로 글을 쓰십시오.",
+      "promptText": "사람들은 다양한 경제 수준의 삶을 살고 있으며 그러한 삶에 대해 느끼는 각자의 만족도도 다양하다. 그러나 경제적 여유와 행복 만족도가 꼭 비례한다고는 할 수 없다. 경제적 여유가 행복에 미치는 영향에 대해 아래의 내용을 중심으로 자신의 생각을 쓰십시오.",
+      "blankDefinitions": [],
+      "answerExpectation": {
+        "kind": "SOURCE_PROMPT_COVERAGE_AND_MODEL_RESPONSE",
+        "answerSourcePdfPage": 2,
+        "modelAnswerPresent": true,
+        "modelAnswerMaterialized": false,
+        "requiredPromptCoverage": [
+          "DEFINE_HAPPY_LIFE",
+          "EXPLAIN_ECONOMIC_CONDITIONS_AND_HAPPINESS_RELATIONSHIP",
+          "PROPOSE_EFFORTS_TO_INCREASE_HAPPINESS",
+          "LENGTH_600_700_KOREAN_CHARACTERS"
+        ]
+      },
+      "assetIds": [],
+      "sourceQaStatus": "VISUALLY_VERIFIED"
+    }
+  ],
+  "rubricAudit": {
+    "sourcePublishedMaxPoints": {"Q51": 10, "Q52": 10, "Q53": 30, "Q54": 50},
+    "sourcePublishedDetailedSubweights": false,
+    "internalProfile": {
+      "profileId": "KSH_INTERNAL_TASK_NATIVE_V1",
+      "contract": "TASK_NATIVE_RUBRIC_V1",
+      "totalsMatchSourceMaxPoints": true,
+      "bindingStatus": "NOT_BOUND_SOURCE_DOES_NOT_AUTHORIZE_INTERNAL_SUBWEIGHTS"
+    },
+    "taskRequirementProfile": {
+      "version": "writing-task-requirements-v1",
+      "q53BindingStatus": "REJECTED_SOURCE_INCOMPATIBLE",
+      "q53MismatchEvidence": ["Q53_FOUR_TRANSPORT_MODES", "Q53_DATA_2024", "Q53_DATA_2026"],
+      "requiredResolution": "CREATE_SOURCE_BOUND_TOPIK35_REQUIREMENT_PROFILE_BEFORE_LOAD"
+    }
+  },
+  "loadPolicy": {
+    "auditOnly": true,
+    "disposableLocalOnly": true,
+    "databaseLoadPerformed": false,
+    "migrationPerformed": false,
+    "objectStoreWritePerformed": false,
+    "providerCallPerformed": false,
+    "aiScoringInvoked": false,
+    "learnerScoresCreated": false,
+    "bulkSetIngestionAllowed": false,
+    "loadReady": false
+  },
+  "qaBlockers": [
+    "SOURCE_BOUND_TOPIK35_WRITING_REQUIREMENT_PROFILE_NOT_CREATED",
+    "INTERNAL_RUBRIC_SUBWEIGHT_BINDING_NOT_SOURCE_AUTHORIZED",
+    "Q51_Q52_SEMANTIC_EQUIVALENT_ANSWER_SET_NOT_REVIEWED",
+    "CANONICAL_DRAFT_VERSION_IDS_NOT_ALLOCATED"
+  ],
+  "validationSummary": {
+    "questionCount": 4,
+    "sourcePointTotal": 100,
+    "structuredBlankQuestionCount": 2,
+    "essayTextQuestionCount": 2,
+    "assetCount": 1,
+    "sourcePromptQaComplete": true,
+    "sourceAnswerQaComplete": true,
+    "sourceAssetQaComplete": true,
+    "loadReady": false
+  }
+}

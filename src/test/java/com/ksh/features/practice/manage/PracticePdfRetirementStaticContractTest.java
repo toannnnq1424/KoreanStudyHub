@@ -50,7 +50,7 @@ class PracticePdfRetirementStaticContractTest {
                 "practice_ai_request_audits");
         try (var paths = Files.list(ROOT.resolve("src/main/resources/db/migration"))) {
             assertThat(paths.map(path -> path.getFileName().toString()).toList())
-                    .noneMatch(name -> name.matches("V(8[8-9]|9\\d|[1-9]\\d{2,})__.*\\.sql"));
+                    .noneMatch(name -> name.matches("V(9[1-9]|[1-9]\\d{2,})__.*\\.sql"));
         }
     }
 

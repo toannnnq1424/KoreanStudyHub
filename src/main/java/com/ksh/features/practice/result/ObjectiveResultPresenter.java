@@ -129,14 +129,10 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                                         : group.getGroupLabel()),
                         (left, right) -> left,
                         LinkedHashMap::new));
-        GroupAccumulator ungrouped = new GroupAccumulator(
-                "Câu độc lập không có nguồn chung");
-
         for (PracticeQuestionVersion question : context.snapshot().questions()) {
             Long groupVersionId = question.getGroupVersionId();
             GroupAccumulator group = groupVersionId == null || groupVersionId <= 0
-                    ? ungrouped
-                    : byGroup.get(groupVersionId);
+                    ? null : byGroup.get(groupVersionId);
             if (group == null) {
                 throw new IllegalStateException(
                         "Objective Result Overview immutable group ownership is missing.");
@@ -184,7 +180,6 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                                 .toList()));
         List<ObjectiveOverviewGroup> groups = new ArrayList<>();
         List<GroupAccumulator> orderedGroups = new ArrayList<>(byGroup.values());
-        orderedGroups.add(ungrouped);
         for (GroupAccumulator group : orderedGroups) {
             if (group.questionCount() == 0) {
                 continue;
@@ -254,8 +249,8 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                 .map(PracticeQuestionGroupVersion::getId)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         List<Long> danglingQuestionVersionIds = orderedQuestions.stream()
-                .filter(question -> question.getGroupVersionId() != null)
-                .filter(question -> !knownGroupVersionIds.contains(
+                .filter(question -> question.getGroupVersionId() == null
+                        || !knownGroupVersionIds.contains(
                         question.getGroupVersionId()))
                 .map(PracticeQuestionVersion::getId)
                 .toList();
@@ -283,23 +278,7 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                     stableOrderByQuestionVersionId,
                     optionLabelMode,
                     groupOrder,
-                    group.getGroupLabel(),
-                    false));
-        }
-
-        List<PracticeQuestionVersion> legacyQuestions = orderedQuestions.stream()
-                .filter(question -> question.getGroupVersionId() == null)
-                .toList();
-        if (!legacyQuestions.isEmpty()) {
-            groups.add(resultGroup(
-                    context,
-                    null,
-                    legacyQuestions,
-                    stableOrderByQuestionVersionId,
-                    optionLabelMode,
-                    nextFallbackOrder,
-                    "Nhóm dữ liệu cũ chưa phân nhóm",
-                    true));
+                    group.getGroupLabel()));
         }
         if (groups.isEmpty()) {
             throw new IllegalStateException(
@@ -315,11 +294,8 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
             Map<Long, Integer> stableOrderByQuestionVersionId,
             String optionLabelMode,
             int groupOrder,
-            String groupLabel,
-            boolean legacyFallback) {
-        String sourceId = group == null
-                ? "objective-source-legacy-ungrouped"
-                : "objective-source-group-" + group.getId();
+            String groupLabel) {
+        String sourceId = "objective-source-group-" + group.getId();
         List<ObjectiveQuestionDetail> details = new ArrayList<>();
         for (int index = 0; index < questions.size(); index++) {
             PracticeQuestionVersion question = questions.get(index);
@@ -340,15 +316,13 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
                 questions,
                 groupOrder,
                 groupLabel,
-                legacyFallback,
                 sourceId);
         return new ObjectiveResultGroup(
-                legacyFallback ? "legacy-ungrouped" : "group-version-" + group.getId(),
-                group == null ? null : group.getId(),
-                group == null ? null : group.getGroupId(),
+                "group-version-" + group.getId(),
+                group.getId(),
+                group.getGroupId(),
                 groupOrder,
                 groupLabel,
-                legacyFallback,
                 source,
                 details);
     }
@@ -786,36 +760,30 @@ final class ObjectiveResultPresenter implements PracticeResultPresenter, Practic
             List<PracticeQuestionVersion> questions,
             int groupOrder,
             String groupLabel,
-            boolean legacyFallback,
             String sourceId) {
         boolean listening = "LISTENING".equals(context.attempt().getSkill());
         boolean transcriptApproved = listening && transcriptApproved(group);
         return new ObjectiveSourceGroup(
                 sourceId,
-                group == null ? null : group.getId(),
-                group == null ? null : group.getGroupId(),
+                group.getId(),
+                group.getGroupId(),
                 groupOrder,
                 groupLabel,
-                legacyFallback,
                 listening ? "LISTENING_AUDIO" : "READING_PASSAGE",
-                group == null
-                        ? context.snapshot().sectionVersion().getInstructions()
-                        : group.getInstruction(),
-                listening || group == null ? "" : group.getPassageText(),
+                group.getInstruction(),
+                listening ? "" : group.getPassageText(),
                 transcriptApproved ? group.getTranscriptText() : "",
-                group == null ? "" : group.getImageUrl(),
-                listening && group != null ? group.getAudioUrl() : "",
-                legacyFallback
-                        ? "LEGACY_UNGROUPED_IMMUTABLE_SNAPSHOT"
-                        : sourceProvenance(group),
+                group.getImageUrl(),
+                listening ? group.getAudioUrl() : "",
+                sourceProvenance(group),
                 transcriptApproved
                         ? "Chỉ dùng để chứng minh nội dung ngôn ngữ; không dùng cho nhận định âm học."
                         : "Không có bản chép lời được phê duyệt.",
                 questions.stream()
                         .map(PracticeQuestionVersion::getId)
                         .toList(),
-                group == null ? "ko" : group.getStimulusLanguageTag(),
-                group == null ? "vi" : group.getInstructionLanguageTag());
+                group.getStimulusLanguageTag(),
+                group.getInstructionLanguageTag());
     }
 
     private String sourceProvenance(PracticeQuestionGroupVersion group) {

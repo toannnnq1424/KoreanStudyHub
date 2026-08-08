@@ -23,7 +23,7 @@ class PracticeAiControlPlaneContractTest {
             new PracticeAiControlPlaneCodec(new ObjectMapper());
 
     @Test
-    void exactSixPurposesHaveIndependentCapabilityContracts() {
+    void sevenPurposesHaveIndependentCapabilityContracts() {
         assertThat(PracticeAiPurpose.values()).extracting(Enum::name)
                 .containsExactly(
                         "PRACTICE_PDF_AUTHORING",
@@ -31,10 +31,13 @@ class PracticeAiControlPlaneContractTest {
                         "PRACTICE_WRITING_EVALUATION",
                         "PRACTICE_SPEAKING_EVALUATION",
                         "PRACTICE_SPEAKING_STT",
-                        "PRACTICE_SPEAKING_TTS");
+                        "PRACTICE_SPEAKING_TTS",
+                        "PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION");
         for (PracticeAiPurpose purpose : PracticeAiPurpose.values()) {
             PracticeAiCapabilitySet capabilities = codec.parseCapabilities(
-                    purpose, codec.capabilityJson(purpose, false));
+                    purpose, codec.capabilityJson(purpose, false,
+                            purpose == PracticeAiPurpose
+                                    .PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION));
             assertThat(capabilities.enabledCodes())
                     .containsAll(purpose.requiredCapabilities());
         }
@@ -54,6 +57,100 @@ class PracticeAiControlPlaneContractTest {
                 .isInstanceOf(PracticeAiControlPlaneException.class)
                 .extracting(error -> ((PracticeAiControlPlaneException) error).errorCode())
                 .isEqualTo("PROVIDER_CAPABILITY_INCOMPATIBLE");
+    }
+
+    @Test
+    void directAudioResolutionRequiresOnlyNonTrainingAndRetentionEvidence() {
+        PracticeAiPurposeBindingRepository repository =
+                mock(PracticeAiPurposeBindingRepository.class);
+        PracticeAiProviderProfile profile = new PracticeAiProviderProfile(
+                "PRACTICE_AUDIO", "Audio", "OPENAI_COMPATIBLE",
+                PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_BASE_URL,
+                "TOP_SECRET", true, 1L);
+        PracticeAiPurposeBinding binding = directAudioBinding(profile, false);
+        when(repository.findDetailed(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION.name()))
+                .thenReturn(Optional.of(binding));
+        PracticeAiBindingResolver resolver = new PracticeAiBindingResolver(repository, codec);
+
+        assertThatThrownBy(() -> resolver.resolve(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION))
+                .isInstanceOf(PracticeAiControlPlaneException.class)
+                .extracting(error -> ((PracticeAiControlPlaneException) error).errorCode())
+                .isEqualTo("DIRECT_AUDIO_POLICY_EVIDENCE_INCOMPLETE");
+
+        binding.updatePolicyEvidence(null, "non-training/1",
+                "retention/1", null);
+        assertThat(resolver.resolve(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION)
+                .snapshot().capabilities().directAudioInput()).isTrue();
+    }
+
+    @Test
+    void enterpriseDirectAudioResolutionRejectsStaticBearerBeforeTransport() {
+        PracticeAiPurposeBindingRepository repository =
+                mock(PracticeAiPurposeBindingRepository.class);
+        PracticeAiProviderProfile profile = new PracticeAiProviderProfile(
+                "GEMINI_ENTERPRISE_DIRECT_AUDIO", "Enterprise", "OPENAI_COMPATIBLE",
+                "https://asia-southeast1-aiplatform.googleapis.com/v1/projects/"
+                        + "ksh-project/locations/asia-southeast1/endpoints/openapi",
+                PracticeAiCredentialMode.GOOGLE_CLOUD_ADC.name(),
+                null, true, 1L);
+        PracticeAiPurposeBinding binding = new PracticeAiPurposeBinding(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
+                profile,
+                PracticeDirectAudioCapabilityRegistry.GEMINI_ENTERPRISE_MODEL,
+                "OPENAI_COMPATIBLE_V1",
+                codec.capabilityJson(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
+                        false, true),
+                codec.limitsJson(5_000, 60_000, 0, 8_388_608, 2_097_152),
+                "SPEAKING_DIRECT_AUDIO_EVAL_V1",
+                true,
+                1L);
+        binding.updatePolicyEvidence("region/1", "non-training/1",
+                "retention/1", "deletion-sla/1");
+        when(repository.findDetailed(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION.name()))
+                .thenReturn(Optional.of(binding));
+
+        assertThatThrownBy(() -> new PracticeAiBindingResolver(repository, codec)
+                .resolve(PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION))
+                .isInstanceOf(PracticeAiControlPlaneException.class)
+                .extracting(error -> ((PracticeAiControlPlaneException) error).errorCode())
+                .isEqualTo("DIRECT_AUDIO_ENTERPRISE_ADC_ADAPTER_REQUIRED");
+    }
+
+    @Test
+    void customDirectAudioModelCannotResolveOrReachTransportEvenWithPolicyIds() {
+        PracticeAiPurposeBindingRepository repository =
+                mock(PracticeAiPurposeBindingRepository.class);
+        PracticeAiProviderProfile profile = new PracticeAiProviderProfile(
+                "CUSTOM_AUDIO", "Custom audio", "OPENAI_COMPATIBLE",
+                "https://provider.example/v1", "TOP_SECRET", true, 1L);
+        PracticeAiPurposeBinding binding = new PracticeAiPurposeBinding(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
+                profile,
+                "future-audio-model",
+                "OPENAI_COMPATIBLE_V1",
+                codec.capabilityJson(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
+                        false, true),
+                codec.limitsJson(5_000, 60_000, 0, 8_388_608, 2_097_152),
+                "SPEAKING_DIRECT_AUDIO_EVAL_V1",
+                true,
+                1L);
+        binding.updatePolicyEvidence("region/1", "non-training/1",
+                "retention/1", "deletion-sla/1");
+        when(repository.findDetailed(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION.name()))
+                .thenReturn(Optional.of(binding));
+
+        assertThatThrownBy(() -> new PracticeAiBindingResolver(repository, codec)
+                .resolve(PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION))
+                .isInstanceOf(PracticeAiControlPlaneException.class)
+                .extracting(error -> ((PracticeAiControlPlaneException) error).errorCode())
+                .isEqualTo("DIRECT_AUDIO_CAPABILITY_VERIFICATION_REQUIRED");
     }
 
     @Test
@@ -190,6 +287,28 @@ class PracticeAiControlPlaneContractTest {
                 "PURPOSE_RETENTION_V1",
                 true,
                 1L);
+    }
+
+    private PracticeAiPurposeBinding directAudioBinding(
+            PracticeAiProviderProfile profile,
+            boolean withEvidence) {
+        PracticeAiPurposeBinding binding = new PracticeAiPurposeBinding(
+                PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
+                profile,
+                PracticeDirectAudioCapabilityRegistry.GEMINI_DEVELOPER_MODEL,
+                "OPENAI_COMPATIBLE_V1",
+                codec.capabilityJson(
+                        PracticeAiPurpose.PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION,
+                        false, true),
+                codec.limitsJson(5_000, 60_000, 0, 8_388_608, 2_097_152),
+                "SPEAKING_DIRECT_AUDIO_EVAL_V1",
+                true,
+                1L);
+        if (withEvidence) {
+            binding.updatePolicyEvidence("region/1", "non-training/1",
+                    "retention/1", "deletion-sla/1");
+        }
+        return binding;
     }
 
     private static PracticeAiResolvedBinding resolved(PracticeAiPurpose purpose) {
