@@ -245,7 +245,200 @@ does not replace any of these checks.
 | Privacy/security owner | Provider policy, data handling and production risk acceptance |
 | QA | Reproducible test matrix and evidence that UI behaviour matches declared scope |
 
-## 10. Where to look in the repository
+## 10. Complete Practice feature inventory
+
+This section is the practical map of the **current Practice product surface**.
+It records the boundaries that have been deliberately implemented, retired or
+kept fail-closed. It is not a claim that every future product idea is finished.
+
+### 10.1 Content authoring, import and publication
+
+| Area | What happens | Important safety rule |
+| --- | --- | --- |
+| Practice catalog | Sets, tests, sections, groups and questions form the published learning structure | A learner attempt is bound to the published structure that existed at submission time |
+| Question authoring | Lecturers create/edit canonical Reading, Listening, Writing and Speaking items | Invalid type/group/version combinations are rejected before publication |
+| Quick Excel/import | Supported workbook formats become draft candidates before publication | Old interactive workbook writers are retired; aliases and historical identities are never silently treated as new content |
+| PDF/vision draft import | Selected text regions and bounded image crops can generate a lecturer-owned draft | Raw PDFs are not sent as provider-native files; input/byte/page limits and owner claim protect the operation |
+| Review/publish | Draft content is validated, versioned and published into the learner catalog | Ungrouped or incoherent content cannot become a published learner question |
+| TOPIK source bundles | Source/provenance, answer, transcript and media identities are checked before a candidate load | A local bundle is not automatically public content; licensed assets, rubrics and final audit remain explicit |
+
+### 10.2 Attempt lifecycle and learner interaction
+
+| Area | What happens | Important safety rule |
+| --- | --- | --- |
+| Start/resume | A learner opens an eligible published attempt and may resume a valid in-progress session | Ownership, class/catalog access and immutable version locks are rechecked; stale data is not reused as a new attempt |
+| Save/autosave | Answers and Speaking prompt work are saved with typed state | An incomplete save is not reinterpreted as submitted or graded |
+| Submit | Answers are sealed and the relevant deterministic or asynchronous evaluation is created | Double submit, stale version or wrong owner fails without creating duplicate score work |
+| Discard/cancel | A valid unfinished attempt can be closed under lifecycle rules | Cancellation releases the guarded claim and does not leave a permanently busy record |
+| Re-evaluate/retry | A permitted owner may request a bounded re-evaluation of an immutable attempt | A retry cannot swap question, rubric, provider/model or learner identity underneath the existing result |
+
+### 10.3 Scoring and feedback by skill
+
+| Skill | Deterministic authority | Optional AI authority | What never happens |
+| --- | --- | --- |
+| Reading | Answer key and immutable question version | Explanation only | AI cannot replace the key or invent an official answer |
+| Listening | Answer key plus approved audio/question binding | Explanation only | Missing audio/transcript is not converted into a fake explanation or score |
+| Writing | Task/profile/rubric and strict result contract | One unified provider evaluation for the whole Writing task | Multiple unrelated calls cannot create mutually inconsistent criterion results |
+| Speaking transcript | Transcript-grounded language evidence | Language feedback | Transcript is never used to infer pronunciation, fluency or acoustic quality |
+| Speaking direct audio demo | Valid direct-audio provider response in the experimental scope | Experimental pronunciation/fluency/holistic feedback | No certificate, ranking, official points or production assessment claim |
+
+### 10.4 Writing: one unified provider call and cache/retry lifecycle
+
+Writing deliberately packages the evaluation of one Writing task into **one
+bounded provider call**. The call includes the prompt, learner answer, task
+type, immutable rubric, optional authorized question image and the strict
+response schema. This is important because one coherent response can keep the
+summary, criteria, findings, upgraded answer and evidence spans on the same
+provenance.
+
+The lifecycle is:
+
+1. Validate learner/task/version/input before any provider transport.
+2. Build the exact request identity: endpoint, model, prompt version, rubric
+   version, schema version, task type, answer, permitted image identity and
+   retry/timeout policy.
+3. Look up the user-scoped, versioned Writing cache.
+4. On a valid cache hit, reuse the complete normalized envelope and make
+   **zero** provider calls.
+5. On a miss, the durable evaluation job makes one call with bounded timeout.
+   It retries only configured transient HTTP failures; it does not retry a
+   deterministic invalid request forever.
+6. Parse and validate the entire strict response. Invalid/missing/contradictory
+   required data becomes a typed unavailable/contract result, never a partial
+   score pretending to be final.
+7. Persist the normalized result and refresh only the matching cache identity.
+8. A full/question audit re-evaluation deliberately bypasses normal cache read;
+   a successful re-evaluation refreshes that exact cache entry without changing
+   the identity of the underlying learner attempt.
+
+The cache is **not** a global answer-sharing mechanism. Its identity includes
+the learner-scoped input and all decision versions, so changing a prompt,
+rubric, schema, model, question or answer cannot accidentally reuse an old
+evaluation. TTL and retention are operational limits, not permission to expose
+one learner's content to another.
+
+### 10.5 AI requests, schemas, retry and failure truthfulness
+
+| Boundary | Current rule |
+| --- | --- |
+| Provider selection | Practice owns capability-specific provider/model binding; there is no silent global Practice fallback |
+| Prompt/schema | Prompts and closed JSON schemas are code/version controlled; schema validation occurs before presentation |
+| Image/media input | Only explicitly authorized Practice material references may become provider image input; byte/type/size limits apply |
+| Retry | Only named transient failures are retried with bounded backoff; no infinite retry loop |
+| Queue/job | Durable task state distinguishes queued, processing, retry-wait, ready, failed and unavailable |
+| Cache | A cache hit must match the complete contract identity and must cause zero provider calls |
+| Provider disabled/missing credential | The operation fails before transport with a typed state; mocks are test helpers, not live fallback providers |
+| Malformed output | Reject the output, retain truthful failure metadata and do not create a plausible-looking score |
+| Cost/telemetry | Practice records bounded outcome/latency/audit metadata; it must not expose secrets, audio bytes or provider credentials |
+
+### 10.6 Audio, media, privacy and retention
+
+| Area | Current boundary |
+| --- | --- |
+| Speaking upload | Owner/attempt/question binding, MIME/digest/status checks and private storage path apply before playback or evaluation |
+| Learner playback | Private authorized media only; no public/presigned URL is treated as authority |
+| Reviewer playback | Named reviewer grant, consent check and range streaming; `Cache-Control: no-store, private` |
+| Consent withdrawal | Future direct-audio transfer and reviewer access are blocked; local cleanup work is queued |
+| Cleanup | KSH-controlled audio cleanup is durable and default-off until configured; it does not claim a provider deletion that was never confirmed |
+| Demo recording | Short disclosure plus affirmative action before sending user-recorded audio; preloaded approved test audio follows its own source path |
+
+### 10.7 Result, detail and progress presentation
+
+| Surface | Current rule |
+| --- | --- |
+| Result overview | Correct/incorrect/unanswered/pending/failed/unavailable remain distinct; missing does not mean zero |
+| Result detail | Shows source/evidence/capability context and links actions only when the underlying result permits them |
+| Writing detail | Keeps task-level criterion/evidence context; a whole-attempt number cannot erase task coverage |
+| Speaking detail | Keeps transcript-only and direct-audio authority separate; acoustic rows are unavailable when audio was not actually evaluated |
+| Progress/history | Uses bounded, typed projections with explicit coverage/window context; Speaking production numeric aggregates are not fabricated |
+| Responsive/accessibility UI | Semantic desktop/mobile layouts, focus, labels and state copy are regression-tested alongside business contracts |
+
+### 10.8 Authorization and role boundaries
+
+- Learners can only access their own eligible catalog, attempts, media and
+  results.
+- Lecturers own authoring/review operations in their permitted scope.
+- Reviewer access is narrower than general lecturer access and is separately
+  granted for sensitive direct-audio inspection.
+- Administrator configuration does not silently override an attempt's immutable
+  evaluation identity.
+- Every denied route must remain denied even if a caller guesses an ID, sends a
+  stale request or omits required authority.
+
+### 10.9 Database, migration and operations boundaries
+
+- Flyway migrations are ordered historical contracts. Applied migrations are
+  retained/backward compatible; new changes are forward-only unless the owner
+  has explicitly authorized an amendment.
+- Disposable test databases are isolated from shared/production data.
+- New technical fixtures do not prove retained-data disposition or production
+  content readiness.
+- Logs/audits record the minimum useful identity/status; secrets, learner audio
+  bytes and private storage keys are not diagnostic data.
+- Security/SBOM checks, dependency support decisions and browser/device/manual
+  UAT are separate from code coverage and are recorded before production.
+
+### 10.10 What is intentionally deferred or scope-limited
+
+- Production certification or standardized Speaking assessment.
+- Direct-audio production privacy/policy, Korean SME calibration, fairness and
+  repeatability acceptance.
+- Report-an-Error/Content Review feature phase (scheduled after initial Manual
+  UAT/release decision).
+- A real provider call until the owner configures a real provider/model and
+  supplies runtime credentials through the approved secret channel.
+
+## 11. Testing strategy and the meaning of unit/integration tests
+
+### Does a unit test mean “test every function”?
+
+**Mostly yes for meaningful behaviour, but not mechanically every line or
+private helper.** A good JUnit + Mockito unit test treats a class as a decision
+boundary and covers its observable partitions:
+
+- valid/nominal cases;
+- invalid, null, empty and malformed inputs;
+- declared minimum/maximum and just-below/just-above boundaries;
+- every meaningful state transition;
+- authorization allow/deny paths;
+- external failure/timeout/invalid-response paths;
+- side effects: repository writes, queue claims, cache reads/writes, audit
+  events and provider calls—or the important assertion that they did **not**
+  happen.
+
+Mockito is appropriate at external boundaries: repository, clock, provider,
+queue, storage or authorization port. It should not replace the object being
+tested with a mock, and a test should verify outcomes as well as only verifying
+method calls.
+
+### Integration tests
+
+Integration tests prove components work together: Spring wiring, security,
+controller/HTTP behaviour, JPA/Flyway schema, transaction/concurrency and a
+disposable database. They do not call a real AI provider unless a separately
+approved staging test explicitly supplies credentials and approved data.
+
+### Coverage interpretation
+
+JaCoCo measures executed instructions/branches/classes. It is valuable for
+finding untested areas, but 100% coverage is not proof of correctness, and a
+lower number is not automatically poor. The project now generates JaCoCo
+reports through Maven; the authoritative percentage is only valid after a
+complete green run using the required isolated `TEST_DB_URL` environment.
+
+The current local full-suite attempt cannot establish any percentage because
+Spring integration tests stopped at startup: `TEST_DB_URL` was not supplied.
+That is a test-environment configuration blocker, not evidence of 100% or 0%
+Practice coverage. Focused unit slices can still run and report their own
+coverage, but must not be relabelled as full-Practice coverage.
+
+**Observed focused baseline (2026-08-08):** the Direct Audio service and
+manifest tests completed with JaCoCo reporting `75.22%` Practice instruction
+coverage and `53.82%` branch coverage. This is deliberately labelled
+**focused-slice coverage**, not full-Practice coverage. The full suite remains
+pending an isolated MySQL `TEST_DB_URL`, username and password.
+
+## 12. Where to look in the repository
 
 - Direct-audio manifest:
   `docs/operations/practice-speaking-direct-audio-release-evidence-manifest.json`
