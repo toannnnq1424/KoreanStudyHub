@@ -8,10 +8,6 @@
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 <main class="student-lessons-shell student-class-detail-shell">
-  <div class="student-lessons-header">
-    <a th:href="@{/my/classes}" class="student-lessons-back">← Quay lại lớp của tôi</a>
-    <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
-  </div>
   <div class="student-class-detail-grid">
     <div th:replace="~{fragments/student-class-sidebar :: classSidebar('members', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
     <section class="student-class-detail-main">

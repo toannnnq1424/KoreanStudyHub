@@ -1,5 +1,5 @@
 .student-class-detail-grid {
-  min-height: calc(100vh - var(--header-height, 64px) - 86px);
+  min-height: calc(100vh - var(--header-height, 64px));
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   background: #fff;
