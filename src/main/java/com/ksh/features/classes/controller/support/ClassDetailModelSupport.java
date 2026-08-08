@@ -8,6 +8,7 @@ import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.security.Role;
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 
 import static com.ksh.common.IConstant.*;
 
@@ -28,11 +29,14 @@ public class ClassDetailModelSupport {
 
     private final ClassCoLecturerRepository coLecturerRepository;
     private final UserRepository userRepository;
+    private final DepartmentRepository subjectRepository;
 
     public ClassDetailModelSupport(ClassCoLecturerRepository coLecturerRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   DepartmentRepository subjectRepository) {
         this.coLecturerRepository = coLecturerRepository;
         this.userRepository = userRepository;
+        this.subjectRepository = subjectRepository;
     }
 
     /**
@@ -50,6 +54,13 @@ public class ClassDetailModelSupport {
                 .anyMatch(member -> member.id().equals(userId));
         model.addAttribute("classTeachingTeam", teachingTeam);
         model.addAttribute("isPrimaryClassOwner", primaryOwner);
+
+        // Provide subject code and lecturer name for sidebar rendering
+        String subjectCode = clazz.getSubjectId() == null ? null
+                : subjectRepository.findById(clazz.getSubjectId()).map(s -> s.getCode()).orElse(null);
+        model.addAttribute("classCode", subjectCode);
+        model.addAttribute("lecturerName", teachingTeam.owner().name());
+
         model.addAttribute("classViewerRole",
                 primaryOwner ? "GV chủ lớp"
                         : coLecturer ? "Giảng viên đồng giảng"
