@@ -309,6 +309,12 @@ class PracticeIntegrationTest {
         defaultSection.setTestId(defaultTest.getId());
         defaultSection = sectionRepository.saveAndFlush(defaultSection);
 
+        PracticeQuestionGroup defaultGroup = groupRepository.saveAndFlush(
+                new PracticeQuestionGroup(practiceSet.getId(), "Phần Đọc", 1, 1,
+                        "Đọc kỹ", null, null, 1));
+        defaultGroup.setSectionId(defaultSection.getId());
+        defaultGroup = groupRepository.saveAndFlush(defaultGroup);
+
         // Seed a question for the set
         question = new PracticeQuestion(
                 practiceSet.getId(),
@@ -321,7 +327,7 @@ class PracticeIntegrationTest {
                 BigDecimal.valueOf(2.5),
                 0
         );
-        question.setGroupId(null);
+        question.setGroupId(defaultGroup.getId());
         question = questionRepository.saveAndFlush(question);
 
         publishVersion(practiceSet.getId());
@@ -1279,6 +1285,24 @@ class PracticeIntegrationTest {
     }
 
     private void publishVersion(Long setId) {
+        List<PracticeQuestion> ungrouped = questionRepository
+                .findBySetIdOrderByDisplayOrderAsc(setId).stream()
+                .filter(candidate -> candidate.getGroupId() == null)
+                .toList();
+        if (!ungrouped.isEmpty()) {
+            PracticeSection section = sectionRepository
+                    .findBySetIdOrderByDisplayOrderAsc(setId).stream()
+                    .findFirst()
+                    .orElseThrow();
+            PracticeQuestionGroup group = new PracticeQuestionGroup(
+                    setId, "Fixture canonical group", 1, 1,
+                    "Required immutable ownership for published fixtures", null, null, 1);
+            group.setSectionId(section.getId());
+            group = groupRepository.saveAndFlush(group);
+            Long groupId = group.getId();
+            ungrouped.forEach(candidate -> candidate.setGroupId(groupId));
+            questionRepository.saveAllAndFlush(ungrouped);
+        }
         publishedVersionService.createPublishedVersion(setId, lecturer.getId());
     }
 
@@ -5383,6 +5407,10 @@ class PracticeIntegrationTest {
         node.put("evaluation_reason", reason);
         node.put("evaluation_retryable", retryable);
         node.put("score_available", false);
+        node.set("result_completeness", objectMapper.valueToTree(
+                com.ksh.features.practice.ai.contract
+                        .PracticeAiResultCompleteness.unavailable(reason, 0)
+                        .toMap()));
         return node.toString();
     }
 

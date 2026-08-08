@@ -58,7 +58,7 @@ class PracticeAiResultCompletenessStaticTest {
                 "WritingFeedbackContractParser",
                 "QuestionExplanationReadService",
                 "DirectAudioDarkObservationService.inspect",
-                "V1–V92 remain byte-for-byte unchanged",
+                "V1–V102 remain the protected integration baseline",
                 "No migration is needed");
     }
 

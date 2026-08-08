@@ -48,7 +48,7 @@ class LibraryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(view().name("library/index"))
                 .andExpect(content().string(containsString("Tạo bài học")))
-                .andExpect(content().string(containsString("Mã môn")))
+                .andExpect(content().string(containsString("mã môn")))
                 .andExpect(content().string(not(containsString("libraryAttachWizard"))))
                 .andExpect(content().string(not(containsString("Thêm vào lớp"))))
                 .andExpect(content().string(not(containsString("Gắn vào lớp"))));
@@ -59,7 +59,7 @@ class LibraryControllerTest {
     void root_redirects_to_canonical_lessons_and_form_owns_uploads() throws Exception {
         mockMvc.perform(get("/lecturer/library"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/lecturer/library/templates"));
+                .andExpect(redirectedUrl("/lecturer/library/list"));
 
         mockMvc.perform(get("/lecturer/library/templates/new"))
                 .andExpect(status().isOk())

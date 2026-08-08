@@ -311,7 +311,7 @@ class PracticePhase11AuthoringUiContractTest {
                 "@{/}", "@{/profile}", "@{/my/classes}", "@{/my/flashcards}",
                 "@{/practice}", "@{/practice/progress}", "@{/practice/manage}",
                 "@{/practice/manage/revisions}", "@{/practice/manage/materials}",
-                "@{/lecturer/dashboard}", "@{/lecturer/classes}", "@{/lecturer/library}",
+                "@{/lecturer/dashboard}", "@{/lecturer/classes}", "@{/lecturer/library/list}",
                 "@{/lecturer/question-bank}", "@{/leader}", "@{/admin/dashboard}")) {
             assertTrue(compactNavigation.contains(route),
                     "Compact navigation is missing route " + route);

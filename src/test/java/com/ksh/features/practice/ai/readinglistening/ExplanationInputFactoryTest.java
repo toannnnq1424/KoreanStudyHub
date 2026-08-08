@@ -205,7 +205,7 @@ class ExplanationInputFactoryTest {
             Long questionId,
             Long questionVersionId,
             Long assetId) {
-        return question(questionId, questionVersionId, assetId, "MCQ");
+        return question(questionId, questionVersionId, assetId, "SINGLE_CHOICE");
     }
 
     private static PracticeQuestionVersion question(

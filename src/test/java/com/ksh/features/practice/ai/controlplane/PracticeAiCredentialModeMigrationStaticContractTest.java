@@ -14,7 +14,7 @@ class PracticeAiCredentialModeMigrationStaticContractTest {
             throws Exception {
         String sql = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V91__practice_ai_profile_credential_modes.sql"));
+                        + "V106__practice_ai_profile_credential_modes.sql"));
 
         assertThat(sql)
                 .contains("credential_mode")

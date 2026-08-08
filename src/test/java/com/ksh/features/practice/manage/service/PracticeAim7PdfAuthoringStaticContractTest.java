@@ -100,7 +100,7 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     }
 
     @Test
-    void c4CompactionRemainsAndAuthorizedForwardMigrationsStopAtV96() throws Exception {
+    void c4CompactionRemainsAndAuthorizedForwardMigrationsStopAtV111() throws Exception {
         Path migrations = ROOT.resolve("src/main/resources/db/migration");
         try (var paths = Files.list(migrations)) {
             List<String> names = paths.map(path -> path.getFileName().toString())
@@ -109,18 +109,18 @@ class PracticeAim7PdfAuthoringStaticContractTest {
             assertThat(names).anyMatch(name -> name.startsWith("V85__"));
             assertThat(names).anyMatch(name -> name.startsWith("V87__"));
             assertThat(names).anyMatch(name -> name.startsWith(
-                    "V92__practice_speaking_direct_audio_dark_observations"));
+                    "V107__practice_speaking_direct_audio_dark_observations"));
             assertThat(names).anyMatch(name -> name.startsWith(
-                    "V93__practice_speaking_direct_audio_observation_media_binding"));
+                    "V108__practice_speaking_direct_audio_observation_media_binding"));
             assertThat(names).anyMatch(name -> name.startsWith(
-                    "V94__practice_speaking_consent_withdrawal_cleanup"));
+                    "V109__practice_speaking_consent_withdrawal_cleanup"));
             assertThat(names).anyMatch(name -> name.startsWith(
-                    "V95__practice_speaking_reviewer_access_audit"));
+                    "V110__practice_speaking_reviewer_access_audit"));
             assertThat(names).anyMatch(name -> name.startsWith(
-                    "V96__practice_speaking_reviewer_access_audit_retention"));
+                    "V111__practice_speaking_reviewer_access_audit_retention"));
             assertThat(names).noneMatch(name -> {
                 int separator = name.indexOf("__");
-                return Integer.parseInt(name.substring(1, separator)) > 96;
+                return Integer.parseInt(name.substring(1, separator)) > 111;
             });
         }
     }

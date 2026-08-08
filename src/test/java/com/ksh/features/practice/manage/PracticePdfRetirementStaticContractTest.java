@@ -49,8 +49,13 @@ class PracticePdfRetirementStaticContractTest {
                 "practice_pdf_import_group_drafts",
                 "practice_ai_request_audits");
         try (var paths = Files.list(ROOT.resolve("src/main/resources/db/migration"))) {
-            assertThat(paths.map(path -> path.getFileName().toString()).toList())
-                    .noneMatch(name -> name.matches("V(9[1-9]|[1-9]\\d{2,})__.*\\.sql"));
+            List<String> names = paths.map(path -> path.getFileName().toString()).toList();
+            assertThat(names).anyMatch(name -> name.startsWith("V111__"));
+            assertThat(names).noneMatch(name -> {
+                int separator = name.indexOf("__");
+                return separator > 1
+                        && Integer.parseInt(name.substring(1, separator)) > 111;
+            });
         }
     }
 

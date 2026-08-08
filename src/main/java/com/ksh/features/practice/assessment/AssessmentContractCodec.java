@@ -98,7 +98,7 @@ public class AssessmentContractCodec {
     }
 
     public QuestionContent adaptLegacyContent(String optionsJson, String rawQuestionType) {
-        CanonicalQuestionType type = typeResolver.resolve(rawQuestionType);
+        CanonicalQuestionType type = resolveLegacyType(rawQuestionType);
         requireTypedContract(type);
         List<QuestionContent.Option> options = readLegacyOptions(optionsJson);
         List<QuestionContent.Blank> blanks = type == CanonicalQuestionType.FILL_BLANK
@@ -116,7 +116,7 @@ public class AssessmentContractCodec {
     public AnswerSpec adaptLegacyAnswerSpec(String rawQuestionType,
                                             String answerKey,
                                             QuestionContent content) {
-        CanonicalQuestionType type = typeResolver.resolve(rawQuestionType);
+        CanonicalQuestionType type = resolveLegacyType(rawQuestionType);
         requireTypedContract(type);
         String normalizedKey = normalizeValue(answerKey);
         AnswerSpec answerSpec = switch (type) {
@@ -144,7 +144,7 @@ public class AssessmentContractCodec {
     public LearnerAnswer adaptLegacyLearnerAnswer(String rawQuestionType,
                                                   String rawAnswer,
                                                   QuestionContent content) {
-        CanonicalQuestionType type = typeResolver.resolve(rawQuestionType);
+        CanonicalQuestionType type = resolveLegacyType(rawQuestionType);
         requireTypedContract(type);
         LearnerAnswer learnerAnswer = switch (type) {
             case SINGLE_CHOICE -> new LearnerAnswer(
@@ -448,6 +448,20 @@ public class AssessmentContractCodec {
             throw new IllegalArgumentException(
                     "Question type " + type + " requires a typed assessment contract");
         }
+    }
+
+    private CanonicalQuestionType resolveLegacyType(String rawQuestionType) {
+        String normalized = rawQuestionType == null ? "" : rawQuestionType.trim();
+        if (normalized.equalsIgnoreCase("MCQ")) {
+            return CanonicalQuestionType.SINGLE_CHOICE;
+        }
+        if (normalized.equalsIgnoreCase("MCQ_MULTIPLE")) {
+            return CanonicalQuestionType.MULTIPLE_ANSWER;
+        }
+        if (normalized.equalsIgnoreCase("MATCHING_INFORMATION")) {
+            return CanonicalQuestionType.MATCHING;
+        }
+        return typeResolver.resolve(rawQuestionType);
     }
 
     private List<QuestionContent.Option> readLegacyOptions(String optionsJson) {

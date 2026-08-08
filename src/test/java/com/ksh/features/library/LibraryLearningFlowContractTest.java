@@ -40,10 +40,10 @@ class LibraryLearningFlowContractTest {
         String form = readResource("templates/library/lesson-form.html");
 
         assertThat(index).contains(
-                "Mã môn",
+                "mã môn",
                 "Chương",
                 "Bài học",
-                "File",
+                "file",
                 "name=\"classIds\"",
                 "Phân phối toàn bộ học liệu",
                 "library-subject-tree")

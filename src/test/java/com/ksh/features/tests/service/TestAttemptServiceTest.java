@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -50,6 +51,7 @@ class TestAttemptServiceTest {
     @BeforeEach
     void setUp() {
         classExam = new Test(7L, Test.TYPE_MOCK);
+        ReflectionTestUtils.setField(classExam, "id", TEST_ID);
         classExam.setStatus(Test.STATUS_PUBLISHED);
         classExam.setTimeMode(Test.TIME_MODE_INDIVIDUAL);
         classExam.setDurationMinutes(30);
@@ -92,7 +94,8 @@ class TestAttemptServiceTest {
     @org.junit.jupiter.api.Test
     void practice_keeps_its_repeatable_attempt_behaviour() {
         Test practice = new Test(USER_ID, Test.TYPE_PRACTICE);
-        TakeView expected = new TakeView(99L, TEST_ID, "Luyện tập", null,
+        ReflectionTestUtils.setField(practice, "id", TEST_ID);
+        TakeView expected = new TakeView(99L, TEST_ID, null, "Luyện tập", null,
                 Test.TIME_MODE_INDIVIDUAL, -1, -1,
                 null, null, null, List.of());
         when(accessResolver.requireAttemptableForUpdate(TEST_ID, USER_ID))

@@ -14,7 +14,7 @@ class DirectAudioDarkObservationPersistenceStaticTest {
             throws Exception {
         String sql = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V92__practice_speaking_direct_audio_dark_observations.sql"));
+                        + "V107__practice_speaking_direct_audio_dark_observations.sql"));
 
         assertThat(sql)
                 .contains("practice_speaking_direct_audio_dark_observations")
@@ -53,7 +53,7 @@ class DirectAudioDarkObservationPersistenceStaticTest {
             throws Exception {
         String sql = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V93__practice_speaking_direct_audio_observation_media_binding.sql"));
+                        + "V108__practice_speaking_direct_audio_observation_media_binding.sql"));
         String store = Files.readString(Path.of(
                 "src/main/java/com/ksh/features/practice/service/"
                         + "DirectAudioReviewerPlaybackStore.java"));
@@ -111,7 +111,7 @@ class DirectAudioDarkObservationPersistenceStaticTest {
             throws Exception {
         String sql = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V95__practice_speaking_reviewer_access_audit.sql"));
+                        + "V110__practice_speaking_reviewer_access_audit.sql"));
         String audit = Files.readString(Path.of(
                 "src/main/java/com/ksh/features/practice/service/"
                         + "DirectAudioReviewerAccessAudit.java"));
@@ -143,7 +143,7 @@ class DirectAudioDarkObservationPersistenceStaticTest {
             throws Exception {
         String sql = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V96__practice_speaking_reviewer_access_audit_retention.sql"));
+                        + "V111__practice_speaking_reviewer_access_audit_retention.sql"));
         String audit = Files.readString(Path.of(
                 "src/main/java/com/ksh/features/practice/service/"
                         + "DirectAudioReviewerAccessAudit.java"));

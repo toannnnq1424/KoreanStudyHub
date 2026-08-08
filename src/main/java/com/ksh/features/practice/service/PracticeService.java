@@ -3091,6 +3091,14 @@ public class PracticeService {
                     && WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(
                     value.policyBundleId());
         }
+        // An unavailable provider result is intentionally non-scoring.  It must
+        // still be bound to the immutable task type and policy bundle, but it
+        // cannot be rejected merely because the question's score ceiling is
+        // irrelevant until a score is actually returned.
+        if (value != null && !value.scoreAvailableFlag()) {
+            return isCurrentWritingEnvelope(
+                    value, expectedTaskType, BigDecimal.ZERO);
+        }
         BigDecimal expectedMaximum = BigDecimal.valueOf(
                 WritingScoringPolicy.rubricFor(
                         expectedTaskType).totalMaxScore());

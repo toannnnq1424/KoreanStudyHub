@@ -41,7 +41,7 @@ class PracticeAiControlPlanePersistenceIntegrationTest {
     private PracticeAiControlPlaneCodec codec;
 
     @Test
-    void freshV91SchemaPersistsPurposeBindingsSnapshotsAndRedactedAudits() {
+    void freshV106SchemaPersistsPurposeBindingsSnapshotsAndRedactedAudits() {
         assertFreshMigrationAndSchema();
 
         Long actorId = jdbcTemplate.queryForObject(

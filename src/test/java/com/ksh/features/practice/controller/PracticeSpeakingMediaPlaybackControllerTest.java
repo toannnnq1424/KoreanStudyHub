@@ -78,7 +78,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void formLoginStudentOwnerReceivesFullStreamWithSafeHeaders() throws Exception {
-        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4});
+        ReleasableTrackingInputStream stream = releasableStream(new byte[]{1, 2, 3, 4});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream("audio/webm", 4L, stream));
 
@@ -87,6 +87,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
                 .andExpect(request().asyncStarted())
                 .andReturn();
 
+        stream.release();
         mockMvc.perform(asyncDispatch(awaitAsync(result, stream)))
                 .andExpect(status().isOk())
                 .andExpect(content().bytes(new byte[]{1, 2, 3, 4}))
@@ -112,7 +113,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void oidcStudentOwnerUsesLocalUserId() throws Exception {
-        TrackingInputStream stream = stream(new byte[]{8, 9});
+        ReleasableTrackingInputStream stream = asyncStream(new byte[]{8, 9});
         when(playbackService.openForOwner(88L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/mp4", 2L, stream));
@@ -156,7 +157,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void zeroToZeroRangeReturnsSingleByte() throws Exception {
-        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4});
+        ReleasableTrackingInputStream stream = asyncStream(new byte[]{1, 2, 3, 4});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", 4L, stream));
@@ -200,7 +201,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
     @Test
     void openEndedRangeReturnsBytesFromOffsetToEnd() throws Exception {
         byte[] content = sequence(160);
-        TrackingInputStream stream = stream(content);
+        ReleasableTrackingInputStream stream = asyncStream(content);
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", content.length, stream));
@@ -220,7 +221,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void suffixRangeReturnsTrailingBytes() throws Exception {
-        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4, 5});
+        ReleasableTrackingInputStream stream = asyncStream(new byte[]{1, 2, 3, 4, 5});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", 5L, stream));
@@ -240,7 +241,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void suffixRangeLargerThanTotalReturnsWholeBodyAsPartial() throws Exception {
-        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4, 5});
+        ReleasableTrackingInputStream stream = asyncStream(new byte[]{1, 2, 3, 4, 5});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", 5L, stream));
@@ -331,7 +332,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void streamCopyDoesNotExceedPersistedByteSize() throws Exception {
-        TrackingInputStream stream = stream(new byte[]{1, 2, 3, 4, 5});
+        ReleasableTrackingInputStream stream = asyncStream(new byte[]{1, 2, 3, 4, 5});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", 3L, stream));
@@ -351,7 +352,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @Test
     void objectShorterThanPersistedByteSizeTruncatesSafelyAndCloses() throws Exception {
-        TrackingInputStream stream = stream(new byte[]{1, 2});
+        ReleasableTrackingInputStream stream = asyncStream(new byte[]{1, 2});
         when(playbackService.openForOwner(77L, 10L, 20L, 30L))
                 .thenReturn(new PracticeSpeakingMediaPlaybackService.PlaybackStream(
                         "audio/webm", 4L, stream));
@@ -510,6 +511,14 @@ class PracticeSpeakingMediaPlaybackControllerTest {
         return new TrackingInputStream(content);
     }
 
+    private static ReleasableTrackingInputStream releasableStream(byte[] content) {
+        return new ReleasableTrackingInputStream(content);
+    }
+
+    private static ReleasableTrackingInputStream asyncStream(byte[] content) {
+        return new ReleasableTrackingInputStream(content);
+    }
+
     private static final class ReleasableInputStream extends InputStream {
         private final CountDownLatch release = new CountDownLatch(1);
         private final ByteArrayInputStream delegate;
@@ -553,6 +562,9 @@ class PracticeSpeakingMediaPlaybackControllerTest {
     }
 
     private static MvcResult awaitAsync(MvcResult result, TrackingInputStream stream) throws Exception {
+        if (stream instanceof ReleasableTrackingInputStream releasable) {
+            releasable.release();
+        }
         result.getAsyncResult(5_000L);
         stream.awaitClosed();
         return result;
@@ -582,7 +594,7 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     private static class TrackingInputStream extends ByteArrayInputStream {
         private final CountDownLatch closedLatch = new CountDownLatch(1);
-        private volatile boolean closed;
+        protected volatile boolean closed;
 
         private TrackingInputStream(byte[] buf) {
             super(buf);
@@ -597,6 +609,39 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
         private void awaitClosed() throws InterruptedException {
             assertThat(closedLatch.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private static final class ReleasableTrackingInputStream extends TrackingInputStream {
+        private final CountDownLatch release = new CountDownLatch(1);
+
+        private ReleasableTrackingInputStream(byte[] content) {
+            super(content);
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) {
+            awaitRelease();
+            return super.read(b, off, len);
+        }
+
+        @Override
+        public int read() {
+            awaitRelease();
+            return super.read();
+        }
+
+        private void release() {
+            release.countDown();
+        }
+
+        private void awaitRelease() {
+            try {
+                release.await();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting to release test stream.", ex);
+            }
         }
     }
 

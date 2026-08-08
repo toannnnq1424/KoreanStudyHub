@@ -20,7 +20,7 @@ identities, action/outcome codes and timestamps. It must not contain audio,
 storage keys, playback URLs, credentials/tokens, provider payload/request IDs,
 acoustic values, scores, IP addresses or user-agent strings.
 
-V96 binds the policy ID and exact deletion deadline to every new event. The
+V111 binds the policy ID and exact deletion deadline to every new event. The
 purge worker deletes only elapsed rows in bounded batches and remains default
 off until the operational release owner enables and monitors it. Enabling this
 retention policy does not enable the reviewer page, metadata API, playback API,

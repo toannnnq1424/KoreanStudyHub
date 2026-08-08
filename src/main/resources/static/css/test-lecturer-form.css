@@ -452,7 +452,7 @@
 .lf-bank-option.is-correct { color: #166534; font-weight: 600; }
 .lf-bank-add { align-self: flex-start; }
 
-/* AI question generator panel (ULP-12.2). Reuses the bank-picker shell; only
+/* AI question generator panel (KSH-12.2). Reuses the bank-picker shell; only
    the material inputs and the selection controls are new. */
 .lf-ai-panel { border-color: #e0d7fb; background: #faf8ff; }
 .lf-ai-inputs {

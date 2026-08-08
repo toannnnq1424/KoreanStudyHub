@@ -39,8 +39,8 @@ class PracticeSpeakingReviewerAccessAuditSchemaIntegrationTest {
                 ORDER BY constraint_name
                 """, String.class);
 
-        assertThat(migrationCount).isEqualTo(96);
-        assertThat(version).isEqualTo("96");
+        assertThat(migrationCount).isEqualTo(111);
+        assertThat(version).isEqualTo("111");
         assertThat(columns).contains("event_key", "reviewer_id", "attempt_id",
                         "question_id", "media_id", "observation_key", "purpose_code",
                         "action_code", "outcome_code", "retention_policy_id",
