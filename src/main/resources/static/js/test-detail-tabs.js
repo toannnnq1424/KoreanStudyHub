@@ -44,9 +44,9 @@
         var tabsNav = document.querySelector('.detail-tabs');
         if (!panel) return;
 
-        if (!tabsNav) return;
-
         var dirtyGuard = window.KshDirtyFormGuard.create(panel);
+
+        if (!tabsNav) return;
 
         // Mark owned so the shared detail-tabs.js (if also loaded) no-ops.
         tabsNav.setAttribute('data-ajax-tabs', 'owned');

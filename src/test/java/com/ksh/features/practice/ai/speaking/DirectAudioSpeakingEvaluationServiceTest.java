@@ -175,6 +175,54 @@ class DirectAudioSpeakingEvaluationServiceTest {
         assertThat(outcome.scoreAvailable()).isFalse();
     }
 
+    @Test
+    void experimentalDemoNeedsOnlyConfiguredProviderAndValidatedDirectAudioResponse() {
+        AtomicReference<DirectAudioSpeakingEvaluationPort.AuthorizedRequest> captured =
+                new AtomicReference<>();
+        DirectAudioSpeakingEvaluationService service = new DirectAudioSpeakingEvaluationService(
+                request -> {
+                    captured.set(request);
+                    return new DirectAudioSpeakingEvaluationPort.Receipt("demo-request", true,
+                            "demo-cache", "{\"pronunciation\":\"experimental\"}");
+                }, event -> { }, demoReadiness(true, true));
+
+        var outcome = service.evaluate(experimentalCandidate());
+
+        assertThat(captured.get()).isNotNull();
+        assertThat(outcome.state()).isEqualTo("EXPERIMENTAL_DEMO_READY");
+        assertThat(outcome.scoreAvailable()).isTrue();
+        assertThat(outcome.feedbackLabel()).isEqualTo("Experimental AI feedback");
+        assertThat(outcome.feedbackNotice()).contains("không phải đánh giá chuẩn hóa");
+    }
+
+    @Test
+    void missingProductionEvidenceDoesNotBlockExperimentalDemoButProviderFailureDoes() {
+        DirectAudioSpeakingEvaluationService service = new DirectAudioSpeakingEvaluationService(
+                request -> new DirectAudioSpeakingEvaluationPort.Receipt("demo-request", true,
+                        "demo-cache", "{}"), event -> { }, demoReadiness(true, true));
+        assertThat(service.evaluate(experimentalCandidate()).state())
+                .isEqualTo("EXPERIMENTAL_DEMO_READY");
+
+        DirectAudioSpeakingEvaluationService unavailable = new DirectAudioSpeakingEvaluationService(
+                request -> new DirectAudioSpeakingEvaluationPort.Receipt("demo-request", true,
+                        "demo-cache", "{}"), event -> { }, demoReadiness(false, true));
+        assertThat(unavailable.evaluate(experimentalCandidate()).rejectionReason())
+                .isEqualTo("EXPERIMENTAL_PROVIDER_NOT_READY");
+    }
+
+    @Test
+    void malformedExperimentalResponseNeverProducesAFakeScore() {
+        DirectAudioSpeakingEvaluationService service = new DirectAudioSpeakingEvaluationService(
+                request -> new DirectAudioSpeakingEvaluationPort.Receipt("demo-request", true,
+                        "demo-cache", "not-json"), event -> { }, demoReadiness(true, false));
+
+        var outcome = service.evaluate(experimentalCandidate());
+
+        assertThat(outcome.rejectionReason()).isEqualTo("EXPERIMENTAL_RESPONSE_INVALID");
+        assertThat(outcome.scoreAvailable()).isFalse();
+        assertThat(outcome.feedbackLabel()).isNull();
+    }
+
     private static DirectAudioSpeakingEvaluationService service(
             AtomicReference<DirectAudioSpeakingEvaluationPort.AuthorizedRequest> captured,
             List<DirectAudioSpeakingEvaluationService.AuditEvent> audit,
@@ -234,6 +282,34 @@ class DirectAudioSpeakingEvaluationServiceTest {
                         "TEST-KOREAN-CORPUS", "TEST-ACOUSTIC-CALIBRATION",
                         "TEST-FAIRNESS", "TEST-REPEATABILITY"),
                 DirectAudioSpeakingEvaluationService.RolloutState.DARK_CAPTURE);
+    }
+
+    private static DirectAudioSpeakingEvaluationService.Candidate experimentalCandidate() {
+        var audio = new DirectAudioSpeakingEvaluationService.AudioEvidence(
+                "demo-audio", new byte[]{1, 2, 3, 4}, "audio/webm",
+                "9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+                true, true, false,
+                DirectAudioSpeakingEvaluationService.AudioSource.PRELOADED_TEST_AUDIO);
+        return new DirectAudioSpeakingEvaluationService.Candidate(
+                "demo-request", 1L, 2L, 3L, audio, null, null,
+                new DirectAudioSpeakingEvaluationService.ProviderPolicy(
+                        "DEMO-PROVIDER", null, null, null, null), null,
+                DirectAudioSpeakingEvaluationService.RolloutState.EXPERIMENTAL_DEMO,
+                DirectAudioSpeakingEvaluationService.EvaluationScope.EXPERIMENTAL_DEMO);
+    }
+
+    private static DirectAudioSpeakingEvaluationService.ReadinessAuthority demoReadiness(
+            boolean providerReady, boolean validResponse) {
+        return new DirectAudioSpeakingEvaluationService.ReadinessAuthority() {
+            @Override public boolean providerPolicyAllowed(
+                    DirectAudioSpeakingEvaluationService.ProviderPolicy policy) { return false; }
+            @Override public boolean calibrationApproved(
+                    DirectAudioSpeakingEvaluationService.CalibrationEvidence evidence) { return false; }
+            @Override public boolean experimentalDemoProviderAllowed(
+                    DirectAudioSpeakingEvaluationService.ProviderPolicy policy) { return providerReady; }
+            @Override public boolean experimentalResponseValid(
+                    DirectAudioSpeakingEvaluationPort.Receipt receipt) { return validResponse; }
+        };
     }
 
     private static DirectAudioSpeakingEvaluationService.Candidate withConsent(

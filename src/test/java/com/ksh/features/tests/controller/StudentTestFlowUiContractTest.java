@@ -16,7 +16,7 @@ class StudentTestFlowUiContractTest {
         String template = read("src/main/resources/templates/student/class-tests.html");
 
         assertThat(template)
-                .contains("@{|/my/tests/${exam.id()}|}")
+                .contains("@{|/my/classes/${view.classId()}/tests/${exam.id()}|}")
                 .doesNotContain("@{|/my/tests/${exam.id()}/take|}");
     }
 
@@ -26,7 +26,7 @@ class StudentTestFlowUiContractTest {
         String styles = read("src/main/resources/static/css/test-detail.css");
 
         assertThat(template)
-                .contains("@{|/my/tests/${detail.id()}/start|}")
+                .contains("'/my/classes/' + classScopeId + '/tests/' + detail.id() + '/start'")
                 .contains("method=\"post\"")
                 .contains("Đồng hồ chỉ bắt đầu")
                 .contains("chỉ cho phép một lượt làm");

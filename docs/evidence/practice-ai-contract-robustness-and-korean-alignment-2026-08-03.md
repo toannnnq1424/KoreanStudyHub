@@ -86,7 +86,7 @@ deletion state.
   and issue immutable capability/calibration/fairness/repeatability IDs;
 - define the reviewed mapping between milliseconds and authorized ranged
   playback without raw URL/key leakage, plus reviewer endpoint auth/CSRF tests;
-- implement withdrawal/deletion propagation and the V92 due-row deletion worker;
+- implement withdrawal/deletion propagation and the V107 due-row deletion worker;
 - approve learner exposure and any scoring thresholds separately; and
 - add a domain-owned replacement coordinator or validator callback for
   post-envelope schema mismatches, and introduce explicit tiered status for

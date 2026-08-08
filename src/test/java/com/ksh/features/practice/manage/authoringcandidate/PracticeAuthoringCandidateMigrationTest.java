@@ -51,7 +51,7 @@ class PracticeAuthoringCandidateMigrationTest {
                 "V79__backfill_news_ai_run_trace.sql",
                 "6439f7ea24f882fb7da7125017cc929e25db96016511bbdf0aec2cf13c892ee6",
                 "V80__class_approval_lifecycle.sql",
-                "6640bec6daebb1afd226b49bb9ae87509a5f97418c8c7c04a684e8581abf35fa",
+                "f7219e43638906b011681bc8d8dbd435457412995c7c5255a5d3f453f14485be",
                 "V81__seed_ai_flashcard_generator_prompt.sql",
                 "7da3da706dda38b1c2b16ce25e086644e3db1dfb374f4541bc5f24b7fbedd435",
                 "V82__refine_ai_generation_prompts.sql",

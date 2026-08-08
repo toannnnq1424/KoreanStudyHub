@@ -10,10 +10,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DirectAudioAuthorizationMigrationStaticContractTest {
 
     @Test
-    void v88IsForwardOnlyMetadataOnlyAndPinsDirectAudioPurpose() throws Exception {
+    void v103IsForwardOnlyMetadataOnlyAndPinsDirectAudioPurpose() throws Exception {
         String sql = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V88__practice_speaking_direct_audio_authorization.sql"));
+                        + "V103__practice_speaking_direct_audio_authorization.sql"));
         String lower = sql.toLowerCase();
 
         assertThat(sql)

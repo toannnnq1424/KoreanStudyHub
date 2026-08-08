@@ -10,7 +10,7 @@
   },
   "policy": {
     "policy_bundle_id": "KSH_SPEAKING_DIRECT_AUDIO_POLICY_BUNDLE_V1",
-    "policy_bundle_fingerprint": "840b24d390515ee813a420870760a602acdc5c53532180374315cc4cd0856fee"
+    "policy_bundle_fingerprint": "b872e569829a70a2d51459d1ab6799244fcf7aa1051ba01c8cd72e906da82666"
   },
   "calibration": {
     "profile_id": "TEST_KOREAN_ACOUSTIC_CALIBRATION",

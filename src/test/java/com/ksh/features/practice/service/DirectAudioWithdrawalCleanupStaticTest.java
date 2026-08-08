@@ -15,10 +15,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DirectAudioWithdrawalCleanupStaticTest {
 
     @Test
-    void v94AddsMetadataOnlyExactWithdrawalEvidenceAndKeepsHistoricalReasons() throws Exception {
+    void v109AddsMetadataOnlyExactWithdrawalEvidenceAndKeepsHistoricalReasons() throws Exception {
         String migration = Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V94__practice_speaking_consent_withdrawal_cleanup.sql"));
+                        + "V109__practice_speaking_consent_withdrawal_cleanup.sql"));
         String repository = Files.readString(Path.of(
                 "src/main/java/com/ksh/features/practice/repository/"
                         + "PracticeSpeakingMediaCleanupTaskRepository.java"));

@@ -11,7 +11,7 @@ class PracticeAiDirectAudioControlPlaneMigrationStaticContractTest {
 
     private static final Path MIGRATION = Path.of(
             "src/main/resources/db/migration/"
-                    + "V90__practice_speaking_direct_audio_control_plane.sql");
+                    + "V105__practice_speaking_direct_audio_control_plane.sql");
 
     @Test
     void v105KeepsOptionalLegacyColumnsAndRequiresOnlyMinimalProviderPolicy()

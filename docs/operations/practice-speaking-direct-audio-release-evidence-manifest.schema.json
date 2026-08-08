@@ -5,7 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schemaVersion", "manifestId", "status", "approvalScope", "contracts",
+    "schemaVersion", "manifestId", "status", "approvalScope", "releaseScope", "productionReadiness", "contracts",
     "forcedAlignment", "providerEvidence", "calibration", "releaseGate",
     "blockers"
   ],
@@ -17,10 +17,16 @@
       "const": "KSH-SPEAKING-DIRECT-AUDIO-RELEASE-EVIDENCE-INTAKE-V1"
     },
     "status": {
-      "enum": ["BLOCKED_EXTERNAL_EVIDENCE", "DARK_VALIDATION_READY"]
+      "enum": ["EXPERIMENTAL_DEMO_CONFIGURATION_REQUIRED", "EXPERIMENTAL_DEMO_READY", "PRODUCTION_VALIDATION_REQUIRED"]
     },
     "approvalScope": {
-      "const": "AUTHORIZED_TO_COLLECT_AND_REVIEW_NOT_RESULT_ACCEPTANCE"
+      "const": "EXPERIMENTAL_DEMO_NOT_PRODUCTION_ASSESSMENT"
+    },
+    "releaseScope": {
+      "const": "EXPERIMENTAL_DEMO"
+    },
+    "productionReadiness": {
+      "const": "PRODUCTION_VALIDATION_REQUIRED"
     },
     "contracts": {
       "type": "object",
@@ -51,10 +57,10 @@
       "additionalProperties": false,
       "required": ["darkObservationOnly", "learnerVisible", "scoreReleaseEligible", "reason"],
       "properties": {
-        "darkObservationOnly": {"const": true},
-        "learnerVisible": {"const": false},
+        "darkObservationOnly": {"const": false},
+        "learnerVisible": {"const": true},
         "scoreReleaseEligible": {"const": false},
-        "reason": {"const": "EVIDENCE_INTAKE_CANNOT_AUTHORIZE_SCORE_RELEASE"}
+        "reason": {"const": "EXPERIMENTAL_FEEDBACK_ONLY_NOT_STANDARDIZED_ASSESSMENT"}
       }
     },
     "blockers": {
@@ -88,7 +94,7 @@
       ],
       "properties": {
         "kind": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
-        "state": {"enum": ["MISSING", "SUPPLIED_REVIEW_PENDING", "ACCEPTED"]},
+        "state": {"enum": ["MISSING", "SUPPLIED_REVIEW_PENDING", "ACCEPTED", "AVAILABLE_EXPERIMENTAL_EVIDENCE", "NOT_REQUIRED_FOR_EXPERIMENTAL_DEMO", "DEFERRED_FOR_PRODUCTION"]},
         "artifactId": {"type": ["string", "null"]},
         "relativePath": {"type": ["string", "null"]},
         "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},

@@ -32,6 +32,9 @@ decision, and decision date. If artifact content or a material production
 configuration changes, the prior acceptance no longer applies and a new review
 is required.
 
-`PENDING`, `CHANGES_REQUIRED`, and `REJECTED` artifacts cannot enable learner
-visibility, pronunciation/fluency/holistic scores, or attempt points. Completion
-of technical evidence collection is not acceptance.
+`PENDING`, `CHANGES_REQUIRED`, and `REJECTED` artifacts cannot enable
+standardized pronunciation/fluency/holistic scores, attempt points or
+best/latest progress. A separately authorized experimental demo may expose
+clearly labeled non-score-bearing feedback, but that exposure is not evidence
+acceptance and cannot be promoted into a score. Completion of technical
+evidence collection is not acceptance.

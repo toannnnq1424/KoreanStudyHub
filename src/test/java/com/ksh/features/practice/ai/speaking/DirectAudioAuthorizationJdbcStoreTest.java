@@ -23,7 +23,7 @@ class DirectAudioAuthorizationJdbcStoreTest {
     }
 
     @Test
-    void adapterUsesOnlyV88MetadataAndFailClosedQueries() throws Exception {
+    void adapterUsesOnlyV103MetadataAndFailClosedQueries() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/com/ksh/features/practice/ai/speaking/"
                         + "DirectAudioAuthorizationJdbcStore.java"));

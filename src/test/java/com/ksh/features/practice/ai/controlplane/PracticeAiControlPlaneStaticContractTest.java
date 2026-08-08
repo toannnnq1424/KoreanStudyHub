@@ -17,7 +17,7 @@ class PracticeAiControlPlaneStaticContractTest {
                 "src/main/resources/db/migration/V84__practice_ai_control_plane.sql"));
         String current = foundation + Files.readString(Path.of(
                 "src/main/resources/db/migration/"
-                        + "V90__practice_speaking_direct_audio_control_plane.sql"));
+                        + "V105__practice_speaking_direct_audio_control_plane.sql"));
         assertThat(foundation)
                 .contains("purpose_code VARCHAR(64) PRIMARY KEY")
                 .contains("practice_ai_provider_profiles")
