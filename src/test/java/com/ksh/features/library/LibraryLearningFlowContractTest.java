@@ -45,15 +45,32 @@ class LibraryLearningFlowContractTest {
                 "Bài học",
                 "file",
                 "name=\"classIds\"",
-                "Phân phối toàn bộ học liệu",
-                "library-subject-tree")
+                "Phân phối bài giảng",
+                "library-subject-tree",
+                "data-library-editor-dialog",
+                "data-inline-edit",
+                "library-drag-handle",
+                "clazz.alreadyDistributed()",
+                "/js/library-inline.js")
                 .doesNotContain("library-distribute-form", "<select multiple");
         assertThat(form).contains(
-                "mã môn → chương → bài học → materials",
+                "th:field=\"*{chapterNumber}\"",
                 "th:field=\"*{chapterTitle}\"",
+                "th:field=\"*{title}\"",
                 "enctype=\"multipart/form-data\"",
                 "th:field=\"*{materialUploads}\"",
-                "th:field=\"*{materialAssetIds}\"");
+                "name=\"materialAssetIds\"",
+                "data-library-file-dropzone",
+                "Kéo thả file vào đây",
+                "multiple");
+        String inlineScript = readResource("static/js/library-inline.js");
+        assertThat(inlineScript).contains(
+                "new DataTransfer()",
+                "dataTransfer.files",
+                "uploadForm(form",
+                "data-library-file-list",
+                "library-selected-file-remove",
+                "chapterNumbers");
         assertThat(index + form).doesNotContain(
                 "libraryAttachWizard",
                 "attach-to-class",

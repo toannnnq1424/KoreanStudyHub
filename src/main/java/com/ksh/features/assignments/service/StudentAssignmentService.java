@@ -89,15 +89,14 @@ public class StudentAssignmentService {
     }
 
     /**
-     * Submits or re-submits a student's work for a published assignment.
+     * Submits a student's work exactly once for a published assignment.
      *
      * <p>Rules:
      * <ul>
      *   <li>Assignment must be PUBLISHED.</li>
      *   <li>If now &gt; due_date and allow_late=false → reject.</li>
      *   <li>If now &gt; due_date and allow_late=true → is_late=true.</li>
-     *   <li>Re-submission before GRADED → upsert (no dup row).</li>
-     *   <li>Refuse edit after GRADED.</li>
+     *   <li>Any existing submission permanently locks this assignment for the student.</li>
      * </ul>
      *
      * @throws IllegalStateException    when the assignment is not PUBLISHED
@@ -117,7 +116,7 @@ public class StudentAssignmentService {
         // Check existing submission.
         Optional<AssignmentSubmission> existing =
                 submissionRepository.findByAssignmentIdAndUserIdForUpdate(assignmentId, userId);
-        if (existing.isPresent() && AssignmentStatus.SUB_GRADED.equals(existing.get().getStatus())) {
+        if (existing.isPresent()) {
             throw new IllegalArgumentException(MSG_SUBMIT_AFTER_GRADED);
         }
 
@@ -130,8 +129,8 @@ public class StudentAssignmentService {
             isLate = true;
         }
 
-        // Upsert submission.
-        AssignmentSubmission sub = existing.orElseGet(AssignmentSubmission::new);
+        // First and only submission. The DB unique key is a second line of defence.
+        AssignmentSubmission sub = new AssignmentSubmission();
         sub.setAssignmentId(assignmentId);
         sub.setUserId(userId);
         sub.setContent(form.content());

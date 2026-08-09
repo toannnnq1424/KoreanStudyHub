@@ -67,9 +67,12 @@ public class LecturerAssignmentService {
     public List<AssignmentRow> listForLecturer(Long classId, Long userId, Role role) {
         access.requireEditableClass(classId, userId, role);
         List<Assignment> assignments = assignmentRepository.findAllByClassIdNotDeleted(classId);
+        long activeStudentCount = access.enrollments().countByClassIdAndStatus(classId, "ACTIVE");
         return assignments.stream().map(a -> {
             long subCount = submissionRepository.countByAssignmentId(a.getId());
-            return access.toRow(a, subCount);
+            AssignmentRow row = access.toRow(a, subCount);
+            return new AssignmentRow(row.id(), row.title(), row.status(), row.dueDate(),
+                    row.maxScore(), row.submissionCount(), activeStudentCount);
         }).toList();
     }
 

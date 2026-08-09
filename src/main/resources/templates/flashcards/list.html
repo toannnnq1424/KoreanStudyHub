@@ -15,6 +15,15 @@
 <main class="fc-page fc-library">
   <div class="fc-toolbar">
     <h1 class="fc-visually-hidden">Thư viện của bạn</h1>
+    <form class="fc-library-search" method="get" th:action="@{/my/flashcards}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input type="search" name="q" th:value="${q}"
+             placeholder="Tìm theo tên bộ thẻ, mã hoặc tên môn học"
+             aria-label="Tìm bộ thẻ theo tên hoặc mã môn học">
+      <a class="fc-search-clear" th:if="${q != null and !#strings.isEmpty(q)}"
+         th:href="@{/my/flashcards}" aria-label="Xóa tìm kiếm">×</a>
+      <button type="submit" class="fc-btn fc-btn-ghost">Tìm</button>
+    </form>
     <a class="fc-btn fc-btn-primary" th:href="@{/my/flashcards/new}">
       <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
       Tạo bộ thẻ mới
@@ -24,8 +33,11 @@
   <!-- Own decks -->
   <section class="fc-section">
     <h2 class="fc-section-title">Gần đây</h2>
-    <div class="fc-empty" th:if="${ownDecksPage.totalElements == 0}">
+    <div class="fc-empty" th:if="${ownDecksPage.totalElements == 0 and (q == null or #strings.isEmpty(q))}">
       Bạn chưa có bộ thẻ nào. Nhấn <b>Tạo bộ thẻ mới</b> để bắt đầu.
+    </div>
+    <div class="fc-empty" th:if="${ownDecksPage.totalElements == 0 and q != null and !#strings.isEmpty(q)}">
+      Không tìm thấy bộ thẻ phù hợp với từ khóa này.
     </div>
     <div id="fcOwnGrid" class="fc-grid" th:if="${ownDecksPage.totalElements > 0}">
       <article th:each="deck : ${ownDecksPage.content}" class="fc-card">
@@ -40,6 +52,8 @@
                     th:text="${deck.ownerName() != null ? deck.ownerName() : 'Bạn'}">Bạn</span>
               <span class="fc-owner-label">Tác giả</span>
               <span class="fc-class-label" th:if="${deck.shared()}">Đã chia sẻ</span>
+              <span class="fc-subject-label" th:if="${deck.subjectCode() != null}"
+                    th:text="${deck.subjectCode()}">KOR311</span>
             </div>
             <h3 class="fc-card-title" th:text="${deck.title()}">Tên bộ thẻ</h3>
           </div>
@@ -54,8 +68,7 @@
       </article>
     </div>
 
-    <!-- SSR numbered pager (own decks only); no filters to preserve → params null -->
-    <div th:replace="~{fragments/pager :: pager(${ownDecksPage}, '/my/flashcards', null)}"></div>
+    <div th:replace="~{fragments/pager :: pager(${ownDecksPage}, '/my/flashcards', ${searchParams})}"></div>
   </section>
 
   <!-- Shared decks -->
@@ -75,6 +88,8 @@
               <span class="fc-owner-label">Người chia sẻ</span>
               <span class="fc-class-label" th:if="${deck.className() != null}"
                     th:text="${deck.className()}">Lớp</span>
+              <span class="fc-subject-label" th:if="${deck.subjectCode() != null}"
+                    th:text="${deck.subjectCode()}">KOR311</span>
             </div>
             <h3 class="fc-card-title" th:text="${deck.title()}">Tên bộ thẻ</h3>
           </div>

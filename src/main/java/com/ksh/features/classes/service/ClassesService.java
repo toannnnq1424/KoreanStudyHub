@@ -6,6 +6,10 @@ import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.lessons.repository.LessonRepository;
+import com.ksh.features.lessons.repository.LessonAttachmentRepository;
+import com.ksh.features.assignments.repository.AssignmentRepository;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
@@ -55,16 +59,28 @@ public class ClassesService {
     private final DepartmentRepository subjectRepository;
     private final ClassCreator creator;
     private final ClassRoleAccessPolicy accessPolicy;
+    private final EnrollmentRepository enrollmentRepository;
+    private final LessonRepository lessonRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final LessonAttachmentRepository attachmentRepository;
 
     public ClassesService(ClassRepository classRepository,
                           ClassActivityWriter activityWriter,
                           DepartmentRepository subjectRepository,
                           ClassRoleAccessPolicy accessPolicy,
+                          EnrollmentRepository enrollmentRepository,
+                          LessonRepository lessonRepository,
+                          AssignmentRepository assignmentRepository,
+                          LessonAttachmentRepository attachmentRepository,
                           ApplicationEventPublisher eventPublisher) {
         this.classRepository = classRepository;
         this.activityWriter = activityWriter;
         this.subjectRepository = subjectRepository;
         this.accessPolicy = accessPolicy;
+        this.enrollmentRepository = enrollmentRepository;
+        this.lessonRepository = lessonRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.attachmentRepository = attachmentRepository;
         this.creator = new ClassCreator(classRepository, activityWriter,
                 subjectRepository, eventPublisher);
     }
@@ -100,6 +116,21 @@ public class ClassesService {
         }
 
         List<ClassEntity> content = page.getContent();
+        List<Long> classIds = content.stream().map(ClassEntity::getId).toList();
+        Map<Long, Long> studentCounts = new HashMap<>();
+        Map<Long, Long> lessonCounts = new HashMap<>();
+        Map<Long, Long> assignmentCounts = new HashMap<>();
+        Map<Long, Long> materialCounts = new HashMap<>();
+        if (!classIds.isEmpty()) {
+            enrollmentRepository.countActiveGroupedByClassIds(classIds)
+                    .forEach(r -> studentCounts.put(r.getClassId(), r.getCnt()));
+            lessonRepository.countLiveGroupedByClassIds(classIds)
+                    .forEach(r -> lessonCounts.put(r.getClassId(), r.getCnt()));
+            assignmentRepository.countLiveGroupedByClassIds(classIds)
+                    .forEach(r -> assignmentCounts.put(r.getClassId(), r.getCnt()));
+            attachmentRepository.countGroupedByClassIds(classIds)
+                    .forEach(r -> materialCounts.put(r.getClassId(), r.getCnt()));
+        }
         Map<Long, String> subjectCodes = new HashMap<>();
         subjectRepository.findAllById(content.stream().map(ClassEntity::getSubjectId)
                         .filter(java.util.Objects::nonNull).distinct().toList())
@@ -108,7 +139,11 @@ public class ClassesService {
         for (int i = 0; i < content.size(); i++) {
             ClassEntity entity = content.get(i);
             rows.add(ClassRowMapper.toRow(entity, i,
-                    subjectCodes.getOrDefault(entity.getSubjectId(), "—")));
+                    subjectCodes.getOrDefault(entity.getSubjectId(), "—"),
+                    studentCounts.getOrDefault(entity.getId(), 0L),
+                    lessonCounts.getOrDefault(entity.getId(), 0L),
+                    assignmentCounts.getOrDefault(entity.getId(), 0L),
+                    materialCounts.getOrDefault(entity.getId(), 0L)));
         }
         return new PageImpl<>(rows, pageable, page.getTotalElements());
     }

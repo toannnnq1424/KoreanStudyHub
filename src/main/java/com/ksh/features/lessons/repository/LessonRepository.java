@@ -63,6 +63,16 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
         Long getLessonId();
     }
 
+    /** Live lesson counts grouped by class for the lecturer class catalogue. */
+    @Query("SELECT s.classId AS classId, COUNT(l) AS cnt FROM Lesson l, Section s "
+            + "WHERE l.sectionId = s.id AND s.classId IN :classIds GROUP BY s.classId")
+    List<ClassCount> countLiveGroupedByClassIds(@Param("classIds") Collection<Long> classIds);
+
+    interface ClassCount {
+        Long getClassId();
+        Long getCnt();
+    }
+
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
 

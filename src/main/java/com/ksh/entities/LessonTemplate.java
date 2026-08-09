@@ -155,6 +155,11 @@ public class LessonTemplate {
         this.deleted = true;
     }
 
+    /** Marks a resource-only edit as a new canonical Library revision. */
+    public void touch() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void setContentRichtext(String contentRichtext) {
         this.contentRichtext = contentRichtext;
     }

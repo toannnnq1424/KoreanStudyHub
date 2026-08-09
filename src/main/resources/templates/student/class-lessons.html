@@ -142,7 +142,7 @@
         <!-- VIDEO viewer — iframe for YouTube/Vimeo, HTML5 video for UPLOAD.
              The 16:9 wrapper keeps both shapes responsive. -->
         <div class="lesson-video-viewer"
-             th:if="${lessonDetail.contentType() == 'VIDEO' and lessonDetail.videoUrl() != null}">
+             th:if="${lessonDetail.videoUrl() != null}">
           <div class="lesson-video-aspect">
             <iframe th:if="${lessonDetail.videoProvider() == 'YOUTUBE' or lessonDetail.videoProvider() == 'VIMEO'}"
                     th:src="${lessonDetail.videoUrl()}"

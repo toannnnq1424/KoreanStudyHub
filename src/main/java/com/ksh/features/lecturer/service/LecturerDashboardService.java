@@ -67,6 +67,8 @@ public class LecturerDashboardService {
         Map<Long, List<Long>> studentIdsByClass = querySupport.loadActiveStudentIds(classIds);
         Map<Long, Set<Long>> completedByUser =
                 querySupport.loadCompletedLessonSets(lessonIdsByClass);
+        Map<Long, Integer> completionByClass = querySupport.loadAverageCompletionPercents(
+                classIds, studentIdsByClass, lessonIdsByClass, completedByUser);
         Map<Long, String> subjectCodes = new HashMap<>();
         for (Department subject : subjectRepository.findAllById(classes.stream()
                 .map(ClassEntity::getSubjectId).filter(java.util.Objects::nonNull)
@@ -87,10 +89,7 @@ public class LecturerDashboardService {
                 activeClasses++;
             }
 
-            int classAvg = querySupport.classAveragePercent(
-                    studentIdsByClass.getOrDefault(classId, List.of()),
-                    lessonIdsByClass.getOrDefault(classId, List.of()),
-                    completedByUser);
+            int classAvg = completionByClass.getOrDefault(classId, 0);
             avgSum += classAvg;
 
             allRows.add(new ClassDashboardRow(

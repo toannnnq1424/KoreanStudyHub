@@ -8,6 +8,10 @@ import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Department;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.lessons.repository.LessonRepository;
+import com.ksh.features.lessons.repository.LessonAttachmentRepository;
+import com.ksh.features.assignments.repository.AssignmentRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,6 +61,10 @@ class ClassesServiceTest {
     private DepartmentRepository subjectRepository;
     private ClassRoleAccessPolicy accessPolicy;
     private ApplicationEventPublisher eventPublisher;
+    private EnrollmentRepository enrollmentRepository;
+    private LessonRepository lessonRepository;
+    private AssignmentRepository assignmentRepository;
+    private LessonAttachmentRepository attachmentRepository;
     private ClassesService service;
 
     @BeforeEach
@@ -66,6 +74,14 @@ class ClassesServiceTest {
         subjectRepository = mock(DepartmentRepository.class);
         accessPolicy = mock(ClassRoleAccessPolicy.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
+        enrollmentRepository = mock(EnrollmentRepository.class);
+        lessonRepository = mock(LessonRepository.class);
+        assignmentRepository = mock(AssignmentRepository.class);
+        attachmentRepository = mock(LessonAttachmentRepository.class);
+        when(enrollmentRepository.countActiveGroupedByClassIds(any())).thenReturn(List.of());
+        when(lessonRepository.countLiveGroupedByClassIds(any())).thenReturn(List.of());
+        when(assignmentRepository.countLiveGroupedByClassIds(any())).thenReturn(List.of());
+        when(attachmentRepository.countGroupedByClassIds(any())).thenReturn(List.of());
         Department subject = new Department("Tiếng Hàn 3.1.1", "KOR311", null, true);
         ReflectionTestUtils.setField(subject, "id", 12L);
         when(subjectRepository.findById(12L)).thenReturn(Optional.of(subject));
@@ -85,7 +101,9 @@ class ClassesServiceTest {
             return role == Role.ADMIN || userId.equals(clazz.getLecturerId());
         });
         service = new ClassesService(classRepository, activityWriter,
-                subjectRepository, accessPolicy, eventPublisher);
+                subjectRepository, accessPolicy, enrollmentRepository,
+                lessonRepository, assignmentRepository, attachmentRepository,
+                eventPublisher);
     }
 
     // ───────────────── List by role ─────────────────
@@ -142,6 +160,37 @@ class ClassesServiceTest {
         assertThat(row.lectureCount()).isZero();
         assertThat(row.assignmentCount()).isZero();
         assertThat(row.materialCount()).isZero();
+    }
+
+    @Test
+    void list_uses_live_repository_aggregates_for_stat_columns() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(classRepository.findAllAccessibleToLecturer(eq(LECTURER_ID), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(buildClass(1L, "KOR311", LECTURER_ID)), pageable, 1));
+
+        EnrollmentRepository.ClassCount students = mock(EnrollmentRepository.ClassCount.class);
+        LessonRepository.ClassCount lessons = mock(LessonRepository.ClassCount.class);
+        AssignmentRepository.ClassCount assignments = mock(AssignmentRepository.ClassCount.class);
+        LessonAttachmentRepository.ClassCount materials = mock(LessonAttachmentRepository.ClassCount.class);
+        when(students.getClassId()).thenReturn(1L);
+        when(students.getCnt()).thenReturn(3L);
+        when(lessons.getClassId()).thenReturn(1L);
+        when(lessons.getCnt()).thenReturn(4L);
+        when(assignments.getClassId()).thenReturn(1L);
+        when(assignments.getCnt()).thenReturn(5L);
+        when(materials.getClassId()).thenReturn(1L);
+        when(materials.getCnt()).thenReturn(6L);
+        when(enrollmentRepository.countActiveGroupedByClassIds(List.of(1L))).thenReturn(List.of(students));
+        when(lessonRepository.countLiveGroupedByClassIds(List.of(1L))).thenReturn(List.of(lessons));
+        when(assignmentRepository.countLiveGroupedByClassIds(List.of(1L))).thenReturn(List.of(assignments));
+        when(attachmentRepository.countGroupedByClassIds(List.of(1L))).thenReturn(List.of(materials));
+
+        ClassRow row = service.listForUser(LECTURER_ID, Role.LECTURER, pageable).getContent().get(0);
+
+        assertThat(row.studentCount()).isEqualTo(3);
+        assertThat(row.lectureCount()).isEqualTo(4);
+        assertThat(row.assignmentCount()).isEqualTo(5);
+        assertThat(row.materialCount()).isEqualTo(6);
     }
 
     // ───────────────── Create ─────────────────

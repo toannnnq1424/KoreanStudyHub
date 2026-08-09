@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.ksh.common.IConstant.*;
 
@@ -74,10 +75,15 @@ public class StudentFlashcardController {
      */
     @GetMapping
     public String list(@RequestParam(name = "page", defaultValue = "0") int page,
+                       @RequestParam(name = "q", defaultValue = "") String query,
                        @AuthenticationPrincipal KshUserDetails user, Model model) {
-        StudentDeckList decks = deckService.listForStudent(user.getId(), page);
+        String normalizedQuery = query == null ? "" : query.trim();
+        StudentDeckList decks = deckService.listForStudent(user.getId(), page, normalizedQuery);
         model.addAttribute(ATTR_DECKS_OWN_PAGE, decks.ownDecks());
         model.addAttribute(ATTR_DECKS_SHARED, decks.sharedDecks());
+        model.addAttribute("q", normalizedQuery);
+        model.addAttribute("searchParams", normalizedQuery.isEmpty()
+                ? Map.of() : Map.of("q", normalizedQuery));
         return VIEW_FLASHCARD_LIST;
     }
 
@@ -89,6 +95,7 @@ public class StudentFlashcardController {
         }
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         model.addAttribute(ATTR_CARDS, starterCards());
+        model.addAttribute("subjectOptions", deckService.activeSubjects());
         return VIEW_FLASHCARD_FORM;
     }
 
@@ -103,6 +110,7 @@ public class StudentFlashcardController {
         if (result.hasErrors()) {
             model.addAttribute(ATTR_MODE, MODE_CREATE);
             model.addAttribute(ATTR_CARDS, toCardViews(cards));
+            model.addAttribute("subjectOptions", deckService.activeSubjects());
             return VIEW_FLASHCARD_FORM;
         }
         Long deckId = deckService.createDeckWithCards(user.getId(), form, cards).deckId();
@@ -129,11 +137,13 @@ public class StudentFlashcardController {
                            Model model) {
         DeckEditorView editor = cardService.getEditorView(id, user.getId());
         if (!model.containsAttribute(ATTR_FORM)) {
-            model.addAttribute(ATTR_FORM, new DeckForm(editor.title(), editor.description()));
+            model.addAttribute(ATTR_FORM, new DeckForm(
+                    editor.title(), editor.description(), editor.subjectId()));
         }
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_DECK, editor);
         model.addAttribute(ATTR_CARDS, editor.cards());
+        model.addAttribute("subjectOptions", deckService.activeSubjects());
         return VIEW_FLASHCARD_FORM;
     }
 
@@ -150,6 +160,7 @@ public class StudentFlashcardController {
             model.addAttribute(ATTR_MODE, MODE_EDIT);
             model.addAttribute(ATTR_DECK, editor);
             model.addAttribute(ATTR_CARDS, editor.cards());
+            model.addAttribute("subjectOptions", deckService.activeSubjects());
             return VIEW_FLASHCARD_FORM;
         }
         deckService.updateMetadata(id, user.getId(), form);

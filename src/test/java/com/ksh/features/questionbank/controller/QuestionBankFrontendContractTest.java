@@ -16,6 +16,8 @@ class QuestionBankFrontendContractTest {
             Path.of("src/main/resources/templates/questionbank/list.html");
     private static final Path FORM_TEMPLATE =
             Path.of("src/main/resources/templates/questionbank/form.html");
+    private static final Path WORKSPACE_SCRIPT =
+            Path.of("src/main/resources/static/js/question-bank-workspace.js");
     private static final Path SUBJECT_REVIEW_TEMPLATE =
             Path.of("src/main/resources/templates/questionbank/subject-review.html");
 
@@ -35,15 +37,27 @@ class QuestionBankFrontendContractTest {
     }
 
     @Test
-    void workspace_uses_clickable_subjects_and_two_explicit_banks() throws IOException {
+    void lecturer_question_bank_uses_a_subject_catalog_and_compact_workspace() throws IOException {
         String list = Files.readString(LIST_TEMPLATE);
         String review = Files.readString(SUBJECT_REVIEW_TEMPLATE);
+        String workspaceScript = Files.readString(WORKSPACE_SCRIPT);
 
         assertThat(list)
                 .contains("for=\"qbLecturerQuery\"", "id=\"qbLecturerQuery\"")
-                .contains("qb-subject-rail", "Bộ chung đã duyệt", "Chờ leader duyệt")
+                .contains("class=\"qb-subject-catalog\"")
+                .contains("class=\"qb-catalog-row\"")
+                .contains("data-qb-question-row", "class=\"qb-pagination\"", "data-qb-detail-drawer")
+                .contains("data-qb-open-editor", "test-lecturer-form.css", "question-bank-form.js")
+                .contains("th:each=\"subject : ${subjectCatalog}\"")
+                .contains("itemPage.totalPages", "itemPage.totalElements")
+                .doesNotContain("data-qb-subject-summary-url", "data-qb-page-prev")
+                .contains("← Danh sách mã môn")
                 .contains("name=\"scope\"", "name=\"lessonTemplateId\"", "name=\"classIds\"")
-                .doesNotContain("question-bank.js");
+                .doesNotContain("question-bank.js", "class=\"qb-subject-rail\"", "class=\"qb-question-card\"");
+        assertThat(workspaceScript)
+                .contains("function openEditor(link)")
+                .contains("window.initQuestionBankForm")
+                .contains("form.classList.add('qb-drawer-form')");
         assertThat(review)
                 .contains("for=\"qbLeaderQuery\"", "id=\"qbLeaderQuery\"")
                 .contains("for=\"qbContributor\"", "id=\"qbContributor\"")
@@ -57,8 +71,8 @@ class QuestionBankFrontendContractTest {
         String form = Files.readString(FORM_TEMPLATE);
 
         assertThat(list)
-                .contains("th:if=\"${!emptyDepartment}\"")
-                .contains("Chưa có mã môn đang hoạt động", "qb-subject-rail")
+                .contains("!emptyDepartment")
+                .contains("Chưa có mã môn đang hoạt động", "qb-subject-catalog")
                 .doesNotContain("Bạn chưa được gán mã môn")
                 .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
         assertThat(form)

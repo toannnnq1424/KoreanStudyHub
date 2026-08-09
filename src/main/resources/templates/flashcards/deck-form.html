@@ -46,6 +46,16 @@
       <p class="fc-field-error" th:if="${#fields.hasErrors('form.description')}"
          th:errors="${form.description}">Lỗi mô tả</p>
     </div>
+    <div class="fc-field fc-subject-field">
+      <label for="deckSubject">Mã môn (tùy chọn)</label>
+      <select id="deckSubject" name="subjectId" th:field="${form.subjectId}" data-ksh-select>
+        <option value="">Không gắn mã môn</option>
+        <option th:each="subject : ${subjectOptions}"
+                th:value="${subject.id()}"
+                th:text="${subject.code() + ' · ' + subject.name()}">KOR311 · Tiếng Hàn</option>
+      </select>
+      <small>Chỉ hiển thị mã môn đang hoạt động trong danh mục hệ thống.</small>
+    </div>
 
     <section class="fc-cards-editor">
       <div class="fc-cards-head">

@@ -59,33 +59,43 @@ public class LecturerQuestionBankController {
     public String list(@RequestParam(name = "subjectId", required = false) Long subjectId,
                        @RequestParam(name = "status", required = false) String status,
                        @RequestParam(name = "q", required = false) String q,
+                       @RequestParam(name = "page", defaultValue = "0") int page,
+                       @RequestParam(name = "size", defaultValue = "25") int size,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
         boolean emptyDepartment = !itemService.hasSubject(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
         model.addAttribute("subjectOptions", itemService.subjectOptions(user.getId(), user.getRole()));
+        model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
+        model.addAttribute(ATTR_QB_QUERY, q);
         if (emptyDepartment) {
+            model.addAttribute("catalogMode", true);
+            model.addAttribute("subjectCatalog", java.util.List.of());
             model.addAttribute(ATTR_QB_ITEMS, java.util.List.of());
-            model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
-            model.addAttribute(ATTR_QB_QUERY, q);
             return VIEW_QB_LIST;
         }
-        var subjects = itemService.subjectOptions(user.getId(), user.getRole());
-        Long selectedSubjectId = subjectId != null ? subjectId
-                : subjects.stream().findFirst().map(subject -> subject.id()).orElse(null);
+        if (subjectId == null) {
+            model.addAttribute("catalogMode", true);
+            model.addAttribute("subjectCatalog",
+                    itemService.subjectCatalog(user.getId(), user.getRole(), q));
+            model.addAttribute(ATTR_QB_ITEMS, java.util.List.of());
+            return VIEW_QB_LIST;
+        }
+        model.addAttribute("catalogMode", false);
+        Long selectedSubjectId = subjectId;
         model.addAttribute("selectedSubjectId", selectedSubjectId);
         model.addAttribute("workspace",
-                itemService.workspace(user.getId(), user.getRole(), selectedSubjectId, q));
+                itemService.workspaceSummary(user.getId(), user.getRole(), selectedSubjectId, q));
         model.addAttribute("lessonOptions", itemService.lessonOptions(user.getId(), user.getRole()));
         model.addAttribute("chapterOptions", itemService.chapterOptions(
                 user.getId(), user.getRole(), selectedSubjectId));
         model.addAttribute("generatorClasses", generationService.eligibleClasses(
                 user.getId(), user.getRole(), selectedSubjectId));
+        var itemPage = itemService.page(user.getId(), user.getRole(), selectedSubjectId,
+                status, q, page, size);
+        model.addAttribute("itemPage", itemPage);
         model.addAttribute(ATTR_QB_ITEMS,
-                itemService.list(user.getId(), user.getRole(), selectedSubjectId,
-                        status, null, q));
-        model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
-        model.addAttribute(ATTR_QB_QUERY, q);
+                itemPage.getContent());
         return VIEW_QB_LIST;
     }
 

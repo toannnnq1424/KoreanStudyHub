@@ -1,103 +1,86 @@
 <!doctype html>
-<html lang="vi" xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Bài tập | ' + ${clazz.name}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
 </head>
-<body>
+<body class="assignment-catalog-page">
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
-<span id="flash-data"
-      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
-      style="display:none;"></span>
+<span id="flash-data" th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" style="display:none;"></span>
 
 <div class="class-detail-layout">
   <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'assignments')}"></aside>
 
-  <main class="col">
-    <div class="detail-topbar">
-      <h1 class="detail-title">Bài tập</h1>
-      <a th:href="@{/lecturer/classes/{id}/assignments/new(id=${classId})}"
-         class="btn btn-primary btn-sm">+ Tạo bài tập</a>
+  <main class="col assignment-catalog-main">
+    <div class="asgn-page-heading">
+      <div><p class="asgn-eyebrow">Quản lý lớp học</p><h1 class="detail-title">Bài tập</h1></div>
+      <a th:href="@{/lecturer/classes/{id}/assignments/new(id=${classId})}" class="btn btn-primary">+ Tạo bài tập</a>
     </div>
 
-    <section class="detail-panel">
-      <div th:if="${#lists.isEmpty(assignments)}" class="tab-placeholder">
-        <h2>Chưa có bài tập</h2>
-        <p>Tạo bài tập đầu tiên cho lớp này.</p>
+    <div class="asgn-catalog-toolbar">
+      <div class="asgn-view-switch" aria-label="Kiểu hiển thị"><button type="button" class="is-active" title="Danh sách">☷</button></div>
+      <label class="asgn-search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Tìm bài tập..." data-assignment-search></label>
+      <select data-assignment-status aria-label="Lọc trạng thái">
+        <option value="ALL">Mọi trạng thái</option><option value="DRAFT">Nháp</option>
+        <option value="PUBLISHED">Đã xuất bản</option><option value="CLOSED">Đã đóng</option>
+      </select>
+      <select data-assignment-sort aria-label="Sắp xếp"><option value="NEWEST">Mới nhất</option><option value="TITLE">Theo tên</option><option value="DUE">Theo hạn nộp</option></select>
+    </div>
+
+    <section class="asgn-workspace" th:unless="${#lists.isEmpty(assignments)}">
+      <nav class="asgn-folder-pane" aria-label="Thư mục bài tập">
+        <h2>Thư mục</h2>
+        <button type="button" class="asgn-folder is-active" data-assignment-status-shortcut="ALL"><span aria-hidden="true">▣</span> Tất cả bài tập <strong th:text="${#lists.size(assignments)}">0</strong></button>
+        <button type="button" class="asgn-folder" data-assignment-status-shortcut="DRAFT"><span aria-hidden="true">□</span> Bản nháp</button>
+        <button type="button" class="asgn-folder" data-assignment-status-shortcut="PUBLISHED"><span aria-hidden="true">◉</span> Đang giao</button>
+        <button type="button" class="asgn-folder" data-assignment-status-shortcut="CLOSED"><span aria-hidden="true">✓</span> Đã đóng</button>
+      </nav>
+
+      <div class="asgn-list-pane" data-assignment-list>
+        <article th:each="a,iter : ${assignments}" class="asgn-list-item" th:classappend="${iter.index == 0} ? ' is-selected'"
+                 tabindex="0" role="button"
+                 th:attr="data-assignment-row=${#strings.toLowerCase(a.title)},data-assignment-title=${a.title},data-assignment-status=${a.status},data-assignment-due=${a.dueDate != null ? a.dueDate : ''},data-assignment-max=${a.maxScore},data-assignment-submissions=${a.submissionCount},data-assignment-students=${a.activeStudentCount},data-assignment-id=${a.id},data-assignment-selected=${iter.index == 0}">
+          <div class="asgn-item-icon" th:classappend="${a.status == 'DRAFT'} ? ' is-draft' : (${a.status == 'CLOSED'} ? ' is-closed' : '')" aria-hidden="true">▤</div>
+          <div class="asgn-item-copy">
+            <div class="asgn-item-titleline"><h3 th:text="${a.title}">Tên bài tập</h3><span class="asgn-badge" th:classappend="${a.status == 'PUBLISHED'} ? 'asgn-badge--published' : (${a.status == 'CLOSED'} ? 'asgn-badge--closed' : 'asgn-badge--draft')" th:text="${a.status == 'DRAFT'} ? 'Nháp' : (${a.status == 'PUBLISHED'} ? 'Đang giao' : 'Đã đóng')">Nháp</span></div>
+            <p><span th:text="${a.dueDate != null} ? 'Hạn ' + ${#temporals.format(a.dueDate, 'dd/MM/yyyy HH:mm')} : 'Không giới hạn hạn nộp'">Hạn nộp</span><span> · </span><span th:text="${a.maxScore + ' điểm'}">100 điểm</span></p>
+            <div class="asgn-progress" aria-hidden="true"><span th:style="'width:' + ${a.activeStudentCount > 0 ? (a.submissionCount * 100 / a.activeStudentCount) : 0} + '%'" ></span></div>
+          </div>
+          <strong class="asgn-completion" th:text="${a.submissionCount + '/' + a.activeStudentCount + ' đã làm'}">0/0 đã làm</strong>
+        </article>
+        <p class="asgn-no-results" data-assignment-empty hidden>Không có bài tập phù hợp bộ lọc.</p>
       </div>
 
-      <table th:unless="${#lists.isEmpty(assignments)}" class="asgn-table">
-        <thead>
-          <tr>
-            <th>Tên bài tập</th>
-            <th>Trạng thái</th>
-            <th>Hạn nộp</th>
-            <th>Điểm tối đa</th>
-            <th>Nộp bài</th>
-            <th>Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr th:each="a : ${assignments}">
-            <td th:text="${a.title}">Tên bài tập</td>
-            <td>
-              <span class="asgn-badge"
-                    th:classappend="${a.status == 'PUBLISHED'} ? 'asgn-badge--published'
-                                   : (${a.status == 'CLOSED'} ? 'asgn-badge--closed' : 'asgn-badge--draft')"
-                    th:text="${a.status == 'DRAFT'} ? 'Nháp'
-                             : (${a.status == 'PUBLISHED'} ? 'Đã xuất bản' : 'Đã đóng')">
-                DRAFT
-              </span>
-            </td>
-            <td th:text="${a.dueDate != null} ? ${#temporals.format(a.dueDate, 'dd/MM/yyyy HH:mm')} : '—'">
-              —
-            </td>
-            <td th:text="${a.maxScore}">100</td>
-            <td th:text="${a.submissionCount}">0</td>
-            <td class="asgn-actions">
-              <!-- View submissions -->
-              <a th:href="@{/lecturer/classes/{cid}/assignments/{aid}/submissions(cid=${classId},aid=${a.id})}"
-                 class="btn btn-sm btn-outline" title="Xem bài nộp">Bài nộp</a>
-
-              <!-- Edit (only DRAFT) -->
-              <a th:if="${a.status == 'DRAFT'}"
-                 th:href="@{/lecturer/classes/{cid}/assignments/{aid}/edit(cid=${classId},aid=${a.id})}"
-                 class="btn btn-sm btn-outline" title="Chỉnh sửa">Sửa</a>
-
-              <!-- Publish (only DRAFT) -->
-              <form th:if="${a.status == 'DRAFT'}"
-                    th:action="@{/lecturer/classes/{cid}/assignments/{aid}/publish(cid=${classId},aid=${a.id})}"
-                    method="post" style="display:inline">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <button type="submit" class="btn btn-sm btn-primary"
-                        onclick="return confirm('Xuất bản bài tập? Học sinh sẽ nhận được thông báo.')">
-                  Xuất bản
-                </button>
-              </form>
-
-              <!-- Close (only PUBLISHED) -->
-              <form th:if="${a.status == 'PUBLISHED'}"
-                    th:action="@{/lecturer/classes/{cid}/assignments/{aid}/close(cid=${classId},aid=${a.id})}"
-                    method="post" style="display:inline">
-                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-                <button type="submit" class="btn btn-sm btn-danger"
-                        onclick="return confirm('Đóng bài tập? Sinh viên sẽ không thể nộp bài thêm.')">
-                  Đóng
-                </button>
-              </form>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <aside class="asgn-detail-pane" data-assignment-detail>
+        <p class="asgn-detail-kicker">Chi tiết bài tập</p>
+        <h2 data-detail-title th:text="${assignments[0].title}">Bài tập</h2>
+        <dl>
+          <div><dt>Trạng thái</dt><dd data-detail-status>—</dd></div>
+          <div><dt>Hạn nộp</dt><dd data-detail-due>—</dd></div>
+          <div><dt>Điểm tối đa</dt><dd data-detail-max>—</dd></div>
+          <div><dt>Đã nộp</dt><dd data-detail-submissions>—</dd></div>
+          <div><dt>Số lần làm bài</dt><dd>1 lần</dd></div>
+        </dl>
+        <div class="asgn-detail-actions">
+          <a href="#" class="btn btn-primary" data-detail-submissions-link>Xem bài nộp</a>
+          <a href="#" class="btn btn-outline" data-detail-edit-link>Chỉnh sửa</a>
+          <form method="post" data-detail-publish-form data-confirm="Xuất bản bài tập? Học sinh sẽ nhận được thông báo.">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button type="submit" class="btn btn-primary">Xuất bản</button>
+          </form>
+          <form method="post" data-detail-close-form data-confirm="Đóng bài tập? Sinh viên sẽ không thể nộp bài thêm.">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><button type="submit" class="btn btn-danger">Đóng bài tập</button>
+          </form>
+        </div>
+      </aside>
     </section>
+
+    <section th:if="${#lists.isEmpty(assignments)}" class="asgn-empty-state"><span aria-hidden="true">▤</span><h2>Chưa có bài tập</h2><p>Tạo bài tập đầu tiên cho lớp này.</p></section>
   </main>
 </div>
 
-<script th:src="@{/js/app.js}"></script>
-<script th:src="@{/js/class-detail.js}"></script>
-<script th:src="@{/js/assignments.js}"></script>
+<script th:inline="javascript">window.assignmentRoutes={base:[[@{/lecturer/classes/{id}/assignments(id=${classId})}]]};</script>
+<script th:src="@{/js/app.js}"></script><script th:src="@{/js/class-detail.js}"></script><script th:src="@{/js/assignments.js}"></script>
 </body>
 </html>

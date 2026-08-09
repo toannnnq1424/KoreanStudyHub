@@ -14,13 +14,13 @@ import java.util.Optional;
  * Repository for {@link AssignmentSubmission} entities.
  *
  * <p>The DB UNIQUE index on (assignment_id, user_id) is exploited by the
- * service upsert: find-then-update or insert.
+ * one-shot submission guard: find under lock before the only allowed insert.
  */
 public interface AssignmentSubmissionRepository extends JpaRepository<AssignmentSubmission, Long> {
 
     /**
      * Finds the single submission for a given (assignment, student) pair.
-     * Used for upsert logic and "view own submission" screens.
+     * Used for the one-shot guard and "view own submission" screens.
      *
      * @param assignmentId the assignment id
      * @param userId       the student's user id
@@ -47,6 +47,9 @@ public interface AssignmentSubmissionRepository extends JpaRepository<Assignment
      */
     @Query("SELECT s FROM AssignmentSubmission s WHERE s.assignmentId = :assignmentId ORDER BY s.submittedAt DESC")
     List<AssignmentSubmission> findAllByAssignmentId(@Param("assignmentId") Long assignmentId);
+
+    @Query("SELECT s FROM AssignmentSubmission s WHERE s.assignmentId IN :assignmentIds")
+    List<AssignmentSubmission> findAllByAssignmentIds(@Param("assignmentIds") List<Long> assignmentIds);
 
     /** Counts submissions for an assignment (list row badge; avoids loading entities). */
     long countByAssignmentId(Long assignmentId);

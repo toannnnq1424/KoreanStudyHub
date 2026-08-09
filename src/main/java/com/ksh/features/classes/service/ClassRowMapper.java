@@ -29,12 +29,9 @@ final class ClassRowMapper {
      *
      * @param displayCode stable display code shown under the class name
      */
-    static ClassRow toRow(ClassEntity e, int index, String displayCode) {
-        // TODO Sprint 3/5: wire real counts from enrollments/lessons/assignments/lesson_attachments
-        int studentCount = 0;
-        int lectureCount = 0;
-        int assignmentCount = 0;
-        int materialCount = 0;
+    static ClassRow toRow(ClassEntity e, int index, String displayCode,
+                          long studentCount, long lectureCount,
+                          long assignmentCount, long materialCount) {
         String createdAtIso = e.getCreatedAt() != null ? e.getCreatedAt().toString() : "";
         String code = displayCode != null && !displayCode.isBlank() ? displayCode : "—";
         return new ClassRow(
@@ -42,7 +39,8 @@ final class ClassRowMapper {
                 e.getName(),
                 code,
                 ClassGradient.forIndex(index).css(),
-                studentCount, lectureCount, assignmentCount, materialCount,
+                Math.toIntExact(studentCount), Math.toIntExact(lectureCount),
+                Math.toIntExact(assignmentCount), Math.toIntExact(materialCount),
                 createdAtIso
         );
     }

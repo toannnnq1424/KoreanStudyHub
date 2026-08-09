@@ -2,6 +2,8 @@ package com.ksh.features.flashcards.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.User;
+import com.ksh.entities.Department;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSummary;
@@ -27,13 +29,16 @@ public class DeckSummaryAssembler {
     private final FlashcardRepository cardRepository;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
+    private final DepartmentRepository subjectRepository;
 
     public DeckSummaryAssembler(FlashcardRepository cardRepository,
                                 ClassRepository classRepository,
-                                UserRepository userRepository) {
+                                UserRepository userRepository,
+                                DepartmentRepository subjectRepository) {
         this.cardRepository = cardRepository;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
+        this.subjectRepository = subjectRepository;
     }
 
     /** Maps decks to summaries; {@code owner} is true when a deck's owner is the caller. */
@@ -42,12 +47,16 @@ public class DeckSummaryAssembler {
         Map<Long, Long> counts = cardCounts(decks);
         Map<Long, String> ownerNames = ownerNames(decks);
         Map<Long, String> classNames = classNames(decks);
+        Map<Long, Department> subjects = subjects(decks);
         List<DeckSummary> out = new ArrayList<>(decks.size());
         for (FlashcardDeck d : decks) {
+            Department subject = subjects.get(d.getSubjectId());
             out.add(new DeckSummary(d.getId(), d.getTitle(), d.getDescription(),
                     counts.getOrDefault(d.getId(), 0L), d.isShared(),
                     d.getOwnerId().equals(callerId), ownerNames.get(d.getOwnerId()),
-                    d.getClassId() == null ? null : classNames.get(d.getClassId())));
+                    d.getClassId() == null ? null : classNames.get(d.getClassId()),
+                    d.getSubjectId(), subject == null ? null : subject.getCode(),
+                    subject == null ? null : subject.getName()));
         }
         return out;
     }
@@ -78,6 +87,17 @@ public class DeckSummaryAssembler {
         if (classIds.isEmpty()) return map;
         for (ClassEntity c : classRepository.findAllById(classIds)) {
             map.put(c.getId(), c.getName());
+        }
+        return map;
+    }
+
+    private Map<Long, Department> subjects(List<FlashcardDeck> decks) {
+        Collection<Long> subjectIds = decks.stream().map(FlashcardDeck::getSubjectId)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<Long, Department> map = new HashMap<>();
+        if (subjectIds.isEmpty()) return map;
+        for (Department subject : subjectRepository.findAllById(subjectIds)) {
+            map.put(subject.getId(), subject);
         }
         return map;
     }

@@ -3,6 +3,7 @@ package com.ksh.features.library.controller;
 import com.ksh.features.library.dto.LibraryDtos.LessonTemplatePageView;
 import com.ksh.features.library.dto.LessonTemplateForm;
 import com.ksh.features.library.service.LessonTemplateService;
+import com.ksh.features.storage.profile.StorageProfileException;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,9 +21,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.ksh.common.IConstant.ATTR_FLASH_ERROR;
 import static com.ksh.common.IConstant.ATTR_FLASH_SUCCESS;
@@ -34,6 +39,7 @@ import static com.ksh.common.IConstant.ATTR_LIBRARY_TEMPLATE_COUNT;
 import static com.ksh.common.IConstant.BASE_LECTURER;
 import static com.ksh.common.IConstant.DEFAULT_LIBRARY_PAGE_SIZE;
 import static com.ksh.common.IConstant.MSG_GENERIC_RETRY;
+import static com.ksh.common.IConstant.MSG_STORAGE_PROFILE_UNAVAILABLE;
 import static com.ksh.common.IConstant.MSG_TEMPLATE_DELETED;
 import static com.ksh.common.IConstant.PATH_LIBRARY;
 import static com.ksh.common.IConstant.URL_LIBRARY;
@@ -83,10 +89,57 @@ public class LessonTemplateController {
 
     @GetMapping("/new")
     public String createForm(@RequestParam(name = "subjectId", required = false) Long subjectId,
+                             @RequestParam(name = "newChapter", defaultValue = "false") boolean newChapter,
+                             @RequestParam(name = "chapterNumber", required = false) Integer chapterNumber,
                              @AuthenticationPrincipal KshUserDetails user, Model model) {
         populateForm(model, templateService.loadForm(
-                user.getId(), user.getRole(), null, subjectId), user);
+                user.getId(), user.getRole(), null, subjectId, newChapter, chapterNumber), user);
         return "library/lesson-form";
+    }
+
+    @PostMapping("/subjects/{subjectId}/chapters/{chapterNumber}/rename")
+    @ResponseBody
+    public Map<String, Object> renameChapter(@PathVariable Long subjectId,
+                                             @PathVariable int chapterNumber,
+                                             @RequestParam String title,
+                                             @AuthenticationPrincipal KshUserDetails user) {
+        templateService.renameChapter(user.getId(), user.getRole(), subjectId,
+                chapterNumber, title);
+        return Map.of("ok", true);
+    }
+
+    @PostMapping("/{id}/rename")
+    @ResponseBody
+    public Map<String, Object> renameLesson(@PathVariable Long id,
+                                            @RequestParam String title,
+                                            @AuthenticationPrincipal KshUserDetails user) {
+        templateService.renameLesson(user.getId(), user.getRole(), id, title);
+        return Map.of("ok", true);
+    }
+
+    @PostMapping("/subjects/{subjectId}/chapters/reorder")
+    @ResponseBody
+    public Map<String, Object> reorderChapters(@PathVariable Long subjectId,
+                                               @RequestParam(name = "chapterNumbers") List<Integer> chapterNumbers,
+                                               @AuthenticationPrincipal KshUserDetails user) {
+        templateService.reorderChapters(user.getId(), user.getRole(), subjectId,
+                chapterNumbers);
+        return Map.of("ok", true);
+    }
+
+    @PostMapping("/subjects/{subjectId}/chapters/{chapterNumber}/delete")
+    public String deleteChapter(@PathVariable Long subjectId,
+                                @PathVariable int chapterNumber,
+                                @AuthenticationPrincipal KshUserDetails user,
+                                RedirectAttributes ra) {
+        try {
+            templateService.softDeleteChapter(user.getId(), user.getRole(), subjectId,
+                    chapterNumber);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, "Đã xoá chương và đánh lại số thứ tự");
+        } catch (IllegalArgumentException | EntityNotFoundException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        }
+        return redirectTemplates(subjectId);
     }
 
     @GetMapping("/{id}/edit")
@@ -122,6 +175,38 @@ public class LessonTemplateController {
             return form.getId() == null
                     ? "redirect:" + URL_LIBRARY + "/templates/new?subjectId=" + form.getSubjectId()
                     : "redirect:" + URL_LIBRARY + "/templates/" + form.getId() + "/edit";
+        }
+    }
+
+    /** Saves the compact in-page editor without redirecting away from Library. */
+    @PostMapping("/inline")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveInline(
+            @Valid @ModelAttribute("form") LessonTemplateForm form,
+            BindingResult result,
+            @AuthenticationPrincipal KshUserDetails user) {
+        if (result.hasErrors()) {
+            String message = result.getAllErrors().isEmpty() ? "Dữ liệu bài học chưa hợp lệ"
+                    : result.getAllErrors().get(0).getDefaultMessage();
+            return ResponseEntity.unprocessableEntity()
+                    .body(Map.of("ok", false, "message", message));
+        }
+        try {
+            var saved = templateService.saveForm(user.getId(), user.getRole(), form);
+            return ResponseEntity.ok(Map.of("ok", true, "id", saved.id(),
+                    "message", "Đã lưu bài học và tài nguyên"));
+        } catch (IllegalArgumentException | EntityNotFoundException ex) {
+            return ResponseEntity.unprocessableEntity()
+                    .body(Map.of("ok", false, "message", ex.getMessage()));
+        } catch (StorageProfileException ex) {
+            log.warn("Library upload storage is unavailable for user {}: {}",
+                    user.getId(), ex.errorCode());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("ok", false, "message", MSG_STORAGE_PROFILE_UNAVAILABLE));
+        } catch (RuntimeException ex) {
+            log.error("Failed to save inline Library lesson for user {}", user.getId(), ex);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("ok", false, "message", MSG_GENERIC_RETRY));
         }
     }
 
@@ -181,6 +266,24 @@ public class LessonTemplateController {
             ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_GENERIC_RETRY);
         }
         return REDIRECT_TEMPLATES;
+    }
+
+    @PostMapping("/{id}/resources/{assetId}/delete")
+    public String detachResource(@PathVariable Long id,
+                                 @PathVariable Long assetId,
+                                 @RequestParam Long subjectId,
+                                 @AuthenticationPrincipal KshUserDetails user,
+                                 RedirectAttributes ra) {
+        try {
+            templateService.detachResource(user.getId(), user.getRole(), id, assetId);
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, "Đã gỡ tài nguyên và cập nhật các lớp đã phân phối");
+        } catch (IllegalArgumentException | EntityNotFoundException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+        } catch (RuntimeException ex) {
+            log.error("Failed to detach Library asset {} from template {}", assetId, id, ex);
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_GENERIC_RETRY);
+        }
+        return redirectTemplates(subjectId);
     }
 
     private void populateForm(Model model, LessonTemplateForm form, KshUserDetails user) {

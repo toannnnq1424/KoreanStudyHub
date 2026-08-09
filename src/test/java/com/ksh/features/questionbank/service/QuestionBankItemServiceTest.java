@@ -10,6 +10,7 @@ import com.ksh.features.questionbank.dto.QuestionBankItemForm;
 import com.ksh.features.questionbank.dto.QuestionBankViews.ChapterOption;
 import com.ksh.features.questionbank.dto.QuestionBankViews.ItemRow;
 import com.ksh.features.questionbank.dto.QuestionBankViews.SubjectOption;
+import com.ksh.features.questionbank.dto.QuestionBankViews.SubjectCatalogRow;
 import com.ksh.features.questionbank.dto.QuestionBankViews.WorkspaceView;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
@@ -19,6 +20,8 @@ import com.ksh.security.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -166,6 +169,99 @@ class QuestionBankItemServiceTest {
     }
 
     @Test
+    void subject_catalog_aggregates_content_and_question_counts_and_filters_by_name() {
+        Department other = subject("Japanese foundation", "JPN101", 13L, true);
+        when(subjectRepository.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(other, subject));
+        LessonTemplateRepository.SubjectContentCount content =
+                mock(LessonTemplateRepository.SubjectContentCount.class);
+        when(content.getSubjectId()).thenReturn(SUBJECT_ID);
+        when(content.getChapterCount()).thenReturn(3L);
+        when(content.getLessonCount()).thenReturn(8L);
+        QuestionBankItemRepository.SubjectQuestionCount questions =
+                mock(QuestionBankItemRepository.SubjectQuestionCount.class);
+        when(questions.getSubjectId()).thenReturn(SUBJECT_ID);
+        when(questions.getQuestionCount()).thenReturn(47L);
+        when(lessonRepository.summarizeSubjects(List.of(13L, SUBJECT_ID)))
+                .thenReturn(List.of(content));
+        when(itemRepository.summarizeSubjects(List.of(13L, SUBJECT_ID)))
+                .thenReturn(List.of(questions));
+
+        List<SubjectCatalogRow> rows = service.subjectCatalog(
+                ACTOR_ID, Role.LECTURER, "intermediate");
+
+        assertThat(rows).containsExactly(new SubjectCatalogRow(
+                SUBJECT_ID, "KOR311", "Korean Intermediate", null, 3, 8, 47));
+    }
+
+    @Test
+    void page_clamps_requested_size_and_maps_only_the_database_page() {
+        QuestionBankItem item = item(501L, QuestionBankItem.STATUS_APPROVED,
+                ACTOR_ID, 201L, "<p>Page-only question</p>");
+        when(itemRepository.findPage(SUBJECT_ID, QuestionBankItem.STATUS_APPROVED, "page",
+                PageRequest.of(0, 100)))
+                .thenReturn(new PageImpl<>(List.of(item), PageRequest.of(0, 100), 1001));
+        when(userRepository.findAllById(anyCollection())).thenReturn(List.of(lecturer));
+        LessonTemplate linkedLesson = lesson(201L, 1, 1, "Foundation", "Greeting");
+        when(lessonRepository.findAllById(List.of(201L))).thenReturn(List.of(linkedLesson));
+
+        var result = service.page(ACTOR_ID, Role.LECTURER, SUBJECT_ID,
+                "approved", " PAGE ", -3, 500);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1001);
+        assertThat(result.getContent().get(0).contentPreview()).isEqualTo("Page-only question");
+    }
+
+    @Test
+    void page_falls_back_to_saved_hierarchy_when_library_lesson_is_unavailable() {
+        QuestionBankItem item = item(502L, QuestionBankItem.STATUS_APPROVED,
+                ACTOR_ID, 201L, "<p>Historical question</p>");
+        item.bindLesson(201L, 3, "Chapter snapshot", 4, "Lesson snapshot");
+        PageRequest request = PageRequest.of(0, 25);
+        when(itemRepository.findPage(SUBJECT_ID, null, null, request))
+                .thenReturn(new PageImpl<>(List.of(item), request, 1));
+        when(userRepository.findAllById(anyCollection())).thenReturn(List.of(lecturer));
+        when(lessonRepository.findAllById(List.of(201L))).thenReturn(List.of());
+
+        ItemRow row = service.page(ACTOR_ID, Role.LECTURER, SUBJECT_ID,
+                null, null, 0, 25).getContent().get(0);
+
+        assertThat(row.chapterTitle()).isEqualTo("Chapter snapshot");
+        assertThat(row.lessonTitle()).isEqualTo("Lesson snapshot");
+        assertThat(row.chapterOrder()).isEqualTo(3);
+        assertThat(row.lessonOrder()).isEqualTo(4);
+        assertThat(row.librarySourceAvailable()).isFalse();
+    }
+
+    @Test
+    void page_treats_all_status_as_no_filter_for_legacy_urls() {
+        PageRequest request = PageRequest.of(1, 25);
+        when(itemRepository.findPage(SUBJECT_ID, null, null, request))
+                .thenReturn(new PageImpl<>(List.of(), request, 0));
+
+        service.page(ACTOR_ID, Role.LECTURER, SUBJECT_ID, " ALL ", " ", 1, 25);
+
+        verify(itemRepository).findPage(SUBJECT_ID, null, null, request);
+    }
+
+    @Test
+    void workspace_summary_counts_statuses_without_loading_all_items() {
+        when(itemRepository.countForWorkspace(SUBJECT_ID,
+                QuestionBankItem.STATUS_APPROVED, "alpha")).thenReturn(37L);
+        when(itemRepository.countForWorkspace(SUBJECT_ID,
+                QuestionBankItem.STATUS_REVIEW, "alpha")).thenReturn(4L);
+
+        WorkspaceView result = service.workspaceSummary(
+                ACTOR_ID, Role.LECTURER, SUBJECT_ID, " ALPHA ");
+
+        assertThat(result.approvedCount()).isEqualTo(37);
+        assertThat(result.pendingCount()).isEqualTo(4);
+        assertThat(result.approvedGroups()).isEmpty();
+        assertThat(result.pendingGroups()).isEmpty();
+        verify(itemRepository, never()).findBySubjectIdOrderByUpdatedAtDescIdDesc(SUBJECT_ID);
+    }
+
+    @Test
     void chapter_options_keep_first_lesson_of_each_chapter_in_library_order() {
         LessonTemplate chapterOneFirst = lesson(201L, 1, 1, "Chapter one", "One");
         LessonTemplate chapterOneSecond = lesson(202L, 1, 2, "Chapter one", "Two");
@@ -208,6 +304,8 @@ class QuestionBankItemServiceTest {
         verify(itemRepository).save(itemCaptor.capture());
         assertThat(itemCaptor.getValue().getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REVIEW);
         assertThat(itemCaptor.getValue().getQuestionType()).isEqualTo(QuestionBankItem.TYPE_MCQ);
+        assertThat(itemCaptor.getValue().getChapterTitleSnapshot()).isEqualTo("Chapter one");
+        assertThat(itemCaptor.getValue().getLessonTitleSnapshot()).isEqualTo("Lesson one");
         verify(optionRepository).deleteByItemIdIn(List.of(701L));
         verify(optionRepository, times(2)).save(any());
     }

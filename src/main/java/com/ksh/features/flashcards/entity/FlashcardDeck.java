@@ -51,6 +51,10 @@ public class FlashcardDeck {
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
 
+    /** Optional active subject from the canonical subjects catalog. */
+    @Column(name = "subject_id")
+    private Long subjectId;
+
     @Column(nullable = false, length = 20)
     private String visibility;
 
@@ -109,6 +113,11 @@ public class FlashcardDeck {
     public void updateMetadata(String title, String description) {
         this.title = title;
         this.description = description;
+    }
+
+    /** Assigns or clears the optional subject classification. */
+    public void assignSubject(Long subjectId) {
+        this.subjectId = subjectId;
     }
 
     /** Moves the deck to SHARED targeting the given class. */
@@ -170,6 +179,10 @@ public class FlashcardDeck {
 
     public Long getOwnerId() {
         return ownerId;
+    }
+
+    public Long getSubjectId() {
+        return subjectId;
     }
 
     public String getVisibility() {
