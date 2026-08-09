@@ -3,8 +3,9 @@
 <head th:replace="~{fragments/head :: head(${detail.title()}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
 </head>
-<body>
+<body class="ux-polish ux-test-detail">
 <header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
 
 <span id="flash-data"
