@@ -122,8 +122,10 @@ class PracticeAim7PdfAuthoringStaticContractTest {
                 int separator = name.indexOf("__");
                 return Integer.parseInt(name.substring(1, separator)) > 111
                         && name.contains("practice_");
-            }).containsExactly(
-                    "V114__retire_practice_collaboration_and_dark_audio_review.sql");
+            }).containsExactlyInAnyOrder(
+                    "V114__retire_practice_collaboration_and_dark_audio_review.sql",
+                    "V118__practice_demo_canonical_seed_catalog.sql",
+                    "V119__practice_topik35_premium_canonical_catalog.sql");
         }
     }
 

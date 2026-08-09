@@ -1699,14 +1699,6 @@ class PracticeIntegrationTest {
         practiceSet.setSkill("MIXED");
         setRepository.saveAndFlush(practiceSet);
 
-        PracticeQuestionGroup readingGroup = new PracticeQuestionGroup(
-                practiceSet.getId(), "Phần Đọc", 1, 1,
-                "Đọc văn bản", null, null, 1);
-        readingGroup.setSectionId(defaultSection.getId());
-        readingGroup = groupRepository.saveAndFlush(readingGroup);
-        question.setGroupId(readingGroup.getId());
-        questionRepository.saveAndFlush(question);
-
         PracticeSection writingSection = new PracticeSection(
                 practiceSet.getId(), "Phần Viết", "WRITING", "ESSAY", "Viết luận", 50, BigDecimal.TEN, 2);
         writingSection.setTestId(defaultTest.getId());
@@ -2881,9 +2873,15 @@ class PracticeIntegrationTest {
 
         PracticeQuestionGroup writingGroup = new PracticeQuestionGroup(practiceSet.getId(), "Phần Viết", 2, 2, "Viết luận", null, null, 2);
         writingGroup.setSectionId(writingSec.getId());
-        groupRepository.saveAndFlush(writingGroup);
+        writingGroup = groupRepository.saveAndFlush(writingGroup);
         question.setGroupId(readingGroup.getId());
         questionRepository.saveAndFlush(question);
+        PracticeQuestion writingQuestion = new PracticeQuestion(
+                practiceSet.getId(), 53, "ESSAY", "Viết một đoạn văn ngắn.",
+                "[]", "", "Yêu cầu viết đoạn văn.", BigDecimal.TEN, 2);
+        writingQuestion.setWritingTaskType(WritingTaskType.Q53);
+        writingQuestion.setGroupId(writingGroup.getId());
+        questionRepository.saveAndFlush(writingQuestion);
         publishVersion(practiceSet.getId());
 
         // --- Test 1: Start Reading ---
@@ -3302,14 +3300,6 @@ class PracticeIntegrationTest {
         practiceSet.setSkill("MIXED");
         setRepository.saveAndFlush(practiceSet);
 
-        // Seed group for defaultSection to avoid IllegalStateException on multi-section set
-        PracticeQuestionGroup group1 = new PracticeQuestionGroup(practiceSet.getId(), "Phần 1", 1, 1, "Đọc văn bản", null, null, 1);
-        group1.setSectionId(defaultSection.getId());
-        group1 = groupRepository.saveAndFlush(group1);
-
-        question.setGroupId(group1.getId());
-        questionRepository.saveAndFlush(question);
-
         publishVersion(practiceSet.getId());
 
         // 1. Reading attempt -> canonical overview & objective detail
@@ -3334,7 +3324,13 @@ class PracticeIntegrationTest {
 
         PracticeQuestionGroup group2 = new PracticeQuestionGroup(practiceSet.getId(), "Phần 2", 2, 2, "Viết đoạn văn", null, null, 2);
         group2.setSectionId(writingSection.getId());
-        groupRepository.saveAndFlush(group2);
+        group2 = groupRepository.saveAndFlush(group2);
+        PracticeQuestion writingQuestion = new PracticeQuestion(
+                practiceSet.getId(), 53, "ESSAY", "Viết một đoạn văn ngắn.",
+                "[]", "", "Yêu cầu viết đoạn văn.", BigDecimal.TEN, 2);
+        writingQuestion.setWritingTaskType(WritingTaskType.Q53);
+        writingQuestion.setGroupId(group2.getId());
+        questionRepository.saveAndFlush(writingQuestion);
 
         publishVersion(practiceSet.getId());
         Long writingAttemptId = practiceService.startAttempt(

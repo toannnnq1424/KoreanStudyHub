@@ -117,25 +117,28 @@ class NonPracticeLearningUiContractTest {
     }
 
     @Test
-    void lesson_authoring_uses_one_subject_context_and_only_shows_the_selected_content_type()
+    void lesson_authoring_uses_one_fixed_context_with_inline_content_and_optional_resources()
             throws IOException {
         String template = Files.readString(TEMPLATES.resolve("library/lesson-form.html"));
-        String script = Files.readString(STATIC.resolve("js/library-lesson-form.js"));
 
         assertThat(template).contains(
-                "library-lesson-context",
-                "library-chapter-row",
-                "library-title-row",
-                "data-content-section=\"RICHTEXT\"",
-                "data-content-section=\"PDF\"",
-                "data-content-section=\"VIDEO\"");
+                "data-inline-action=",
+                "th:field=\"*{subjectId}\"",
+                "th:field=\"*{chapterNumber}\"",
+                "th:field=\"*{lessonNumber}\"",
+                "th:field=\"*{title}\"",
+                "th:field=\"*{contentType}\" value=\"RICHTEXT\"",
+                "data-library-richtext-value",
+                "data-library-richtext-editor",
+                "th:field=\"*{videoUrl}\"",
+                "data-library-file-dropzone",
+                "th:field=\"*{materialUploads}\" multiple");
         assertThat(template).doesNotContain(
                 "library-subject-banner",
                 "library-fixed-subject",
-                "library-numbered-input");
-        assertThat(script).contains(
-                "section.hidden = !active",
-                "control.disabled = !active");
+                "library-numbered-input",
+                "data-library-content-type",
+                "data-content-section=");
     }
 
     @Test
@@ -148,8 +151,8 @@ class NonPracticeLearningUiContractTest {
                 "Đội ngũ giảng dạy",
                 "classTeachingTeam.owner()",
                 "classTeachingTeam.coLecturers()",
-                "classViewerRole",
                 "class=\"side-foot\" th:if=\"${isPrimaryClassOwner}\"");
+        assertThat(sidebar).doesNotContain("classViewerRole");
         assertThat(members).contains(
                 "classTeachingTeam.owner().name()",
                 "classTeachingTeam.coLecturers()",
