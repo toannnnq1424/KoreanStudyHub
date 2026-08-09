@@ -19,11 +19,20 @@ public final class FlashcardDtos {
             @Size(max = 300, message = "Tiêu đề tối đa 300 ký tự")
             String title,
             @Size(max = 2000, message = "Mô tả tối đa 2000 ký tự")
-            String description
+            String description,
+            Long subjectId
     ) {
-        public static DeckForm empty() {
-            return new DeckForm("", "");
+        public DeckForm(String title, String description) {
+            this(title, description, null);
         }
+
+        public static DeckForm empty() {
+            return new DeckForm("", "", null);
+        }
+    }
+
+    /** Active subject shown in the deck create/edit selector. */
+    public record SubjectOption(Long id, String code, String name) {
     }
 
     /**
@@ -39,7 +48,8 @@ public final class FlashcardDtos {
      */
     public record DeckSummary(
             Long id, String title, String description, long cardCount,
-            boolean shared, boolean owner, String ownerName, String className
+            boolean shared, boolean owner, String ownerName, String className,
+            Long subjectId, String subjectCode, String subjectName
     ) {
     }
 
@@ -96,7 +106,7 @@ public final class FlashcardDtos {
     /** Editor view-model: the deck plus its current cards + share targets. */
     public record DeckEditorView(Long deckId, String title, String description,
                                  List<CardView> cards, boolean shared, Long classId,
-                                 List<ClassOption> shareClasses) {
+                                 List<ClassOption> shareClasses, Long subjectId) {
     }
 
     /** Response returned after recording a Smart-Review rating. */

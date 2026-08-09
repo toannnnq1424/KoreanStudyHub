@@ -15,9 +15,10 @@ import java.time.LocalDateTime;
  * JPA entity for the {@code assignment_submissions} table (V1 schema, section 10.2).
  *
  * <p>A UNIQUE index on (assignment_id, user_id) guarantees at most one submission
- * row per student per assignment. The service layer upserts via this key.
+ * row per student per assignment. The service creates that row once and then
+ * treats it as an immutable student submission; grading only changes status.
  *
- * <p>Status values: DRAFT, SUBMITTED, GRADED. Editing is refused once GRADED.
+ * <p>Status values: DRAFT, SUBMITTED, GRADED. Student editing is refused once a row exists.
  */
 @Entity
 @Table(name = "assignment_submissions")

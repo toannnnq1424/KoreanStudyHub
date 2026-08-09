@@ -40,6 +40,19 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
                                                                   @Param("status") String status);
 
     /**
+     * Loads pending requests for the classes on one lecturer-list page, but only
+     * when the caller is the immutable owner. This keeps the quick-approval UI
+     * out of co-lecturer/leader rows while avoiding one query per class.
+     */
+    @Query("SELECT e FROM Enrollment e JOIN FETCH e.user " +
+            "WHERE e.classId IN :classIds AND e.status = 'PENDING' " +
+            "AND e.classId IN (SELECT c.id FROM ClassEntity c " +
+            "                  WHERE c.lecturerId = :ownerId AND c.deleted = false) " +
+            "ORDER BY e.joinedAt ASC")
+    List<Enrollment> findPendingOwnedRequests(@Param("classIds") Collection<Long> classIds,
+                                               @Param("ownerId") Long ownerId);
+
+    /**
      * Counts the number of enrollments for a given class with the specified status.
      *
      * @param classId the ID of the class

@@ -1,272 +1,179 @@
-# repository-harness
+# Korean Study Hub (KSH)
 
-Turn any software repo into an agent-ready workspace.
+Korean Study Hub is a server-rendered learning platform for Korean study. It
+supports subject governance, class-based teaching, shared learning materials,
+question and test banks, assignments, flashcards, messaging, and an independent
+`/practice` learning boundary.
 
-`repository-harness` is a repository-level operating harness for Claude Code,
-Codex, Cursor, and other coding agents. It gives agents the missing project
-context they need before they change code: where to start, what the product
-contract says, how risky the work is, what proof is required, and which
-decisions future agents should inherit.
+> This repository is a Spring Boot application, not a separated SPA plus API
+> backend. Thymeleaf renders the primary HTML on the server; JavaScript enhances
+> selected interactions and real-time messaging.
 
-The app is what users touch. The harness is what agents touch.
+## Product workflow at a glance
 
-## Why Star This Repo
+The current product model uses a flat **Subject** catalog. The historical
+Department/Course/Category hierarchy is retired from the target workflow.
 
-Star this repo if you want practical, reusable patterns for making AI-assisted
-software development more reliable, inspectable, and easier for humans to steer.
+1. **Subject governance** — an Admin manages active subjects and assigns one
+   Subject Leader to each subject. A Leader can own multiple subjects.
+2. **Class lifecycle** — a Lecturer creates a `DRAFT` class with a required
+   subject; its Subject Leader approves it to `ACTIVE` or records a rejection
+   note. An optional end date archives active classes automatically.
+3. **Membership and co-teaching** — students request entry to active classes;
+   the class owner approves or rejects. Subject Leaders may assign
+   co-lecturers, without changing the class owner or creator.
+4. **Library distribution** — learning content is authored under
+   Subject → Chapter → Lesson, then immutable snapshots are distributed to
+   active classes.
+5. **Question bank** — lecturers contribute lesson-linked questions; Leaders
+   review them for approval, rejection, archive, or restoration.
+6. **Test bank and distribution** — a test can be authored directly, generated
+   from approved questions, and distributed as independent snapshots to active
+   same-subject classes.
+7. **Class learning** — students consume distributed lessons, take tests,
+   submit assignments, study flashcards, and use the class member directory for
+   direct messages.
+8. **Independent practice** — `/practice` has its own authoring, catalog,
+   attempt, media, and AI-evaluation boundaries. It is not a class test bank.
 
-This project is exploring a simple idea:
+For the complete current-state workflow and medium-grain use-case inventory,
+see `docs/CURRENT_STATE_FEATURE_AND_USE_CASE_CATALOG_2026-08-04.md` when that
+audit artifact is present in the working tree.
 
-> Coding agents do not only need better prompts. They need better repositories.
+## Architecture
 
-## The Problem
+| Layer | Technology / responsibility |
+| --- | --- |
+| Web | Spring MVC, Thymeleaf SSR, static CSS/JavaScript |
+| Security | Spring Security, session authentication, role/subject/class scope checks, Google OAuth client |
+| Domain & data | Java 17, Spring Data JPA / Hibernate, MySQL 8, Flyway-owned schema |
+| Realtime | Spring WebSocket with STOMP/SockJS for direct messaging |
+| Files | Local development storage or S3-compatible Cloudflare R2 profiles |
+| Integrations | SMTP, optional Google OAuth, Korean Basic Dictionary, bounded optional AI providers |
 
-Most repos are built for humans reading code in a familiar codebase. Coding
-agents usually enter with only a chat prompt and a shallow snapshot of files.
-That leads to common failure modes:
+Flyway owns schema changes. Hibernate runs with `ddl-auto=validate`; do not
+use Hibernate to create or mutate a shared schema.
 
-- The agent edits code before understanding product intent.
-- Important constraints live only in chat history or in someone's head.
-- Validation expectations are vague or discovered too late.
-- Architecture tradeoffs are repeated instead of inherited.
-- Large requests do not get broken into reviewable story-sized work.
+## Prerequisites
 
-## The Harness Approach
+- JDK 17
+- Maven 3.9+ (use the checked-in Maven wrapper)
+- MySQL 8
+- A local configuration file at
+  `src/main/resources/application-local.properties` or equivalent environment
+  variables
 
-A repository starts to have a harness when it helps an agent answer practical
-engineering questions without relying only on chat history:
+The local configuration file is ignored by Git. Keep database and provider
+credentials out of tracked files.
 
-- What should I read first?
-- What type of work is this?
-- Which product contract does it affect?
-- How risky is the change?
-- What proof will show the work is done?
-- What decision or lesson should future agents inherit?
+## Run locally
 
-In this repo, those answers live in:
+1. Create a MySQL database, for example `ksh_db`.
+2. Configure local credentials. Minimal example:
 
-- `AGENTS.md` — the stable agent shim with local project notes and Harness
-  doc links.
-- `docs/HARNESS.md` — the human-agent collaboration model.
-- `docs/FEATURE_INTAKE.md` — tiny, normal, and high-risk work classification.
-- `docs/ARCHITECTURE.md` — architecture discovery and boundary rules.
-- `docs/TEST_MATRIX.md` — behavior-to-proof validation expectations.
-- `docs/stories/` — story packets and backlog items.
-- `docs/decisions/` — durable decisions and tradeoffs.
-- `docs/templates/` — reusable spec, story, decision, and validation templates.
+   ```properties
+   DB_URL=jdbc:mysql://localhost:3306/ksh_db?useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
+   DB_USERNAME=root
+   DB_PASSWORD=your-local-password
+   ```
 
-OpenAI describes this shift as an agent-first world where humans steer and
-agents execute:
+3. Start the application:
 
-https://openai.com/index/harness-engineering/
+   ```powershell
+   .\mvnw.cmd spring-boot:run
+   ```
 
-## Install Harness Into A Project
+4. Open [http://localhost:8080](http://localhost:8080).
 
-From a target project directory, run:
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --yes
-```
-
-On Windows PowerShell, run:
-
-```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Yes
-```
-
-If the target already has `AGENTS.md`, `docs/`, or `scripts/`, choose one:
-
-```bash
-# Update an existing Harness repo without moving existing files
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --merge --yes
-
-# Back up and replace AGENTS.md, docs/, and scripts/
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --override --yes
-```
-
-```powershell
-# Update an existing Harness repo without moving existing files
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Merge -Yes
-
-# Back up and replace AGENTS.md, docs/, and scripts/
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Override -Yes
-```
-
-Use `--merge` when a project already has Harness and you want to append newly
-added Harness files without moving the existing `AGENTS.md`, `docs/`, or
-`scripts/` paths into backup. Existing files stay untouched; only missing
-Harness files are created.
-
-For older Harness installs whose `AGENTS.md` still contains the full generated
-operating guide, refresh it into the small stable shim:
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --merge --refresh-agent-shim --yes
-```
-
-The refresh backs up the existing file. If it detects the old
-Harness-generated guide, it replaces it with the shim. If the file appears
-custom, it appends or updates a marked Harness block instead of overwriting the
-project's local instructions.
-
-If the project is driven with Claude Code, add `--claude`. Claude Code never
-auto-loads `AGENTS.md`, so without this the installed harness is invisible to
-fresh sessions. The flag installs (or refreshes) a `CLAUDE.md` whose marked
-Harness block `@`-imports `AGENTS.md` and `docs/FEATURE_INTAKE.md` into every
-session's context. An existing `CLAUDE.md` gets the block appended after a
-backup; plain installs without the flag never touch `CLAUDE.md`:
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --claude --yes
-```
-
-Or install into a specific path:
-
-```bash
-curl -fsSL "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.sh?$(date +%s)" | bash -s -- --directory /path/to/project --yes
-```
+Use a different port without editing tracked configuration:
 
 ```powershell
-& ([scriptblock]::Create((irm "https://raw.githubusercontent.com/hoangnb24/repository-harness/main/scripts/install-harness.ps1"))) -Directory C:\path\to\project -Yes
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.arguments=--server.port=18080"
 ```
 
-Use `--dry-run` on Bash or `-DryRun` on PowerShell to preview changes before
-writing files.
+For UI-only iteration, run with the development profile and refresh the
+browser after editing templates or static assets:
 
-The installer also downloads the prebuilt Harness CLI for the current platform,
-verifies its `.sha256` checksum, and installs it at
-`scripts/bin/harness-cli` on macOS/Linux or `scripts/bin/harness-cli.exe` on
-Windows. The Rust CLI is the main Harness tool and stable command path.
-
-Harness CLI release assets are published from tags by the
-`Harness CLI Release` GitHub Actions workflow. The installer expects each
-release to include `harness-cli-<platform>` and
-`harness-cli-<platform>.sha256` assets for macOS arm64, macOS x64, Linux x64,
-Linux arm64, and Windows x64. The Windows asset is
-`harness-cli-windows-x64.exe` plus `harness-cli-windows-x64.exe.sha256`.
-
-Merged pull requests are recorded in `CHANGELOG.md` by the
-`Post-Merge Maintenance` workflow. When a merged PR changes the Rust CLI source,
-schema, Cargo metadata, or CLI release packaging, that workflow bumps the CLI
-patch version, updates `scripts/harness-cli-release-tag`, creates a
-`harness-cli-v*` tag, and runs the Harness CLI release build for that tag.
-
-## Try The Flow
-
-The fastest way to understand the harness is to inspect the tiny demo:
-
-- `docs/demo/README.md`: shows how a simple product idea becomes product docs,
-  stories, validation expectations, and decisions before implementation starts.
-
-A typical flow looks like this:
-
-```text
-human intent or product spec
-  -> product contract
-  -> feature intake
-  -> story packet
-  -> validation expectations
-  -> implementation work
-  -> decision or lesson captured for future agents
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local,ui-dev"
 ```
 
-Implementation prompts do not go straight to code. They first pass through
-feature intake, become story-sized work when needed, and then carry both product
-validation and harness maintenance expectations.
+The Maven configuration enables `addResources`, and the `ui-dev` profile turns
+off template/static resource caches. Java/service/configuration changes still
+need a restart or DevTools restart.
 
-## Tool Registry
+## Build and test
 
-The harness can use optional external tools (linters, code-graph servers,
-deploy checks) without depending on any of them. You register a tool as a
-provider of a *capability*, the harness scans whether it is actually present,
-and a workflow step uses whatever is equipped — an absent tool is a clean skip,
-never a failure.
+```powershell
+# Compile only
+.\mvnw.cmd -DskipTests compile
 
-```bash
-# register a tool as a provider of a capability
-scripts/bin/harness-cli tool register --name deploy-check --kind cli \
-  --capability deploy-verification --command ./scripts/deploy-check.sh \
-  --responsibility Verification --description "Verify deploy health before release"
+# Compile test sources
+.\mvnw.cmd -DskipTests test-compile
 
-# scan presence (writes present/missing/unknown)
-scripts/bin/harness-cli tool check
-
-# a step looks up what is equipped for a purpose
-scripts/bin/harness-cli query tools --capability deploy-verification --status present
+# Run a focused test class
+.\mvnw.cmd "-Dtest=StudentTestFlowIntegrationTest" test
 ```
 
-Kinds (`cli`, `binary`, `mcp`, `skill`, `http`) make it agent-generic: each
-agent runtime uses what it can orchestrate. See `docs/TOOL_REGISTRY.md` for the
-full model, the degrade ladder, and how to wire a tool into a flow step.
+Database-backed tests must point to an explicit disposable test database using
+`TEST_DB_URL`, `TEST_DB_USERNAME`, and `TEST_DB_PASSWORD`; never run a test
+suite against a shared development or production schema.
 
-## Current State
+## Integration-test strategy
 
-This repository is in Harness v0.
+KSH's main integration boundary is **MVC + security + service + JPA + MySQL**,
+not only a JSON API contract. Most integration tests should use
+`@SpringBootTest`, `@AutoConfigureMockMvc`, Spring Security test support, and
+a disposable MySQL/Flyway database to assert:
 
-There is no application implementation and no baked-in product specification
-yet. The current work is the reusable project harness: the file structure,
-agent operating model, feature intake process, story templates, and validation
-expectations that help humans and agents turn a future user-provided spec into
-implementation work.
+- status, redirect, rendered view/model, and CSRF/session behaviour;
+- role, subject, class-owner, co-lecturer, and student enrollment scope;
+- persisted state, audit/outbox side effects, and transaction atomicity;
+- JSON/multipart endpoints with MockMvc when a feature exposes an API;
+- scheduled workers with a controlled clock or worker trigger; and
+- a small Browser/Playwright smoke suite for critical end-to-end journeys.
 
-## Product Sources
+Postman or an API runner remains useful for JSON/multipart debugging, but it is
+not sufficient evidence for server-rendered HTML flows or database side
+effects. The repository-wide proposed case inventory is delivered in
+`Report5.2_Integration_Test_KSH_2026-08-04.xlsx` when generated for a review.
 
-No product contract is currently defined.
+### Agile incremental and iterative testing
 
-When a user provides a project specification, add or reference it as the input
-spec for the first buildout, then derive smaller living artifacts from it:
+KSH follows an **Agile incremental and iterative** delivery model. Integration
+testing is therefore maintained as a living regression asset rather than a
+single final-test document:
 
-- `docs/product/`: current product contract files, created from the spec.
-- `docs/stories/`: story packets and backlog created from selected work.
-- `docs/TEST_MATRIX.md`: behavior-to-proof control panel.
-- `docs/decisions/`: durable decisions and tradeoffs.
+1. Each increment/sprint adds or revises cases for the affected workflow,
+   permissions, persistence effects, and integration adapters.
+2. The feature's focused integration suite runs in the same iteration as the
+   change; impacted cross-feature cases form its regression set.
+3. The workbook's Round 1–3 fields record repeat execution. A failed case is
+   fixed and rerun in a later round; unexecuted scope remains `Pending` instead
+   of being reported as passed.
+4. A release candidate executes the accumulated critical-flow regression set
+   against a disposable migrated database, followed by browser smoke journeys.
 
-Do not keep a project-specific spec or product breakdown in this harness until
-a real project supplies one.
+## Deployment outline
 
-## Repository Structure
+1. Build a release JAR with JDK 17 and run the focused/full validation required
+   for the release.
+2. Provision MySQL, storage (R2 or the approved provider), SMTP/OAuth and any
+   optional AI credentials through environment variables or a secret manager.
+3. Set `APP_BASE_URL`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and storage
+   configuration. Do not commit secrets.
+4. Start the JAR behind HTTPS/reverse proxy. Flyway validates and migrates the
+   target schema at startup; back up the database before deployment.
+5. Keep production storage profiles fail-closed: local storage is an explicit
+   development/test opt-in.
 
-```text
-project/
-  AGENTS.md
-  README.md
-  docs/
-    HARNESS.md
-    FEATURE_INTAKE.md
-    ARCHITECTURE.md
-    TEST_MATRIX.md
-    HARNESS_BACKLOG.md
-    product/
-    stories/
-    decisions/
-    demo/
-    templates/
-  scripts/
-    README.md
-```
+## Boundaries and current technical debt
 
-## Contributing
-
-This project is early and benefits most from real-world agent failure cases,
-example harness installs, docs improvements, and reusable workflow patterns.
-See `CONTRIBUTING.md` for contribution ideas.
-
-Useful contributions include:
-
-- Show how the harness works in a real project.
-- Add missing templates or improve existing ones.
-- Propose validation patterns for different stacks.
-- Share failures where an agent made the wrong change because the repo lacked
-  context.
-- Compare harness behavior across Claude Code, Codex, Cursor, and other tools.
-
-## Share
-
-If this idea resonates, please star the repo and share it with someone building
-with coding agents.
-
-Short description:
-
-> An agent-ready repo harness for Claude Code, Codex, Cursor, and other coding
-> agents: AGENTS.md, product contracts, story packets, validation matrix, and
-> decision records.
+- `/practice` has deliberately separate storage and AI configuration; do not
+  couple it to the class/test bank workflow.
+- Java package and some technical names may still say `Department` while the
+  operational catalog is `subjects`; treat this as technical debt, not proof
+  of the retired hierarchy workflow.
+- Current-state documentation records known deviations (for example, lesson
+  distribution eligibility and class rejection resubmission notification) so
+  they can be tracked explicitly rather than accidentally becoming behaviour.

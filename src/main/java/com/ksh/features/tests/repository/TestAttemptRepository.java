@@ -27,6 +27,10 @@ public interface TestAttemptRepository extends JpaRepository<TestAttempt, Long> 
     /** Every attempt for a test (lecturer monitor / submissions). */
     List<TestAttempt> findByTestId(Long testId);
 
+    /** Completed attempts for a set of class tests; gradebook picks the newest per student/test. */
+    @Query("select a from TestAttempt a where a.testId in :testIds and a.status <> 'IN_PROGRESS' order by a.submittedAt desc")
+    List<TestAttempt> findCompletedByTestIds(@Param("testIds") Collection<Long> testIds);
+
     /** Shape-changing author operations are forbidden after the first attempt starts. */
     boolean existsByTestId(Long testId);
 

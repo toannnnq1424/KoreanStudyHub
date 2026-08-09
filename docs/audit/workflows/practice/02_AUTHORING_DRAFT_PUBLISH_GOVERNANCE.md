@@ -1,6 +1,6 @@
-# Practice lecturer authoring: draft, autosave, publish, version và cộng tác
+# Practice lecturer authoring: owner-only draft, autosave, publish và version
 
-Mọi route trong chương này yêu cầu `Roles.PREAUTH_LECTURER`; controller luôn lấy actor từ principal. ID owner/collaborator không lấy từ hidden field để quyết định quyền.
+Mọi route trong chương này yêu cầu `Roles.PREAUTH_LECTURER`; controller luôn lấy actor từ principal. Sau V114, chỉ Lecturer tạo bộ đề được mutate, xem lịch sử và restore bộ đề đó. Giảng viên khác vẫn xem mọi bộ `PUBLISHED + GLOBAL` qua `/practice`, nhưng không có quyền đồng biên tập.
 
 ## 1. Mở dashboard quản lý
 
@@ -8,11 +8,10 @@ Giảng viên bấm quản lý Practice → `GET /practice/manage`. `PracticeMan
 
 - query set do actor tạo, optional `status`;
 - query draft theo owner;
-- query active collaboration grants và shared sets;
-- bulk-load tên owner/collaborator;
-- render `practice/manage/dashboard` với draft, published/shared set và action phù hợp governance state.
+- resolve tên owner;
+- render `practice/manage/dashboard` với draft, set do actor sở hữu và các action theo lifecycle.
 
-GET chỉ đọc. `ownerLocked`, `ARCHIVED` và collaboration grant quyết định nút nào render, nhưng service vẫn kiểm lại khi POST.
+GET chỉ đọc. `ARCHIVED` quyết định action nào render, nhưng service vẫn kiểm lại ownership/lifecycle khi POST.
 
 ## 2. Bấm “Tạo bộ luyện tập”
 
@@ -50,7 +49,7 @@ Content-Type: application/json
 `PracticeDraftController.autosave`, dòng 167–214:
 
 1. Parse client version.
-2. `PracticeDraftService.saveDraftState(draftId,userId,...,clientVersion)` owner/collaborator-check, validate immutable draft identity and optimistic version, persist JSON/title/description, increment version/update time.
+2. `PracticeDraftService.saveDraftState(draftId,userId,...,clientVersion)` owner-check, validate immutable draft identity and optimistic version, persist JSON/title/description, increment version/update time.
 3. `PracticeDraftValidator.validate` trả lỗi/warning ngay cho UI.
 4. `ObjectiveExplanationEditorialService.publishBlockers` trả blockers.
 5. JSON success gồm `version`, validation, blockers.
@@ -98,15 +97,15 @@ Dashboard form `dashboard.html:172/174/229/231` gửi:
 POST /practice/manage/sets/{setId}/edit[?preview=true]
 ```
 
-`PracticeManageController.editSet`, dòng 62–70, gọi `PracticeDraftService.createDraftFromPublishedSet(setId,userId)`. Service authorize owner/active collaborator + owner lock/archive policy, project immutable published version thành draft mới, không sửa rows version cũ. Redirect editor, optional `?preview=1`. GET fallback (`72–76`) không tạo draft.
+`PracticeManageController.editSet` gọi `PracticeDraftService.createDraftFromPublishedSet(setId,userId)`. Service authorize owner và archive policy, project immutable published version thành draft mới, không sửa rows version cũ. Redirect editor, optional `?preview=1`. GET fallback không tạo draft.
 
 ## 8. Lịch sử và restore version
 
 Click **Lịch sử** → `GET /practice/manage/revisions?setId=...` (`dashboard.html:173/230`; controller `162–247`). Controller:
 
-- owner hoặc active collaborator check;
+- owner check;
 - query `PracticePublishedVersion` newest first;
-- tính `canRestore` từ owner/ownerLock/grant;
+- cho phép owner restore bằng một version mới;
 - nạp explanation recovery rows nếu actor có stricter publish authority;
 - render `practice/manage/revisions`.
 
@@ -118,41 +117,27 @@ POST /practice/manage/sets/{setId}/versions/{versionId}/restore
 
 `PracticeManageController.restorePublishedVersion`, dòng 283–297, gọi `PracticeRevisionService.restorePublishedVersion`. Service verify version thuộc set, permission và graph mutation guard; tạo/publish **version mới** có provenance `restoredFrom...`, không đổi hoặc xóa lịch sử cũ. Redirect revisions với flash.
 
-## 9. Lock, unlock, archive, unarchive
+## 9. Archive và unarchive
 
 Dashboard buttons dòng 175–178 gửi chung route:
 
 ```text
-POST /practice/manage/sets/{setId}/{action:lock|unlock|archive|unarchive}
+POST /practice/manage/sets/{setId}/{action:archive|unarchive}
 ```
 
 `PracticeManageController.lifecycle`, dòng 300–319, dispatch `PracticeLifecycleService`:
 
-- lock/unlock là owner governance, ảnh hưởng collaborator edit/restore;
 - archive loại set khỏi catalog/new attempts nhưng không xóa versions/results;
 - unarchive restore lifecycle state nếu authority cho phép;
-- service khóa set, gọi permission policy (`practice.lock/archive/restore`), entity transition và audit.
+- service gọi owner/lifecycle policy, entity transition và audit.
 
 Regex path không nhận action khác. Controller luôn redirect dashboard; lỗi không làm partial transition.
 
-## 10. Chia sẻ và thu hồi cộng tác
+## 10. Xóa draft
 
-Owner nhập email tại `dashboard.html:181`:
+Form ở dashboard hoặc hidden editor form gửi `POST /practice/manage/drafts/{id}/delete`. `PracticeDraftController.deleteDraft` gọi `PracticeDraftService.deleteDraft`: service owner-authorize, teardown Speaking prompt nếu có, rồi **hard-delete row `practice_drafts`**. Đây không phải soft delete. Asset/object không bị xóa trực tiếp bởi controller; teardown và reference guard chỉ queue lifecycle delete cho private asset đã thực sự unreferenced. Redirect dashboard dù success hay lỗi (flash message).
 
-```text
-POST /practice/manage/sets/{setId}/share
-email=lecturer@example.com
-```
-
-`PracticeManageController.shareSet`, dòng 321–334, gọi `PracticeAuthoringCollaborationService.shareSetByEmail`: owner-check, resolve active lecturer, cấm self/duplicate invalid grant, persist/re-activate collaboration. Grant mở quyền tạo draft/xem history theo owner-lock policy; không chuyển ownership.
-
-Thu hồi button `dashboard.html:196` gửi `POST /sets/{setId}/collaborators/{collaboratorId}/revoke`; controller dòng 336–351 gọi service set `revokedAt`. Draft/published history không bị xóa; request sau của collaborator bị policy chặn.
-
-## 11. Xóa draft
-
-Form ở dashboard dòng 112 hoặc hidden editor form dòng 18 gửi `POST /practice/manage/drafts/{id}/delete`. `PracticeDraftController.deleteDraft`, dòng 261–273, gọi `PracticeDraftService.deleteDraft` (`PracticeDraftService.java:476–492`): service owner-authorize/lock, teardown Speaking prompt nếu có, rồi **hard-delete row `practice_drafts`**. Đây không phải soft delete. Asset/object không bị xóa trực tiếp bởi controller; teardown và reference guard chỉ queue lifecycle delete cho private asset đã thực sự unreferenced. Redirect dashboard dù success hay lỗi (flash message).
-
-## 12. Retry explanation từ revision history
+## 11. Retry explanation từ revision history
 
 `POST /practice/manage/sets/{setId}/explanations/{questionVersionId}/retry` (`PracticeManageController:250–280`) gọi `QuestionExplanationRetryService.retryQuestionVersion`:
 

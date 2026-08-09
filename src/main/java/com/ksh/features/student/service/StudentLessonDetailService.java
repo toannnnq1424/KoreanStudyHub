@@ -216,8 +216,7 @@ public class StudentLessonDetailService {
 
     /** Returns the iframe-embed URL or MP4 stream URL when type=VIDEO; null otherwise. */
     private String buildStudentVideoUrl(Lesson lesson) {
-        if (!CONTENT_TYPE_VIDEO.equals(lesson.getContentType())
-                || lesson.getVideoProvider() == null || lesson.getVideoUrl() == null) {
+        if (lesson.getVideoProvider() == null || lesson.getVideoUrl() == null) {
             return null;
         }
         String provider = lesson.getVideoProvider();

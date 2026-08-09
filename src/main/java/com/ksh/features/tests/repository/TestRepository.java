@@ -76,6 +76,10 @@ public interface TestRepository extends JpaRepository<Test, Long> {
     /** Exams belonging to a single class (class-detail "Bài test" tab). */
     Page<Test> findByClassId(Long classId, Pageable pageable);
 
+    /** All non-Practice tests in one class, used to build the derived gradebook. */
+    @Query("SELECT t FROM Test t WHERE t.classId = :classId AND t.type <> 'PRACTICE' ORDER BY t.updatedAt DESC")
+    List<Test> findGradebookTestsByClassId(@Param("classId") Long classId);
+
     /** Prevents accidental duplicate snapshots when a distribution is retried. */
     boolean existsByClassIdAndTitleIgnoreCase(Long classId, String title);
 

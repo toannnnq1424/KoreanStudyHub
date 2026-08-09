@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 /**
@@ -18,6 +19,18 @@ import java.util.Optional;
  * queries operate on the full table without a {@code @SQLRestriction} filter.
  */
 public interface LessonAttachmentRepository extends JpaRepository<LessonAttachment, Long> {
+
+    /** Attachment counts grouped by class through their live lesson snapshots. */
+    @Query("SELECT s.classId AS classId, COUNT(a) AS cnt "
+            + "FROM LessonAttachment a, Lesson l, Section s "
+            + "WHERE a.lessonId = l.id AND l.sectionId = s.id "
+            + "AND s.classId IN :classIds GROUP BY s.classId")
+    List<ClassCount> countGroupedByClassIds(@Param("classIds") Collection<Long> classIds);
+
+    interface ClassCount {
+        Long getClassId();
+        Long getCnt();
+    }
 
     /** Lists attachments of a lesson ordered by upload time (oldest first). */
     List<LessonAttachment> findByLessonIdOrderByUploadedAtAsc(Long lessonId);

@@ -6,8 +6,9 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
 </head>
-<body class="student-assignment-page">
+<body class="student-assignment-page ux-polish ux-student-assignment">
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <span id="flash-data"
@@ -15,8 +16,7 @@
       style="display:none;"></span>
 
 <div class="class-detail-layout student-assignment-layout">
-  <div th:replace="~{fragments/student-class-sidebar :: classSidebar('assignments', ${clazz.id}, ${clazz.name}, ${null}, ${null}, ~{}, ~{})}"></div>
-
+    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('assignments', ${clazz.id}, ${clazz.name}, ${classCode}, ${lecturerName}, ~{}, ~{})}"></div>
   <main class="col student-assignment-main">
     <div class="detail-topbar">
       <a th:href="@{/classes/{cid}/assignments/{aid}(cid=${classId},aid=${assignment.id})}"

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${clazz.name} + ' | Bảng điểm', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/gradebook.css}">
+</head>
+<body>
+<header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
+
+<div class="class-detail-layout">
+  <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'scores')}"></aside>
+  <main class="col gradebook-page" data-gradebook>
+    <div class="gradebook-heading">
+      <div>
+        <p class="gradebook-kicker">Kết quả học tập</p>
+        <h1 class="detail-title">Bảng điểm</h1>
+        <p class="gradebook-help">Điểm trung bình được quy đổi về thang 10 và tính trên các cột đang chọn.</p>
+      </div>
+      <label class="gradebook-switch">
+        <input type="checkbox" data-custom-average>
+        <span></span>
+        <span><strong>Trung bình tùy chỉnh</strong><small>Bật để chọn từng đầu điểm</small></span>
+      </label>
+    </div>
+
+    <section class="gradebook-card">
+      <div class="gradebook-toolbar">
+        <select data-kind-filter aria-label="Loại bảng điểm">
+          <option value="ALL">Bảng điểm chung</option>
+          <option value="TEST">Theo bài test</option>
+          <option value="ASSIGNMENT">Theo bài assignment</option>
+        </select>
+        <label class="gradebook-search">
+          <span aria-hidden="true">⌕</span>
+          <input type="search" data-student-search placeholder="Tìm sinh viên theo tên hoặc email...">
+        </label>
+      </div>
+
+      <div class="gradebook-selection" data-selection-banner hidden>
+        <span>Đã chọn <strong data-selected-count>0</strong> đầu điểm.</span>
+        <button type="button" data-clear-selection>Bỏ chọn tất cả</button>
+      </div>
+
+      <div class="gradebook-empty" th:if="${#lists.isEmpty(gradebook.columns())}">
+        Chưa có bài test hoặc assignment nào đã được chấm điểm.
+      </div>
+      <div class="gradebook-table-wrap" th:unless="${#lists.isEmpty(gradebook.columns())}">
+        <table class="gradebook-table">
+          <thead>
+          <tr>
+            <th class="gradebook-student-col">Họ và tên</th>
+            <th class="gradebook-average-col">Trung bình /10</th>
+            <th th:each="column : ${gradebook.columns()}"
+                class="gradebook-score-col"
+                th:attr="data-column-key=${column.key()},data-column-kind=${column.kind()}"
+                tabindex="0" role="button"
+                th:title="${'Chọn ' + column.title() + ' để tính trung bình'}">
+              <span class="gradebook-type" th:text="${column.kind() == 'TEST' ? 'TEST' : 'ASSIGNMENT'}">TEST</span>
+              <strong th:text="${column.title()}">Đầu điểm</strong>
+              <small th:text="${'Thang ' + column.displayMaxScore()}">Thang 10</small>
+            </th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="student : ${gradebook.students()}"
+              th:attr="data-student-search-value=${#strings.toLowerCase(student.name() + ' ' + student.email())}">
+            <td class="gradebook-student-col">
+              <span class="gradebook-avatar" th:text="${#strings.substring(student.name(),0,1)}">S</span>
+              <span><strong th:text="${student.name()}">Sinh viên</strong><small th:text="${student.email()}">email</small></span>
+            </td>
+            <td class="gradebook-average-col"><strong data-average>—</strong></td>
+            <td th:each="column : ${gradebook.columns()}"
+                th:with="cell=${student.cells().get(column.key())}"
+                class="gradebook-score-cell"
+                th:attr="data-column-key=${column.key()},data-column-kind=${column.kind()},data-normalized=${cell != null ? cell.normalizedTen() : ''}">
+              <span th:if="${cell != null}" th:text="${cell.displayScore() + ' / ' + cell.displayMaxScore()}">8 / 10</span>
+              <span th:unless="${cell != null}" class="gradebook-missing">—</span>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/class-detail.js}"></script>
+<script th:src="@{/js/gradebook.js}"></script>
+</body>
+</html>

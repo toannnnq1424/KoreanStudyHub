@@ -1,78 +1,44 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Bài tập | ' + ${clazz.name}, ~{::link.page-css})}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}"><link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}"><link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
 </head>
-<body class="student-assignment-page">
+<body class="student-assignment-page assignment-catalog-page">
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
-
-<span id="flash-data"
-      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
-      style="display:none;"></span>
-
+<span id="flash-data" th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" style="display:none;"></span>
 <div class="class-detail-layout student-assignment-layout">
-  <div th:replace="~{fragments/student-class-sidebar :: classSidebar('assignments', ${clazz.id}, ${clazz.name}, ${null}, ${null}, ~{}, ~{})}"></div>
-
-  <main class="col student-assignment-main">
-    <h1 class="detail-title">Bài tập</h1>
-
-    <section class="detail-panel student-assignment-panel student-assignment-panel--table">
-      <div th:if="${#lists.isEmpty(assignments)}" class="tab-placeholder">
-        <h2>Chưa có bài tập</h2>
-        <p>Giảng viên chưa giao bài tập nào cho lớp này.</p>
+  <div th:replace="~{fragments/student-class-sidebar :: classSidebar('assignments', ${clazz.id}, ${clazz.name}, ${classCode}, ${lecturerName}, ~{}, ~{})}"></div>
+  <main class="col student-assignment-main assignment-catalog-main">
+    <div class="asgn-page-heading"><div><p class="asgn-eyebrow">Lớp học</p><h1 class="detail-title">Bài tập</h1></div></div>
+    <div class="asgn-catalog-toolbar asgn-catalog-toolbar--student">
+      <label class="asgn-search"><span aria-hidden="true">⌕</span><input type="search" placeholder="Tìm bài tập..." data-assignment-search></label>
+      <select data-assignment-status aria-label="Lọc trạng thái"><option value="ALL">Tất cả</option><option value="PUBLISHED">Đang mở</option><option value="CLOSED">Đã đóng</option></select>
+      <select data-assignment-sort aria-label="Sắp xếp"><option value="NEWEST">Mới nhất</option><option value="TITLE">Theo tên</option><option value="DUE">Theo hạn nộp</option></select>
+    </div>
+    <section class="asgn-student-workspace" th:unless="${#lists.isEmpty(assignments)}">
+      <div class="asgn-student-list" data-assignment-list>
+        <a th:each="a : ${assignments}" class="asgn-student-item" th:href="@{/classes/{cid}/assignments/{aid}(cid=${classId},aid=${a.id})}"
+           th:attr="data-assignment-row=${#strings.toLowerCase(a.title)},data-assignment-title=${a.title},data-assignment-status=${a.status},data-assignment-due=${a.dueDate != null ? a.dueDate : ''}">
+          <div class="asgn-item-icon" th:classappend="${a.submissionStatus != null} ? ' is-complete'" aria-hidden="true">▤</div>
+          <div class="asgn-item-copy">
+            <div class="asgn-item-titleline"><h2 th:text="${a.title}">Tên bài tập</h2><span class="asgn-badge" th:classappend="${a.status == 'CLOSED'} ? 'asgn-badge--closed' : 'asgn-badge--published'" th:text="${a.status == 'PUBLISHED'} ? 'Đang mở' : 'Đã đóng'">Đang mở</span></div>
+            <p><span th:text="${a.dueDate != null} ? 'Hạn ' + ${#temporals.format(a.dueDate, 'dd/MM/yyyy HH:mm')} : 'Không giới hạn hạn nộp'">Hạn nộp</span><span> · </span><span th:text="${a.maxScore + ' điểm'}">100 điểm</span></p>
+            <div class="asgn-progress"><span th:style="${a.submissionStatus != null} ? 'width:100%' : 'width:0'"></span></div>
+          </div>
+          <div class="asgn-student-state">
+            <strong th:if="${a.submissionStatus == null}">Chưa làm</strong>
+            <strong th:if="${a.submissionStatus == 'SUBMITTED'}" th:text="${a.isLate} ? 'Đã nộp muộn' : 'Đã nộp'">Đã nộp</strong>
+            <strong th:if="${a.submissionStatus == 'GRADED'}">Đã chấm</strong>
+            <small th:text="${a.submissionStatus == null} ? 'Mở bài tập' : 'Xem kết quả đã khóa'">Mở bài tập</small>
+          </div><span class="asgn-item-arrow" aria-hidden="true">›</span>
+        </a>
+        <p class="asgn-no-results" data-assignment-empty hidden>Không có bài tập phù hợp bộ lọc.</p>
       </div>
-
-      <table th:unless="${#lists.isEmpty(assignments)}" class="asgn-table">
-        <thead>
-          <tr>
-            <th>Tên bài tập</th>
-            <th>Trạng thái</th>
-            <th>Hạn nộp</th>
-            <th>Điểm tối đa</th>
-            <th>Bài của bạn</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr th:each="a : ${assignments}">
-            <td th:text="${a.title}">Tên bài tập</td>
-            <td>
-              <span class="asgn-badge"
-                    th:classappend="${a.status == 'CLOSED'} ? 'asgn-badge--closed' : 'asgn-badge--published'"
-                    th:text="${a.status == 'PUBLISHED'} ? 'Đang mở' : 'Đã đóng'">
-                Đang mở
-              </span>
-            </td>
-            <td th:text="${a.dueDate != null} ? ${#temporals.format(a.dueDate, 'dd/MM/yyyy HH:mm')} : '—'">—</td>
-            <td th:text="${a.maxScore}">100</td>
-            <td>
-              <span th:if="${a.submissionStatus == null}" class="asgn-badge">Chưa nộp</span>
-              <span th:if="${a.submissionStatus == 'DRAFT'}" class="asgn-badge">Nháp</span>
-              <span th:if="${a.submissionStatus == 'SUBMITTED'}"
-                    class="asgn-badge asgn-badge--draft"
-                    th:classappend="${a.isLate} ? ' asgn-badge--late' : ''">
-                Đã nộp<span th:if="${a.isLate}"> (muộn)</span>
-              </span>
-              <span th:if="${a.submissionStatus == 'GRADED'}"
-                    class="asgn-badge asgn-badge--published">Đã chấm</span>
-            </td>
-            <td>
-              <a th:href="@{/classes/{cid}/assignments/{aid}(cid=${classId},aid=${a.id})}"
-                 class="btn btn-sm btn-outline">Xem</a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
     </section>
+    <section th:if="${#lists.isEmpty(assignments)}" class="asgn-empty-state"><span aria-hidden="true">▤</span><h2>Chưa có bài tập</h2><p>Giảng viên chưa giao bài tập nào cho lớp này.</p></section>
   </main>
 </div>
-
-<script th:src="@{/js/app.js}"></script>
-<script th:src="@{/js/class-detail.js}"></script>
-<script th:src="@{/js/assignments.js}"></script>
-</body>
-</html>
+<script th:src="@{/js/app.js}"></script><script th:src="@{/js/class-detail.js}"></script><script th:src="@{/js/assignments.js}"></script>
+</body></html>

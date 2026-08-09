@@ -5,10 +5,13 @@ import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.features.classes.service.ClassesService;
+import com.ksh.features.classes.service.ClassJoinRequestQuickViewService;
+import com.ksh.features.classes.service.JoinClassService;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,6 +19,9 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,11 +60,17 @@ public class ClassesController {
 
     private final ClassesService classesService;
     private final DepartmentRepository subjectRepository;
+    private final ClassJoinRequestQuickViewService quickJoinRequests;
+    private final JoinClassService joinClassService;
 
     public ClassesController(ClassesService classesService,
-                             DepartmentRepository subjectRepository) {
+                             DepartmentRepository subjectRepository,
+                             ClassJoinRequestQuickViewService quickJoinRequests,
+                             JoinClassService joinClassService) {
         this.classesService = classesService;
         this.subjectRepository = subjectRepository;
+        this.quickJoinRequests = quickJoinRequests;
+        this.joinClassService = joinClassService;
     }
 
     /**
@@ -77,7 +89,28 @@ public class ClassesController {
         // object is exposed separately as ${classesPage} for the pagination block.
         model.addAttribute(ATTR_CLASSES, page.getContent());
         model.addAttribute(ATTR_CLASSES_PAGE, page);
+        model.addAttribute("pendingJoinRequests", quickJoinRequests.forOwnedClasses(
+                page.getContent().stream().map(ClassRow::id).toList(), user.getId()));
         return VIEW_CLASS_MANAGE;
+    }
+
+    /** Approves a pending student without forcing the owner into the Members tab. */
+    @PostMapping("/classes/{id}/join-requests/{studentId}/approve")
+    public String approveJoinRequest(@PathVariable Long id,
+                                     @PathVariable Long studentId,
+                                     @AuthenticationPrincipal KshUserDetails user,
+                                     RedirectAttributes ra) {
+        try {
+            joinClassService.approve(id, studentId, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_JOIN_APPROVED);
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (AccessDeniedException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage());
+        } catch (IllegalStateException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, MSG_JOIN_APPROVE_FAILED + ex.getMessage());
+        }
+        return "redirect:" + URL_CLASSES_LIST;
     }
 
     /**

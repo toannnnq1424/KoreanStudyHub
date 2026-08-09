@@ -1,0 +1,579 @@
+/* Shared visual polish for learning, testing, and department workspaces.
+   Keep one clear surface per task; nested content is separated with spacing,
+   dividers, and restrained tints instead of another stack of bordered cards. */
+
+.ux-polish {
+  --ux-bg: #f5f8fb;
+  --ux-surface: #ffffff;
+  --ux-soft: #f2f6fa;
+  --ux-soft-blue: #edf4fb;
+  --ux-line: #dbe5ee;
+  --ux-line-soft: #e9eff4;
+  --ux-ink: #203342;
+  --ux-muted: #687d8d;
+  --ux-primary: #3979ad;
+  --ux-primary-hover: #2f6898;
+  --ux-success: #2f8060;
+  --ux-shadow: 0 14px 36px rgba(42, 72, 94, .07);
+  background: var(--ux-bg);
+  color: var(--ux-ink);
+}
+
+.ux-polish .class-detail-layout > .col,
+.ux-polish > main {
+  min-width: 0;
+}
+
+.ux-polish :is(.tst-btn-primary, .td-btn-primary, .btn-primary) {
+  border-color: var(--ux-primary);
+  background: var(--ux-primary);
+}
+
+.ux-polish :is(.tst-btn-primary, .td-btn-primary, .btn-primary):hover {
+  border-color: var(--ux-primary-hover);
+  background: var(--ux-primary-hover);
+}
+
+/* Lecturer test catalog --------------------------------------------------- */
+.ux-test-catalog .tst-page {
+  max-width: 1180px;
+  padding-top: 34px;
+}
+
+.ux-test-catalog .tst-toolbar {
+  margin-bottom: 24px;
+}
+
+.ux-test-catalog .tst-section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ux-test-catalog .tst-filter-grid {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--ux-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .72);
+}
+
+.ux-test-catalog .tst-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ux-line);
+  border-radius: 14px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-test-catalog .tst-table {
+  min-width: 880px;
+  border: 0;
+  border-radius: 0;
+}
+
+.ux-test-catalog .tst-table th {
+  background: #f4f7fa;
+  color: #5e7383;
+}
+
+.ux-test-catalog .tst-table tbody tr:hover {
+  background: #f8fbfd;
+}
+
+.ux-test-catalog .tst-icon-action {
+  width: 31px;
+  height: 31px;
+  border-color: transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #4b7696;
+}
+
+.ux-test-catalog .tst-icon-action:hover {
+  border-color: #cfe0ec;
+  background: var(--ux-soft-blue);
+}
+
+/* Class settings --------------------------------------------------------- */
+.ux-class-settings .detail-toolbar {
+  border-bottom-color: var(--ux-line);
+  background: rgba(255, 255, 255, .86);
+  backdrop-filter: blur(10px);
+}
+
+.ux-class-settings .detail-tabs {
+  margin-bottom: 0;
+}
+
+.ux-class-settings #classEditForm {
+  overflow: hidden;
+  border: 1px solid var(--ux-line);
+  border-radius: 16px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-class-settings #classEditForm .detail-card {
+  margin: 0;
+  padding: 26px 28px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ux-class-settings #classEditForm .detail-card + .detail-card {
+  border-top: 1px solid var(--ux-line-soft);
+}
+
+.ux-class-settings .detail-card-title {
+  color: #2f5f82;
+}
+
+/* Class progress --------------------------------------------------------- */
+.ux-class-progress .pg-cards {
+  overflow: hidden;
+  gap: 0;
+  border: 1px solid var(--ux-line);
+  border-radius: 16px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-class-progress .pg-card {
+  min-height: 132px;
+  border: 0;
+  border-right: 1px solid var(--ux-line-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ux-class-progress .pg-card:last-child {
+  border-right: 0;
+}
+
+.ux-class-progress .pg-card-value {
+  color: #2f658c;
+}
+
+.ux-class-progress .detail-panel {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--ux-line);
+  border-radius: 16px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-class-progress .pg-toolbar {
+  padding: 18px;
+  border-bottom: 1px solid var(--ux-line-soft);
+}
+
+.ux-class-progress .m-empty {
+  min-height: 260px;
+  border: 0;
+  background: transparent;
+}
+
+/* Tests inside a class --------------------------------------------------- */
+.ux-class-tests .detail-panel {
+  overflow-x: auto;
+  padding: 0;
+  border: 1px solid var(--ux-line);
+  border-radius: 14px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-class-tests .tst-table {
+  min-width: 860px;
+  border: 0;
+  border-radius: 0;
+}
+
+.ux-class-tests .tst-table th {
+  background: #f4f7fa;
+}
+
+.ux-class-tests .tst-row-actions {
+  min-width: 245px;
+  gap: 4px;
+}
+
+.ux-class-tests .tst-row-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  color: #376f98;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ux-class-tests .tst-row-link:hover {
+  background: var(--ux-soft-blue);
+}
+
+/* Student assignment ---------------------------------------------------- */
+.ux-student-assignment .student-assignment-main {
+  padding-top: 30px;
+}
+
+.ux-student-assignment .detail-topbar {
+  align-items: center;
+  gap: 18px;
+}
+
+.ux-student-assignment .student-assignment-panel {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--ux-line);
+  border-radius: 16px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-student-assignment .student-assignment-panel > :is(.asgn-meta, .asgn-content-box, .asgn-submission-status, .asgn-submit-section, .asgn-feedback-card, .tab-placeholder) {
+  margin: 0;
+  padding: 22px 26px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ux-student-assignment .student-assignment-panel > :is(.asgn-content-box, .asgn-submission-status, .asgn-submit-section, .asgn-feedback-card, .tab-placeholder) {
+  border-top: 1px solid var(--ux-line-soft);
+}
+
+.ux-student-assignment .asgn-submission-status > .asgn-meta {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.ux-student-assignment .asgn-submission-status > .asgn-content-box,
+.ux-student-assignment .asgn-feedback-card .asgn-content-box {
+  margin: 16px 0 0;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--ux-line-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ux-student-assignment .asgn-lock-notice,
+.ux-student-assignment .asgn-due-warning {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 0;
+  border-left: 3px solid #7ba3c0;
+  border-radius: 4px;
+  background: var(--ux-soft-blue);
+}
+
+.ux-student-assignment .asgn-content-text:empty::before {
+  content: "Không có nội dung bổ sung.";
+  color: var(--ux-muted);
+  font-style: italic;
+}
+
+/* Student test detail ---------------------------------------------------- */
+.ux-test-detail .td-page {
+  width: min(1080px, calc(100% - 36px));
+}
+
+.ux-test-detail .td-hero {
+  border-color: var(--ux-line);
+  border-radius: 18px;
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-test-detail .td-heading h1 {
+  font-size: clamp(28px, 3.6vw, 42px);
+}
+
+.ux-test-detail .td-grid {
+  overflow: hidden;
+  gap: 0;
+  border: 1px solid var(--ux-line);
+  border-radius: 16px;
+  background: var(--ux-surface);
+}
+
+.ux-test-detail .td-meta-card {
+  min-height: 142px;
+  border: 0;
+  border-right: 1px solid var(--ux-line-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ux-test-detail .td-meta-card:last-child {
+  border-right: 0;
+}
+
+.ux-test-detail .td-action-card {
+  border-color: var(--ux-line);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+/* Result and answer review ---------------------------------------------- */
+.ux-test-result .rs-page {
+  display: grid;
+  place-items: start center;
+  min-height: calc(100vh - 74px);
+  max-width: 760px;
+  padding-top: clamp(54px, 9vh, 110px);
+}
+
+.ux-test-result .rs-card {
+  width: 100%;
+  padding: clamp(30px, 5vw, 48px);
+  border-color: var(--ux-line);
+  border-radius: 18px;
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-test-result .rs-stats {
+  overflow: hidden;
+  gap: 0;
+  margin: 30px 0;
+  border-top: 1px solid var(--ux-line-soft);
+  border-bottom: 1px solid var(--ux-line-soft);
+}
+
+.ux-test-result .rs-stat {
+  flex: 1 1 0;
+  padding: 20px 14px;
+  border-right: 1px solid var(--ux-line-soft);
+}
+
+.ux-test-result .rs-stat:last-child {
+  border-right: 0;
+}
+
+.ux-test-review .class-detail-layout.rv-no-sidebar {
+  min-height: calc(100vh - 74px);
+  background: var(--ux-bg);
+}
+
+.ux-test-review .rv-page {
+  width: min(940px, calc(100% - 32px));
+  max-width: 940px;
+  padding-top: 34px;
+}
+
+.ux-test-review .rv-question {
+  padding: 24px;
+  border-color: var(--ux-line);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(42, 72, 94, .045);
+}
+
+.ux-test-review .rv-options {
+  overflow: hidden;
+  gap: 0;
+  border: 1px solid var(--ux-line-soft);
+  border-radius: 11px;
+}
+
+.ux-test-review .rv-option {
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--ux-line-soft);
+  border-radius: 0;
+}
+
+.ux-test-review .rv-option:last-child {
+  border-bottom: 0;
+}
+
+.ux-test-review .rv-explanation {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-left: 3px solid #8fb3cc;
+  border-radius: 4px;
+  background: var(--ux-soft);
+}
+
+.ux-test-review .rv-explanation-content,
+.ux-test-review .rv-explanation-content p {
+  margin: 0;
+}
+
+/* Department leader ----------------------------------------------------- */
+.ux-leader-dashboard .leader-kpi-grid {
+  overflow: hidden;
+  gap: 0;
+  border: 1px solid var(--ux-line);
+  border-radius: 16px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-leader-dashboard .leader-kpi-card {
+  min-height: 128px;
+  border: 0;
+  border-right: 1px solid var(--ux-line-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ux-leader-dashboard .leader-kpi-card:last-child {
+  border-right: 0;
+}
+
+.ux-leader-dashboard .leader-kpi-card:nth-child(1) { box-shadow: inset 0 3px #5b8fb7; }
+.ux-leader-dashboard .leader-kpi-card:nth-child(2) { box-shadow: inset 0 3px #7b78b4; }
+.ux-leader-dashboard .leader-kpi-card:nth-child(3) { box-shadow: inset 0 3px #4f9a7b; }
+.ux-leader-dashboard .leader-kpi-card:nth-child(4) { box-shadow: inset 0 3px #b68b4d; }
+
+.ux-leader-dashboard .admin-list-panel,
+.ux-leader-report .admin-list-panel {
+  overflow-x: auto;
+  border-color: var(--ux-line);
+  border-radius: 16px;
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-leader-dashboard .admin-list-table,
+.ux-leader-report .admin-list-table {
+  min-width: 760px;
+}
+
+.ux-leader-report .admin-list-panel {
+  width: 100%;
+  max-width: 100%;
+}
+
+.ux-leader-report .admin-list-table {
+  min-width: 900px;
+}
+
+.ux-leader-assign .leader-assignment-panel {
+  width: 100%;
+  max-width: 1060px;
+}
+
+.ux-leader-assign .leader-assignment-search {
+  width: 100%;
+  max-width: none;
+}
+
+.ux-leader-assign .leader-assignment-list {
+  border-color: var(--ux-line);
+  border-radius: 14px;
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-leader-assign .leader-assignment-row[open] > .leader-assignment-summary {
+  background: var(--ux-soft-blue);
+}
+
+.ux-leader-assign .leader-assignment-editor {
+  padding: 18px 20px 20px 120px;
+  border-top-color: var(--ux-line-soft);
+  background: #fbfdfe;
+}
+
+.ux-leader-assign .ksh-search-checklist,
+.ux-leader-assign .ksh-checklist-options {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ux-leader-assign .ksh-checklist-options > label {
+  border-bottom: 1px solid var(--ux-line-soft);
+  border-radius: 0;
+}
+
+.ux-leader-assign .ksh-checklist-options > label:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 900px) {
+  .ux-class-progress .pg-cards,
+  .ux-test-detail .td-grid,
+  .ux-leader-dashboard .leader-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ux-class-progress .pg-card:nth-child(2n),
+  .ux-test-detail .td-meta-card:nth-child(2n),
+  .ux-leader-dashboard .leader-kpi-card:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .ux-class-progress .pg-card:nth-child(-n+2),
+  .ux-test-detail .td-meta-card:nth-child(-n+2),
+  .ux-leader-dashboard .leader-kpi-card:nth-child(-n+2) {
+    border-bottom: 1px solid var(--ux-line-soft);
+  }
+}
+
+@media (max-width: 720px) {
+  .ux-class-settings #classEditForm .detail-card,
+  .ux-student-assignment .student-assignment-panel > :is(.asgn-meta, .asgn-content-box, .asgn-submission-status, .asgn-submit-section, .asgn-feedback-card, .tab-placeholder) {
+    padding: 20px 16px;
+  }
+
+  .ux-leader-assign .leader-assignment-editor {
+    padding-left: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .ux-class-progress .pg-cards,
+  .ux-test-detail .td-grid,
+  .ux-leader-dashboard .leader-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ux-class-progress .pg-card,
+  .ux-test-detail .td-meta-card,
+  .ux-leader-dashboard .leader-kpi-card {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--ux-line-soft);
+  }
+
+  .ux-class-progress .pg-card:last-child,
+  .ux-test-detail .td-meta-card:last-child,
+  .ux-leader-dashboard .leader-kpi-card:last-child {
+    border-bottom: 0;
+  }
+
+  .ux-test-result .rs-stats {
+    align-items: stretch;
+  }
+
+  .ux-test-result .rs-stat {
+    padding-inline: 8px;
+  }
+
+  .ux-test-result .rs-actions {
+    flex-direction: column;
+  }
+
+  .ux-test-result .rs-actions .tst-btn {
+    justify-content: center;
+  }
+
+  .ux-test-review .rv-explanation {
+    grid-template-columns: 1fr;
+  }
+}

@@ -38,7 +38,7 @@ class SpeakingPromptDraftAuthorityIntegrationTest {
                         + "{\"clientId\":\"q-speaking\",\"questionType\":\"SPEAKING\","
                         + "\"prompt\":\"기존 질문\"}]}]}]}"));
         when(authorization.requireDraft(draft.getId(), 710L, PracticeAction.EDIT))
-                .thenReturn(new PracticeAuthorizationService.Decision(710L, false));
+                .thenReturn(new PracticeAuthorizationService.Decision(710L));
 
         SpeakingPromptDraftAuthority.AuthorizedDraft authorized =
                 authority.authorizeAndLock(

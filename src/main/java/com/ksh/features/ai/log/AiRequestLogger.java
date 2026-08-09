@@ -32,9 +32,6 @@ public class AiRequestLogger {
     /** Marks a call made by the lecturer AI question generator. */
     public static final String SOURCE_QUESTION_GEN = "QUESTION_GEN";
 
-    /** Marks an automatic editorial pass for Korea Discovery news. */
-    public static final String SOURCE_DISCOVERY_NEWS = "DISCOVERY_NEWS";
-
     /** Marks a document-backed flashcard generation call. */
     public static final String SOURCE_FLASHCARD_GEN = "FLASHCARD_GEN";
 

@@ -67,7 +67,7 @@ class PracticeRevisionServiceTest {
         PracticePublishedVersion source = publishedVersion(71L, 9L, 3);
         PracticePublishedVersion created = publishedVersion(88L, 9L, 4);
         PracticeAuthorizationService.Decision decision =
-                new PracticeAuthorizationService.Decision(11L, false);
+                new PracticeAuthorizationService.Decision(11L);
 
         when(authorizationService.requireSet(9L, 22L, PracticeAction.RESTORE))
                 .thenReturn(decision);
@@ -110,7 +110,7 @@ class PracticeRevisionServiceTest {
         PracticePublishedVersion created = publishedVersion(89L, 9L, 5);
         when(editLogRepository.findById(7L)).thenReturn(Optional.of(log));
         when(authorizationService.requireSet(9L, 11L, PracticeAction.RESTORE))
-                .thenReturn(new PracticeAuthorizationService.Decision(11L, false));
+                .thenReturn(new PracticeAuthorizationService.Decision(11L));
         when(setRepository.findById(9L)).thenReturn(Optional.of(set));
         when(draftRepository.saveAndFlush(any(PracticeDraft.class)))
                 .thenAnswer(invocation -> {
@@ -131,7 +131,7 @@ class PracticeRevisionServiceTest {
     void restoreRejectsVersionFromAnotherSetBeforeBuildingDraft() throws Exception {
         PracticePublishedVersion source = publishedVersion(71L, 10L, 3);
         when(authorizationService.requireSet(9L, 11L, PracticeAction.RESTORE))
-                .thenReturn(new PracticeAuthorizationService.Decision(11L, false));
+                .thenReturn(new PracticeAuthorizationService.Decision(11L));
         when(versionRepository.findById(71L)).thenReturn(Optional.of(source));
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,

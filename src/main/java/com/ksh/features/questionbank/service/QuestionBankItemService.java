@@ -18,12 +18,15 @@ import com.ksh.features.questionbank.dto.QuestionBankViews.OptionView;
 import com.ksh.features.questionbank.dto.QuestionBankViews.StatusCounts;
 import com.ksh.features.questionbank.dto.QuestionBankViews.SubjectReviewView;
 import com.ksh.features.questionbank.dto.QuestionBankViews.SubjectOption;
+import com.ksh.features.questionbank.dto.QuestionBankViews.SubjectCatalogRow;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.entity.QuestionBankOption;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.features.questionbank.repository.QuestionBankOptionRepository;
 import com.ksh.features.library.repository.LessonTemplateRepository;
 import com.ksh.security.Role;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,6 +95,28 @@ public class QuestionBankItemService {
                 .toList();
     }
 
+    /**
+     * Bounded workspace read for large subject banks. Paging remains in the
+     * database so rendering one screen never materializes the entire bank.
+     */
+    @Transactional(readOnly = true)
+    public Page<ItemRow> page(Long userId, Role role, Long subjectId, String status,
+                              String query, int page, int size) {
+        User actor = requireActor(userId, role);
+        Department subject = requireSubject(actor, subjectId);
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        String normalizedStatus = status == null || status.isBlank()
+                || "ALL".equalsIgnoreCase(status.trim())
+                ? null : status.trim().toUpperCase();
+        String normalizedQuery = normalizeQuery(query);
+        Page<QuestionBankItem> items = itemRepository.findPage(subject.getId(), normalizedStatus,
+                normalizedQuery, PageRequest.of(safePage, safeSize));
+        Map<Long, String> names = userNames(items.getContent());
+        Map<Long, LessonTemplate> lessons = lessonsById(items.getContent());
+        return items.map(item -> toRow(actor, item, subject.getCode(), names, lessons));
+    }
+
     @Transactional(readOnly = true)
     public WorkspaceView workspace(Long userId, Role role, Long subjectId, String query) {
         User actor = requireActor(userId, role);
@@ -115,18 +140,42 @@ public class QuestionBankItemService {
                 approved.size(), pending.size());
     }
 
+    /**
+     * Lightweight workspace header for the paged lecturer screen. Unlike the
+     * legacy grouped view, this never materializes every question in a subject.
+     */
+    @Transactional(readOnly = true)
+    public WorkspaceView workspaceSummary(Long userId, Role role, Long subjectId, String query) {
+        User actor = requireActor(userId, role);
+        Department subject = requireSubject(actor, subjectId);
+        String normalizedQuery = normalizeQuery(query);
+        long approved = itemRepository.countForWorkspace(subject.getId(),
+                QuestionBankItem.STATUS_APPROVED, normalizedQuery);
+        long pending = itemRepository.countForWorkspace(subject.getId(),
+                QuestionBankItem.STATUS_REVIEW, normalizedQuery);
+        SubjectOption option = new SubjectOption(subject.getId(), subject.getCode(),
+                subject.getName(), subject.getDescription());
+        return new WorkspaceView(option, List.of(), List.of(), approved, pending);
+    }
+
     private ItemRow toRow(User actor, QuestionBankItem item, String subjectCode,
                           Map<Long, String> userNames, Map<Long, LessonTemplate> lessons) {
         LessonTemplate lesson = lessons.get(item.getLessonTemplateId());
+        int chapterOrder = lesson != null ? lesson.getChapterOrder()
+                : snapshotOrder(item.getChapterOrderSnapshot());
+        int lessonOrder = lesson != null ? lesson.getDisplayOrder()
+                : snapshotOrder(item.getLessonOrderSnapshot());
+        String chapterTitle = lesson != null ? lesson.getChapterTitle()
+                : snapshotTitle(item.getChapterTitleSnapshot(), "Chưa phân chương");
+        String lessonTitle = lesson != null ? lesson.getTitle()
+                : snapshotTitle(item.getLessonTitleSnapshot(), "Chưa gắn bài học");
         return new ItemRow(
                         item.getId(), preview(item.getContent()), item.getQuestionType(),
                         item.getWorkflowStatus(), subjectCode, item.getLessonTemplateId(),
-                        lesson == null ? Integer.MAX_VALUE : lesson.getChapterOrder(),
-                        lesson == null ? Integer.MAX_VALUE : lesson.getDisplayOrder(),
-                        lesson == null ? "Chưa phân chương" : lesson.getChapterTitle(),
-                        lesson == null ? "Chưa gắn bài học" : lesson.getTitle(),
+                        chapterOrder, lessonOrder, chapterTitle, lessonTitle,
                         userNames.getOrDefault(item.getContributorId(), "—"),
-                        item.getUpdatedAt(), canEdit(actor, item), canReview(actor, item));
+                        item.getUpdatedAt(), canEdit(actor, item), canReview(actor, item),
+                        lesson != null);
     }
 
     private static List<QuestionGroup> groupRows(List<ItemRow> rows) {
@@ -233,7 +282,8 @@ public class QuestionBankItemService {
     public Long save(Long userId, Role role, QuestionBankItemForm form) {
         User actor = requireActor(userId, role);
         Long subjectId = requireSubject(actor, form.getSubjectId()).getId();
-        Long lessonId = requireLesson(subjectId, form.getLessonTemplateId());
+        LessonTemplate lesson = requireLesson(subjectId, form.getLessonTemplateId());
+        Long lessonId = lesson.getId();
         List<QuestionBankOption> options = validatedOptions(form);
         String workflowStatus = resolveWorkflowAction(form.getWorkflowAction());
         QuestionBankItem item;
@@ -255,6 +305,8 @@ public class QuestionBankItemService {
                     sanitizeOptional(form.getExplanation()));
             item.transitionWorkflow(workflowStatus, null, null, null, null);
         }
+        item.bindLesson(lesson.getId(), lesson.getChapterOrder(), lesson.getChapterTitle(),
+                lesson.getDisplayOrder(), lesson.getTitle());
         QuestionBankItem saved = itemRepository.save(item);
         optionRepository.deleteByItemIdIn(List.of(saved.getId()));
         int order = 1;
@@ -276,6 +328,43 @@ public class QuestionBankItemService {
         return allowedSubjects(actor).stream()
                 .map(subject -> new SubjectOption(subject.getId(), subject.getCode(),
                         subject.getName(), subject.getDescription()))
+                .toList();
+    }
+
+    /**
+     * Returns the subject-first Question Bank catalog. Counts are aggregated in
+     * two grouped queries, rather than loading every lesson and question row.
+     */
+    @Transactional(readOnly = true)
+    public List<SubjectCatalogRow> subjectCatalog(Long userId, Role role, String query) {
+        User actor = requireActor(userId, role);
+        List<Department> subjects = allowedSubjects(actor);
+        if (subjects.isEmpty()) return List.of();
+
+        List<Long> subjectIds = subjects.stream().map(Department::getId).toList();
+        Map<Long, LessonTemplateRepository.SubjectContentCount> contentCounts = lessonRepository
+                .summarizeSubjects(subjectIds).stream()
+                .collect(Collectors.toMap(
+                        LessonTemplateRepository.SubjectContentCount::getSubjectId,
+                        count -> count));
+        Map<Long, QuestionBankItemRepository.SubjectQuestionCount> questionCounts = itemRepository
+                .summarizeSubjects(subjectIds).stream()
+                .collect(Collectors.toMap(
+                        QuestionBankItemRepository.SubjectQuestionCount::getSubjectId,
+                        count -> count));
+        String normalizedQuery = normalizeQuery(query);
+
+        return subjects.stream()
+                .filter(subject -> matchesSubject(subject, normalizedQuery))
+                .map(subject -> {
+                    var content = contentCounts.get(subject.getId());
+                    var questions = questionCounts.get(subject.getId());
+                    return new SubjectCatalogRow(subject.getId(), subject.getCode(), subject.getName(),
+                            subject.getDescription(),
+                            content == null ? 0 : content.getChapterCount(),
+                            content == null ? 0 : content.getLessonCount(),
+                            questions == null ? 0 : questions.getQuestionCount());
+                })
                 .toList();
     }
 
@@ -402,15 +491,22 @@ public class QuestionBankItemService {
                 .toList();
     }
 
-    private Long requireLesson(Long subjectId, Long lessonId) {
+    private LessonTemplate requireLesson(Long subjectId, Long lessonId) {
         if (lessonId == null) {
             throw new QuestionBankValidationException(
                     "Hãy tạo và chọn một chương/bài trong Kho học liệu trước khi thêm câu hỏi");
         }
         return lessonRepository.findByIdAndSubjectId(lessonId, subjectId)
-                .map(LessonTemplate::getId)
                 .orElseThrow(() -> new QuestionBankValidationException(
                         "Bài học không thuộc mã môn đã chọn"));
+    }
+
+    private static int snapshotOrder(Integer value) {
+        return value == null ? Integer.MAX_VALUE : value;
+    }
+
+    private static String snapshotTitle(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private Map<Long, LessonTemplate> lessonsById(List<QuestionBankItem> items) {
@@ -509,6 +605,12 @@ public class QuestionBankItemService {
         return preview(item.getContent()).toLowerCase().contains(query)
                 || names.getOrDefault(item.getContributorId(), "").toLowerCase().contains(query)
                 || subjectCode.toLowerCase().contains(query);
+    }
+
+    private static boolean matchesSubject(Department subject, String query) {
+        if (query == null) return true;
+        return subject.getCode().toLowerCase().contains(query)
+                || subject.getName().toLowerCase().contains(query);
     }
 
     private static String preview(String html) {

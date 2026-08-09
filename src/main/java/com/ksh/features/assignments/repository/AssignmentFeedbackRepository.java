@@ -3,6 +3,8 @@ package com.ksh.features.assignments.repository;
 import com.ksh.features.assignments.entity.AssignmentFeedback;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,4 +22,6 @@ public interface AssignmentFeedbackRepository extends JpaRepository<AssignmentFe
      * @return the feedback row, or empty if not yet graded
      */
     Optional<AssignmentFeedback> findBySubmissionId(Long submissionId);
+
+    List<AssignmentFeedback> findAllBySubmissionIdIn(Collection<Long> submissionIds);
 }

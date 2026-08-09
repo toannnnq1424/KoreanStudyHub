@@ -48,7 +48,7 @@ Recommended default: Model A. Seed stable unique codes `KOR311`, `KOR321`, `KOR4
 | Current table/family | Decision | Exact reason and dependency impact |
 |---|---|---|
 | `departments` | RENAME/REPURPOSE → `subjects` | Row shape already supplies code/name/leader/active. Update users, classes, QB, leader services, admin UI, permissions and audit naming. |
-| `courses`, `course_categories`, `categories` | REMOVE | Classes stopped referencing courses in V7. Remaining category admin/tests and seed/FKs are legacy. Verify no flashcard/discovery caller before deletion. |
+| `courses`, `course_categories`, `categories` | REMOVE | Classes stopped referencing courses in V7. Remaining category admin/tests and seed/FKs are legacy. Verify no Flashcard or shared-dictionary caller before deletion. |
 | `activity_courses` | REMOVE | Parent is removed and no production writer/entity was found. |
 | `activity_departments` | REMOVE | V3 duplicate has no entity, repository, writer, reader, route or template caller. |
 | `department_activities` | RENAME → `subjects_activities` | This is not dead: `DepartmentService` writes create/update/toggle/leader events through `SubjectAuditWriter`; `DepartmentQueryService.listActivities` reads it for the paged “Lịch sử cập nhật” tab in `admin/departments-form.html`. V91 performs the compatibility rename to `subject_activities`; V99 forwards it to the user-approved plural physical name without rewriting a checksum. |

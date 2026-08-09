@@ -12,18 +12,6 @@
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <main class="student-lessons-shell">
-  <!-- Top bar with back link + class name (mirrors the lessons page). -->
-  <div class="student-lessons-header">
-    <a th:href="@{/my/classes}" class="student-lessons-back">
-      <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           width="16" height="16">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
-      Quay lại lớp của tôi
-    </a>
-    <h1 class="student-lessons-title" th:text="${view.className()}">Tên lớp</h1>
-  </div>
-
   <!-- 2-column layout: shared class sidebar (left) + tests panel (right). -->
   <div class="student-class-tests-grid">
     <!-- LEFT SIDEBAR: shared class shell sidebar, 'tests' tab active. No

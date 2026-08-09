@@ -21,9 +21,7 @@ public class ClassesDtos {
      * uppercased). {@code gradientCss} is computed by the service from the list
      * index so each class gets a distinct color — see {@link com.ksh.features.classes.ClassGradient}.
      *
-     * <p>The stat columns ({@code studentCount}, {@code lectureCount},
-     * {@code assignmentCount}, {@code materialCount}) temporarily return 0 for
-     * Sprint 2. Sprint 3/5 will wire them to real counts.
+     * <p>The stat columns are live grouped aggregates for the current class page.
      *
      * <p>{@code createdAtIso} is {@code created_at.toString()} in ISO-8601 format,
      * used for client-side sorting by creation date.

@@ -3,11 +3,9 @@ package com.ksh.features.practice.manage.controller;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRecoveryQueryService;
 import com.ksh.features.practice.ai.readinglistening.QuestionExplanationRetryService;
-import com.ksh.features.practice.governance.PracticeCollaborationService;
 import com.ksh.features.practice.governance.PracticeLifecycleService;
 import com.ksh.features.practice.manage.service.PracticeDraftService;
 import com.ksh.features.practice.manage.service.PracticeRevisionService;
-import com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticePublishedVersionRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
@@ -40,9 +38,7 @@ class PracticeManageRecoveryControllerTest {
                 mock(PracticeDraftService.class),
                 mock(PracticeRevisionService.class),
                 mock(PracticePublishedVersionRepository.class),
-                mock(PracticeAuthoringCollaborationRepository.class),
                 mock(PracticeLifecycleService.class),
-                mock(PracticeCollaborationService.class),
                 mock(QuestionExplanationRecoveryQueryService.class),
                 retryService);
     }

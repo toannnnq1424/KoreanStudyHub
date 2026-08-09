@@ -51,11 +51,13 @@ class PracticePdfRetirementStaticContractTest {
         try (var paths = Files.list(ROOT.resolve("src/main/resources/db/migration"))) {
             List<String> names = paths.map(path -> path.getFileName().toString()).toList();
             assertThat(names).anyMatch(name -> name.startsWith("V111__"));
-            assertThat(names).noneMatch(name -> {
+            assertThat(names).filteredOn(name -> {
                 int separator = name.indexOf("__");
                 return separator > 1
-                        && Integer.parseInt(name.substring(1, separator)) > 111;
-            });
+                        && Integer.parseInt(name.substring(1, separator)) > 111
+                        && name.contains("practice_");
+            }).containsExactly(
+                    "V114__retire_practice_collaboration_and_dark_audio_review.sql");
         }
     }
 

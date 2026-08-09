@@ -1,7 +1,6 @@
 package com.ksh.features.dictionary;
 
 import com.ksh.features.dictionary.KoreanDictionaryDtos.SaveRequest;
-import com.ksh.features.discovery.dictionary.KoreanDictionaryClient;
 import com.ksh.features.flashcards.entity.Flashcard;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
 import com.ksh.features.flashcards.repository.FlashcardDeckRepository;

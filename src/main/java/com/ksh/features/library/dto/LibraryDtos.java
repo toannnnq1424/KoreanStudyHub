@@ -29,7 +29,8 @@ public final class LibraryDtos {
     public record AttachTargetClassRow(
             Long id,
             String name,
-            String code
+            String code,
+            boolean alreadyDistributed
     ) {
     }
 
@@ -44,12 +45,18 @@ public final class LibraryDtos {
             String contentType,
             LocalDateTime updatedAt,
             int attachmentCount,
-            boolean canManage
+            boolean canManage,
+            List<LessonResourceRow> resources
     ) {
     }
 
+    /** One persisted resource currently attached to a Library lesson. */
+    public record LessonResourceRow(Long assetId, String kind, String label, String name) {
+    }
+
     /** One chapter in the subject tree, containing its ordered lessons. */
-    public record ChapterView(int number, String title, List<LessonTemplateRow> lessons) {
+    public record ChapterView(int number, String title, List<LessonTemplateRow> lessons,
+                              boolean canManage) {
     }
 
     /** Paginated SSR view for the templates rail. */

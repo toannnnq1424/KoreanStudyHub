@@ -2,6 +2,8 @@ package com.ksh.features.flashcards.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
+import com.ksh.entities.Department;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.flashcards.dto.FlashcardDtos.ClassOption;
@@ -12,6 +14,7 @@ import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSaveResult;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSummary;
 import com.ksh.features.flashcards.dto.FlashcardDtos.StudentDeckList;
+import com.ksh.features.flashcards.dto.FlashcardDtos.SubjectOption;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
 import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
 import com.ksh.features.flashcards.repository.FlashcardRepository;
@@ -42,6 +45,7 @@ public class DeckService {
     private final EnrollmentRepository enrollmentRepository;
     private final ClassRepository classRepository;
     private final CardService cardService;
+    private final DepartmentRepository subjectRepository;
 
     public DeckService(FlashcardDeckRepository deckRepository,
                        FlashcardRepository cardRepository,
@@ -49,7 +53,8 @@ public class DeckService {
                        DeckSummaryAssembler assembler,
                        EnrollmentRepository enrollmentRepository,
                        ClassRepository classRepository,
-                       CardService cardService) {
+                       CardService cardService,
+                       DepartmentRepository subjectRepository) {
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
         this.accessResolver = accessResolver;
@@ -57,6 +62,7 @@ public class DeckService {
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.cardService = cardService;
+        this.subjectRepository = subjectRepository;
     }
 
     /** Creates a new PRIVATE deck owned by the caller; returns its id. */
@@ -64,6 +70,7 @@ public class DeckService {
     public Long createDeck(Long ownerId, DeckForm form) {
         FlashcardDeck deck = new FlashcardDeck(ownerId, form.title().trim(),
                 trimToNull(form.description()));
+        deck.assignSubject(requireActiveSubject(form.subjectId()));
         return deckRepository.save(deck).getId();
     }
 
@@ -81,6 +88,7 @@ public class DeckService {
     public void updateMetadata(Long deckId, Long ownerId, DeckForm form) {
         FlashcardDeck deck = accessResolver.requireOwner(deckId, ownerId);
         deck.updateMetadata(form.title().trim(), trimToNull(form.description()));
+        deck.assignSubject(requireActiveSubject(form.subjectId()));
         deckRepository.save(deck);
     }
 
@@ -122,11 +130,18 @@ public class DeckService {
      */
     @Transactional(readOnly = true)
     public StudentDeckList listForStudent(Long userId, int page) {
-        Page<DeckSummary> ownPage = ownDecksPage(userId, page);
+        return listForStudent(userId, page, "");
+    }
+
+    /** Searches visible decks by title or subject code/name. */
+    @Transactional(readOnly = true)
+    public StudentDeckList listForStudent(Long userId, int page, String query) {
+        String keyword = query == null ? "" : query.trim();
+        Page<DeckSummary> ownPage = ownDecksPage(userId, page, keyword);
         List<Long> classIds = activeClassIds(userId);
         List<FlashcardDeck> shared = classIds.isEmpty() ? List.of()
-                : deckRepository.findByVisibilityAndClassIdInAndOwnerIdNotOrderByUpdatedAtDesc(
-                        FlashcardDeck.VISIBILITY_SHARED, classIds, userId);
+                : deckRepository.searchShared(FlashcardDeck.VISIBILITY_SHARED,
+                        classIds, userId, keyword);
         return new StudentDeckList(ownPage, assembler.toSummaries(shared, userId));
     }
 
@@ -156,11 +171,11 @@ public class DeckService {
      * correct for the pager). id is a stable tiebreaker so same-second decks keep
      * a fixed order and never drift between pages.
      */
-    private Page<DeckSummary> ownDecksPage(Long userId, int page) {
+    private Page<DeckSummary> ownDecksPage(Long userId, int page, String keyword) {
         int safePage = Math.max(page, 0);
         PageRequest pageable = PageRequest.of(safePage, DEFAULT_DECK_PAGE_SIZE,
                 Sort.by(Sort.Direction.DESC, "createdAt", "id"));
-        Page<FlashcardDeck> deckPage = deckRepository.findByOwnerId(userId, pageable);
+        Page<FlashcardDeck> deckPage = deckRepository.searchOwned(userId, keyword, pageable);
         List<DeckSummary> summaries = assembler.toSummaries(deckPage.getContent(), userId);
         return new PageImpl<>(summaries, pageable, deckPage.getTotalElements());
     }
@@ -207,6 +222,14 @@ public class DeckService {
         return options;
     }
 
+    /** Active canonical subjects available when creating or editing a deck. */
+    @Transactional(readOnly = true)
+    public List<SubjectOption> activeSubjects() {
+        return subjectRepository.findByActiveTrueOrderByNameAsc().stream()
+                .map(subject -> new SubjectOption(subject.getId(), subject.getCode(), subject.getName()))
+                .toList();
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private boolean isOwnersClass(Long ownerId, Long classId) {
@@ -231,4 +254,14 @@ public class DeckService {
         String t = s.trim();
         return t.isEmpty() ? null : t;
     }
+
+    private Long requireActiveSubject(Long subjectId) {
+        if (subjectId == null) return null;
+        return subjectRepository.findById(subjectId)
+                .filter(Department::isActive)
+                .map(Department::getId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Mã môn không tồn tại hoặc đang bị ẩn"));
+    }
+
 }

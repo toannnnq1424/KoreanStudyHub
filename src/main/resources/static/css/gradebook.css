@@ -1,0 +1,68 @@
+.gradebook-page{min-width:0;padding:30px 34px 48px;background:#f7f9fd}
+.gradebook-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:22px}
+.gradebook-heading .detail-title{margin:2px 0 6px}
+.gradebook-kicker{margin:0;color:#477ee8;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.gradebook-help{margin:0;color:#737b8d;font-size:14px}
+.gradebook-switch{display:flex;align-items:center;gap:11px;cursor:pointer}
+.gradebook-switch input{position:absolute;opacity:0}
+.gradebook-switch>span:first-of-type{width:44px;height:24px;border-radius:999px;background:#c9cfda;position:relative;transition:.2s}
+.gradebook-switch>span:first-of-type:after{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0003;transition:.2s}
+.gradebook-switch input:checked+span{background:#4f7fe8}
+.gradebook-switch input:checked+span:after{transform:translateX(20px)}
+.gradebook-switch strong,.gradebook-switch small{display:block}
+.gradebook-switch small{color:#7d8493;font-size:11px;margin-top:2px}
+
+/* The gradebook is deliberately a flat workspace, not a stack of rounded cards. */
+.gradebook-card{width:100%;min-width:0;background:#fff;border:1px solid #dfe4ed;border-radius:0;box-shadow:none;overflow:hidden}
+.gradebook-toolbar{display:grid;grid-template-columns:minmax(190px,260px) minmax(220px,1fr);gap:0;padding:0;border-bottom:1px solid #e1e6ef}
+.gradebook-toolbar select,.gradebook-search{height:48px;border:0;border-right:1px solid #e1e6ef;border-radius:0;background:#fff}
+.gradebook-toolbar select{padding:0 14px;color:#263044}
+.gradebook-search{display:flex;align-items:center;gap:10px;padding:0 14px}
+.gradebook-search span{font-size:23px;color:#667085}
+.gradebook-search input{border:0;outline:0;width:100%;min-width:0;font:inherit}
+.gradebook-selection{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#eefaf0;color:#31724b;font-size:13px;border-bottom:1px solid #e1e6ef}
+.gradebook-selection button{border:0;background:transparent;color:#4777dd;font-weight:700;cursor:pointer}
+
+/* Desktop always fits the available content pane. Columns share the remaining width. */
+.gradebook-table-wrap{width:100%;max-width:100%;overflow:hidden}
+.gradebook-table{width:100%;table-layout:fixed;border-collapse:collapse}
+.gradebook-table th{background:#f4f6fa;padding:12px 10px;text-align:left;color:#4f586a;border-right:1px solid #e1e6ef;border-bottom:1px solid #e1e6ef;vertical-align:top;overflow-wrap:anywhere}
+.gradebook-table td{padding:13px 10px;border-right:1px solid #edf0f5;border-bottom:1px solid #edf0f5;background:#fff;overflow-wrap:anywhere}
+.gradebook-table th:last-child,.gradebook-table td:last-child{border-right:0}
+.gradebook-student-col{width:24%;min-width:0}
+.gradebook-average-col{width:12%;min-width:78px}
+.gradebook-score-col{width:auto;min-width:0;cursor:pointer;user-select:none}
+.gradebook-score-col:hover{background:#e9effd}
+.gradebook-score-col strong,.gradebook-score-col small{display:block;line-height:1.25}
+.gradebook-score-col small{font-weight:500;color:#858c9a;margin-top:4px;font-size:11px}
+.gradebook-type{display:inline-block;color:#4d70d5;background:#e4ebff;border-radius:0;padding:2px 5px;margin-bottom:5px;font-size:9px}
+.gradebook-score-col.is-selected{background:#b9caf9;color:#234aa9}
+.gradebook-score-cell.is-selected{background:#eef3ff}
+.gradebook-student-col{display:table-cell}
+.gradebook-student-col>span{vertical-align:middle}
+.gradebook-student-col strong,.gradebook-student-col small{display:block}
+.gradebook-student-col small{color:#858c9a;margin-top:3px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gradebook-avatar{display:inline-grid;place-items:center;width:32px;height:32px;margin-right:8px;border-radius:50%;background:#e8eef9;color:#386cc8;font-weight:800}
+.gradebook-average-col strong{color:#214d9a;font-size:16px}
+.gradebook-missing{color:#a0a6b2}
+.gradebook-empty{padding:70px 24px;text-align:center;color:#737b8d}
+
+@media(max-width:1100px){
+  .gradebook-page{padding:22px 20px 40px}
+  .gradebook-table th,.gradebook-table td{padding:10px 7px;font-size:12px}
+  .gradebook-student-col{width:26%}
+  .gradebook-average-col{width:11%}
+  .gradebook-avatar{display:none}
+  .gradebook-type{font-size:8px;padding:1px 3px}
+}
+
+@media(max-width:760px){
+  .gradebook-page{padding:18px 12px 32px}
+  .gradebook-heading{align-items:flex-start;flex-direction:column}
+  .gradebook-toolbar{grid-template-columns:1fr}
+  .gradebook-toolbar select,.gradebook-search{border-right:0;border-bottom:1px solid #e1e6ef}
+  .gradebook-table th,.gradebook-table td{padding:9px 5px;font-size:11px}
+  .gradebook-student-col{width:30%}
+  .gradebook-average-col{width:14%}
+  .gradebook-student-col small,.gradebook-score-col small,.gradebook-type{display:none}
+}

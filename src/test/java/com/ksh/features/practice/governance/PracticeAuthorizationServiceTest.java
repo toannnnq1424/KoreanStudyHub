@@ -1,11 +1,9 @@
 package com.ksh.features.practice.governance;
 
-import com.ksh.entities.PracticeAuthoringCollaboration;
 import com.ksh.entities.PracticeDraft;
 import com.ksh.entities.PracticeSet;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository;
 import com.ksh.features.practice.repository.PracticeDraftRepository;
 import com.ksh.features.practice.repository.PracticeSetRepository;
 import com.ksh.security.Role;
@@ -31,76 +29,31 @@ class PracticeAuthorizationServiceTest {
     private final UserRepository userRepository = mock(UserRepository.class);
     private final PracticeDraftRepository draftRepository = mock(PracticeDraftRepository.class);
     private final PracticeSetRepository setRepository = mock(PracticeSetRepository.class);
-    private final PracticeAuthoringCollaborationRepository collaborationRepository =
-            mock(PracticeAuthoringCollaborationRepository.class);
     private PracticeAuthorizationService service;
 
     @BeforeEach
     void setUp() {
         service = new PracticeAuthorizationService(
-                jdbcTemplate, userRepository, draftRepository, setRepository,
-                collaborationRepository);
+                jdbcTemplate, userRepository, draftRepository, setRepository);
     }
 
     @Test
-    void ownerCanEditOwnLockedSet() throws Exception {
+    void ownerCanEditOwnSet() throws Exception {
         PracticeSet set = set(10L, 11L);
-        set.lock(11L);
         allow(11L, PracticeAction.EDIT);
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
 
         PracticeAuthorizationService.Decision decision =
                 service.requireSet(10L, 11L, PracticeAction.EDIT);
 
-        assertTrue(decision.ownerLocked());
-    }
-
-    @Test
-    void collaboratorGrantAllowsCanonicalContentActions() throws Exception {
-        PracticeSet set = set(10L, 11L);
-        PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                10L, 22L);
-        allow(22L, PracticeAction.EDIT);
-        allow(22L, PracticeAction.PUBLISH);
-        when(setRepository.findById(10L)).thenReturn(Optional.of(set));
-        when(collaborationRepository
-                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        10L, 22L)).thenReturn(Optional.of(grant));
-
-        assertFalse(service.requireSet(10L, 22L, PracticeAction.EDIT)
-                .ownerLocked());
-        assertFalse(service.requireSet(10L, 22L, PracticeAction.PUBLISH)
-                .ownerLocked());
-    }
-
-    @Test
-    void ownerLockBlocksCollaboratorMutation() throws Exception {
-        PracticeSet set = set(10L, 11L);
-        set.lock(11L);
-        PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                10L, 22L);
-        allow(22L, PracticeAction.EDIT);
-        allow(22L, PracticeAction.PUBLISH);
-        when(setRepository.findById(10L)).thenReturn(Optional.of(set));
-        when(collaborationRepository
-                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        10L, 22L)).thenReturn(Optional.of(grant));
-
-        assertThrows(AccessDeniedException.class,
-                () -> service.requireSet(10L, 22L, PracticeAction.EDIT));
-        assertThrows(AccessDeniedException.class,
-                () -> service.requireSet(10L, 22L, PracticeAction.PUBLISH));
+        assertTrue(decision.ownerId().equals(11L));
     }
 
     @Test
     void unrelatedLecturerCannotMutateOwnerContent() throws Exception {
         PracticeSet set = set(10L, 11L);
-        set.lock(11L);
         allow(33L, PracticeAction.EDIT);
         when(setRepository.findById(10L)).thenReturn(Optional.of(set));
-        when(collaborationRepository
-                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        10L, 33L)).thenReturn(Optional.empty());
 
         assertThrows(AccessDeniedException.class,
                 () -> service.requireSet(10L, 33L, PracticeAction.EDIT));
@@ -148,28 +101,6 @@ class PracticeAuthorizationServiceTest {
                 () -> service.requireGlobal(41L, PracticeAction.CREATE));
         assertThrows(AccessDeniedException.class,
                 () -> service.requireGlobal(42L, PracticeAction.CREATE));
-    }
-
-    @Test
-    void linkedSetLockAlsoBlocksDraftCollaborator() throws Exception {
-        PracticeSet set = set(10L, 11L);
-        set.lock(11L);
-        PracticeDraft draft = new PracticeDraft(
-                "Draft", "",  "GLOBAL", null,
-                "DRAFT", 11L, "{}");
-        setId(draft, 20L);
-        draft.setPublishedSetId(10L);
-        PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                10L, 22L);
-        allow(22L, PracticeAction.EDIT);
-        when(draftRepository.findById(20L)).thenReturn(Optional.of(draft));
-        when(setRepository.findById(10L)).thenReturn(Optional.of(set));
-        when(collaborationRepository
-                .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
-                        10L, 22L)).thenReturn(Optional.of(grant));
-
-        assertThrows(AccessDeniedException.class,
-                () -> service.requireDraft(20L, 22L, PracticeAction.EDIT));
     }
 
     @Test

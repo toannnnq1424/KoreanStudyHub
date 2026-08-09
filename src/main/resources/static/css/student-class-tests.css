@@ -10,7 +10,7 @@
   grid-template-columns: 260px 1fr;
   gap: 0;
   align-items: stretch;
-  min-height: calc(100vh - 64px - 80px);
+  min-height: calc(100vh - var(--header-height, 64px));
 }
 
 @media (max-width: 1199px) {

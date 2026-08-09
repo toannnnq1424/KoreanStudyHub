@@ -38,6 +38,18 @@ public class QuestionBankItem {
     @Column(name = "lesson_template_id")
     private Long lessonTemplateId;
 
+    @Column(name = "chapter_title_snapshot", length = 200)
+    private String chapterTitleSnapshot;
+
+    @Column(name = "lesson_title_snapshot", length = 300)
+    private String lessonTitleSnapshot;
+
+    @Column(name = "chapter_order_snapshot")
+    private Integer chapterOrderSnapshot;
+
+    @Column(name = "lesson_order_snapshot")
+    private Integer lessonOrderSnapshot;
+
     @Column(name = "contributor_id", nullable = false)
     private Long contributorId;
 
@@ -116,6 +128,19 @@ public class QuestionBankItem {
         this.explanation = explanation;
     }
 
+    /**
+     * Binds the canonical Library lesson and stores enough hierarchy metadata
+     * to keep this bank item intelligible if that lesson is later soft-deleted.
+     */
+    public void bindLesson(Long lessonTemplateId, int chapterOrder, String chapterTitle,
+                           int lessonOrder, String lessonTitle) {
+        this.lessonTemplateId = lessonTemplateId;
+        this.chapterOrderSnapshot = chapterOrder;
+        this.chapterTitleSnapshot = chapterTitle;
+        this.lessonOrderSnapshot = lessonOrder;
+        this.lessonTitleSnapshot = lessonTitle;
+    }
+
     /** Compatibility overload for callers that keep the existing lesson link. */
     public void updateAuthoring(String questionType, String content, String explanation) {
         updateAuthoring(this.lessonTemplateId, questionType, content, explanation);
@@ -170,6 +195,14 @@ public class QuestionBankItem {
     }
 
     public Long getLessonTemplateId() { return lessonTemplateId; }
+
+    public String getChapterTitleSnapshot() { return chapterTitleSnapshot; }
+
+    public String getLessonTitleSnapshot() { return lessonTitleSnapshot; }
+
+    public Integer getChapterOrderSnapshot() { return chapterOrderSnapshot; }
+
+    public Integer getLessonOrderSnapshot() { return lessonOrderSnapshot; }
 
     public Long getContributorId() {
         return contributorId;

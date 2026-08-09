@@ -1,17 +1,20 @@
 package com.ksh.features.flashcards.service;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Department;
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
 import com.ksh.entities.UserFactory;
 import com.ksh.security.Role;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckDetailView;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSummary;
 import com.ksh.features.flashcards.dto.FlashcardDtos.StudentDeckList;
+import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,8 @@ class DeckServiceTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private DepartmentRepository subjectRepository;
+    @Autowired private FlashcardDeckRepository deckRepository;
 
     private User owner;   // student@
     private User member;  // sv02@ — enrolled classmate
@@ -67,6 +72,53 @@ class DeckServiceTest {
         Long id = deckService.createDeck(owner.getId(), new DeckForm("Cũ", null));
         deckService.updateMetadata(id, owner.getId(), new DeckForm("Mới", "d2"));
         assertThat(deckService.getDetail(id, owner.getId()).title()).isEqualTo("Mới");
+    }
+
+    @Test
+    void create_and_update_assign_active_subject() {
+        Department first = subjectRepository.saveAndFlush(new Department(
+                "Korean Flashcard Subject", "FC" + System.nanoTime(), null, true));
+        Department second = subjectRepository.saveAndFlush(new Department(
+                "Korean Flashcard Subject 2", "FS" + System.nanoTime(), null, true));
+
+        Long id = deckService.createDeck(owner.getId(),
+                new DeckForm("Theo môn", null, first.getId()));
+        assertThat(deckRepository.findById(id).orElseThrow().getSubjectId())
+                .isEqualTo(first.getId());
+
+        deckService.updateMetadata(id, owner.getId(),
+                new DeckForm("Theo môn mới", null, second.getId()));
+        assertThat(deckRepository.findById(id).orElseThrow().getSubjectId())
+                .isEqualTo(second.getId());
+    }
+
+    @Test
+    void inactive_subject_is_rejected() {
+        Department inactive = subjectRepository.saveAndFlush(new Department(
+                "Hidden Flashcard Subject", "FH" + System.nanoTime(), null, false));
+
+        assertThatThrownBy(() -> deckService.createDeck(owner.getId(),
+                new DeckForm("Không hợp lệ", null, inactive.getId())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("đang bị ẩn");
+    }
+
+    @Test
+    void list_search_matches_title_subject_code_and_subject_name() {
+        String suffix = String.valueOf(System.nanoTime());
+        Department subject = subjectRepository.saveAndFlush(new Department(
+                "Ngữ pháp tìm kiếm " + suffix, "KFS" + suffix, null, true));
+        Long id = deckService.createDeck(owner.getId(),
+                new DeckForm("Bộ thẻ chuyên đề", null, subject.getId()));
+
+        assertThat(deckService.listForStudent(owner.getId(), 0, "chuyên đề")
+                .ownDecks().getContent()).anyMatch(deck -> deck.id().equals(id));
+        assertThat(deckService.listForStudent(owner.getId(), 0, "KFS" + suffix)
+                .ownDecks().getContent()).anyMatch(deck -> deck.id().equals(id));
+        assertThat(deckService.listForStudent(owner.getId(), 0, "Ngữ pháp tìm kiếm " + suffix)
+                .ownDecks().getContent()).anyMatch(deck -> deck.id().equals(id));
+        assertThat(deckService.listForStudent(owner.getId(), 0, "không-trùng-" + suffix)
+                .ownDecks().getContent()).noneMatch(deck -> deck.id().equals(id));
     }
 
     @Test

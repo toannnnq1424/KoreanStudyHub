@@ -1,6 +1,6 @@
 /* Non-Practice learning flows only. This file intentionally does not target
    Practice containers, so its light KSH palette cannot leak into Practice. */
-:where(.tst-page, .qb-page, .library-shell, .library-lesson-form-page, .my-classes-shell, .class-form-page) {
+:where(.tst-page, .qb-page, .library-shell, .library-detail-page, .library-lesson-form-page, .my-classes-shell, .class-form-page) {
   --learn-ink: #243b4b;
   --learn-muted: #647b8c;
   --learn-primary: #367fa9;
@@ -250,7 +250,7 @@
 .library-subject-list span { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .library-content { padding: 22px; min-width: 0; }
 .library-content .content-create-btn, .library-lesson-form-page .btn-primary {
-  border-radius: 12px; background: var(--learn-primary); box-shadow: none;
+  border-radius: 12px; background: var(--learn-primary, #367fa9); color: #fff; box-shadow: none;
 }
 .library-content .content-create-btn:hover, .library-lesson-form-page .btn-primary:hover { background: var(--learn-primary-hover); }
 .library-content .content-search { border-color: var(--learn-border); border-radius: 14px; background: #f8fcfe; }

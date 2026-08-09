@@ -8,11 +8,9 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -27,23 +25,6 @@ class PracticeLifecycleServiceTest {
     @BeforeEach
     void setUp() {
         service = new PracticeLifecycleService(authorizationService, setRepository);
-    }
-
-    @Test
-    void lockAndUnlockSetPersistOwnerState() {
-        PracticeSet set = publishedSet(11L);
-        allowSet(10L, 11L, PracticeAction.LOCK);
-        when(setRepository.findById(10L)).thenReturn(Optional.of(set));
-
-        service.lockSet(10L, 11L);
-        assertTrue(set.isOwnerLocked());
-        assertEquals(11L, set.getLockedBy());
-        assertNotNull(set.getLockedAt());
-
-        service.unlockSet(10L, 11L);
-        assertFalse(set.isOwnerLocked());
-        assertNull(set.getLockedBy());
-        assertNull(set.getLockedAt());
     }
 
     @Test
@@ -73,7 +54,7 @@ class PracticeLifecycleServiceTest {
 
     private void allowSet(Long setId, Long actorId, PracticeAction action) {
         when(authorizationService.requireSetOwner(setId, actorId, action))
-                .thenReturn(new PracticeAuthorizationService.Decision(actorId, false));
+                .thenReturn(new PracticeAuthorizationService.Decision(actorId));
     }
 
     private static PracticeSet publishedSet(Long ownerId) {

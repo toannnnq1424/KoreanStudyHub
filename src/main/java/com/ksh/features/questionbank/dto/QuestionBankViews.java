@@ -21,6 +21,11 @@ public final class QuestionBankViews {
     public record SubjectOption(Long id, String code, String name, String description) {
     }
 
+    /** One subject row on the lecturer Question Bank entry catalog. */
+    public record SubjectCatalogRow(Long id, String code, String name, String description,
+                                    long chapterCount, long lessonCount, long questionCount) {
+    }
+
     public record LessonOption(Long id, Long subjectId, String subjectCode,
                                String chapterTitle, String lessonTitle) {
     }
@@ -34,7 +39,8 @@ public final class QuestionBankViews {
                           Long lessonTemplateId, int chapterOrder, int lessonOrder,
                           String chapterTitle, String lessonTitle,
                           String contributorName, LocalDateTime updatedAt,
-                          boolean editable, boolean reviewable) {
+                          boolean editable, boolean reviewable,
+                          boolean librarySourceAvailable) {
     }
 
     public record QuestionGroup(Long lessonTemplateId, String chapterTitle,

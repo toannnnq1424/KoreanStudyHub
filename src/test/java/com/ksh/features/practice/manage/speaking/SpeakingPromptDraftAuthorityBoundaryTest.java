@@ -43,7 +43,7 @@ class SpeakingPromptDraftAuthorityBoundaryTest {
     void lockedAuthorizationSupportsPromptAndAuthoringModeTransitions() throws Exception {
         PracticeDraft draft = speakingDraft(10L, "q-1", "기존 질문");
         when(authorization.requireDraft(41L, 10L, PracticeAction.EDIT))
-                .thenReturn(new PracticeAuthorizationService.Decision(10L, false));
+                .thenReturn(new PracticeAuthorizationService.Decision(10L));
         when(drafts.findByIdForUpdate(41L)).thenReturn(Optional.of(draft));
 
         SpeakingPromptDraftAuthority.AuthorizedDraft authorized =
@@ -73,7 +73,7 @@ class SpeakingPromptDraftAuthorityBoundaryTest {
     void missingOptionsHaveSafeDefaultsAndMalformedSpeedIsUnavailable() {
         PracticeDraft draft = speakingDraft(10L, "q-1", "질문");
         when(authorization.requireDraft(41L, 10L, PracticeAction.READ))
-                .thenReturn(new PracticeAuthorizationService.Decision(10L, false));
+                .thenReturn(new PracticeAuthorizationService.Decision(10L));
         when(drafts.findById(41L)).thenReturn(Optional.of(draft));
         SpeakingPromptDraftAuthority.AuthorizedDraft authorized =
                 authority.authorize(41L, "q-1", 10L, PracticeAction.READ);
@@ -126,7 +126,7 @@ class SpeakingPromptDraftAuthorityBoundaryTest {
     void ownerMismatchAndMissingDraftAreBounded() {
         PracticeDraft draft = speakingDraft(10L, "q-1", "질문");
         when(authorization.requireDraft(41L, 99L, PracticeAction.EDIT))
-                .thenReturn(new PracticeAuthorizationService.Decision(12L, false));
+                .thenReturn(new PracticeAuthorizationService.Decision(12L));
         when(drafts.findByIdForUpdate(41L)).thenReturn(Optional.of(draft));
         assertThatThrownBy(() -> authority.authorizeAndLock(
                 41L, "q-1", 99L, PracticeAction.EDIT))

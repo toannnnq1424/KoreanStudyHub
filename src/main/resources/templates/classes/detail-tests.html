@@ -5,8 +5,9 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-list.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
 </head>
-<body>
+<body class="ux-polish ux-class-tests">
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
 <span id="flash-data"
@@ -44,10 +45,10 @@
           <td th:text="${exam.totalQuestions()}">0</td>
           <td th:text="${exam.endAt() != null ? #temporals.format(exam.endAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</td>
           <td class="tst-row-actions">
-            <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='info')}">Sửa</a>
-            <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/preview'}">Xem trước</a>
-            <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='monitor')}">Theo dõi</a>
-            <a th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='submissions')}">Bài nộp</a>
+            <a class="tst-row-link" th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='info')}">Sửa</a>
+            <a class="tst-row-link" th:href="@{'/lecturer/tests/' + ${exam.id()} + '/preview'}">Xem trước</a>
+            <a class="tst-row-link" th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='monitor')}">Theo dõi</a>
+            <a class="tst-row-link" th:href="@{'/lecturer/tests/' + ${exam.id()} + '/edit'(tab='submissions')}">Bài nộp</a>
           </td>
         </tr>
         </tbody>

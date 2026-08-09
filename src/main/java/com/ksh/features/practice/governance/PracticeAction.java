@@ -6,7 +6,6 @@ public enum PracticeAction {
     EDIT("practice.edit"),
     PUBLISH("practice.publish"),
     ARCHIVE("practice.archive"),
-    LOCK("practice.lock"),
     RESTORE("practice.restore"),
     MATERIAL_MANAGE("practice.material.manage");
 

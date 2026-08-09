@@ -64,14 +64,14 @@ Với workflow khác, chọn nhóm dưới đây:
 - [Question Bank governance/import](workflows/product/QUESTION_BANK_WORKFLOWS.md)
 - [Random test từ Question Bank](workflows/QUESTION_BANK_RANDOM_TEST.md)
 - [Flashcards](workflows/product/FLASHCARDS_WORKFLOWS.md)
-- [Discovery/dictionary/news editorial](workflows/product/DISCOVERY_DICTIONARY_WORKFLOWS.md)
+- [Shared Korean dictionary and Flashcard capture](../KOREAN_DICTIONARY_FLASHCARD_WORKFLOW.md)
 - [Messaging, notifications và mail](workflows/product/MESSAGING_NOTIFICATIONS_MAIL_WORKFLOWS.md)
 
 ### Practice thường, AI và media
 
 - [Submit và AI evaluation end-to-end](workflows/PRACTICE_SUBMIT_AND_AI_EVALUATION.md)
 - [Learner catalog/start/preflight/player/result/preferences](workflows/practice/01_LEARNER_CATALOG_ATTEMPT_RESULT.md)
-- [Lecturer draft/autosave/publish/version/collaboration](workflows/practice/02_AUTHORING_DRAFT_PUBLISH_GOVERNANCE.md)
+- [Lecturer owner-only draft/autosave/publish/version](workflows/practice/02_AUTHORING_DRAFT_PUBLISH_GOVERNANCE.md)
 - [Excel/PDF/Text AI candidate + material library](workflows/practice/03_IMPORT_EXCEL_PDF_AI_CANDIDATE.md)
 - [Objective explanation AI/editorial](workflows/practice/04_OBJECTIVE_EXPLANATION_AI_EDITORIAL.md)
 - [Speaking prompt STT/TTS authoring](workflows/practice/05_SPEAKING_PROMPT_AUTHORING_STT_TTS.md)
