@@ -773,7 +773,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertFalse(dashboard.contains("name=\"canPublish\""));
         assertFalse(dashboard.contains("name=\"canRestore\""));
         assertFalse(dashboard.contains("name=\"canManageMaterial\""));
-        assertTrue(dashboard.contains("Được cộng tác toàn bộ nội dung"));
+        assertFalse(dashboard.contains("Được cộng tác toàn bộ nội dung"));
+        assertFalse(dashboard.contains("cộng tác biên soạn"));
         assertFalse(Files.exists(Path.of(
                 "src/main/java/com/ksh/features/practice/manage/controller/PracticeCollaborationController.java")));
         assertFalse(Files.exists(Path.of(
@@ -781,14 +782,15 @@ class PracticePhase11AuthoringUiContractTest {
     }
 
     @Test
-    void phase12MaterialLibrarySeparatesMineAndSharedWithoutRawStorageLinks()
+    void phase12MaterialLibraryIsOwnerOnlyWithoutRawStorageLinks()
             throws Exception {
         String page = read("src/main/resources/templates/practice/manage/material-library.html");
         String service = read("src/main/java/com/ksh/features/practice/manage/service/PracticeMaterialLibraryService.java");
         String sidebar = read("src/main/resources/templates/fragments/practice-sidebar.html");
 
         assertTrue(page.contains("Của tôi"));
-        assertTrue(page.contains("Được chia sẻ"));
+        assertFalse(page.contains("Được chia sẻ"));
+        assertFalse(page.contains("catalog.shared"));
         assertTrue(page.contains("item.contentUrl"));
         assertTrue(page.contains("item.referenceCount"));
         assertTrue(page.contains("/practice/manage/materials/{id}/delete"));
@@ -841,7 +843,8 @@ class PracticePhase11AuthoringUiContractTest {
 
         assertTrue(dashboard.contains("Quản lý bộ đề"));
         assertTrue(dashboard.contains("Bộ đề của tôi"));
-        assertTrue(dashboard.contains("Bộ đề của giảng viên khác"));
+        assertFalse(dashboard.contains("Bộ đề của giảng viên khác"));
+        assertFalse(dashboard.contains("Shared with me"));
         assertTrue(dashboard.contains("Không gian giảng viên"));
         assertTrue(dashboard.contains("Xem trước"));
         assertFalse(dashboard.contains("Manage Test Sets"));
@@ -857,7 +860,6 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(dashboard.contains("pm-action-btn--warning"));
         assertTrue(dashboard.contains("pm-action-btn--danger"));
         assertTrue(manageDashboardCss.contains(".pm-action-btn:focus-visible"));
-        assertTrue(manageDashboardCss.contains(".pm-action-collaboration[open]"));
         assertTrue(manageDashboardCss.contains(".pm-dashboard-heading"));
         assertTrue(manageDashboardCss.contains(".pm-dashboard-stats"));
         assertTrue(manageDashboardCss.contains("@media (max-width: 680px)"));

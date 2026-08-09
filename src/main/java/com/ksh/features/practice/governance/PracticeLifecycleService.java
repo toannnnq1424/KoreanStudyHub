@@ -19,22 +19,6 @@ public class PracticeLifecycleService {
     }
 
     @Transactional
-    public void lockSet(Long setId, Long actorId) {
-        authorizationService.requireSetOwner(setId, actorId, PracticeAction.LOCK);
-        PracticeSet set = requireSet(setId);
-        set.lock(actorId);
-        setRepository.save(set);
-    }
-
-    @Transactional
-    public void unlockSet(Long setId, Long actorId) {
-        authorizationService.requireSetOwner(setId, actorId, PracticeAction.LOCK);
-        PracticeSet set = requireSet(setId);
-        set.unlock();
-        setRepository.save(set);
-    }
-
-    @Transactional
     public void archiveSet(Long setId, Long actorId) {
         authorizationService.requireSetOwner(setId, actorId, PracticeAction.ARCHIVE);
         PracticeSet set = requireSet(setId);

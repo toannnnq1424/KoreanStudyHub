@@ -14,7 +14,6 @@ import java.util.Map;
 public class KoreanDictionarySettingsService {
     public static final String API_KEY = "dictionary.krdict.api-key";
     public static final String BASE_URL = "dictionary.krdict.base-url";
-    private static final String LEGACY_API_KEY = "app.news.dictionary.api-key";
     private static final String DEFAULT_BASE_URL = "https://krdict.korean.go.kr/api/search";
     private static final String GROUP = SystemSettingGroups.DICTIONARY;
     private final SystemSettingsRepository repository;
@@ -27,9 +26,6 @@ public class KoreanDictionarySettingsService {
     public String apiKey(String environmentFallback) {
         Map<String, String> settings = repository.loadGroupAsMap(GROUP);
         String stored = settings.get(API_KEY);
-        if (stored == null || stored.isBlank()) {
-            stored = repository.loadGroupAsMap(SystemSettingGroups.DISCOVERY).get(LEGACY_API_KEY);
-        }
         return stored == null || stored.isBlank() ? normalize(environmentFallback) : stored.trim();
     }
 

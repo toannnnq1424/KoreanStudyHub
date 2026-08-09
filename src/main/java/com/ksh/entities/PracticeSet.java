@@ -63,15 +63,6 @@ public class PracticeSet {
     @Column(nullable = false, length = 20)
     private String status;
 
-    @Column(name = "owner_locked", nullable = false)
-    private boolean ownerLocked;
-
-    @Column(name = "locked_by")
-    private Long lockedBy;
-
-    @Column(name = "locked_at")
-    private LocalDateTime lockedAt;
-
     @Column(name = "archived_at")
     private LocalDateTime archivedAt;
 
@@ -145,18 +136,6 @@ public class PracticeSet {
         return status;
     }
 
-    public boolean isOwnerLocked() {
-        return ownerLocked;
-    }
-
-    public Long getLockedBy() {
-        return lockedBy;
-    }
-
-    public LocalDateTime getLockedAt() {
-        return lockedAt;
-    }
-
     public LocalDateTime getArchivedAt() {
         return archivedAt;
     }
@@ -199,18 +178,6 @@ public class PracticeSet {
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public void lock(Long actorId) {
-        this.ownerLocked = true;
-        this.lockedBy = actorId;
-        this.lockedAt = LocalDateTime.now();
-    }
-
-    public void unlock() {
-        this.ownerLocked = false;
-        this.lockedBy = null;
-        this.lockedAt = null;
     }
 
     public void archive() {

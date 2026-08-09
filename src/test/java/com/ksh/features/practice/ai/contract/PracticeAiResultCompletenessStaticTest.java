@@ -27,8 +27,6 @@ class PracticeAiResultCompletenessStaticTest {
                 + "readinglistening/QuestionExplanationReadService.java");
         String audioProducer = read("src/main/java/com/ksh/features/practice/ai/"
                 + "speaking/acoustic/DirectAudioAcousticResponseNormalizer.java");
-        String audioStore = read("src/main/java/com/ksh/features/practice/ai/"
-                + "speaking/acoustic/DirectAudioDarkObservationService.java");
 
         assertThat(model).contains(
                 "practice-ai-result-completeness-v1",
@@ -44,9 +42,6 @@ class PracticeAiResultCompletenessStaticTest {
         assertThat(audioProducer)
                 .contains("DIRECT_AUDIO_DIAGNOSTIC_ITEMS_REJECTED")
                 .contains("rejectedItemCount");
-        assertThat(audioStore)
-                .contains("validatedCompleteness")
-                .contains("scoreReleaseEligible");
     }
 
     @Test
@@ -57,7 +52,6 @@ class PracticeAiResultCompletenessStaticTest {
                 "WritingEvaluationNormalizer",
                 "WritingFeedbackContractParser",
                 "QuestionExplanationReadService",
-                "DirectAudioDarkObservationService.inspect",
                 "V1–V102 remain the protected integration baseline",
                 "No migration is needed");
     }

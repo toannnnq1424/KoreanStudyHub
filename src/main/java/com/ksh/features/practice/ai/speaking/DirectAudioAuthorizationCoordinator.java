@@ -1,6 +1,5 @@
 package com.ksh.features.practice.ai.speaking;
 
-import com.ksh.features.practice.ai.speaking.acoustic.DirectAudioDarkObservationJdbcStore;
 import com.ksh.features.practice.service.DirectAudioWithdrawalMediaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,14 +24,12 @@ import java.util.stream.Collectors;
 public class DirectAudioAuthorizationCoordinator {
 
     private final DirectAudioAuthorizationLifecycleService lifecycle;
-    private final DirectAudioDarkObservationJdbcStore darkObservations;
     private final DirectAudioWithdrawalMediaService withdrawalMedia;
     private final String disclosureVersion;
 
     @Autowired
     public DirectAudioAuthorizationCoordinator(
             DirectAudioAuthorizationJdbcStore store,
-            DirectAudioDarkObservationJdbcStore darkObservations,
             DirectAudioWithdrawalMediaService withdrawalMedia,
             JdbcTemplate jdbc,
             @Value("${app.practice.speaking-direct-audio.authorization.disclosure-version:}")
@@ -41,13 +38,12 @@ public class DirectAudioAuthorizationCoordinator {
             Duration maximumReviewerGrant,
             @Value("${app.practice.speaking-direct-audio.authorization.grant-manager-authorities:}")
             String grantManagerAuthorities) {
-        this(store, darkObservations, withdrawalMedia, jdbc, disclosureVersion, maximumReviewerGrant,
+        this(store, withdrawalMedia, jdbc, disclosureVersion, maximumReviewerGrant,
                 grantManagerAuthorities, Clock.systemUTC());
     }
 
     DirectAudioAuthorizationCoordinator(
             DirectAudioAuthorizationJdbcStore store,
-            DirectAudioDarkObservationJdbcStore darkObservations,
             DirectAudioWithdrawalMediaService withdrawalMedia,
             JdbcTemplate jdbc,
             String disclosureVersion,
@@ -64,7 +60,6 @@ public class DirectAudioAuthorizationCoordinator {
                     "At least one explicit reviewer grant manager is required.");
         }
         this.disclosureVersion = disclosureVersion.trim();
-        this.darkObservations = java.util.Objects.requireNonNull(darkObservations);
         this.withdrawalMedia = java.util.Objects.requireNonNull(withdrawalMedia);
         this.lifecycle = new DirectAudioAuthorizationLifecycleService(
                 store,
@@ -96,8 +91,6 @@ public class DirectAudioAuthorizationCoordinator {
             Long learnerId, Long attemptId, String eventKey, String evidenceId) {
         DirectAudioAuthorizationLifecycleService.ConsentEvent event = lifecycle.withdrawConsent(
                 learnerId, attemptId, eventKey, evidenceId);
-        darkObservations.deleteForWithdrawal(
-                learnerId, attemptId, evidenceId, event.occurredAt());
         withdrawalMedia.enqueueForWithdrawal(learnerId, attemptId, evidenceId);
         return event;
     }

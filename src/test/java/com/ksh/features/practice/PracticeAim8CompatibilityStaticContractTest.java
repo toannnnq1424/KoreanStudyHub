@@ -26,7 +26,7 @@ class PracticeAim8CompatibilityStaticContractTest {
             "V(\\d+)__.+\\.sql");
 
     @Test
-    void migrationChainIsContinuousThroughV111AndHistoricalBytesStayLockedThroughV85()
+    void migrationChainIsContinuousAndHistoricalBytesStayLockedThroughV85()
             throws Exception {
         List<Path> migrations;
         try (var paths = Files.list(MIGRATIONS)) {
@@ -38,11 +38,15 @@ class PracticeAim8CompatibilityStaticContractTest {
                             PracticeAim8CompatibilityStaticContractTest::version))
                     .toList();
         }
-        assertThat(migrations).hasSize(111);
+        int currentVersion = migrations.stream()
+                .mapToInt(PracticeAim8CompatibilityStaticContractTest::version)
+                .max()
+                .orElseThrow();
+        assertThat(currentVersion).isGreaterThanOrEqualTo(111);
         assertThat(migrations.stream().map(
                 PracticeAim8CompatibilityStaticContractTest::version).toList())
                 .containsExactlyElementsOf(
-                        java.util.stream.IntStream.rangeClosed(1, 111)
+                        java.util.stream.IntStream.rangeClosed(1, currentVersion)
                                 .boxed().toList());
 
         List<String> manifestEntries = new ArrayList<>();

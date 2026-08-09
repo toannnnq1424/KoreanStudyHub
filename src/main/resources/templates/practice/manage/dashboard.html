@@ -29,7 +29,7 @@
         <div class="pm-dashboard-heading-copy">
           <span style="font-size:0.75rem; font-weight:600; color:var(--pp-text-muted); text-transform:uppercase; letter-spacing:0.05em;">Không gian giảng viên</span>
           <h1 style="font-size:1.8rem; font-weight:800; color:var(--pp-text); margin:4px 0 0 0;">Quản lý bộ đề</h1>
-          <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Tạo, xuất bản và cộng tác biên soạn các bộ đề luyện tập KSH.</p>
+          <p style="font-size:0.88rem; color:var(--pp-text-muted); margin:4px 0 0 0;">Tạo, xuất bản và quản lý các bộ đề luyện tập KSH do bạn sở hữu.</p>
         </div>
         <div class="pm-dashboard-actions">
           <form method="post" th:action="@{/practice/manage/create}" class="pm-action-form">
@@ -61,16 +61,6 @@
             <span>Đã xuất bản</span>
             <h3 th:text="${publishedCount}">0</h3>
             <p>Học viên có thể sử dụng</p>
-          </div>
-        </div>
-        <div class="pp-stat-card">
-          <div class="pp-stat-icon-wrapper orange">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <div class="pp-stat-info">
-            <span>Giảng viên khác</span>
-            <h3 th:text="${sharedSets.size()}">0</h3>
-            <p>Các bộ đề được chia sẻ với bạn</p>
           </div>
         </div>
       </section>
@@ -164,7 +154,6 @@
                 <td>
                   <span style="padding:4px 8px; border-radius:6px; background:rgba(8, 122, 79, 0.1); color:#087a4f; font-size:0.78rem; font-weight:600;"
                         th:text="${item.status == 'PUBLISHED' ? 'Đã xuất bản' : (item.status == 'ARCHIVED' ? 'Đã lưu trữ' : 'Chưa xác định')}">Đã xuất bản</span>
-                  <span th:if="${item.ownerLocked}" style="margin-left:6px; padding:4px 8px; border-radius:6px; background:#fff7ed; color:#c2410c; font-size:0.75rem; font-weight:600;">Đã khóa</span>
                 </td>
                 <td class="pm-action-cell">
                   <div class="pm-action-list">
@@ -172,63 +161,8 @@
                     <form th:action="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" method="post" class="pm-action-form"><button type="submit" class="pm-action-btn pm-action-btn--preview">Xem trước</button></form>
                     <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pm-action-btn pm-action-btn--neutral">Lịch sử</a>
                     <form th:if="${item.status != 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/edit(id=${item.id})}" method="post" class="pm-action-form"><button type="submit" class="pm-action-btn pm-action-btn--primary">Sửa đề</button></form>
-                    <form th:if="${!item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/lock(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--warning" type="submit">Khóa</button></form>
-                    <form th:if="${item.ownerLocked}" th:action="@{/practice/manage/sets/{id}/unlock(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--warning" type="submit">Mở khóa</button></form>
                     <form th:if="${item.status != 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/archive(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--warning" type="submit">Lưu trữ</button></form>
                     <form th:if="${item.status == 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/unarchive(id=${item.id})}" method="post" class="pm-action-form"><button class="pm-action-btn pm-action-btn--success" type="submit">Khôi phục</button></form>
-                    <details class="pp-collaboration-details pm-action-collaboration">
-                      <summary class="pm-action-btn pm-action-btn--collaboration">Cộng tác viên</summary>
-                    <form th:action="@{/practice/manage/sets/{id}/share(id=${item.id})}" method="post" class="pp-collaboration-form">
-                      <label>
-                        Email giảng viên
-                        <input name="email" type="email" required placeholder="lecturer@ksh.edu.vn">
-                      </label>
-                      <p class="pp-grant-note">Cộng tác viên có thể biên tập, xuất bản, khôi phục phiên bản và dùng tài nguyên của bộ đề. Khóa của chủ sở hữu sẽ dừng mọi thay đổi.</p>
-                      <button type="submit" class="pi-btn-secondary">Thêm cộng tác viên</button>
-                    </form>
-                    <div class="pp-collaborator-list" th:if="${!#lists.isEmpty(collaboratorsBySet.get(item.id))}">
-                      <div class="pp-collaborator-row" th:each="grant : ${collaboratorsBySet.get(item.id)}">
-                        <div>
-                          <strong th:text="${authorsMap.get(grant.collaboratorId) != null ? authorsMap.get(grant.collaboratorId) : 'Giảng viên'}">Giảng viên</strong>
-                          <span th:text="${collaboratorEmailsMap.get(grant.collaboratorId)}">lecturer@ksh.edu.vn</span>
-                        </div>
-                        <span class="pp-grant-note">Được cộng tác toàn bộ nội dung</span>
-                        <form th:action="@{/practice/manage/sets/{setId}/collaborators/{collaboratorId}/revoke(setId=${item.id},collaboratorId=${grant.collaboratorId})}" method="post">
-                          <button type="submit" class="pp-danger-link" onclick="return confirm('Thu hồi toàn bộ quyền của cộng tác viên này?');">Thu hồi</button>
-                        </form>
-                      </div>
-                    </div>
-                    </details>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="pp-chart-card" style="padding:28px; margin-top:32px;">
-        <h2 style="font-size:1.15rem; font-weight:700; color:var(--pp-text); margin:0 0 20px 0;">Bộ đề của giảng viên khác</h2>
-        <div th:if="${#lists.isEmpty(sharedSets)}" class="pp-empty-state">
-          <h4>Chưa có bộ đề được chia sẻ</h4>
-          <p>Bộ đề do giảng viên khác chia sẻ với bạn sẽ xuất hiện tại đây.</p>
-        </div>
-        <div th:unless="${#lists.isEmpty(sharedSets)}" class="pp-table-wrapper">
-          <table class="pp-table">
-            <caption class="pi-sr-only">Các bộ đề giảng viên khác chia sẻ với tôi</caption>
-            <thead><tr><th scope="col">Bộ đề</th><th scope="col">Chủ sở hữu</th><th scope="col">Quyền truy cập</th><th scope="col">Trạng thái</th><th scope="col">Hành động</th></tr></thead>
-            <tbody>
-              <tr th:each="item : ${sharedSets}">
-                <td th:text="${item.title}">Bộ đề</td>
-                <td th:text="${authorsMap.get(item.createdBy) != null ? authorsMap.get(item.createdBy) : 'Giảng viên'}">Giảng viên</td>
-                <td>Được chia sẻ với tôi</td>
-                <td><span th:text="${item.ownerLocked ? 'Đã khóa' : (item.status == 'PUBLISHED' ? 'Đã xuất bản' : (item.status == 'ARCHIVED' ? 'Đã lưu trữ' : 'Chưa xác định'))}">Đã xuất bản</span></td>
-                <td class="pm-action-cell pm-action-cell--shared">
-                  <div class="pm-action-list">
-                    <a th:href="@{/practice/sets/{id}(id=${item.id})}" class="pm-action-btn pm-action-btn--neutral">Xem</a>
-                    <form th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/edit(id=${item.id},preview=true)}" method="post" class="pm-action-form"><button type="submit" class="pm-action-btn pm-action-btn--preview">Xem trước</button></form>
-                    <a th:href="@{/practice/manage/revisions(setId=${item.id})}" class="pm-action-btn pm-action-btn--neutral">Lịch sử</a>
-                    <form th:if="${!item.ownerLocked && item.status != 'ARCHIVED'}" th:action="@{/practice/manage/sets/{id}/edit(id=${item.id})}" method="post" class="pm-action-form"><button type="submit" class="pm-action-btn pm-action-btn--primary">Tạo bản sửa</button></form>
                   </div>
                 </td>
               </tr>

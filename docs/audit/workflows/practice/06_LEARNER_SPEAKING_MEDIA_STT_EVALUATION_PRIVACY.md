@@ -245,29 +245,18 @@ Source có policy/control-plane cho purpose `PRACTICE_SPEAKING_DIRECT_AUDIO_EVAL
 - Không có controller/form dành cho learner grant/withdraw consent hoặc manager grant/revoke reviewer; hiện chỉ có coordinator/service methods và DB schema.
 - Vì vậy cấu hình một binding direct-audio chưa làm submit Speaking gửi audio thẳng tới evaluator. Runtime live vẫn là **audio → STT → transcript-only evaluator**.
 
-Các direct-audio endpoint thực sự được expose chỉ là reviewer surfaces, đều off mặc định:
+`V114` đã retire toàn bộ persisted dark-observation/reviewer surface: ba route `/practice/direct-audio/review/**`, ba reviewer controller, template/CSS, dark store/coordinator, reviewer playback/audit/retention worker và hai bảng dark/access-event không còn trong runtime. Đây là capability thử nghiệm, không mang điểm, nên việc retire không thay đổi chuỗi live.
 
-```text
-GET /practice/direct-audio/review/attempts/{attemptId}
-GET /practice/direct-audio/review/attempts/{attemptId}/observations/latest
-GET /practice/direct-audio/review/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}/content
-```
-
-Tương ứng `DirectAudioReviewerPageController`, `DirectAudioReviewerInspectionController`, `DirectAudioReviewerPlaybackController`. Mỗi open phải có active named reviewer grant + current learner consent + undeleted dark observation/media; playback còn ghi durable access audit trước khi stream. Page/inspection chỉ hiển thị dark metadata, `scoreReleaseEligible=false`; không có đường đưa dark score vào learner result.
-
-`src/main/resources/templates/practice/direct-audio-reviewer.html` là server-rendered reviewer shell cho route page đầu tiên: `DirectAudioReviewerPageController.page:41–59` chỉ được đăng ký khi `reviewer-page-enabled=true`, resolve reviewer principal, gọi `DirectAudioDarkObservationCoordinator.inspect`, đặt `Cache-Control: no-store, private` và model chỉ chứa metadata `ReviewerPageView` + protected audio path. Template hiển thị attempt/question/media identity, contract/evaluator/model/calibration/completeness/retention và audio element `preload=none`; nó ghi rõ **không có điểm số**. Audio element gọi riêng `DirectAudioReviewerPlaybackController.content:48–69`, endpoint cũng default-off (`reviewer-playback-api-enabled=true`), rechecks reviewer authorization through `DirectAudioReviewerPlaybackService`, records access audit, và stream range 200/206/416 với no-store. Không có JS mutation, learner result mutation hay URL object-storage công khai từ screen này.
-
-Method-level boundary còn lại: `DirectAudioReviewerInspectionController.latest` là `GET /practice/direct-audio/review/attempts/{attemptId}/observations/latest`, chỉ registered khi `reviewer-inspection-api-enabled=true`. Method resolve reviewer principal, gọi `DirectAudioDarkObservationCoordinator.inspect`, trả metadata-only `ReviewerObservationMetadata` 200/private/no-store với `scoreReleaseEligible=false`; missing/unauthorized dùng not-found-safe advice, không ghi score/result. `PracticeSpeakingMediaController.delete` là `DELETE /practice/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}` khi upload API bật: resolve owner, gọi `SpeakingAudioUploadService.deleteForOwner`, chuyển media sang lifecycle cleanup (`DELETION_PENDING` khi cần) và trả JSON no-store `{status,active,pendingCleanup}`. `PracticeSpeakingMediaPlaybackController.content` là student-only `GET .../speaking-media/{mediaId}/content` khi playback API bật: `openForOwner` rechecks exact owner/attempt/question/media, streams private storage by byte range (200/206 or 416) with inline/no-store/nosniff; no DB state changes or public object URL.
+Method-level boundary còn lại: `PracticeSpeakingMediaController.delete` là `DELETE /practice/attempts/{attemptId}/questions/{questionId}/speaking-media/{mediaId}` khi upload API bật: resolve owner, gọi `SpeakingAudioUploadService.deleteForOwner`, chuyển media sang lifecycle cleanup (`DELETION_PENDING` khi cần) và trả JSON no-store `{status,active,pendingCleanup}`. `PracticeSpeakingMediaPlaybackController.content` là student-only `GET .../speaking-media/{mediaId}/content` khi playback API bật: `openForOwner` rechecks exact owner/attempt/question/media, streams private storage by byte range (200/206 or 416) with inline/no-store/nosniff; no DB state changes or public object URL.
 
 ## 11. Consent withdrawal và cleanup boundary
 
-Khi control-plane authorization feature được nối với caller tương lai, `DirectAudioAuthorizationCoordinator.withdrawConsent`, dòng 95–103, sẽ:
+Khi control-plane authorization feature được nối với caller tương lai, `DirectAudioAuthorizationCoordinator.withdrawConsent` sẽ:
 
 1. append immutable `WITHDRAWN` consent event;
-2. logically delete dark observations;
-3. `DirectAudioWithdrawalMediaService.enqueueForWithdrawal` queue xóa exact private learner media trong cùng transaction.
+2. `DirectAudioWithdrawalMediaService.enqueueForWithdrawal` queue xóa exact private learner media trong cùng transaction.
 
-Reviewer access audit có retention worker riêng; dark observation retention ceiling là 30 ngày (`DirectAudioDarkObservationService.java:24–26`). Những worker này không biến dark data thành score.
+Không còn dark-observation hoặc reviewer-access retention worker sau V114. Media withdrawal vẫn đi qua durable speaking cleanup task; consent evidence vẫn được giữ cho direct-provider evaluator tương lai.
 
 ## Tóm tắt luồng live
 

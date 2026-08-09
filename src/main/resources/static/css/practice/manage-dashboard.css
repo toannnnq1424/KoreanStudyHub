@@ -39,8 +39,7 @@
   vertical-align: top;
 }
 
-.pm-action-cell--draft,
-.pm-action-cell--shared {
+.pm-action-cell--draft {
   width: 300px;
   min-width: 300px;
 }
@@ -161,54 +160,13 @@
   color: #166534;
 }
 
-.pm-action-btn--collaboration {
-  border-color: #a7f3d0;
-  background: #ecfdf5;
-  color: #047857;
-  list-style: none;
-}
-
-.pm-action-btn--collaboration::-webkit-details-marker {
-  display: none;
-}
-
-.pm-action-btn--collaboration::before {
-  content: "+";
-  margin-right: 6px;
-  font-size: 0.95rem;
-  line-height: 0.8;
-}
-
-.pm-action-collaboration {
-  flex: 1 1 100%;
-  margin: 0;
-}
-
-.pm-action-collaboration[open] > .pm-action-btn--collaboration {
-  border-color: #6ee7b7;
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.pm-action-collaboration[open] > .pm-action-btn--collaboration::before {
-  content: "−";
-}
-
-.pm-action-collaboration .pp-collaboration-form,
-.pm-action-collaboration .pp-collaborator-list {
-  box-sizing: border-box;
-  max-width: 100%;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-}
-
 @media (max-width: 900px) {
   .pm-dashboard-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pm-action-cell,
-  .pm-action-cell--draft,
-  .pm-action-cell--shared {
+  .pm-action-cell--draft {
     width: 280px;
     min-width: 280px;
   }
@@ -234,8 +192,7 @@
   }
 
   .pm-action-cell,
-  .pm-action-cell--draft,
-  .pm-action-cell--shared {
+  .pm-action-cell--draft {
     width: 240px;
     min-width: 240px;
   }

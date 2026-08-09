@@ -73,7 +73,7 @@ Each use case follows the supplied committee format. **Business Rules** and **Sy
 | UC-057 | RFE-12 — Dashboards and Learning Tracking | View Lecturer teaching dashboard and class summaries | Lecturer | Implemented |
 | UC-058 | RFE-12 — Dashboards and Learning Tracking | Track learner lesson, test and assignment progress | Lecturer | Implemented |
 | UC-059 | RFE-12 — Dashboards and Learning Tracking | View Subject Leader department dashboard/report | Subject Leader | Implemented |
-| UC-060 | RFE-12 — Dashboards and Learning Tracking | View Admin system-wide dashboard and activity summaries | Admin | Implemented — login-history UI not found |
+| UC-060 | RFE-12 — Dashboards and Learning Tracking | View Admin system-wide dashboard and activity summaries | Admin | Implemented — current activity sources only |
 | UC-061 | RFE-13 — Subject Leader Department Oversight | View assigned Department information and Classes | Subject Leader | Implemented |
 | UC-062 | RFE-13 — Subject Leader Department Oversight | Review Department Class queue and status | Subject Leader | Implemented |
 | UC-063 | RFE-13 — Subject Leader Department Oversight | Assign or reassign Lecturer to a Department Class | Subject Leader | Implemented |
@@ -90,10 +90,10 @@ Each use case follows the supplied committee format. **Business Rules** and **Sy
 | UC-074 | RFE-15 — AI-Assisted Learning and Evaluation | Generate AI Flashcard drafts | Authenticated deck owner | Implemented — provider-dependent |
 | UC-075 | RFE-15 — AI-Assisted Learning and Evaluation | Evaluate Practice Writing/Speaking responses | Student/learner | Implemented — async/provider-dependent |
 | UC-076 | RFE-15 — AI-Assisted Learning and Evaluation | Generate and retry Practice Reading/Listening explanations | Student/learner | Implemented — async/provider-dependent |
-| UC-077 | RFE-16 — Korea Discovery, Dictionary and Vocabulary | Browse, search and read Korea Discovery feed | Student, Lecturer | Implemented |
-| UC-078 | RFE-16 — Korea Discovery, Dictionary and Vocabulary | Read an article and inspect vocabulary/dictionary enrichment | Student, Lecturer | Implemented |
-| UC-079 | RFE-16 — Korea Discovery, Dictionary and Vocabulary | Look up Korean vocabulary and save terms to Flashcards | Student, Lecturer | Implemented |
-| UC-080 | RFE-16 — Korea Discovery, Dictionary and Vocabulary | Admin ingest, refresh, blacklist, curate and AI-edit Discovery content | Admin | Implemented |
+| UC-077 | RFE-16 — Shared Korean Dictionary and Flashcard Capture | Look up Korean vocabulary through the common helper | Authenticated user | Implemented |
+| UC-078 | RFE-16 — Shared Korean Dictionary and Flashcard Capture | Select an owned Flashcard deck for a dictionary term | Authenticated user | Implemented |
+| UC-079 | RFE-16 — Shared Korean Dictionary and Flashcard Capture | Save or reuse a dictionary term as a Flashcard | Authenticated user | Implemented |
+| UC-080 | RFE-16 — Shared Korean Dictionary and Flashcard Capture | Configure the shared KRDICT connection | Admin | Implemented |
 | UC-081 | RFE-17 — Independent Practice Hub — Learner Experience | Browse/filter accessible Practice catalog | Student/learner | Implemented — current GLOBAL/CLASS hybrid |
 | UC-082 | RFE-17 — Independent Practice Hub — Learner Experience | View set/test details and complete Listening/Speaking preflight | Student/learner | Implemented — feature/config guarded |
 | UC-083 | RFE-17 — Independent Practice Hub — Learner Experience | Start/resume/autosave/submit/discard a four-skill attempt | Student/learner | Implemented |
@@ -233,9 +233,9 @@ Provider output is schema/safety validated before persistence or learner display
 
 AI jobs carry an idempotency key; retry reuses or supersedes a failed artifact by policy.
 
-### BR-032 — Discovery attribution
+### BR-032 — Shared dictionary provider boundary
 
-Discovery content retains source attribution, publication state and sanitization metadata.
+Dictionary lookup is restricted to the official KRDICT HTTPS host and does not create a content/news data model.
 
 ### BR-033 — Vocabulary ownership
 
@@ -423,13 +423,13 @@ The request cannot run under the current quota or budget policy.
 
 A retry was accepted and will update the result asynchronously.
 
-### MSG-039 — Dictionary/source unavailable
+### MSG-039 — Dictionary unavailable
 
-The dictionary or Discovery source returned no usable data.
+The configured KRDICT provider returned no usable dictionary data.
 
-### MSG-040 — Article blocked or unattributed
+### MSG-040 — Dictionary response rejected
 
-The source item is blocked or lacks required attribution metadata.
+The dictionary response is unavailable, malformed or outside the allowed provider boundary.
 
 ### MSG-041 — Practice preflight failed
 
@@ -1479,7 +1479,7 @@ Required fields/assets/version checks are incomplete.
 | **Alternative Sequences/Flows** | A1 — Source aggregate unavailable/stale: show MSG-034 and label incomplete. A2 — Forbidden scope: return only authorized rows. A3 — Refresh uses the same query policy. |
 | **Business Rules** | [BR-004](#br-004), [BR-022](#br-022), [BR-040](#br-040) |
 | **System Messages** | [MSG-006](#msg-006), [MSG-007](#msg-007), [MSG-034](#msg-034) |
-| **Implementation Status** | Implemented — login-history UI not found |
+| **Implementation Status** | Implemented — current activity sources only |
 
 ### UC-061 — View assigned Department information and Classes
 
@@ -1753,70 +1753,70 @@ Required fields/assets/version checks are incomplete.
 | **System Messages** | [MSG-006](#msg-006), [MSG-035](#msg-035), [MSG-036](#msg-036), [MSG-037](#msg-037), [MSG-038](#msg-038) |
 | **Implementation Status** | Implemented — async/provider-dependent |
 
-### UC-077 — Browse, search and read Korea Discovery feed
+### UC-077 — Look up Korean vocabulary through the shared dictionary
 
-**Feature:** RFE-16 — Korea Discovery, Dictionary and Vocabulary
+**Feature:** RFE-16 — Shared Korean Dictionary and Flashcard Capture
 
 | Field | Specification |
 |---|---|
-| **Primary Actors** | Student, Lecturer |
-| **Secondary Actors** | Source ingestion/content sanitizer |
-| **Description** | Browses attributed source content and opens an article detail. |
-| **Preconditions** | The actor is authenticated for personalized actions; Discovery reading follows publication policy. Admin editorial actions require Admin permission. |
-| **Postconditions** | **Success:**<br>• The permitted, attributed Discovery result/article is displayed.<br>**Failure:**<br>• No unauthorized or partial state change is committed; the system returns a referenced message and records the failure where required. |
-| **Normal Sequence/Flow** | 1. The actor opens Discovery and enters a query/filter.<br>2. The system searches published attributed items.<br>3. The actor opens an article.<br>4. The system renders sanitized content, source attribution and pagination state. |
-| **Alternative Sequences/Flows** | A1 — Source unavailable/blocked: show cached/blocked state and MSG-039/MSG-040. A2 — Dictionary provider fails: keep article readable and allow retry. A3 — Duplicate saved term merges by deck policy. |
+| **Primary Actors** | Authenticated user |
+| **Secondary Actors** | Korean Basic Dictionary Open API |
+| **Description** | Looks up a Korean word or phrase through the shared KSH helper. |
+| **Preconditions** | The actor is authenticated and an Admin has configured a valid KRDICT connection. |
+| **Postconditions** | **Success:**<br>• Normalized Korean, pronunciation, Vietnamese meaning, part of speech and provider URL are displayed.<br>**Failure:**<br>• No Flashcard data is changed and the system returns a referenced message. |
+| **Normal Sequence/Flow** | 1. The actor selects or enters a Korean word/phrase.<br>2. The system normalizes and validates the Hangul input.<br>3. The system calls the official KRDICT endpoint through the shared outbound client.<br>4. The system validates XML and displays the normalized definition. |
+| **Alternative Sequences/Flows** | A1 — Input has no Korean characters: reject before any provider call. A2 — Dictionary is not configured or has no result: show MSG-039. A3 — Provider response/host is rejected: show MSG-040. |
 | **Business Rules** | [BR-004](#br-004), [BR-032](#br-032) |
 | **System Messages** | [MSG-006](#msg-006), [MSG-007](#msg-007), [MSG-039](#msg-039), [MSG-040](#msg-040) |
 | **Implementation Status** | Implemented |
 
-### UC-078 — Read an article and inspect vocabulary/dictionary enrichment
+### UC-078 — Select an owned Flashcard deck for a dictionary term
 
-**Feature:** RFE-16 — Korea Discovery, Dictionary and Vocabulary
+**Feature:** RFE-16 — Shared Korean Dictionary and Flashcard Capture
 
 | Field | Specification |
 |---|---|
-| **Primary Actors** | Student, Lecturer |
-| **Secondary Actors** | KRDICT/dictionary service |
-| **Description** | Reads an article and requests enrichment for selected Korean text. |
-| **Preconditions** | The actor is authenticated for personalized actions; Discovery reading follows publication policy. Admin editorial actions require Admin permission. |
-| **Postconditions** | **Success:**<br>• Dictionary enrichment is displayed without changing the source article.<br>**Failure:**<br>• No unauthorized or partial state change is committed; the system returns a referenced message and records the failure where required. |
-| **Normal Sequence/Flow** | 1. The actor opens an article and selects Korean text.<br>2. The system checks source visibility and requests dictionary enrichment.<br>3. The dictionary response is normalized.<br>4. The system displays definitions/examples without changing the source article. |
-| **Alternative Sequences/Flows** | A1 — Source unavailable/blocked: show cached/blocked state and MSG-039/MSG-040. A2 — Dictionary provider fails: keep article readable and allow retry. A3 — Duplicate saved term merges by deck policy. |
-| **Business Rules** | [BR-004](#br-004), [BR-032](#br-032) |
-| **System Messages** | [MSG-006](#msg-006), [MSG-007](#msg-007), [MSG-039](#msg-039), [MSG-040](#msg-040) |
+| **Primary Actors** | Authenticated user |
+| **Secondary Actors** | Flashcard deck service |
+| **Description** | Loads decks owned by the actor so that a dictionary term can be saved safely. |
+| **Preconditions** | The actor is authenticated and has at least one accessible personal Flashcard deck. |
+| **Postconditions** | **Success:**<br>• The actor can select an owned deck.<br>**Failure:**<br>• No dictionary or Flashcard state is changed. |
+| **Normal Sequence/Flow** | 1. The actor opens Save to Flashcards from a dictionary result.<br>2. The system resolves decks by the authenticated owner ID.<br>3. The system returns deck title and card count.<br>4. The actor selects one destination deck. |
+| **Alternative Sequences/Flows** | A1 — No owned deck exists: show an empty deck option state. A2 — Session is invalid: show MSG-006 and stop. |
+| **Business Rules** | [BR-004](#br-004), [BR-033](#br-033) |
+| **System Messages** | [MSG-006](#msg-006), [MSG-007](#msg-007), [MSG-019](#msg-019) |
 | **Implementation Status** | Implemented |
 
-### UC-079 — Look up Korean vocabulary and save terms to Flashcards
+### UC-079 — Save or reuse a dictionary term as a Flashcard
 
-**Feature:** RFE-16 — Korea Discovery, Dictionary and Vocabulary
+**Feature:** RFE-16 — Shared Korean Dictionary and Flashcard Capture
 
 | Field | Specification |
 |---|---|
-| **Primary Actors** | Student, Lecturer |
+| **Primary Actors** | Authenticated user |
 | **Secondary Actors** | KRDICT API, flashcard service |
 | **Description** | Looks up a term and saves selected vocabulary/meaning into a deck. |
-| **Preconditions** | The actor is authenticated for personalized actions; Discovery reading follows publication policy. Admin editorial actions require Admin permission. |
+| **Preconditions** | The actor is authenticated, selects a deck they own, and supplies a normalized Korean word and Vietnamese meaning. |
 | **Postconditions** | **Success:**<br>• The vocabulary card is created/reused in the permitted deck.<br>**Failure:**<br>• No unauthorized or partial state change is committed; the system returns a referenced message and records the failure where required. |
 | **Normal Sequence/Flow** | 1. The actor looks up a Korean term.<br>2. The system returns normalized dictionary data.<br>3. The actor selects a target deck and confirms Save.<br>4. The system creates or reuses the vocabulary card and reports the result. |
-| **Alternative Sequences/Flows** | A1 — Source unavailable/blocked: show cached/blocked state and MSG-039/MSG-040. A2 — Dictionary provider fails: keep article readable and allow retry. A3 — Duplicate saved term merges by deck policy. |
+| **Alternative Sequences/Flows** | A1 — The target deck is absent or not owned by the actor: reject without creating a card. A2 — Word or meaning is invalid: reject before persistence. A3 — Duplicate saved term returns the existing card and deck link. |
 | **Business Rules** | [BR-004](#br-004), [BR-032](#br-032), [BR-033](#br-033) |
-| **System Messages** | [MSG-006](#msg-006), [MSG-007](#msg-007), [MSG-039](#msg-039), [MSG-040](#msg-040), [MSG-019](#msg-019) |
+| **System Messages** | [MSG-006](#msg-006), [MSG-007](#msg-007), [MSG-019](#msg-019) |
 | **Implementation Status** | Implemented |
 
-### UC-080 — Admin ingest, refresh, blacklist, curate and AI-edit Discovery content
+### UC-080 — Configure the shared KRDICT connection
 
-**Feature:** RFE-16 — Korea Discovery, Dictionary and Vocabulary
+**Feature:** RFE-16 — Shared Korean Dictionary and Flashcard Capture
 
 | Field | Specification |
 |---|---|
 | **Primary Actors** | Admin |
-| **Secondary Actors** | News feeds/scheduler, optional AI editorial |
-| **Description** | Operates source refresh/reset, article moderation and editorial actions. |
-| **Preconditions** | The actor is authenticated for personalized actions; Discovery reading follows publication policy. Admin editorial actions require Admin permission. |
-| **Postconditions** | **Success:**<br>• The editorial/source state and audit outcome are persisted.<br>**Failure:**<br>• No unauthorized or partial state change is committed; the system returns a referenced message and records the failure where required. |
-| **Normal Sequence/Flow** | 1. The Admin opens Discovery Editorial.<br>2. The system loads source/blacklist/article state.<br>3. The Admin refreshes, blacklists, curates or invokes permitted AI editing.<br>4. The system validates attribution/content and records the editorial outcome. |
-| **Alternative Sequences/Flows** | A1 — Source unavailable/blocked: show cached/blocked state and MSG-039/MSG-040. A2 — Dictionary provider fails: keep article readable and allow retry. A3 — Duplicate saved term merges by deck policy. |
+| **Secondary Actors** | Korean Basic Dictionary Open API |
+| **Description** | Stores the shared API key and official endpoint used by the global dictionary helper. |
+| **Preconditions** | The actor is an authenticated Admin. |
+| **Postconditions** | **Success:**<br>• The validated settings are persisted in the `DICTIONARY` group and secrets remain masked.<br>**Failure:**<br>• The previous configuration remains active. |
+| **Normal Sequence/Flow** | 1. The Admin opens Settings → Korean Dictionary.<br>2. The system loads the masked key and configured endpoint.<br>3. The Admin updates the key and/or endpoint.<br>4. The system accepts only the official HTTPS KRDICT host, persists the values, and invalidates the settings cache. |
+| **Alternative Sequences/Flows** | A1 — Non-KRDICT endpoint: reject the update. A2 — Invalid key shape: reject the update. A3 — Missing key: dictionary lookup stays unavailable without affecting Flashcard data. |
 | **Business Rules** | [BR-004](#br-004), [BR-032](#br-032), [BR-040](#br-040) |
 | **System Messages** | [MSG-006](#msg-006), [MSG-007](#msg-007), [MSG-039](#msg-039), [MSG-040](#msg-040) |
 | **Implementation Status** | Implemented |
