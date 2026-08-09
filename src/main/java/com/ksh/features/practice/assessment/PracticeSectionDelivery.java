@@ -13,6 +13,16 @@ public record PracticeSectionDelivery(
         schemaVersion = schemaVersion == null ? SCHEMA_VERSION : schemaVersion;
     }
 
-    public record ListeningDelivery(String checkAudioReference) {
+    public record ListeningDelivery(
+            String checkAudioReference,
+            String programAudioReference,
+            boolean startOnce,
+            boolean continuousPlayback,
+            boolean seekAllowed,
+            boolean replayAllowed
+    ) {
+        public ListeningDelivery(String checkAudioReference) {
+            this(checkAudioReference, null, false, false, true, true);
+        }
     }
 }

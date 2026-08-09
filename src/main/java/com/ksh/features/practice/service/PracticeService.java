@@ -104,6 +104,10 @@ public class PracticeService {
             Pattern.compile("!\\[[^\\]]*]\\(([^)]+)\\)");
     private static final Pattern MATERIAL_CONTENT_REFERENCE_PATTERN =
             Pattern.compile("^/practice/materials/[1-9][0-9]*/content$");
+    private static final Pattern TOPIK35_IMAGE_REFERENCE_PATTERN =
+            Pattern.compile("^/images/practice/topik35/[0-9a-f]{64}\\.png$");
+    private static final Pattern TOPIK35_AUDIO_REFERENCE_PATTERN =
+            Pattern.compile("^/audio/practice/topik35/[0-9a-f]{64}\\.mp3$");
     private static final Pattern EXPLICIT_TYPED_QUESTION_CONTENT_PATTERN =
             Pattern.compile(
                     "\"schemaVersion\"\\s*:\\s*\"question-content-v[23]\"");
@@ -824,12 +828,21 @@ public class PracticeService {
                         .equalsIgnoreCase(attempt.getSkill());
     }
 
-    private static AttemptSectionDelivery attemptSectionDelivery(PracticeVersionSnapshot version) {
+    private AttemptSectionDelivery attemptSectionDelivery(PracticeVersionSnapshot version) {
+        PracticeSectionDelivery.ListeningDelivery listening =
+                parseListeningDelivery(version.sectionVersion().getDeliveryJson());
         return new AttemptSectionDelivery(
                 version.sectionVersion().getSectionId(),
                 version.sectionVersion().getTitle(),
                 version.sectionVersion().getSkill(),
-                version.sectionVersion().getDurationMinutes());
+                version.sectionVersion().getDurationMinutes(),
+                listening == null ? null
+                        : safeObjectiveGroupAudioReference(
+                                listening.programAudioReference()),
+                listening != null && listening.startOnce(),
+                listening != null && listening.continuousPlayback(),
+                listening == null || listening.seekAllowed(),
+                listening == null || listening.replayAllowed());
     }
 
     public record AttemptPlayerView(
@@ -901,8 +914,33 @@ public class PracticeService {
             Long sectionId,
             String title,
             String skill,
-            Integer durationMinutes
+            Integer durationMinutes,
+            String programAudioReference,
+            boolean startOnce,
+            boolean continuousPlayback,
+            boolean seekAllowed,
+            boolean replayAllowed
     ) {
+    }
+
+    private PracticeSectionDelivery.ListeningDelivery parseListeningDelivery(
+            String deliveryJson) {
+        if (deliveryJson == null || deliveryJson.isBlank()) {
+            return null;
+        }
+        try {
+            PracticeSectionDelivery delivery = objectMapper.readValue(
+                    deliveryJson, PracticeSectionDelivery.class);
+            if (!PracticeSectionDelivery.SCHEMA_VERSION.equals(
+                    delivery.schemaVersion())) {
+                return null;
+            }
+            return delivery.listeningDelivery();
+        } catch (Exception exception) {
+            log.warn("[PracticeService] Invalid Listening delivery reason={}",
+                    exception.getMessage());
+            return null;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -1172,7 +1210,10 @@ public class PracticeService {
             return "";
         }
         String normalized = reference.trim();
-        return MATERIAL_CONTENT_REFERENCE_PATTERN.matcher(normalized).matches() ? normalized : "";
+        return MATERIAL_CONTENT_REFERENCE_PATTERN.matcher(normalized).matches()
+                || TOPIK35_IMAGE_REFERENCE_PATTERN.matcher(normalized).matches()
+                || TOPIK35_AUDIO_REFERENCE_PATTERN.matcher(normalized).matches()
+                ? normalized : "";
     }
 
     private static String safeListeningCheckAudioReference(String reference) {
@@ -1853,6 +1894,10 @@ public class PracticeService {
                     || !sectionId.equals(snapshot.sectionVersion().getSectionId())
                     || !isSupportedSkill(snapshot.sectionVersion().getSkill())) {
                 throw new IllegalStateException("Immutable attempt delivery does not match the requested section.");
+            }
+            if (!snapshot.hasCanonicalQuestionOwnership()) {
+                throw new IllegalStateException(
+                        "Immutable attempt delivery is missing canonical question-group ownership.");
             }
             deliverySkill = snapshot.sectionVersion().getSkill();
             deliveryDurationMinutes =

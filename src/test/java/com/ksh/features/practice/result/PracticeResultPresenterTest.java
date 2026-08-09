@@ -1274,6 +1274,111 @@ class PracticeResultPresenterTest {
     }
 
     @Test
+    void writingMissingFeedbackWhileAnalysisProcessingRemainsPendingWithoutScore() {
+        PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn(null);
+        when(attempt.getAnalysisStatus()).thenReturn(PracticeAttempt.ANALYSIS_PROCESSING);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(context(
+                "WRITING", List.of(question), Map.of("153", "한국어를 공부합니다"), attempt));
+        WritingTaskResult task = ((WritingResultPayload) result.payload()).tasks().get(0);
+
+        assertThat(result.feedback().state()).isEqualTo("PENDING");
+        assertThat(result.feedback().label()).isEqualTo("Đánh giá bài viết đang được xử lý");
+        assertThat(result.score().available()).isFalse();
+        assertThat(result.answers().pending()).isEqualTo(1);
+        assertThat(result.answers().unscorable()).isZero();
+        assertThat(task.feedback().state()).isEqualTo("PENDING");
+        assertThat(task.feedback().label()).isEqualTo("Đang chờ đánh giá");
+        assertThat(task.score().available()).isFalse();
+        assertThat(task.officialCriteria()).isEmpty();
+    }
+
+    @Test
+    void writingMissingFeedbackWhileAnalysisUnavailableNeverFabricatesScore() {
+        PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn(null);
+        when(attempt.getAnalysisStatus()).thenReturn(PracticeAttempt.ANALYSIS_UNAVAILABLE);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(context(
+                "WRITING", List.of(question), Map.of("153", "한국어를 공부합니다"), attempt));
+        WritingTaskResult task = ((WritingResultPayload) result.payload()).tasks().get(0);
+
+        assertThat(result.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(result.feedback().label())
+                .isEqualTo("Một hoặc nhiều nhiệm vụ chưa có đánh giá khả dụng");
+        assertThat(result.score().available()).isFalse();
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(task.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(task.feedback().label()).isEqualTo("Dịch vụ đánh giá hiện không khả dụng");
+        assertThat(task.score().available()).isFalse();
+        assertThat(task.officialCriteria()).isEmpty();
+        assertThat(task.analysisLenses()).isEmpty();
+    }
+
+    @Test
+    void writingNotScorableProviderStatusIsUnavailableAndDoesNotExposeRawScore() {
+        PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"153":{"evaluation_status":"NOT_SCORABLE",
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"POLICY_BLOCKED",
+                  "evaluation_retryable":false,
+                  "raw_score":100,"raw_score_max":100,"score_available":true,
+                  "result_completeness":{"version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE","reason_code":"POLICY_BLOCKED",
+                    "rejected_item_count":0}}}
+                """);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(context(
+                "WRITING", List.of(question), Map.of("153", "한국어를 공부합니다"), attempt));
+        WritingTaskResult task = ((WritingResultPayload) result.payload()).tasks().get(0);
+
+        assertThat(result.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(result.score().available()).isFalse();
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(task.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(task.feedback().label())
+                .isEqualTo("Nhiệm vụ này hiện chưa có đánh giá khả dụng");
+        assertThat(task.score().available()).isFalse();
+        assertThat(task.score().primaryDisplay()).isNull();
+        assertThat(task.officialCriteria()).isEmpty();
+    }
+
+    @Test
+    void writingErrorProviderStatusFailsClosedWithoutScoreOrDiagnostics() {
+        PracticeQuestionVersion question = writingQuestion(153L, 53, WritingTaskType.Q53);
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"153":{"evaluation_status":"PROVIDER_ERROR",
+                  "evaluation_source":"PROVIDER",
+                  "evaluation_reason":"UPSTREAM_FAILURE",
+                  "evaluation_retryable":true,
+                  "raw_score":99,"raw_score_max":100,"score_available":true,
+                  "result_completeness":{"version":"practice-ai-result-completeness-v1",
+                    "status":"UNAVAILABLE","reason_code":"UPSTREAM_FAILURE",
+                    "rejected_item_count":0}}}
+                """);
+
+        PracticeResultPresenter.Presentation result = writingPresenter().present(context(
+                "WRITING", List.of(question), Map.of("153", "한국어를 공부합니다"), attempt));
+        WritingTaskResult task = ((WritingResultPayload) result.payload()).tasks().get(0);
+
+        assertThat(result.feedback().state()).isEqualTo("FAILED");
+        assertThat(result.feedback().label()).isEqualTo("Chưa có đánh giá bài viết khả dụng");
+        assertThat(result.score().available()).isFalse();
+        assertThat(result.answers().unscorable()).isEqualTo(1);
+        assertThat(task.feedback().state()).isEqualTo("FAILED");
+        assertThat(task.feedback().label()).isEqualTo("Không thể hoàn tất đánh giá nhiệm vụ này");
+        assertThat(task.score().available()).isFalse();
+        assertThat(task.officialCriteria()).isEmpty();
+        assertThat(task.analysisLenses()).isEmpty();
+    }
+
+    @Test
     void currentDeterministicInvalidWritingAnswerKeepsAuthoritativeZeroScoreReady() {
         PracticeQuestionVersion question =
                 writingQuestion(153L, 53, WritingTaskType.Q53);
@@ -2160,7 +2265,8 @@ class PracticeResultPresenterTest {
                 .isEqualTo("NOT_APPLICABLE");
         assertThat(detail.evidence().acousticEvidenceAvailability())
                 .isEqualTo("NOT_SCORABLE");
-        assertThat(detail.evaluatorCapability()).isEqualTo("LEGACY_UNKNOWN");
+        assertThat(detail.evaluatorCapability())
+                .isEqualTo("LEGACY_UNKNOWN");
     }
 
     @Test
@@ -2263,6 +2369,132 @@ class PracticeResultPresenterTest {
             assertThat(criterion.weight()).isNull();
             assertThat(criterion.percentage()).isNull();
         });
+    }
+
+    @Test
+    void speakingDetailLowConfidenceTranscriptKeepsAllScoresAndAcousticDimensionsUnavailable() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        when(question.getPrompt()).thenReturn("자기소개를 해 주세요");
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        String transcript = "안녕하세요. 저는 학생입니다.";
+        SpeakingEvaluationResult lowConfidence = SpeakingEvaluationTestFixtures.currentResult(
+                objectMapper,
+                transcript,
+                new BigDecimal("16"),
+                provider -> provider.put("transcript_confidence", 0.31));
+        when(attempt.getAiFeedbackJson()).thenReturn(speakingFeedback(201L, lowConfidence));
+        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackContractParser());
+        PracticeResultContext speakingContext = context(
+                "SPEAKING", List.of(question), Map.of("201", transcript), attempt);
+        PracticeResultPresenter.Presentation presentation = presenter.present(speakingContext);
+
+        SpeakingDetailPayload detail = (SpeakingDetailPayload) presenter.presentDetail(
+                speakingContext, overview("SPEAKING", presentation), 201L);
+
+        assertThat(detail.feedback().state()).isEqualTo("LOW_CONFIDENCE");
+        assertThat(detail.feedback().label()).isEqualTo("Bản chép lời có độ tin cậy thấp");
+        assertThat(detail.profileState()).isEqualTo("LOW_CONFIDENCE");
+        assertThat(detail.evidenceMode()).isEqualTo("TRANSCRIPT_ONLY");
+        assertThat(detail.taskScoreState()).isEqualTo("UNAVAILABLE");
+        assertThat(detail.diagnosticAvailability()).isEqualTo("LOW_CONFIDENCE_TRANSCRIPT");
+        assertThat(detail.evidence().transcriptText()).isEqualTo(transcript);
+        assertThat(detail.evidence().transcriptAvailability()).isEqualTo("AVAILABLE");
+        assertThat(detail.scoreCriteria()).allSatisfy(criterion -> {
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.maxScore()).isNull();
+        });
+        assertThat(detail.scoreCriteria())
+                .filteredOn(criterion -> criterion.criterionId().equals("S_FLUENCY")
+                        || criterion.criterionId().equals("S_PRONUNCIATION_DELIVERY"))
+                .allSatisfy(criterion -> assertThat(criterion.availability())
+                        .isEqualTo("NOT_SCORABLE"));
+        assertThat(detail.diagnosticFindings()).isEmpty();
+        assertThat(detail.transcriptSegments()).singleElement()
+                .extracting(SpeakingTextSegment::text)
+                .isEqualTo(transcript);
+    }
+
+    @Test
+    void speakingDetailPendingFeedbackShowsPendingWithoutInventingScoresOrDiagnostics() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        when(question.getPrompt()).thenReturn("자기소개를 해 주세요");
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        String transcript = "안녕하세요. 저는 학생입니다.";
+        when(attempt.getAiFeedbackJson()).thenReturn("""
+                {"speaking_feedback_by_question":{"201":{"evaluation_status":"PROCESSING"}}}
+                """);
+        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackContractParser());
+        PracticeResultContext speakingContext = context(
+                "SPEAKING", List.of(question), Map.of("201", transcript), attempt);
+        PracticeResultPresenter.Presentation presentation = presenter.present(speakingContext);
+
+        SpeakingDetailPayload detail = (SpeakingDetailPayload) presenter.presentDetail(
+                speakingContext, overview("SPEAKING", presentation), 201L);
+
+        assertThat(detail.feedback().state()).isEqualTo("PENDING");
+        assertThat(detail.feedback().label()).isEqualTo("Bằng chứng đang được xử lý");
+        assertThat(detail.profileState()).isEqualTo("PENDING");
+        assertThat(detail.evidenceMode()).isEqualTo("TRANSCRIPT_ONLY");
+        assertThat(detail.evaluatorCapability())
+                .isEqualTo("TRANSCRIPT_GROUNDED_LANGUAGE_EVALUATION");
+        assertThat(detail.taskScoreState()).isEqualTo("PENDING");
+        assertThat(detail.diagnosticAvailability()).isEqualTo("PENDING");
+        assertThat(detail.evidence().transcriptAvailability()).isEqualTo("UNAVAILABLE");
+        assertThat(detail.evidence().transcriptText()).isEmpty();
+        assertThat(detail.scoreCriteria()).allSatisfy(criterion -> {
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.maxScore()).isNull();
+        });
+        assertThat(detail.diagnosticFindings()).isEmpty();
+        assertThat(detail.transcriptSegments()).singleElement()
+                .extracting(SpeakingTextSegment::text)
+                .isEqualTo("");
+    }
+
+    @Test
+    void speakingDetailCurrentUnavailableFeedbackRemainsNonScorableWithoutDiagnostics() {
+        PracticeQuestionVersion question = speakingQuestion(201L);
+        when(question.getPrompt()).thenReturn("자기소개를 해 주세요");
+        PracticeAttempt attempt = mock(PracticeAttempt.class);
+        String transcript = "안녕하세요. 저는 학생입니다.";
+        SpeakingEvaluationResult unavailable = SpeakingEvaluationTestFixtures.currentResult(
+                objectMapper,
+                transcript,
+                new BigDecimal("16"),
+                provider -> provider.put("evaluation_status", "EVALUATION_UNAVAILABLE"));
+        when(attempt.getAiFeedbackJson()).thenReturn(speakingFeedback(201L, unavailable));
+        SpeakingResultPresenter presenter = new SpeakingResultPresenter(
+                objectMapper,
+                new SpeakingFeedbackContractParser());
+        PracticeResultContext speakingContext = context(
+                "SPEAKING", List.of(question), Map.of("201", transcript), attempt);
+        PracticeResultPresenter.Presentation presentation = presenter.present(speakingContext);
+
+        SpeakingDetailPayload detail = (SpeakingDetailPayload) presenter.presentDetail(
+                speakingContext, overview("SPEAKING", presentation), 201L);
+
+        assertThat(detail.feedback().state()).isEqualTo("UNAVAILABLE");
+        assertThat(detail.feedback().label()).isEqualTo("Chưa có phản hồi khả dụng");
+        assertThat(detail.profileState()).isEqualTo("UNAVAILABLE");
+        assertThat(detail.evidenceMode()).isEqualTo("TRANSCRIPT_ONLY");
+        assertThat(detail.taskScoreState()).isEqualTo("UNAVAILABLE");
+        assertThat(detail.diagnosticAvailability()).isEqualTo("NO_VALIDATED_EVIDENCE");
+        assertThat(detail.evidence().transcriptText()).isEmpty();
+        assertThat(detail.evidence().transcriptAvailability()).isEqualTo("UNAVAILABLE");
+        assertThat(detail.scoreCriteria()).allSatisfy(criterion -> {
+            assertThat(criterion.score()).isNull();
+            assertThat(criterion.maxScore()).isNull();
+        });
+        assertThat(detail.scoreCriteria())
+                .filteredOn(criterion -> criterion.criterionId().equals("S_FLUENCY")
+                        || criterion.criterionId().equals("S_PRONUNCIATION_DELIVERY"))
+                .allSatisfy(criterion -> assertThat(criterion.availability())
+                        .isEqualTo("NOT_SCORABLE"));
+        assertThat(detail.diagnosticFindings()).isEmpty();
     }
 
 
@@ -2481,7 +2713,8 @@ class PracticeResultPresenterTest {
         when(attempt.getTestVersionId()).thenReturn(12L);
         when(attempt.getSectionVersionId()).thenReturn(13L);
         when(versions.hasCoherentAttemptIdentity(attempt)).thenReturn(true);
-        PracticeVersionSnapshot lockedSnapshot = snapshot("READING", List.of());
+        PracticeVersionSnapshot lockedSnapshot = snapshot(
+                "READING", List.of(objectiveQuestion(201L)));
         when(versions.snapshot(10L, 11L, 12L, 13L))
                 .thenReturn(Optional.of(lockedSnapshot));
 
@@ -2989,16 +3222,20 @@ class PracticeResultPresenterTest {
         when(section.getSectionId()).thenReturn(20L);
         when(section.getSkill()).thenReturn(skill);
         List<PracticeQuestionGroupVersion> groups = List.of();
-        if (("READING".equals(skill) || "LISTENING".equals(skill))
-                && !questions.isEmpty()) {
+        if (!questions.isEmpty()) {
             PracticeQuestionGroupVersion group =
                     mock(PracticeQuestionGroupVersion.class);
             when(group.getId()).thenReturn(901L);
+            when(group.getPublishedVersionId()).thenReturn(10L);
+            when(group.getSectionVersionId()).thenReturn(13L);
             when(group.getGroupId()).thenReturn(801L);
             when(group.getDisplayOrder()).thenReturn(0);
             when(group.getGroupLabel()).thenReturn("Nhóm câu hỏi đã khóa");
-            questions.forEach(question ->
-                    when(question.getGroupVersionId()).thenReturn(901L));
+            questions.forEach(question -> {
+                when(question.getPublishedVersionId()).thenReturn(10L);
+                when(question.getSectionVersionId()).thenReturn(13L);
+                when(question.getGroupVersionId()).thenReturn(901L);
+            });
             groups = List.of(group);
         }
         return new PracticeVersionSnapshot(

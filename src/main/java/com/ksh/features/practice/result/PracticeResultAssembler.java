@@ -81,6 +81,13 @@ public class PracticeResultAssembler {
         if (!attemptMatchesSnapshot(attempt, snapshot)) {
             ATTEMPT_STATE.requireCoherentResultIdentity(false);
         }
+        if (!snapshot.hasCanonicalQuestionOwnership()) {
+            throw new PracticeAttemptStatePolicy.PracticeResultNotAvailableException(
+                    PracticeAttemptStatePolicy.ResultEligibility
+                            .INCONSISTENT_VERSION_IDENTITY,
+                    "Phiên bản nội dung cũ thiếu quyền sở hữu nhóm bất biến; "
+                            + "bài đã nộp vẫn được giữ nguyên.");
+        }
 
         ResultScoreSummary score = scoreSummary(attempt);
         return new PracticeResultContext(

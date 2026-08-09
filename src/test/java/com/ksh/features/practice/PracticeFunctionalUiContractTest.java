@@ -730,6 +730,9 @@ class PracticeFunctionalUiContractTest {
                 ".prd-objective-question + .prd-objective-question",
                 "position: fixed",
                 "bottom: 0",
+                ".prd-objective-option-main > img",
+                "max-width: min(100%, 420px)",
+                "max-height: 260px",
                 ".prd-objective-fill-evidence",
                 ".prd-objective-typed-strategy",
                 ".prd-objective-typed-table");

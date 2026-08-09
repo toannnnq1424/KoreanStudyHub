@@ -643,6 +643,14 @@ class PracticeServiceTest {
         when(sectionVersion.getSkill()).thenReturn("READING");
         when(sectionVersion.getTitle()).thenReturn("Reading");
         when(sectionVersion.getDurationMinutes()).thenReturn(40);
+        when(sectionVersion.getDeliveryJson()).thenReturn("""
+                {"schemaVersion":"practice-section-delivery-v1",
+                 "listeningDelivery":{
+                   "checkAudioReference":"/audio/practice/listening-speaker-check.wav",
+                   "programAudioReference":"/audio/practice/topik35/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.mp3",
+                   "startOnce":true,"continuousPlayback":true,
+                   "seekAllowed":false,"replayAllowed":false}}
+                """);
 
         PracticeQuestionGroupVersion groupVersion = mock(PracticeQuestionGroupVersion.class);
         when(groupVersion.getId()).thenReturn(700L);
@@ -653,7 +661,9 @@ class PracticeServiceTest {
         when(groupVersion.getInstruction()).thenReturn("Đọc và chọn đáp án.");
         when(groupVersion.getStimulusType()).thenReturn("READING_PASSAGE");
         when(groupVersion.getPassageText()).thenReturn("본문");
-        when(groupVersion.getImageUrl()).thenReturn("/practice/materials/7/content");
+        when(groupVersion.getImageUrl()).thenReturn(
+                "/images/practice/topik35/"
+                        + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png");
         when(groupVersion.getAudioUrl()).thenReturn(null);
 
         PracticeQuestionVersion questionVersion = mock(PracticeQuestionVersion.class);
@@ -665,10 +675,10 @@ class PracticeServiceTest {
         when(questionVersion.getPrompt()).thenReturn("![image](/practice/materials/legacy/content)\n무엇입니까?");
         when(questionVersion.getQuestionContentJson()).thenReturn("""
                 {"schemaVersion":"question-content-v1",
-                 "imageReference":"/practice/materials/8/content",
-                 "audioReference":"/practice/materials/9/content",
+                 "imageReference":"/images/practice/topik35/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.png",
+                 "audioReference":"/audio/practice/topik35/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.mp3",
                  "options":[
-                   {"id":"opt_1","text":"A","imageReference":"/practice/materials/10/content"},
+                   {"id":"opt_1","text":"A","imageReference":"/images/practice/topik35/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png"},
                    {"id":"opt_2","text":"B"}
                  ]}
                 """);
@@ -685,13 +695,33 @@ class PracticeServiceTest {
         PracticeService.AttemptPlayerView playerView = practiceService.getAttemptPlayerView(77L, 2L);
 
         PracticeQuestionGroupRow group = playerView.view().groups().get(0);
-        assertEquals("/practice/materials/7/content", group.imageUrl());
+        assertEquals(
+                "/images/practice/topik35/"
+                        + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png",
+                group.imageUrl());
         assertEquals("본문", group.passageText());
         PracticeQuestionRow question = group.questions().get(0);
         assertEquals("무엇입니까?", question.prompt());
-        assertEquals("/practice/materials/8/content", question.imageReference());
-        assertEquals("/practice/materials/9/content", question.audioReference());
-        assertEquals("/practice/materials/10/content", question.optionRows().get(0).imageReference());
+        assertEquals(
+                "/images/practice/topik35/"
+                        + "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.png",
+                question.imageReference());
+        assertEquals(
+                "/audio/practice/topik35/"
+                        + "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.mp3",
+                question.audioReference());
+        assertEquals(
+                "/images/practice/topik35/"
+                        + "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png",
+                question.optionRows().get(0).imageReference());
+        assertEquals(
+                "/audio/practice/topik35/"
+                        + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.mp3",
+                playerView.delivery().programAudioReference());
+        assertTrue(playerView.delivery().startOnce());
+        assertTrue(playerView.delivery().continuousPlayback());
+        assertFalse(playerView.delivery().seekAllowed());
+        assertFalse(playerView.delivery().replayAllowed());
         assertNull(question.answerKey());
         assertNull(question.explanation());
 
@@ -3259,8 +3289,19 @@ class PracticeServiceTest {
         when(sectionVersion.getId()).thenReturn(103L);
         when(sectionVersion.getSectionId()).thenReturn(20L);
         when(sectionVersion.getSkill()).thenReturn(skill);
+        PracticeQuestionGroupVersion groupVersion =
+                mock(PracticeQuestionGroupVersion.class);
+        when(groupVersion.getId()).thenReturn(104L);
+        when(groupVersion.getPublishedVersionId()).thenReturn(100L);
+        when(groupVersion.getSectionVersionId()).thenReturn(103L);
+        PracticeQuestionVersion questionVersion =
+                mock(PracticeQuestionVersion.class);
+        when(questionVersion.getPublishedVersionId()).thenReturn(100L);
+        when(questionVersion.getSectionVersionId()).thenReturn(103L);
+        when(questionVersion.getGroupVersionId()).thenReturn(104L);
         return new PracticeVersionSnapshot(
-                published, setVersion, testVersion, sectionVersion, List.of(), List.of());
+                published, setVersion, testVersion, sectionVersion,
+                List.of(groupVersion), List.of(questionVersion));
     }
 
     private void stubCurrentReadingPublishedVersion() {

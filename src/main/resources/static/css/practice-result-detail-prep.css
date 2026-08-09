@@ -143,6 +143,18 @@
   line-height: 1.45;
 }
 
+/* Keep scanned TOPIK choices readable without letting a single image fill the
+   entire review column. The original pixels remain available to the browser;
+   this only constrains their presentation on the result-detail screen. */
+.prd-objective-body .prd-objective-option-main > img {
+  grid-column: 2;
+  width: auto;
+  max-width: min(100%, 420px);
+  max-height: 260px;
+  margin: 4px auto;
+  object-fit: contain;
+}
+
 .prd-objective-body .prd-objective-option-status {
   display: inline-flex;
   align-items: center;
@@ -1097,6 +1109,8 @@
 
   .prd-objective-body .prd-objective-option-main > img {
     grid-column: 2;
+    max-width: 100%;
+    max-height: 220px;
   }
 
   .prd-objective-body .prd-objective-option-explanation > summary,

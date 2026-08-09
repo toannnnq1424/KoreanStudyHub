@@ -710,6 +710,17 @@
     const range = control.querySelector('[data-audio-range]');
     const time = control.querySelector('[data-audio-time]');
     if (!audio || !toggle || !range || !time) return;
+    const startOnce = control.dataset.startOnce === 'true';
+    const seekAllowed = control.dataset.seekAllowed !== 'false';
+    const replayAllowed = control.dataset.replayAllowed !== 'false';
+    const startOnceKey = `ksh:practice-listening:${attemptId}:program-started`;
+    let startedHere = false;
+
+    if (!seekAllowed) range.disabled = true;
+    if (startOnce && localStore.get(startOnceKey) === 'true') {
+      toggle.disabled = true;
+      toggle.setAttribute('aria-label', 'Chương trình nghe đã được bắt đầu ở lần mở trước');
+    }
 
     const paint = () => {
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
@@ -723,14 +734,21 @@
     };
     toggle.addEventListener('click', () => {
       if (audio.paused) {
+        if (startOnce && !startedHere && localStore.get(startOnceKey) === 'true') return;
+        if (!replayAllowed && audio.ended) return;
         pauseOtherAudio(audio);
-        audio.play().catch(() => {});
+        audio.play().then(() => {
+          if (startOnce) {
+            startedHere = true;
+            localStore.set(startOnceKey, 'true');
+          }
+        }).catch(() => {});
       } else {
         audio.pause();
       }
     });
     range.addEventListener('input', () => {
-      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      if (seekAllowed && Number.isFinite(audio.duration) && audio.duration > 0) {
         audio.currentTime = (Number(range.value) / 1000) * audio.duration;
       }
     });
@@ -738,7 +756,10 @@
     audio.addEventListener('timeupdate', paint);
     audio.addEventListener('play', paint);
     audio.addEventListener('pause', paint);
-    audio.addEventListener('ended', paint);
+    audio.addEventListener('ended', () => {
+      paint();
+      if (!replayAllowed || startOnce) toggle.disabled = true;
+    });
     audio.addEventListener('error', () => {
       toggle.disabled = true;
       time.textContent = 'Không thể phát';

@@ -21,6 +21,7 @@ import com.ksh.features.practice.service.PracticeAttemptConflictException;
 import com.ksh.features.practice.service.PracticeAttemptDeadlineExpiredException;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy.PracticeAttemptResumeNotAllowedException;
 import com.ksh.features.practice.service.PracticeAttemptStatePolicy.PracticeReEvaluationNotAllowedException;
+import com.ksh.features.practice.service.PracticeAttemptStatePolicy.PracticeResultNotAvailableException;
 import com.ksh.features.practice.service.PracticeAttemptDiscardService;
 import com.ksh.features.practice.service.PracticeCatalogService;
 import com.ksh.features.practice.service.PracticeDetailPageService;
@@ -569,6 +570,21 @@ public class PracticeController {
         model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_SKILL, delivery.skill());
         model.addAttribute(PracticeModelAttributes.ACTIVE_SECTION_DURATION,
                 delivery.durationMinutes() != null ? delivery.durationMinutes() * 60 : 2400);
+        model.addAttribute(
+                PracticeModelAttributes.LISTENING_PROGRAM_AUDIO_REFERENCE,
+                delivery.programAudioReference());
+        model.addAttribute(
+                PracticeModelAttributes.LISTENING_PROGRAM_START_ONCE,
+                delivery.startOnce());
+        model.addAttribute(
+                PracticeModelAttributes.LISTENING_PROGRAM_CONTINUOUS,
+                delivery.continuousPlayback());
+        model.addAttribute(
+                PracticeModelAttributes.LISTENING_PROGRAM_SEEK_ALLOWED,
+                delivery.seekAllowed());
+        model.addAttribute(
+                PracticeModelAttributes.LISTENING_PROGRAM_REPLAY_ALLOWED,
+                delivery.replayAllowed());
         model.addAttribute(PracticeModelAttributes.SECTION_INDEX, 0);
         model.addAttribute(PracticeModelAttributes.TOTAL_SECTIONS, 1);
         model.addAttribute(PracticeModelAttributes.RETURN_URL,
@@ -807,10 +823,15 @@ public class PracticeController {
     @GetMapping(PracticeRoutes.RESULT)
     public String attemptResult(@PathVariable Long attemptId,
                                 @AuthenticationPrincipal KshUserDetails user,
-                                Model model) {
+                                Model model,
+                                RedirectAttributes redirectAttributes) {
         PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
-        model.addAttribute(PracticeModelAttributes.RESULT,
-                resultAssembler.assemble(attemptId, user.getId()));
+        try {
+            model.addAttribute(PracticeModelAttributes.RESULT,
+                    resultAssembler.assemble(attemptId, user.getId()));
+        } catch (PracticeResultNotAvailableException exception) {
+            return redirectForUnavailableLegacyResult(attempt, redirectAttributes);
+        }
         model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
         if ("SPEAKING".equals(attempt.getSkill())) {
             addSpeakingMediaModel(model, user.getId(), attempt, false);
@@ -822,9 +843,15 @@ public class PracticeController {
     public String attemptResultDetail(@PathVariable Long attemptId,
                                       @RequestParam(value = "questionId", required = false) Long questionId,
                                       @AuthenticationPrincipal KshUserDetails user,
-                                      Model model) {
-        PracticeResultDetailView detail = resultDetailAssembler
-                .assemble(attemptId, user.getId(), questionId);
+                                      Model model,
+                                      RedirectAttributes redirectAttributes) {
+        PracticeAttempt attempt = practiceService.getPracticeAttempt(attemptId, user.getId());
+        PracticeResultDetailView detail;
+        try {
+            detail = resultDetailAssembler.assemble(attemptId, user.getId(), questionId);
+        } catch (PracticeResultNotAvailableException exception) {
+            return redirectForUnavailableLegacyResult(attempt, redirectAttributes);
+        }
         model.addAttribute(PracticeModelAttributes.RESULT_DETAIL, detail);
         model.addAttribute(PracticeModelAttributes.ATTEMPT_ID, attemptId);
         return switch (detail.screenKind()) {
@@ -832,6 +859,17 @@ public class PracticeController {
             case WRITING_DETAIL -> PracticeViews.RESULT_DETAIL_WRITING;
             case SPEAKING_DETAIL -> PracticeViews.RESULT_DETAIL_SPEAKING;
         };
+    }
+
+    private String redirectForUnavailableLegacyResult(
+            PracticeAttempt attempt,
+            RedirectAttributes redirectAttributes) {
+        redirectAttributes.addFlashAttribute(
+                "error",
+                "Kết quả của lượt làm bài cũ chưa thể hiển thị vì nội dung "
+                        + "thiếu liên kết phiên bản bất biến. Bài đã nộp vẫn được giữ nguyên.");
+        return PracticeRoutes.redirectToTestDetail(
+                attempt.getSetId(), attempt.getTestId());
     }
 
     @PostMapping(PracticeRoutes.ATTEMPT_RE_EVALUATE)
