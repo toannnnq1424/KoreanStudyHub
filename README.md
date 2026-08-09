@@ -49,7 +49,7 @@ audit artifact is present in the working tree.
 | Domain & data | Java 17, Spring Data JPA / Hibernate, MySQL 8, Flyway-owned schema |
 | Realtime | Spring WebSocket with STOMP/SockJS for direct messaging |
 | Files | Local development storage or S3-compatible Cloudflare R2 profiles |
-| Integrations | SMTP, optional Google OAuth, Korean dictionary/news sources, bounded optional AI providers |
+| Integrations | SMTP, optional Google OAuth, Korean Basic Dictionary, bounded optional AI providers |
 
 Flyway owns schema changes. Hibernate runs with `ddl-auto=validate`; do not
 use Hibernate to create or mutate a shared schema.

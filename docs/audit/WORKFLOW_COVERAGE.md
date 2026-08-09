@@ -32,8 +32,8 @@ Screen-level initial query và ranh giới client-only/persistence được đ�
 | General settings | form/key/cache/runtime consumers | Lưu DB được; bốn key hiện chưa đổi product UI | [01_GENERAL_SMTP_OAUTH_DICTIONARY.md](workflows/admin/01_GENERAL_SMTP_OAUTH_DICTIONARY.md) |
 | SMTP + mail outbox | save/test/sender, reset mail, notification whitelist, retry/retention | Hoạt động khi host/credential/network hợp lệ | [01_GENERAL_SMTP_OAUTH_DICTIONARY.md](workflows/admin/01_GENERAL_SMTP_OAUTH_DICTIONARY.md), [MESSAGING_NOTIFICATIONS_MAIL_WORKFLOWS.md](workflows/product/MESSAGING_NOTIFICATIONS_MAIL_WORKFLOWS.md) |
 | Google OAuth config | save id/secret/scope, dynamic registration, login/callback/binding | Chỉ user local có sẵn; không self-register | [01_GENERAL_SMTP_OAUTH_DICTIONARY.md](workflows/admin/01_GENERAL_SMTP_OAUTH_DICTIONARY.md) |
-| KRDICT | key/base URL, exact GET/XML, Discovery/flashcard consumers | Không phải dependency Practice | [01_GENERAL_SMTP_OAUTH_DICTIONARY.md](workflows/admin/01_GENERAL_SMTP_OAUTH_DICTIONARY.md), [DISCOVERY_DICTIONARY_WORKFLOWS.md](workflows/product/DISCOVERY_DICTIONARY_WORKFLOWS.md) |
-| Global AI providers/models | CRUD/toggle/test/reveal/fallback/log, exact chat contract và consumers | Test/QB-related authoring, Flashcard, Discovery; không fallback cho Practice | [02_LEGACY_AI_PROVIDERS_PROMPTS_LOGS.md](workflows/admin/02_LEGACY_AI_PROVIDERS_PROMPTS_LOGS.md) |
+| KRDICT | key/base URL, exact GET/XML, shared dictionary/Flashcard consumers | Không phải dependency Practice | [01_GENERAL_SMTP_OAUTH_DICTIONARY.md](workflows/admin/01_GENERAL_SMTP_OAUTH_DICTIONARY.md), [../../KOREAN_DICTIONARY_FLASHCARD_WORKFLOW.md](../../KOREAN_DICTIONARY_FLASHCARD_WORKFLOW.md) |
+| Global AI providers/models | CRUD/toggle/test/reveal/fallback/log, exact chat contract và consumers | Test/QB-related authoring, Flashcard; không fallback cho Practice | [02_LEGACY_AI_PROVIDERS_PROMPTS_LOGS.md](workflows/admin/02_LEGACY_AI_PROVIDERS_PROMPTS_LOGS.md) |
 | System prompts | CRUD/toggle và mapping exact prompt name → consumer | Chỉ tên runtime được code gọi mới có hiệu lực | [02_LEGACY_AI_PROVIDERS_PROMPTS_LOGS.md](workflows/admin/02_LEGACY_AI_PROVIDERS_PROMPTS_LOGS.md) |
 | Practice AI control plane | profile/secret/preset/binding/model/capability/test fixture/runtime resolver | Một số preset ADC/direct-audio đang fail-closed; không dùng global AI | [03_PRACTICE_AI_CONTROL_PLANE.md](workflows/admin/03_PRACTICE_AI_CONTROL_PLANE.md) |
 | Local/R2 storage profiles | `GENERAL_UPLOADS`, `PRACTICE_AUTHORING`, `PRACTICE_SPEAKING`, secret/toggle/delete/read/write/migration boundary | Profile phải active+complete; đổi bucket không tự chuyển object cũ | [04_STORAGE_PROFILES_R2_LOCAL.md](workflows/admin/04_STORAGE_PROFILES_R2_LOCAL.md) |
@@ -52,7 +52,7 @@ Screen-level initial query và ranh giới client-only/persistence được đ�
 | Assignments | Lecturer/Student | author/publish/close, submit/resubmit, feedback/grade, notification/state | [ASSIGNMENTS.md](workflows/core/ASSIGNMENTS.md) |
 | Learning progress | Student/Lecturer | completion/progress/report aggregation and class-scoped visibility | [LEARNING_PROGRESS.md](workflows/core/LEARNING_PROGRESS.md) |
 
-## 4. Tests, Question Bank, Flashcards, Discovery và communication
+## 4. Tests, Question Bank, Flashcards và communication
 
 | Workflow family | Actor | Nội dung đã trace | Walkthrough |
 |---|---|---|---|
@@ -64,7 +64,7 @@ Screen-level initial query và ranh giới client-only/persistence được đ�
 | Question Bank governance | Lecturer/Leader | draft/edit/submit/approve/reject/archive/bulk/history | [QUESTION_BANK_WORKFLOWS.md](workflows/product/QUESTION_BANK_WORKFLOWS.md) |
 | Question Bank Excel import | Lecturer | template/upload/preview/confirm/session cleanup/contracts | [QUESTION_BANK_WORKFLOWS.md](workflows/product/QUESTION_BANK_WORKFLOWS.md) |
 | Flashcards | User | deck/card CRUD/import/share/public token, study/review, AI generation/dictionary | [FLASHCARDS_WORKFLOWS.md](workflows/product/FLASHCARDS_WORKFLOWS.md) |
-| Discovery/dictionary/news editorial | User/Admin/worker | feed/detail/search/save word, refresh/blacklist/delete, AI editorial, scheduler | [DISCOVERY_DICTIONARY_WORKFLOWS.md](workflows/product/DISCOVERY_DICTIONARY_WORKFLOWS.md) |
+| Shared Korean dictionary | Authenticated user/Admin | common KRDICT lookup, owned-deck selection and Flashcard save; Admin configures the provider | [../../KOREAN_DICTIONARY_FLASHCARD_WORKFLOW.md](../../KOREAN_DICTIONARY_FLASHCARD_WORKFLOW.md) |
 | Messaging/class chat | Authenticated/class actors | conversation/create/send/read/unread, STOMP delivery, SSR fallback, class scope | [MESSAGING_NOTIFICATIONS_MAIL_WORKFLOWS.md](workflows/product/MESSAGING_NOTIFICATIONS_MAIL_WORKFLOWS.md) |
 | Notifications/mail | User/worker | producer types, recent/list/open/count, safe redirect, outbox/SMTP/retry/retention | [MESSAGING_NOTIFICATIONS_MAIL_WORKFLOWS.md](workflows/product/MESSAGING_NOTIFICATIONS_MAIL_WORKFLOWS.md) |
 
@@ -74,13 +74,13 @@ Screen-level initial query và ranh giới client-only/persistence được đ�
 |---|---|---|
 | Autosave/submit/result/re-evaluate | objective/Writing/Speaking branch, lock/deadline/idempotency, queue, UI states | [PRACTICE_SUBMIT_AND_AI_EVALUATION.md](workflows/PRACTICE_SUBMIT_AND_AI_EVALUATION.md) |
 | Learner catalog/start/preflight/player/result | filter/detail/version lock, listening/speaking preflight, cancel, result, progress/font | [01_LEARNER_CATALOG_ATTEMPT_RESULT.md](workflows/practice/01_LEARNER_CATALOG_ATTEMPT_RESULT.md) |
-| Lecturer authoring/governance | draft/autosave/upload/publish/version/restore/lock/archive/collaboration/delete | [02_AUTHORING_DRAFT_PUBLISH_GOVERNANCE.md](workflows/practice/02_AUTHORING_DRAFT_PUBLISH_GOVERNANCE.md) |
+| Lecturer authoring/governance | owner-only draft/autosave/upload/publish/version/restore/archive/delete | [02_AUTHORING_DRAFT_PUBLISH_GOVERNANCE.md](workflows/practice/02_AUTHORING_DRAFT_PUBLISH_GOVERNANCE.md) |
 | Excel/PDF/Text AI authoring | target/template/preview/candidate/exact AI JSON/review/apply/material library | [03_IMPORT_EXCEL_PDF_AI_CANDIDATE.md](workflows/practice/03_IMPORT_EXCEL_PDF_AI_CANDIDATE.md) |
 | Objective explanation AI | prepare/generate/repair/editorial approve/reject/publish/result visibility | [04_OBJECTIVE_EXPLANATION_AI_EDITORIAL.md](workflows/practice/04_OBJECTIVE_EXPLANATION_AI_EDITORIAL.md) |
 | Speaking prompt authoring | upload/STT/poll/confirm/retry, text/TTS, exact provider contracts/publish gate | [05_SPEAKING_PROMPT_AUTHORING_STT_TTS.md](workflows/practice/05_SPEAKING_PROMPT_AUTHORING_STT_TTS.md) |
 | Learner speaking media/evaluation | record/upload/activate/playback/delete/submit, STT→transcript→evaluator exact JSON | [06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md](workflows/practice/06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md) |
-| Direct-audio/privacy/reviewer | consent, dark observation, grants, inspection/playback audit, non-release boundary | [06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md](workflows/practice/06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md), [03_PRACTICE_AI_CONTROL_PLANE.md](workflows/admin/03_PRACTICE_AI_CONTROL_PLANE.md) |
-| Jobs/cleanup/retention | deadline, evaluation, explanation, prompt, media/asset cleanup, audit retention, migration | [07_BACKGROUND_JOBS_FAILURE_RETENTION.md](workflows/practice/07_BACKGROUND_JOBS_FAILURE_RETENTION.md) |
+| Direct-audio/privacy | consent, learner media, retained provider evaluation boundary and non-release policy; reviewer dark-observation experiment retired in V114 | [06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md](workflows/practice/06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md), [03_PRACTICE_AI_CONTROL_PLANE.md](workflows/admin/03_PRACTICE_AI_CONTROL_PLANE.md) |
+| Jobs/cleanup/retention | deadline, evaluation, explanation, prompt, media/asset cleanup and storage migration | [07_BACKGROUND_JOBS_FAILURE_RETENTION.md](workflows/practice/07_BACKGROUND_JOBS_FAILURE_RETENTION.md) |
 | Practice authoring source-of-truth | mọi authoring screen/initial read, draft/import/candidate/material/explanation/Speaking mutation map và response code | [08_AUTHORING_SOURCE_OF_TRUTH_AUDIT.md](workflows/practice/08_AUTHORING_SOURCE_OF_TRUTH_AUDIT.md) |
 
 ## 6. Inventory hỗ trợ kiểm tra toàn source

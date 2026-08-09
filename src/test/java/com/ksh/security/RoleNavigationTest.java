@@ -29,7 +29,6 @@ class RoleNavigationTest {
         Authentication lecturer = authentication(Roles.LECTURER);
 
         assertThat(RoleNavigation.canResume(student, "/lecturer/classes")).isFalse();
-        assertThat(RoleNavigation.canResume(student, "/admin/news")).isFalse();
         assertThat(RoleNavigation.canResume(lecturer, "/my/classes/1/lessons")).isFalse();
         assertThat(RoleNavigation.canResume(lecturer, "/my/tests/8/take")).isFalse();
     }
@@ -39,7 +38,6 @@ class RoleNavigationTest {
         Authentication student = authentication(Roles.STUDENT);
 
         assertThat(RoleNavigation.canResume(student, "/j/abc123")).isFalse();
-        assertThat(RoleNavigation.canResume(student, "/discover/example")).isTrue();
         assertThat(RoleNavigation.canResume(student, "/my/flashcards/7/edit")).isTrue();
     }
 

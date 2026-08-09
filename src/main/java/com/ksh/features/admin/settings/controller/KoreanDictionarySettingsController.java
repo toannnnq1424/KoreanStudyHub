@@ -28,8 +28,8 @@ public class KoreanDictionarySettingsController {
 
     public KoreanDictionarySettingsController(
             KoreanDictionarySettingsService service,
-            @Value("${app.news.dictionary.api-key:}") String environmentApiKey,
-            @Value("${app.news.dictionary.base-url:https://krdict.korean.go.kr/api/search}") String environmentBaseUrl) {
+            @Value("${app.dictionary.api-key:}") String environmentApiKey,
+            @Value("${app.dictionary.base-url:https://krdict.korean.go.kr/api/search}") String environmentBaseUrl) {
         this.service = service;
         this.environmentApiKey = environmentApiKey;
         this.environmentBaseUrl = environmentBaseUrl;

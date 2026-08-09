@@ -1,14 +1,12 @@
 package com.ksh.features.practice.manage.service;
 
 import com.ksh.entities.LecturerAsset;
-import com.ksh.entities.PracticeAuthoringCollaboration;
 import com.ksh.entities.PracticeMaterialReference;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.practice.governance.PracticeAction;
 import com.ksh.features.practice.governance.PracticeAuthorizationService;
 import com.ksh.features.practice.repository.LecturerAssetRepository;
-import com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository;
 import com.ksh.features.practice.repository.PracticeMaterialReferenceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,8 +24,6 @@ import static org.mockito.Mockito.when;
 class PracticeMaterialLibraryServiceTest {
 
     private final LecturerAssetRepository assetRepository = mock(LecturerAssetRepository.class);
-    private final PracticeAuthoringCollaborationRepository collaborationRepository =
-            mock(PracticeAuthoringCollaborationRepository.class);
     private final PracticeMaterialReferenceRepository referenceRepository =
             mock(PracticeMaterialReferenceRepository.class);
     private final PracticeAuthorizationService authorizationService =
@@ -39,12 +35,8 @@ class PracticeMaterialLibraryServiceTest {
     @BeforeEach
     void setUp() {
         service = new PracticeMaterialLibraryService(
-                assetRepository, collaborationRepository, referenceRepository,
+                assetRepository, referenceRepository,
                 authorizationService, userRepository);
-        when(collaborationRepository
-                .findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(
-                        any(Long.class), any(Pageable.class)))
-                .thenReturn(List.of());
     }
 
     @Test
@@ -70,37 +62,6 @@ class PracticeMaterialLibraryServiceTest {
         assertEquals("Giảng viên A", view.ownerName());
         assertEquals(PracticeMaterialLibraryService.VIEW_LIMIT, catalog.limit());
         verify(authorizationService).requireGlobal(7L, PracticeAction.READ);
-    }
-
-    @Test
-    void collaboratorCatalogIncludesReferencedRetainedAssetThroughSafeEndpoint() {
-        LecturerAsset shared = asset(30L, 9L, "ARCHIVED", true);
-        PracticeAuthoringCollaboration grant = new PracticeAuthoringCollaboration(
-                40L, 7L);
-        PracticeMaterialReference reference =
-                PracticeMaterialReference.published(30L, 40L, 50L, "GROUP_IMAGE");
-        User owner = mock(User.class);
-        when(owner.getId()).thenReturn(9L);
-        when(owner.getFullName()).thenReturn("Giảng viên B");
-        when(assetRepository.findByOwnerLecturerIdAndDeletedAtIsNullOrderByUpdatedAtDesc(
-                any(Long.class), any(Pageable.class))).thenReturn(List.of());
-        when(collaborationRepository
-                .findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(
-                        any(Long.class), any(Pageable.class)))
-                .thenReturn(List.of(grant));
-        when(referenceRepository.findBySetId(40L)).thenReturn(List.of(reference));
-        when(assetRepository.findAllById(List.of(30L))).thenReturn(List.of(shared));
-        when(referenceRepository.findByAssetId(30L)).thenReturn(List.of(reference));
-        when(userRepository.findAllById(any())).thenReturn(List.of(owner));
-
-        PracticeMaterialLibraryService.Catalog catalog = service.catalog(7L);
-
-        assertEquals(1, catalog.shared().size());
-        PracticeMaterialLibraryService.MaterialView view = catalog.shared().get(0);
-        assertEquals("Giảng viên B", view.ownerName());
-        assertEquals(List.of("PUBLISHED_VERSION"), view.scopes());
-        assertTrue(view.referenceCount() > 0);
-        assertEquals("/practice/materials/30/content", view.contentUrl());
     }
 
     private static LecturerAsset asset(Long id, Long ownerId, String status,

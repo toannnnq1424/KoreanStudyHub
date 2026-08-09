@@ -100,7 +100,7 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     }
 
     @Test
-    void c4CompactionRemainsAndAuthorizedForwardMigrationsStopAtV111() throws Exception {
+    void c4CompactionRemainsAndLaterGlobalMigrationsDoNotChangePracticeScope() throws Exception {
         Path migrations = ROOT.resolve("src/main/resources/db/migration");
         try (var paths = Files.list(migrations)) {
             List<String> names = paths.map(path -> path.getFileName().toString())
@@ -118,10 +118,12 @@ class PracticeAim7PdfAuthoringStaticContractTest {
                     "V110__practice_speaking_reviewer_access_audit"));
             assertThat(names).anyMatch(name -> name.startsWith(
                     "V111__practice_speaking_reviewer_access_audit_retention"));
-            assertThat(names).noneMatch(name -> {
+            assertThat(names).filteredOn(name -> {
                 int separator = name.indexOf("__");
-                return Integer.parseInt(name.substring(1, separator)) > 111;
-            });
+                return Integer.parseInt(name.substring(1, separator)) > 111
+                        && name.contains("practice_");
+            }).containsExactly(
+                    "V114__retire_practice_collaboration_and_dark_audio_review.sql");
         }
     }
 

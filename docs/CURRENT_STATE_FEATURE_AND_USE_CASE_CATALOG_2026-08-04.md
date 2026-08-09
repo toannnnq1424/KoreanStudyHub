@@ -24,6 +24,7 @@
 | Schedule, study group and class-role workflows | Not part of the current primary product flow. |
 | Class states outside DRAFT / ACTIVE / ARCHIVED | Retired target state model. Rejection is a DRAFT annotation (`rejection_note`), not a state. |
 | Practice Question/Test Bank | Separate `/practice` boundary. |
+| Korea Discovery News feed, crawl and editorial workflow | Removed in V112. Korean dictionary lookup and saving a term to Flashcards remain a shared, Admin-configured capability. |
 
 ## 3. Revised feature catalog
 
@@ -43,7 +44,7 @@
 | FE-12 | Dashboards, activity and operational tracking | Role-specific teaching, subject and platform visibility. |
 | FE-13 | Identity, RBAC and platform administration | Users, permissions, settings, storage and operational audit. |
 | FE-14 | AI-assisted authoring and evaluation | Non-Practice provider/prompt operations and AI drafting. |
-| FE-15 | Korea discovery, dictionary and vocabulary | Article discovery and vocabulary learning. |
+| FE-15 | Shared Korean dictionary and Flashcard capture | Admin-configured KRDICT lookup and saving selected terms into a personal Flashcard deck. |
 | FE-16 | Independent Practice learner experience | Four-skill practice catalog, attempt and result experience. |
 | FE-17 | Practice authoring, publishing and media operations | Controlled content production and protected practice assets. |
 
@@ -196,7 +197,7 @@
 |---|---|---|
 | UC-074 | Manage user account lifecycle and roles | ADMIN |
 | UC-075 | Configure role permissions and user overrides | ADMIN |
-| UC-076 | Review login history and security-relevant account activity | ADMIN |
+| UC-076 | Review security-relevant account activity | ADMIN |
 | UC-077 | Manage global settings, OAuth and SMTP configuration | ADMIN |
 | UC-078 | Manage non-Practice object-storage configuration | ADMIN |
 | UC-079 | View platform administration dashboard and audits | ADMIN |
@@ -209,13 +210,13 @@
 | UC-081 | Inspect general AI provider request logs | ADMIN |
 | UC-082 | Generate, edit and confirm AI question drafts | LECTURER_OWNER, CO_LECTURER |
 
-### FE-15 — Korea discovery, dictionary and vocabulary
+### FE-15 — Shared Korean dictionary and Flashcard capture
 
 | ID | Use case | Primary actor(s) |
 |---|---|---|
-| UC-083 | Browse Korea discovery articles and vocabulary | Authenticated learner |
-| UC-084 | Look up, save and review dictionary vocabulary | Authenticated learner |
-| UC-085 | Manage discovery sources, ingestion and editorial content | ADMIN |
+| UC-083 | Configure the shared Korean Basic Dictionary connection | ADMIN |
+| UC-084 | Look up a Korean word or phrase through the common dictionary helper | Authenticated learner |
+| UC-085 | Select an owned deck and save a dictionary term as a Flashcard | Authenticated learner |
 
 ### FE-16 — Independent Practice learner experience
 
@@ -229,7 +230,7 @@
 
 | ID | Use case | Primary actor(s) |
 |---|---|---|
-| UC-089 | Create, collaborate on and version Practice drafts | Authorized Practice author |
+| UC-089 | Create, edit and version owner Practice drafts | LECTURER_OWNER |
 | UC-090 | Import, review and apply Practice authoring candidates | Authorized Practice author |
 | UC-091 | Publish/retire Practice sets and protected assets | Authorized Practice publisher |
 | UC-092 | Manage Practice speaking media and AI capability bindings | Authorized Practice operator |

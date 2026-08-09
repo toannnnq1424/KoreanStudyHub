@@ -4,8 +4,6 @@ import com.ksh.features.dictionary.KoreanDictionaryDtos.DeckOption;
 import com.ksh.features.dictionary.KoreanDictionaryDtos.LookupResult;
 import com.ksh.features.dictionary.KoreanDictionaryDtos.SaveRequest;
 import com.ksh.features.dictionary.KoreanDictionaryDtos.SaveResult;
-import com.ksh.features.discovery.dictionary.DictionaryEntry;
-import com.ksh.features.discovery.dictionary.KoreanDictionaryClient;
 import com.ksh.features.flashcards.entity.Flashcard;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
 import com.ksh.features.flashcards.repository.FlashcardDeckRepository;

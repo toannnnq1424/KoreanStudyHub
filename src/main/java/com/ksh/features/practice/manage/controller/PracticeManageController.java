@@ -29,9 +29,7 @@ public class PracticeManageController {
     private final com.ksh.features.practice.manage.service.PracticeDraftService draftService;
     private final com.ksh.features.practice.manage.service.PracticeRevisionService revisionService;
     private final com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository;
-    private final com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository;
     private final com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService;
-    private final com.ksh.features.practice.governance.PracticeCollaborationService collaborationService;
     private final QuestionExplanationRecoveryQueryService explanationRecoveryQueryService;
     private final QuestionExplanationRetryService explanationRetryService;
  
@@ -41,9 +39,7 @@ public class PracticeManageController {
                                     com.ksh.features.practice.manage.service.PracticeDraftService draftService,
                                     com.ksh.features.practice.manage.service.PracticeRevisionService revisionService,
                                     com.ksh.features.practice.repository.PracticePublishedVersionRepository publishedVersionRepository,
-                                    com.ksh.features.practice.repository.PracticeAuthoringCollaborationRepository collaborationRepository,
                                     com.ksh.features.practice.governance.PracticeLifecycleService lifecycleService,
-                                    com.ksh.features.practice.governance.PracticeCollaborationService collaborationService,
                                     QuestionExplanationRecoveryQueryService explanationRecoveryQueryService,
                                     QuestionExplanationRetryService explanationRetryService) {
         this.setRepository = setRepository;
@@ -52,9 +48,7 @@ public class PracticeManageController {
         this.draftService = draftService;
         this.revisionService = revisionService;
         this.publishedVersionRepository = publishedVersionRepository;
-        this.collaborationRepository = collaborationRepository;
         this.lifecycleService = lifecycleService;
-        this.collaborationService = collaborationService;
         this.explanationRecoveryQueryService = explanationRecoveryQueryService;
         this.explanationRetryService = explanationRetryService;
     }
@@ -90,71 +84,15 @@ public class PracticeManageController {
                 .filter(s -> "PUBLISHED".equals(s.getStatus()))
                 .count();
  
-        // Resolve dashboard identities with a fixed number of bulk queries.
         java.util.Map<Long, String> authorsMap = new java.util.HashMap<>();
-        java.util.Map<Long, String> collaboratorEmailsMap = new java.util.HashMap<>();
-        java.util.Map<Long, List<com.ksh.entities.PracticeAuthoringCollaboration>>
-                collaboratorsBySet = new java.util.LinkedHashMap<>();
-        java.util.Set<Long> ownedSetIds = sets.stream()
-                .map(PracticeSet::getId)
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toCollection(
-                        java.util.LinkedHashSet::new));
-        ownedSetIds.forEach(setId ->
-                collaboratorsBySet.put(setId, new java.util.ArrayList<>()));
-        List<com.ksh.entities.PracticeAuthoringCollaboration> ownedGrants =
-                ownedSetIds.isEmpty()
-                        ? List.of()
-                        : collaborationRepository
-                                .findBySetIdInAndRevokedAtIsNull(ownedSetIds);
-        ownedGrants.forEach(grant ->
-                collaboratorsBySet
-                        .computeIfAbsent(
-                                grant.getSetId(),
-                                ignored -> new java.util.ArrayList<>())
-                        .add(grant));
+        authorsMap.put(user.getId(), user.getFullName());
  
         List<com.ksh.entities.PracticeDraft> drafts = draftRepository.findByOwnerIdOrderByUpdatedAtDesc(user.getId());
 
-        List<com.ksh.entities.PracticeAuthoringCollaboration> sharedGrants =
-                collaborationRepository.findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(user.getId());
-        java.util.Set<Long> sharedSetIds = sharedGrants.stream()
-                .map(com.ksh.entities.PracticeAuthoringCollaboration::getSetId)
-                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-        List<PracticeSet> sharedSets = setRepository.findAllById(sharedSetIds).stream()
-                .filter(set -> status == null || status.isBlank() || status.equals(set.getStatus()))
-                .toList();
-
-        java.util.Set<Long> collaboratorIds = ownedGrants.stream()
-                .map(com.ksh.entities.PracticeAuthoringCollaboration::getCollaboratorId)
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toCollection(
-                        java.util.LinkedHashSet::new));
-        java.util.Set<Long> visibleUserIds = new java.util.LinkedHashSet<>();
-        sets.stream().map(PracticeSet::getCreatedBy)
-                .filter(java.util.Objects::nonNull)
-                .forEach(visibleUserIds::add);
-        sharedSets.stream().map(PracticeSet::getCreatedBy)
-                .filter(java.util.Objects::nonNull)
-                .forEach(visibleUserIds::add);
-        visibleUserIds.addAll(collaboratorIds);
-        if (!visibleUserIds.isEmpty()) {
-            userRepository.findAllById(visibleUserIds).forEach(visibleUser -> {
-                authorsMap.put(visibleUser.getId(), visibleUser.getFullName());
-                if (collaboratorIds.contains(visibleUser.getId())) {
-                    collaboratorEmailsMap.put(
-                            visibleUser.getId(), visibleUser.getEmail());
-                }
-            });
-        }
-
         model.addAttribute("sets", sets);
         model.addAttribute("drafts", drafts);
-        model.addAttribute("sharedSets", sharedSets);
         model.addAttribute("publishedCount", publishedCount);
         model.addAttribute("authorsMap", authorsMap);
-        model.addAttribute("collaboratorEmailsMap", collaboratorEmailsMap);
-        model.addAttribute("collaboratorsBySet", collaboratorsBySet);
         model.addAttribute("activeStatus", status != null ? status : "ALL");
         return "practice/manage/dashboard";
     }
@@ -175,40 +113,22 @@ public class PracticeManageController {
             PracticeSet requested = setRepository.findById(requestedSetId)
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                             "Học liệu không tồn tại."));
-            boolean collaborator = collaborationRepository
-                    .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
-                            requestedSetId, user.getId())
-                    .isPresent();
-            if (!user.getId().equals(requested.getCreatedBy())
-                    && !collaborator) {
+            if (!user.getId().equals(requested.getCreatedBy())) {
                 throw new org.springframework.security.access.AccessDeniedException(
                         "Bạn không có quyền xem lịch sử học liệu này.");
             }
             visibleSetIds.clear();
             visibleSetIds.add(requestedSetId);
             selectedSet = requested;
-        } else {
-            collaborationRepository
-                    .findByCollaboratorIdAndRevokedAtIsNullOrderByGrantedAtDesc(user.getId())
-                    .stream()
-                    .map(com.ksh.entities.PracticeAuthoringCollaboration::getSetId)
-                    .forEach(visibleSetIds::add);
         }
         for (PracticeSet set : setRepository.findAllById(visibleSetIds)) {
             userRepository.findById(set.getCreatedBy())
                     .ifPresent(owner -> authorsMap.put(
                             set.getCreatedBy(), owner.getFullName()));
-            java.util.Optional<com.ksh.entities.PracticeAuthoringCollaboration> grant =
-                    collaborationRepository
-                            .findBySetIdAndCollaboratorIdAndRevokedAtIsNull(
-                                    set.getId(), user.getId());
-            boolean owner = user.getId().equals(set.getCreatedBy());
-            boolean normalRestoreGrant = !set.isOwnerLocked() && grant.isPresent();
-            boolean canRestore = owner || normalRestoreGrant;
             for (com.ksh.entities.PracticePublishedVersion version :
                     publishedVersionRepository.findBySetIdOrderByVersionNumberDesc(set.getId())) {
                 versions.add(new VersionHistoryRow(
-                        version, set, canRestore));
+                        version, set, true));
                 if (version.getPublishedBy() != null) {
                     userRepository.findById(version.getPublishedBy())
                             .ifPresent(actor -> authorsMap.put(
@@ -297,7 +217,7 @@ public class PracticeManageController {
         return "redirect:/practice/manage/revisions?setId=" + setId;
     }
 
-    @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/{action:lock|unlock|archive|unarchive}")
+    @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/{action:archive|unarchive}")
     public String lifecycle(
             @org.springframework.web.bind.annotation.PathVariable Long setId,
             @org.springframework.web.bind.annotation.PathVariable String action,
@@ -305,46 +225,11 @@ public class PracticeManageController {
             org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
         try {
             switch (action) {
-                case "lock" -> lifecycleService.lockSet(setId, user.getId());
-                case "unlock" -> lifecycleService.unlockSet(setId, user.getId());
                 case "archive" -> lifecycleService.archiveSet(setId, user.getId());
                 case "unarchive" -> lifecycleService.unarchiveSet(setId, user.getId());
                 default -> throw new IllegalArgumentException("Hành động không hợp lệ.");
             }
             redirectAttributes.addFlashAttribute("success", "Đã cập nhật trạng thái học liệu.");
-        } catch (Exception exception) {
-            redirectAttributes.addFlashAttribute("error", exception.getMessage());
-        }
-        return "redirect:/practice/manage";
-    }
-
-    @org.springframework.web.bind.annotation.PostMapping("/sets/{setId}/share")
-    public String shareSet(
-            @org.springframework.web.bind.annotation.PathVariable Long setId,
-            @org.springframework.web.bind.annotation.RequestParam String email,
-            @AuthenticationPrincipal KshUserDetails user,
-            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
-        try {
-            collaborationService.shareSetByEmail(setId, email, user.getId());
-            redirectAttributes.addFlashAttribute("success", "Đã chia sẻ học liệu.");
-        } catch (Exception exception) {
-            redirectAttributes.addFlashAttribute("error", exception.getMessage());
-        }
-        return "redirect:/practice/manage";
-    }
-
-    @org.springframework.web.bind.annotation.PostMapping(
-            "/sets/{setId}/collaborators/{collaboratorId}/revoke")
-    public String revokeSetCollaboration(
-            @org.springframework.web.bind.annotation.PathVariable Long setId,
-            @org.springframework.web.bind.annotation.PathVariable Long collaboratorId,
-            @AuthenticationPrincipal KshUserDetails user,
-            org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
-        try {
-            collaborationService.revokeSet(
-                    setId, collaboratorId, user.getId());
-            redirectAttributes.addFlashAttribute(
-                    "success", "Đã thu hồi quyền cộng tác.");
         } catch (Exception exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }

@@ -93,17 +93,7 @@ Upload/publish/delete chỉ ghi reference/status/task trong transaction. Worker 
 
 Sau khi xóa task/revision/artifact DB, service queue input/generated private assets nếu không còn reference. Đây là orphan retention, không xóa prompt hiện hành hoặc đã publish.
 
-## 9. Direct-audio reviewer access audit retention
-
-Worker này off mặc định và chỉ tồn tại khi:
-
-```properties
-app.practice.speaking-direct-audio.reviewer-access-audit.retention-worker-enabled=true
-```
-
-Mỗi giờ, `DirectAudioReviewerAccessAuditRetentionWorker.runOnce` xóa tối đa batch configured (clamp 1–1000) (`DirectAudioReviewerAccessAuditRetentionWorker.java:8–32`). SQL tại `DirectAudioReviewerAccessAuditRetention.java:31–41` chỉ delete event có immutable `delete_after <= now`, theo deadline/id. Nó không xóa media; media withdrawal đi qua speaking cleanup task riêng.
-
-## 10. Storage migration không có scheduler tự động
+## 9. Storage migration không có scheduler tự động
 
 `PracticeStorageMigrationCoordinator` và `PracticeStorageMigrationJobService` có state machine `PLANNED → COPYING → COPIED_VERIFIED → CLEANUP_PENDING → DELETING_SOURCE → COMPLETED`, nhưng source comment khẳng định **explicit-only** và không có `@Scheduled` caller (`PracticeStorageMigrationCoordinator.java:17–19`).
 
@@ -117,7 +107,7 @@ Mỗi giờ, `DirectAudioReviewerAccessAuditRetentionWorker.runOnce` xóa tối 
 
 Hiện không có UI/controller sản xuất khởi tạo chuỗi này; đây là seam/library, không nên mô tả như một chức năng đã mở cho admin.
 
-## 11. Trace chính xác: durable queue, event hậu-commit, lease và shutdown
+## 10. Trace chính xác: durable queue, event hậu-commit, lease và shutdown
 
 Các chuỗi sau không phải cùng một kiểu “async”. `practice_attempt_evaluation_jobs`, `question_explanation_generation_tasks`, `speaking_prompt_ai_tasks` và `practice_asset_lifecycle_tasks` là hàng đợi DB có claim/fencing; còn `PublishedVersionExplanationEvent` và `RetiredPromptAssetCandidates` là Spring event **sau commit**, không phải transactional outbox bền vững. Vì vậy listener không thể rollback publish/unlink đã commit; recovery phải dựa vào reconciler/task DB.
 

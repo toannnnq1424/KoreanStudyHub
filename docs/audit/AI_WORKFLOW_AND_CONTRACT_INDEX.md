@@ -8,21 +8,19 @@ Trang này trả lời nhanh “nút nào thật sự gọi AI, qua control plan
 |---:|---|---|---|---|---|
 | 1 | Lecturer tạo câu hỏi Test từ PDF/DOCX/text | `POST /lecturer/tests/{testId}/ai-questions/generate` → `AiQuestionGenerationController.generate` | Global AI + prompt `AI_QUESTION_GENERATOR` | JSON object `questions[]`; mỗi item đúng type, content, explanation, 2–6 options và correct flags hợp lệ | Lưu preview session DB 10 phút; chỉ `POST .../confirm` mới tạo `TestQuestion` |
 | 2 | User tạo thẻ trong deck từ PDF/DOCX/text | `POST /api/flashcards/{deckId}/ai-generate` → `FlashcardApiController.generateCards` | Global AI + prompt `AI_FLASHCARD_GENERATOR` | `{"cards":[{"front":"한국어","back":"nghĩa"}]}`; parser bỏ blank/quá dài/trùng | Chỉ append editor; user phải bấm save deck mới persist |
-| 3 | Admin AI editorial bài Discovery | `POST /admin/news/articles/ai-editorial` → `AdminNewsController.aiEditorial` | Global AI + prompt `DISCOVERY_NEWS_EDITOR` | `titleVi`, `excerptVi`, `bodyVi` string trong JSON object | Ghi AI fields/status/run; public `lang=vi` đọc bản đã lưu |
-| 4 | Lecturer tạo Practice candidate từ PDF/text | `POST /practice/manage/pdf-authoring/candidates` → `PracticePdfImportApiController.createBasicCandidate` | `PRACTICE_PDF_AUTHORING`; optional Admin prompt cùng tên | strict `practice-pdf-authoring-output-v1`: exact operation/digest, groups/questions/typed answerSpec/sourceRefs/warnings | Tạo candidate; lecturer review/ready/apply; AI không publish |
-| 5 | Lecturer tạo explanation Reading/Listening | `POST /api/practice/manage/explanations/drafts/{draftId}/questions/{clientId}/generate` → `PracticeExplanationController.generateDraft` | `PRACTICE_RL_EXPLANATION` | strict JSON v4, exact strategy/question type/registry, evidence refs/offsets/digests và strategyBlock discriminator | Lưu editorial revision; lecturer sửa + approve; publish mới đưa vào learner version |
-| 6 | Student submit Writing | `POST /practice/attempts/{attemptId}/submit` → durable evaluation job | `PRACTICE_WRITING_EVALUATION` | strict `ksh_writing_unified`: versions, rubricScores, taskCoverage, evidenceLedger, findings, upgradedAnswer | Backend normalize/tự tính score; job complete; result page pending/success/failure |
-| 7 | Learner hoặc lecturer prompt audio → Korean transcript | worker gọi `/audio/transcriptions` sau media upload/authoring request | `PRACTICE_SPEAKING_STT` | JSON có `text` không blank; optional confidence/logprobs theo caller | Learner: transcript provenance cho evaluator; lecturer: context phải review/confirm |
-| 8 | Speaking learner transcript được đánh giá | durable evaluation worker sau STT score-bearing | `PRACTICE_SPEAKING_EVALUATION` | strict `ksh_speaking_evaluation`; evidence/rubric IDs đúng allowlist; transcript-only bắt `score_available=false`, `overall_score=null` | Lưu normalized language feedback; không dựng acoustic/holistic score |
-| 9 | Lecturer nhập text rồi bấm tạo audio Speaking | `POST .../speaking-prompt/tts` → task worker → `/audio/speech` | `PRACTICE_SPEAKING_TTS` | Binary audio không rỗng, MIME allowlisted; không phải JSON | Verify bytes/duration/hash, đăng ký lecturer asset, bind nếu source revision còn current |
-| 10 | Direct-audio Speaking evaluation | Admin binding/test/reviewer dark path | `PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION` | Chưa có output được phép release trong live workflow | Capability probe chủ động fail dark-rollout; production vẫn STT → transcript evaluator |
+| 3 | Lecturer tạo Practice candidate từ PDF/text | `POST /practice/manage/pdf-authoring/candidates` → `PracticePdfImportApiController.createBasicCandidate` | `PRACTICE_PDF_AUTHORING`; optional Admin prompt cùng tên | strict `practice-pdf-authoring-output-v1`: exact operation/digest, groups/questions/typed answerSpec/sourceRefs/warnings | Tạo candidate; lecturer review/ready/apply; AI không publish |
+| 4 | Lecturer tạo explanation Reading/Listening | `POST /api/practice/manage/explanations/drafts/{draftId}/questions/{clientId}/generate` → `PracticeExplanationController.generateDraft` | `PRACTICE_RL_EXPLANATION` | strict JSON v4, exact strategy/question type/registry, evidence refs/offsets/digests và strategyBlock discriminator | Lưu editorial revision; lecturer sửa + approve; publish mới đưa vào learner version |
+| 5 | Student submit Writing | `POST /practice/attempts/{attemptId}/submit` → durable evaluation job | `PRACTICE_WRITING_EVALUATION` | strict `ksh_writing_unified`: versions, rubricScores, taskCoverage, evidenceLedger, findings, upgradedAnswer | Backend normalize/tự tính score; job complete; result page pending/success/failure |
+| 6 | Learner hoặc lecturer prompt audio → Korean transcript | worker gọi `/audio/transcriptions` sau media upload/authoring request | `PRACTICE_SPEAKING_STT` | JSON có `text` không blank; optional confidence/logprobs theo caller | Learner: transcript provenance cho evaluator; lecturer: context phải review/confirm |
+| 7 | Speaking learner transcript được đánh giá | durable evaluation worker sau STT score-bearing | `PRACTICE_SPEAKING_EVALUATION` | strict `ksh_speaking_evaluation`; evidence/rubric IDs đúng allowlist; transcript-only bắt `score_available=false`, `overall_score=null` | Lưu normalized language feedback; không dựng acoustic/holistic score |
+| 8 | Lecturer nhập text rồi bấm tạo audio Speaking | `POST .../speaking-prompt/tts` → task worker → `/audio/speech` | `PRACTICE_SPEAKING_TTS` | Binary audio không rỗng, MIME allowlisted; không phải JSON | Verify bytes/duration/hash, đăng ký lecturer asset, bind nếu source revision còn current |
+| 9 | Direct-audio Speaking evaluation | Admin binding/test/reviewer dark path | `PRACTICE_SPEAKING_DIRECT_AUDIO_EVALUATION` | Chưa có output được phép release trong live workflow | Capability probe chủ động fail dark-rollout; production vẫn STT → transcript evaluator |
 
 Walkthrough tương ứng:
 
 - #1: [TESTS_WORKFLOWS.md](workflows/product/TESTS_WORKFLOWS.md) §4.
 - #2: [FLASHCARDS_WORKFLOWS.md](workflows/product/FLASHCARDS_WORKFLOWS.md) §4.
-- #3: [DISCOVERY_DICTIONARY_WORKFLOWS.md](workflows/product/DISCOVERY_DICTIONARY_WORKFLOWS.md) §8.
-- #4: [03_IMPORT_EXCEL_PDF_AI_CANDIDATE.md](workflows/practice/03_IMPORT_EXCEL_PDF_AI_CANDIDATE.md) §5–11.
+- #3: [03_IMPORT_EXCEL_PDF_AI_CANDIDATE.md](workflows/practice/03_IMPORT_EXCEL_PDF_AI_CANDIDATE.md) §5–11.
 - #5: [04_OBJECTIVE_EXPLANATION_AI_EDITORIAL.md](workflows/practice/04_OBJECTIVE_EXPLANATION_AI_EDITORIAL.md) §3–9.
 - #6: [PRACTICE_SUBMIT_AND_AI_EVALUATION.md](workflows/PRACTICE_SUBMIT_AND_AI_EVALUATION.md) §2–8.
 - #7–10: [05_SPEAKING_PROMPT_AUTHORING_STT_TTS.md](workflows/practice/05_SPEAKING_PROMPT_AUTHORING_STT_TTS.md), [06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md](workflows/practice/06_LEARNER_SPEAKING_MEDIA_STT_EVALUATION_PRIVACY.md).
@@ -48,7 +46,7 @@ Content-Type: application/json
 }
 ```
 
-`2048` ở trên là ví dụ kiểu dữ liệu; giá trị thật là integer do consumer truyền (Test theo số câu, Flashcard theo số thẻ, Discovery 2400). `response_format` chỉ được thêm khi consumer gọi `chatJsonObject`; Test question hiện gọi `chat` nên không có field này. Provider response phải có string:
+`2048` ở trên là ví dụ kiểu dữ liệu; giá trị thật là integer do consumer truyền (Test theo số câu, Flashcard theo số thẻ). `response_format` chỉ được thêm khi consumer gọi `chatJsonObject`; Test question hiện gọi `chat` nên không có field này. Provider response phải có string:
 
 ```json
 {"choices":[{"message":{"content":"<JSON text mà consumer parser yêu cầu>"}}]}
@@ -122,5 +120,4 @@ Response là audio bytes, phải không rỗng và qua MIME/container/duration/h
 - Random đề Question Bank dùng `Collections.shuffle()` trong Java; không prompt/model/provider.
 - Submit Reading/Listening chấm answer key bằng Java; explanation AI là pipeline riêng và không quyết định điểm objective.
 - KRDICT là external dictionary HTTP/XML, không phải generative AI.
-- RSS “Cào tin ngay” chỉ ingest/normalize feed; AI editorial là button/workflow khác.
 - Lưu/toggle model/provider chỉ đổi control plane; AI call thật chỉ xảy ra khi consumer workflow được user/worker kích hoạt và mọi gate pass.
