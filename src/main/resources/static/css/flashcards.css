@@ -54,7 +54,12 @@
 
 /* Library list deliberately follows Quizlet's low, full-width set rows. */
 .fc-library { max-width: 1480px; min-height: calc(100vh - 64px); padding: 26px 42px 88px; background: #f7f8fc; box-shadow: 0 0 0 100vmax #f7f8fc; clip-path: inset(0 -100vmax); }
-.fc-library .fc-toolbar { min-height: 42px; align-items: center; justify-content: flex-end; margin-bottom: 18px; }
+.fc-library .fc-toolbar { min-height: 42px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.fc-library-search { display: flex; align-items: center; gap: 8px; width: min(720px, 100%); }
+.fc-library-search > svg { width: 19px; height: 19px; flex: 0 0 auto; margin-right: -42px; z-index: 1; fill: none; stroke: #788399; stroke-width: 1.8; stroke-linecap: round; }
+.fc-library-search input { width: 100%; min-height: 44px; padding: 0 42px; border: 1px solid #d8deea; border-radius: 8px; background: #fff; color: #27324a; font: inherit; outline: none; }
+.fc-library-search input:focus { border-color: #8390eb; box-shadow: 0 0 0 3px rgba(66,85,214,.1); }
+.fc-search-clear { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-left: -42px; z-index: 1; color: #788399; font-size: 22px; text-decoration: none; }
 .fc-library .fc-page-title { font-size: 30px; font-weight: 650; }
 .fc-library .fc-section { margin-bottom: 68px; }
 .fc-library .fc-section-title {
@@ -101,6 +106,7 @@
 .fc-library .fc-card-owner { color: #263047; font-size: 13px; font-weight: 600; }
 .fc-library .fc-owner-label, .fc-library .fc-class-label { display: inline-flex; align-items: center; min-height: 23px; padding: 0 9px; border-radius: 999px; background: #e9e8ff; color: #414d70; font-size: 11px; font-weight: 650; }
 .fc-library .fc-class-label { background: #def4eb; color: #176c55; }
+.fc-library .fc-subject-label { display: inline-flex; align-items: center; min-height: 23px; padding: 0 9px; border-radius: 999px; background: #e8f2ff; color: #285d9e; font-size: 11px; font-weight: 700; }
 .fc-library .fc-card-title { margin: 0; color: #20283a; font-size: 20px; font-weight: 680; line-height: 1.25; letter-spacing: -.025em; }
 .fc-library .fc-card-actions { display: flex; align-items: center; padding: 0 22px; border-left: 1px solid #e3e7ef; }
 .fc-library .fc-card-share { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 13px; border: 1px solid #c5cde0; border-radius: 8px; background: #fff; color: #3f51c8; font-size: 12px; font-weight: 650; text-decoration: none; }

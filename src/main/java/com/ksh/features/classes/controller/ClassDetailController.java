@@ -157,7 +157,6 @@ public class ClassDetailController {
      */
     @GetMapping({"/classes/{id}/schedule", "/classes/{id}/roles",
                 "/classes/{id}/groups",
-                "/classes/{id}/scores",
                 "/classes/{id}/materials"})
     public String detailPlaceholder(@PathVariable Long id,
                                     @AuthenticationPrincipal KshUserDetails user,

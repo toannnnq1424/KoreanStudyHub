@@ -162,6 +162,21 @@ class AssignmentServiceTest {
     }
 
     @Test
+    void second_submit_is_rejected_even_before_grading_and_original_content_is_preserved() {
+        Long aid = createAndPublish("One shot assignment");
+        studentAssignmentService.submit(clazz.getId(), aid, new SubmitForm("First and final"), student.getId());
+
+        assertThatThrownBy(() -> studentAssignmentService.submit(
+                clazz.getId(), aid, new SubmitForm("Forbidden replacement"), student.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("chỉ được nộp một lần");
+
+        StudentAssignmentDetail detail =
+                studentAssignmentService.getForStudent(clazz.getId(), aid, student.getId());
+        assertThat(detail.submissionContent()).isEqualTo("First and final");
+    }
+
+    @Test
     void submit_late_when_due_date_passed_and_late_allowed() {
         AssignmentForm form = new AssignmentForm(
                 null, "Late allowed",  "Mô tả",

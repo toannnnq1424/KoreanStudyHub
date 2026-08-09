@@ -431,7 +431,7 @@ public interface IConstant {
     String MSG_ASSIGNMENT_NOT_FOUND  = "Không tìm thấy bài tập";
     String MSG_SUBMIT_SUCCESS        = "Đã nộp bài thành công";
     String MSG_SUBMIT_LATE           = "Bài tập đã quá hạn, không thể nộp trễ";
-    String MSG_SUBMIT_AFTER_GRADED   = "Không thể chỉnh sửa sau khi đã được chấm điểm";
+    String MSG_SUBMIT_AFTER_GRADED   = "Mỗi bài tập chỉ được nộp một lần; bài của bạn đã được khóa";
     String MSG_GRADE_SUCCESS         = "Đã chấm điểm thành công";
     String MSG_GRADE_SCORE_INVALID   = "Điểm phải nằm trong khoảng 0 đến điểm tối đa";
     String MSG_ASSIGNMENT_INVALID_TRANSITION = "Không thể thực hiện thao tác này với trạng thái hiện tại";

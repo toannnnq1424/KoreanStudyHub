@@ -4,6 +4,8 @@ import com.ksh.features.flashcards.entity.FlashcardDeck;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -32,12 +34,46 @@ public interface FlashcardDeckRepository extends JpaRepository<FlashcardDeck, Lo
      */
     Page<FlashcardDeck> findByOwnerId(Long ownerId, Pageable pageable);
 
+    /** Searches owned decks by deck title or canonical subject code/name. */
+    @Query("""
+            SELECT d FROM FlashcardDeck d
+            WHERE d.ownerId = :ownerId
+              AND (:keyword = ''
+                   OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR EXISTS (SELECT s.id FROM Department s
+                              WHERE s.id = d.subjectId
+                                AND (LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                     OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')))))
+            """)
+    Page<FlashcardDeck> searchOwned(@Param("ownerId") Long ownerId,
+                                    @Param("keyword") String keyword,
+                                    Pageable pageable);
+
     /**
      * SHARED decks targeting any of the given classes, excluding the caller's
      * own decks (those already appear in the "own" list). Newest-updated first.
      */
     List<FlashcardDeck> findByVisibilityAndClassIdInAndOwnerIdNotOrderByUpdatedAtDesc(
             String visibility, Collection<Long> classIds, Long ownerId);
+
+    /** Searches class-shared decks by deck title or canonical subject code/name. */
+    @Query("""
+            SELECT d FROM FlashcardDeck d
+            WHERE d.visibility = :visibility
+              AND d.classId IN :classIds
+              AND d.ownerId <> :ownerId
+              AND (:keyword = ''
+                   OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR EXISTS (SELECT s.id FROM Department s
+                              WHERE s.id = d.subjectId
+                                AND (LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                     OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')))))
+            ORDER BY d.updatedAt DESC
+            """)
+    List<FlashcardDeck> searchShared(@Param("visibility") String visibility,
+                                     @Param("classIds") Collection<Long> classIds,
+                                     @Param("ownerId") Long ownerId,
+                                     @Param("keyword") String keyword);
 
     /** SHARED decks targeting a single class (class-page surface). */
     List<FlashcardDeck> findByVisibilityAndClassIdOrderByUpdatedAtDesc(

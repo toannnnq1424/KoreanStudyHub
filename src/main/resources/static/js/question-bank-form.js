@@ -29,6 +29,19 @@
     return quill;
   }
 
+  function initOptionEditor(root) {
+    var textarea = root.parentElement && root.parentElement.querySelector('.qb-option-text');
+    if (!textarea || typeof Quill === 'undefined') return null;
+    var quill = new Quill(root, { theme: 'snow', modules: { toolbar: false } });
+    var initial = root.getAttribute('data-initial');
+    if (initial) quill.root.innerHTML = initial;
+    textarea.value = initial || '';
+    quill.on('text-change', function () {
+      textarea.value = quill.getText().trim() ? quill.root.innerHTML : '';
+    });
+    return quill;
+  }
+
   // Reflect each answer's correct-checkbox state onto its .lf-option card so
   // the letter badge turns green (checkbox itself is visually hidden by CSS).
   function syncOption(option) {
@@ -39,9 +52,9 @@
     option.classList.toggle('is-correct', checkbox.checked);
   }
 
-  function initOptions() {
-    var typeSelect = document.getElementById('questionType');
-    var options = Array.prototype.slice.call(document.querySelectorAll('.lf-option'));
+  function initOptions(root) {
+    var typeSelect = root.querySelector('#questionType');
+    var options = Array.prototype.slice.call(root.querySelectorAll('.lf-option'));
     if (!options.length) {
       return;
     }
@@ -71,9 +84,9 @@
     });
   }
 
-  function initLessonHierarchy() {
-    var subject = document.getElementById('subjectId');
-    var lesson = document.getElementById('lessonTemplateId');
+  function initLessonHierarchy(root) {
+    var subject = root.querySelector('#subjectId');
+    var lesson = root.querySelector('#lessonTemplateId');
     if (!subject || !lesson) return;
 
     function syncLessons() {
@@ -91,10 +104,39 @@
     syncLessons();
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    var editors = document.querySelectorAll('[data-qb-editor]');
+  function initProgressiveOptions(root) {
+    var rows = Array.prototype.slice.call(root.querySelectorAll('[data-qb-option-row]'));
+    var add = root.querySelector('[data-qb-option-add]');
+    if (!add) return;
+    function syncButton() {
+      add.hidden = !rows.some(function (row) { return row.hidden; });
+    }
+    add.addEventListener('click', function () {
+      var next = rows.find(function (row) { return row.hidden; });
+      if (!next) return;
+      next.hidden = false;
+      var editor = next.querySelector('.ql-editor');
+      if (editor) editor.focus();
+      syncButton();
+    });
+    syncButton();
+  }
+
+  function initQuestionBankForm(root) {
+    root = root || document;
+    if (root.dataset && root.dataset.qbFormReady === 'true') return;
+    if (root.dataset) root.dataset.qbFormReady = 'true';
+    var editors = root.querySelectorAll('[data-qb-editor]');
     Array.prototype.forEach.call(editors, initQuill);
-    initOptions();
-    initLessonHierarchy();
+    var optionEditors = root.querySelectorAll('[data-qb-option-editor]');
+    Array.prototype.forEach.call(optionEditors, initOptionEditor);
+    initOptions(root);
+    initLessonHierarchy(root);
+    initProgressiveOptions(root);
+  }
+
+  window.initQuestionBankForm = initQuestionBankForm;
+  document.addEventListener('DOMContentLoaded', function () {
+    initQuestionBankForm(document);
   });
 })();

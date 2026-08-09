@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import jakarta.persistence.LockModeType;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 /**
@@ -18,6 +19,21 @@ import java.util.Optional;
  * reliably with MySQL — callers must use the {@code NotDeleted} variants.
  */
 public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
+
+    /** Live assignment counts grouped by class for the lecturer class catalogue. */
+    @Query("SELECT a.classId AS classId, COUNT(a) AS cnt FROM Assignment a "
+            + "WHERE a.classId IN :classIds AND a.deleted = false GROUP BY a.classId")
+    List<ClassCount> countLiveGroupedByClassIds(@Param("classIds") Collection<Long> classIds);
+
+    interface ClassCount {
+        Long getClassId();
+        Long getCnt();
+    }
+
+    /** Published/closed assignments that contribute to dashboard completion. */
+    @Query("SELECT a FROM Assignment a WHERE a.classId IN :classIds "
+            + "AND a.deleted = false AND a.status <> 'DRAFT'")
+    List<Assignment> findVisibleByClassIds(@Param("classIds") Collection<Long> classIds);
 
     /**
      * Returns all non-deleted assignments for a class, ordered newest first.

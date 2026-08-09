@@ -7,14 +7,21 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Optional;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Owner-scoped repository for {@link LessonTemplate}. Soft-deleted rows are
  * excluded by the entity {@code @SQLRestriction}.
  */
 public interface LessonTemplateRepository extends JpaRepository<LessonTemplate, Long> {
+
+    interface SubjectContentCount {
+        Long getSubjectId();
+        long getChapterCount();
+        long getLessonCount();
+    }
 
     Optional<LessonTemplate> findByIdAndOwnerId(Long id, Long ownerId);
 
@@ -54,4 +61,14 @@ public interface LessonTemplateRepository extends JpaRepository<LessonTemplate, 
             Long ownerId, Long subjectId);
 
     Optional<LessonTemplate> findByIdAndSubjectId(Long id, Long subjectId);
+
+    @Query("""
+            SELECT t.subjectId AS subjectId,
+                   COUNT(DISTINCT t.chapterOrder) AS chapterCount,
+                   COUNT(t.id) AS lessonCount
+            FROM LessonTemplate t
+            WHERE t.subjectId IN :subjectIds
+            GROUP BY t.subjectId
+            """)
+    List<SubjectContentCount> summarizeSubjects(@Param("subjectIds") Collection<Long> subjectIds);
 }

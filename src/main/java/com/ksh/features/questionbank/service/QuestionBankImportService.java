@@ -1,6 +1,7 @@
 package com.ksh.features.questionbank.service;
 
 import com.ksh.entities.Department;
+import com.ksh.entities.LessonTemplate;
 import com.ksh.entities.User;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.auth.repository.UserRepository;
@@ -165,16 +166,24 @@ public class QuestionBankImportService {
         }
         restoreSessionOnRollback(session);
 
+        LessonTemplate lesson = lessonRepository
+                .findByIdAndSubjectId(session.getLessonTemplateId(), subject.getId())
+                .orElseThrow(() -> new QuestionBankValidationException(
+                        "Bài học trong Kho học liệu đã thay đổi hoặc bị xóa; vui lòng xem trước lại file import"));
+
         List<Long> itemIds = new ArrayList<>();
         for (ImportedItem importedItem : session.getItems()) {
-            QuestionBankItem item = itemRepository.save(new QuestionBankItem(
+            QuestionBankItem item = new QuestionBankItem(
                     subject.getId(),
                     session.getLessonTemplateId(),
                     actor.getId(),
                     importedItem.questionType(),
                     session.getWorkflowStatus(),
                     importedItem.contentHtml(),
-                    importedItem.explanationHtml()));
+                    importedItem.explanationHtml());
+            item.bindLesson(lesson.getId(), lesson.getChapterOrder(), lesson.getChapterTitle(),
+                    lesson.getDisplayOrder(), lesson.getTitle());
+            item = itemRepository.save(item);
             int order = 1;
             for (ImportedOption option : importedItem.options()) {
                 optionRepository.save(new QuestionBankOption(

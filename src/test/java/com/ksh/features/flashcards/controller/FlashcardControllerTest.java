@@ -1,11 +1,13 @@
 package com.ksh.features.flashcards.controller;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Department;
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
 import com.ksh.features.ai.client.AiClient;
 import com.ksh.features.ai.client.AiClientException;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.flashcards.dto.FlashcardDtos.CardItem;
@@ -14,6 +16,7 @@ import com.ksh.features.flashcards.service.CardService;
 import com.ksh.features.flashcards.service.DeckService;
 import com.ksh.features.flashcards.service.DeckPublicLinkService;
 import com.ksh.features.flashcards.repository.FlashcardRepository;
+import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static com.ksh.common.IConstant.DEFAULT_DECK_PAGE_SIZE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasProperty;
@@ -75,6 +79,8 @@ class FlashcardControllerTest {
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private FlashcardRepository flashcardRepository;
+    @Autowired private FlashcardDeckRepository deckRepository;
+    @Autowired private DepartmentRepository subjectRepository;
     @MockitoBean private AiClient aiClient;
 
     private Long deckId;
@@ -104,6 +110,50 @@ class FlashcardControllerTest {
     @WithUserDetails(OWNER)
     void list_page_ok() throws Exception {
         mockMvc.perform(get("/my/flashcards")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithUserDetails(OWNER)
+    void list_search_keeps_query_and_filters_by_subject_code() throws Exception {
+        User owner = userRepository.findByEmailIgnoreCase(OWNER).orElseThrow();
+        String code = "FCT" + System.nanoTime();
+        Department subject = subjectRepository.saveAndFlush(new Department(
+                "Flashcards tìm kiếm", code, null, true));
+        deckService.createDeck(owner.getId(), new DeckForm("Bộ theo môn", null, subject.getId()));
+
+        mockMvc.perform(get("/my/flashcards").param("q", code))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("q", code))
+                .andExpect(content().string(containsString(code)))
+                .andExpect(content().string(containsString("Bộ theo môn")));
+    }
+
+    @Test
+    @WithUserDetails(OWNER)
+    void create_form_lists_only_active_subjects_and_submission_persists_subject() throws Exception {
+        String activeCode = "FCA" + System.nanoTime();
+        String hiddenCode = "FCH" + System.nanoTime();
+        Department active = subjectRepository.saveAndFlush(new Department(
+                "Môn flashcard active", activeCode, null, true));
+        subjectRepository.saveAndFlush(new Department(
+                "Môn flashcard hidden", hiddenCode, null, false));
+
+        mockMvc.perform(get("/my/flashcards/new"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(activeCode)))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString(hiddenCode))));
+
+        mockMvc.perform(post("/my/flashcards").with(csrf())
+                        .param("title", "Bộ thẻ có mã môn")
+                        .param("description", "")
+                        .param("subjectId", active.getId().toString())
+                        .param("cardsJson", "[]"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(deckRepository.findFirstByOwnerIdAndTitleOrderByIdAsc(
+                        userRepository.findByEmailIgnoreCase(OWNER).orElseThrow().getId(),
+                        "Bộ thẻ có mã môn").orElseThrow().getSubjectId())
+                .isEqualTo(active.getId());
     }
 
     @Test

@@ -34,7 +34,8 @@ public final class AssignmentDtos {
             String status,
             LocalDateTime dueDate,
             BigDecimal maxScore,
-            long submissionCount
+            long submissionCount,
+            long activeStudentCount
     ) {}
 
     /**

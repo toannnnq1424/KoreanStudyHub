@@ -71,7 +71,7 @@ public class AssignmentAccessSupport {
     /** Maps Assignment entity + submission count to an AssignmentRow DTO. */
     public AssignmentRow toRow(Assignment a, long subCount) {
         return new AssignmentRow(a.getId(), a.getTitle(), a.getStatus(),
-                a.getDueDate(), a.getMaxScore(), subCount);
+                a.getDueDate(), a.getMaxScore(), subCount, 0);
     }
 
     /** Applies form fields to an Assignment entity. */

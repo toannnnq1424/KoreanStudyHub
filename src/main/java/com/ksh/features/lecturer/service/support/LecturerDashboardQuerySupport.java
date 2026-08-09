@@ -11,6 +11,14 @@ import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.lessons.repository.LessonRepository.ClassLessonId;
 import com.ksh.features.progress.repository.LearningProgressRepository;
 import com.ksh.features.progress.repository.LearningProgressRepository.UserLessonId;
+import com.ksh.features.tests.entity.Test;
+import com.ksh.features.tests.entity.TestAttempt;
+import com.ksh.features.tests.repository.TestRepository;
+import com.ksh.features.tests.repository.TestAttemptRepository;
+import com.ksh.features.assignments.entity.Assignment;
+import com.ksh.features.assignments.entity.AssignmentSubmission;
+import com.ksh.features.assignments.repository.AssignmentRepository;
+import com.ksh.features.assignments.repository.AssignmentSubmissionRepository;
 import com.ksh.security.Role;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -39,15 +47,27 @@ public class LecturerDashboardQuerySupport {
     private final EnrollmentRepository enrollmentRepository;
     private final LessonRepository lessonRepository;
     private final LearningProgressRepository progressRepository;
+    private final TestRepository testRepository;
+    private final TestAttemptRepository testAttemptRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final AssignmentSubmissionRepository submissionRepository;
 
     public LecturerDashboardQuerySupport(ClassRepository classRepository,
                                          EnrollmentRepository enrollmentRepository,
                                          LessonRepository lessonRepository,
-                                         LearningProgressRepository progressRepository) {
+                                         LearningProgressRepository progressRepository,
+                                         TestRepository testRepository,
+                                         TestAttemptRepository testAttemptRepository,
+                                         AssignmentRepository assignmentRepository,
+                                         AssignmentSubmissionRepository submissionRepository) {
         this.classRepository = classRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.lessonRepository = lessonRepository;
         this.progressRepository = progressRepository;
+        this.testRepository = testRepository;
+        this.testAttemptRepository = testAttemptRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.submissionRepository = submissionRepository;
     }
 
     /** Scope mirrors {@code ClassesService#listForUser}. */
@@ -126,6 +146,81 @@ public class LecturerDashboardQuerySupport {
             sum += ProgressMath.percent(completedCount, total);
         }
         return (int) Math.round((double) sum / studentIds.size());
+    }
+
+    /**
+     * Completion across every published class learning item: lessons, tests and
+     * assignments. Each item has equal weight and each ACTIVE student contributes
+     * one percentage to the class mean.
+     */
+    public Map<Long, Integer> loadAverageCompletionPercents(
+            List<Long> classIds,
+            Map<Long, List<Long>> studentIdsByClass,
+            Map<Long, List<Long>> lessonIdsByClass,
+            Map<Long, Set<Long>> completedLessonsByUser) {
+        List<Test> tests = testRepository
+                .findByClassIdInAndStatusOrderByUpdatedAtDesc(classIds, "PUBLISHED").stream()
+                .filter(test -> !"PRACTICE".equals(test.getType()))
+                .toList();
+        List<Assignment> assignments = assignmentRepository.findVisibleByClassIds(classIds);
+
+        Map<Long, List<Long>> testIdsByClass = new HashMap<>();
+        for (Test test : tests) {
+            testIdsByClass.computeIfAbsent(test.getClassId(), ignored -> new ArrayList<>())
+                    .add(test.getId());
+        }
+        Map<Long, List<Long>> assignmentIdsByClass = new HashMap<>();
+        for (Assignment assignment : assignments) {
+            assignmentIdsByClass.computeIfAbsent(assignment.getClassId(), ignored -> new ArrayList<>())
+                    .add(assignment.getId());
+        }
+
+        Map<Long, Set<Long>> completedTestsByUser = new HashMap<>();
+        if (!tests.isEmpty()) {
+            for (TestAttempt attempt : testAttemptRepository.findCompletedByTestIds(
+                    tests.stream().map(Test::getId).toList())) {
+                completedTestsByUser.computeIfAbsent(attempt.getUserId(), ignored -> new HashSet<>())
+                        .add(attempt.getTestId());
+            }
+        }
+        Map<Long, Set<Long>> completedAssignmentsByUser = new HashMap<>();
+        if (!assignments.isEmpty()) {
+            for (AssignmentSubmission submission : submissionRepository.findAllByAssignmentIds(
+                    assignments.stream().map(Assignment::getId).toList())) {
+                completedAssignmentsByUser
+                        .computeIfAbsent(submission.getUserId(), ignored -> new HashSet<>())
+                        .add(submission.getAssignmentId());
+            }
+        }
+
+        Map<Long, Integer> result = new HashMap<>();
+        for (Long classId : classIds) {
+            List<Long> students = studentIdsByClass.getOrDefault(classId, List.of());
+            Set<Long> lessonIds = new HashSet<>(lessonIdsByClass.getOrDefault(classId, List.of()));
+            Set<Long> testIds = new HashSet<>(testIdsByClass.getOrDefault(classId, List.of()));
+            Set<Long> assignmentIds = new HashSet<>(assignmentIdsByClass.getOrDefault(classId, List.of()));
+            int itemCount = lessonIds.size() + testIds.size() + assignmentIds.size();
+            if (students.isEmpty() || itemCount == 0) {
+                result.put(classId, 0);
+                continue;
+            }
+            int sum = 0;
+            for (Long studentId : students) {
+                int completed = intersectionSize(completedLessonsByUser.get(studentId), lessonIds)
+                        + intersectionSize(completedTestsByUser.get(studentId), testIds)
+                        + intersectionSize(completedAssignmentsByUser.get(studentId), assignmentIds);
+                sum += ProgressMath.percent(completed, itemCount);
+            }
+            result.put(classId, (int) Math.round((double) sum / students.size()));
+        }
+        return result;
+    }
+
+    private static int intersectionSize(Set<Long> completed, Set<Long> scoped) {
+        if (completed == null || completed.isEmpty() || scoped.isEmpty()) return 0;
+        int count = 0;
+        for (Long id : completed) if (scoped.contains(id)) count++;
+        return count;
     }
 
     /** Case-insensitive substring match on class name or code. */

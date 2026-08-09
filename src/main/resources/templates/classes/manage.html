@@ -137,6 +137,29 @@
           </div>
         </div>
 
+        <section class="quick-join-requests"
+                 th:if="${pendingJoinRequests != null and pendingJoinRequests.containsKey(cls.id)}">
+          <div class="quick-join-title">
+            <strong>Yêu cầu tham gia</strong>
+            <span th:text="${pendingJoinRequests.get(cls.id).size()}">1</span>
+            <a th:href="@{|/lecturer/classes/${cls.id}/members|}">Xem tất cả</a>
+          </div>
+          <div class="quick-join-row" th:each="request : ${pendingJoinRequests.get(cls.id)}">
+            <div class="quick-join-person">
+              <b th:text="${request.fullName()}">Sinh viên</b>
+              <small th:text="${request.email()}">student@ksh.edu.vn</small>
+            </div>
+            <form method="post"
+                  th:action="@{|/lecturer/classes/${cls.id}/join-requests/${request.userId()}/approve|}">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <button class="quick-approve-btn" type="submit" title="Duyệt sinh viên vào lớp">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                Duyệt
+              </button>
+            </form>
+          </div>
+        </section>
+
         <!-- Hidden per-row delete form (Thymeleaf injects CSRF, JS calls form.submit()) -->
         <form th:id="'delete-form-' + ${cls.id}"
               th:action="@{'/lecturer/classes/' + ${cls.id} + '/delete'}"

@@ -49,7 +49,7 @@ public class CardService {
             cards.add(toView(c));
         }
         return new DeckEditorView(deck.getId(), deck.getTitle(), deck.getDescription(),
-                cards, deck.isShared(), deck.getClassId(), List.of());
+                cards, deck.isShared(), deck.getClassId(), List.of(), deck.getSubjectId());
     }
 
     /**

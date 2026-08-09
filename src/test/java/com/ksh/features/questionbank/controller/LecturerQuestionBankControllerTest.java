@@ -10,6 +10,8 @@ import org.springframework.ui.ExtendedModelMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class LecturerQuestionBankControllerTest {
 
@@ -42,5 +44,22 @@ class LecturerQuestionBankControllerTest {
         controller.createForm(user, model);
 
         assertThat(model.get("emptyDepartment")).isEqualTo(true);
+    }
+
+    @Test
+    void list_without_subject_opens_catalog_instead_of_implicitly_selecting_first_subject() {
+        when(user.getId()).thenReturn(7L);
+        when(user.getRole()).thenReturn(Role.LECTURER);
+        when(itemService.hasSubject(7L, Role.LECTURER)).thenReturn(true);
+        when(itemService.subjectOptions(7L, Role.LECTURER)).thenReturn(java.util.List.of());
+        when(itemService.subjectCatalog(7L, Role.LECTURER, "kor"))
+                .thenReturn(java.util.List.of());
+        ExtendedModelMap model = new ExtendedModelMap();
+
+        assertThat(controller.list(null, null, "kor", 0, 50, user, model))
+                .isEqualTo("questionbank/list");
+        assertThat(model.get("catalogMode")).isEqualTo(true);
+        assertThat(model).containsKey("subjectCatalog").doesNotContainKey("workspace");
+        verify(itemService, never()).workspace(7L, Role.LECTURER, null, "kor");
     }
 }

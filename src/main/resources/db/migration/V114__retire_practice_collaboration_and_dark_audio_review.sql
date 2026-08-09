@@ -14,9 +14,21 @@ DROP TABLE IF EXISTS practice_authoring_collaborations;
 
 -- Set locking existed to let an owner temporarily block collaborator edits.
 -- With owner-only mutation it becomes a self-lock with no authorization value.
+-- Keep these as separate ALTER statements. MySQL may reorder actions inside a
+-- compound ALTER and attempt to remove the supporting index before its FK.
 ALTER TABLE practice_sets
-    DROP FOREIGN KEY fk_practice_set_locked_by,
-    DROP INDEX idx_practice_set_owner_lock,
+    DROP FOREIGN KEY fk_practice_set_locked_by;
+
+-- The composite owner-lock index also happens to support fk_ps_creator on
+-- created_by in older schemas. Preserve that live FK with a dedicated index
+-- before retiring the lock-specific composite index.
+ALTER TABLE practice_sets
+    ADD INDEX idx_practice_sets_created_by (created_by);
+
+ALTER TABLE practice_sets
+    DROP INDEX idx_practice_set_owner_lock;
+
+ALTER TABLE practice_sets
     DROP COLUMN locked_at,
     DROP COLUMN locked_by,
     DROP COLUMN owner_locked;

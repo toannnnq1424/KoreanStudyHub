@@ -61,6 +61,16 @@
           </span>
         </div>
 
+        <div class="asgn-lock-notice">
+          <strong>Đã khóa bài nộp</strong>
+          <span>Mỗi học sinh chỉ được nộp một lần. Nội dung và kết quả này không thể thay thế.</span>
+        </div>
+
+        <div class="asgn-content-box" th:if="${assignment.submissionContent != null}">
+          <h3>Nội dung đã nộp</h3>
+          <div class="asgn-content-text" th:text="${assignment.submissionContent}"></div>
+        </div>
+
         <!-- Show feedback link if graded -->
         <a th:if="${assignment.submissionStatus == 'GRADED'}"
            th:href="@{/classes/{cid}/assignments/{aid}/feedback(cid=${classId},aid=${assignment.id})}"
@@ -68,9 +78,10 @@
       </div>
 
       <!-- Submit form — only show when assignment is PUBLISHED and submission is not GRADED -->
-      <div th:if="${assignment.status == 'PUBLISHED' and assignment.submissionStatus != 'GRADED'}"
+      <div th:if="${assignment.status == 'PUBLISHED' and assignment.submissionStatus == null}"
            class="asgn-submit-section">
-        <h3 th:text="${assignment.submissionStatus != null} ? 'Cập nhật bài nộp' : 'Nộp bài'">Nộp bài</h3>
+        <h3>Nộp bài một lần</h3>
+        <p class="asgn-one-shot-help">Kiểm tra kỹ trước khi gửi. Sau khi xác nhận, bài nộp sẽ được khóa.</p>
 
         <!-- Late submission warning — shown only when due date has passed and late not allowed -->
         <div th:if="${assignment.dueDate != null and !assignment.allowLateSubmission and assignment.dueDate.isBefore(#temporals.createNow())}"
@@ -90,7 +101,8 @@
           </div>
 
           <div class="asgn-form-actions">
-            <button type="submit" class="btn btn-primary">Nộp bài</button>
+            <button type="submit" class="btn btn-primary"
+                    onclick="return confirm('Xác nhận nộp bài? Bạn sẽ không thể sửa hoặc nộp lại.')">Nộp và khóa bài</button>
           </div>
         </form>
       </div>
