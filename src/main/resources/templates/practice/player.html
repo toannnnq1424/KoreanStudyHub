@@ -52,6 +52,31 @@
     <p data-active-group-title>Nhóm câu hỏi</p>
   </section>
 
+  <section class="exam-audio exam-program-audio" data-exam-audio
+           th:if="${activeSectionSkill == 'LISTENING' and listeningProgramAudioReference != null and !#strings.isEmpty(listeningProgramAudioReference)}"
+           th:attr="data-start-once=${listeningProgramStartOnce},
+                    data-continuous-playback=${listeningProgramContinuous},
+                    data-seek-allowed=${listeningProgramSeekAllowed},
+                    data-replay-allowed=${listeningProgramReplayAllowed}">
+    <button type="button" class="exam-audio-button" data-audio-toggle
+            aria-label="Bắt đầu chương trình nghe">
+      <svg data-audio-icon-play aria-hidden="true" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6z" fill="currentColor" stroke="none"/>
+      </svg>
+      <svg data-audio-icon-pause aria-hidden="true" viewBox="0 0 24 24" hidden>
+        <path d="M9 7v10M15 7v10"/>
+      </svg>
+    </button>
+    <div class="exam-audio-track">
+      <strong>Chương trình nghe liên tục · chỉ bắt đầu một lần</strong>
+      <input type="range" min="0" max="1000" value="0" data-audio-range
+             th:disabled="${!listeningProgramSeekAllowed}"
+             aria-label="Tiến độ chương trình nghe">
+    </div>
+    <time data-audio-time>00:00 / 00:00</time>
+    <audio th:src="${listeningProgramAudioReference}" preload="metadata" data-audio-source></audio>
+  </section>
+
   <main class="exam-workspace"
         th:classappend="${activeSectionSkill == 'LISTENING'} ? ' is-listening' : ' is-reading'">
     <aside class="exam-source-pane" th:if="${activeSectionSkill == 'READING'}">
@@ -107,7 +132,7 @@
             <img th:src="${g.imageUrl()}" alt="Ảnh học liệu">
           </figure>
           <div class="exam-audio" data-exam-audio
-               th:if="${g.audioUrl() != null and !#strings.isEmpty(g.audioUrl())}">
+               th:if="${(listeningProgramAudioReference == null or #strings.isEmpty(listeningProgramAudioReference)) and g.audioUrl() != null and !#strings.isEmpty(g.audioUrl())}">
             <button type="button" class="exam-audio-button" data-audio-toggle
                     aria-label="Phát âm thanh">
               <svg data-audio-icon-play aria-hidden="true" viewBox="0 0 24 24">

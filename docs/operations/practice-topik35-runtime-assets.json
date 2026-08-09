@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "practice-topik35-runtime-assets-v1",
+  "bundleId": "topik35-v1",
+  "derivation": "SOURCE_BYTES_VERIFIED_CURRENT_RENDER_AND_TRANSCODE",
+  "manualQaClaim": "NO_NEW_MANUAL_QA_CLAIM",
+  "assets": [
+    {
+      "assetId": "topik35-listening-q01-opt-1",
+      "kind": "IMAGE",
+      "reviewedSha256": "34feb02e3b36f059cd2a98054e6820a2af71921794a7273f768858bb6190981e",
+      "runtimeSha256": "b8bb50ea33f931c0ed216c227f7e4c5d24c736694a1d8b8eafad3e6b464c15eb",
+      "sizeBytes": 113837,
+      "reference": "/images/practice/topik35/b8bb50ea33f931c0ed216c227f7e4c5d24c736694a1d8b8eafad3e6b464c15eb.png"
+    },
+    {
+      "assetId": "topik35-listening-q01-opt-2",
+      "kind": "IMAGE",
+      "reviewedSha256": "58db28b9bb96c1860a52d10ab43f6fe257fe95ae6f98a6a44d4d0c2f279d9987",
+      "runtimeSha256": "53a379beb02b39fa1457f99805e18fbce83dec3e7e44afacc771249d49cb9cf6",
+      "sizeBytes": 137038,
+      "reference": "/images/practice/topik35/53a379beb02b39fa1457f99805e18fbce83dec3e7e44afacc771249d49cb9cf6.png"
+    },
+    {
+      "assetId": "topik35-listening-q01-opt-3",
+      "kind": "IMAGE",
+      "reviewedSha256": "2922c9810db19429f93274fc4d4c0a8d2b6601ad9cd5f4b7c0fe2d10c13d949b",
+      "runtimeSha256": "966f4ff45bee6d5efd7c2d03639b41a155f94f6e37cc52b738366d0582893f44",
+      "sizeBytes": 121921,
+      "reference": "/images/practice/topik35/966f4ff45bee6d5efd7c2d03639b41a155f94f6e37cc52b738366d0582893f44.png"
+    },
+    {
+      "assetId": "topik35-listening-q01-opt-4",
+      "kind": "IMAGE",
+      "reviewedSha256": "94cfa37241284c1681611a8b0aa57706da345f8050586abb6553fee7c26af5a3",
+      "runtimeSha256": "b80b5d28fe4a3049071492753f3efac3c9348f2e9345b6dde5283ed06d16cfdf",
+      "sizeBytes": 121097,
+      "reference": "/images/practice/topik35/b80b5d28fe4a3049071492753f3efac3c9348f2e9345b6dde5283ed06d16cfdf.png"
+    },
+    {
+      "assetId": "topik35-listening-q02-opt-1",
+      "kind": "IMAGE",
+      "reviewedSha256": "dcb820b0bb5f172cf57dd173f6a72f199630c552b3f8dcbd811ac78de39dae7a",
+      "runtimeSha256": "78284bc10687c42668e02c9525aa7dcdaf2b282b44c28cd1d09b613febcda07d",
+      "sizeBytes": 116692,
+      "reference": "/images/practice/topik35/78284bc10687c42668e02c9525aa7dcdaf2b282b44c28cd1d09b613febcda07d.png"
+    },
+    {
+      "assetId": "topik35-listening-q02-opt-2",
+      "kind": "IMAGE",
+      "reviewedSha256": "48f601c7cdbcfa6c366e64a0b1e8149519841914f8ded05ce64d8e2428ed5f02",
+      "runtimeSha256": "2a37a0909537a877aea693c554559cefb001b97ee25a2681469df2c98fb9bbd2",
+      "sizeBytes": 119847,
+      "reference": "/images/practice/topik35/2a37a0909537a877aea693c554559cefb001b97ee25a2681469df2c98fb9bbd2.png"
+    },
+    {
+      "assetId": "topik35-listening-q02-opt-3",
+      "kind": "IMAGE",
+      "reviewedSha256": "f8c966eeda6ee7bca68daa76c7b2de82d667952870cf27dd8ee0ede8629903ba",
+      "runtimeSha256": "cad7ae7751a6a21bb2e7443808203adb36d0b546fe997ace588edb441ba8b106",
+      "sizeBytes": 155900,
+      "reference": "/images/practice/topik35/cad7ae7751a6a21bb2e7443808203adb36d0b546fe997ace588edb441ba8b106.png"
+    },
+    {
+      "assetId": "topik35-listening-q02-opt-4",
+      "kind": "IMAGE",
+      "reviewedSha256": "f85eee083b6ddd6a8a985cd9bc5d952bac823da4b840f2a5f5575cc9f7ff641d",
+      "runtimeSha256": "dfeabbda86956bf000578cec360889ae88c2915383d3ea3e870df344c8cd7a2f",
+      "sizeBytes": 125201,
+      "reference": "/images/practice/topik35/dfeabbda86956bf000578cec360889ae88c2915383d3ea3e870df344c8cd7a2f.png"
+    },
+    {
+      "assetId": "topik35-listening-q03-opt-1",
+      "kind": "IMAGE",
+      "reviewedSha256": "a4a37f27f0b656c71a8c6761975412849de67293eb3cb80f4e7172c392543909",
+      "runtimeSha256": "a4a0ddcfb7df8903a9d808015ac4ba1d7960cefe8a7090a65e7f696f3189c701",
+      "sizeBytes": 54033,
+      "reference": "/images/practice/topik35/a4a0ddcfb7df8903a9d808015ac4ba1d7960cefe8a7090a65e7f696f3189c701.png"
+    },
+    {
+      "assetId": "topik35-listening-q03-opt-2",
+      "kind": "IMAGE",
+      "reviewedSha256": "a912c7a0ae3a7152a6d4bf325e448c21264a60145e26caf5a0bc551e55165ebe",
+      "runtimeSha256": "3a8d0ef873b70173b794cad53358dfb61fb427e4c6a052c7fe0c6ba206f9efb1",
+      "sizeBytes": 55716,
+      "reference": "/images/practice/topik35/3a8d0ef873b70173b794cad53358dfb61fb427e4c6a052c7fe0c6ba206f9efb1.png"
+    },
+    {
+      "assetId": "topik35-listening-q03-opt-3",
+      "kind": "IMAGE",
+      "reviewedSha256": "80f13db8b21aca1f96a9d2281945c3e6fe6f7700780188374bf1e030c935adf7",
+      "runtimeSha256": "f373b68cfb3ea7e86dc54914d448746f70e5ee5cdfe70c0ca6989eb3ae19c0d3",
+      "sizeBytes": 58250,
+      "reference": "/images/practice/topik35/f373b68cfb3ea7e86dc54914d448746f70e5ee5cdfe70c0ca6989eb3ae19c0d3.png"
+    },
+    {
+      "assetId": "topik35-listening-q03-opt-4",
+      "kind": "IMAGE",
+      "reviewedSha256": "aa072166e1a9ad17782245403f0853fd4cc638f801a2e47f21209428aa9ad97b",
+      "runtimeSha256": "1f12a8f60e3575263d7a28b80ed51fac1eb6b5c37d25ea35f2e8559bf7a817e5",
+      "sizeBytes": 56123,
+      "reference": "/images/practice/topik35/1f12a8f60e3575263d7a28b80ed51fac1eb6b5c37d25ea35f2e8559bf7a817e5.png"
+    },
+    {
+      "assetId": "topik35-reading-q09-table",
+      "kind": "IMAGE",
+      "reviewedSha256": "2bb6a1b88df53a1aafd6e1f70906f0aa1068f46079b060123df0c2c215d81e85",
+      "runtimeSha256": "4cb2443e992e0b2995454cf255d1c88b47ea2fd322ca877e5fe453538c17b040",
+      "sizeBytes": 127133,
+      "reference": "/images/practice/topik35/4cb2443e992e0b2995454cf255d1c88b47ea2fd322ca877e5fe453538c17b040.png"
+    },
+    {
+      "assetId": "topik35-reading-q10-chart",
+      "kind": "IMAGE",
+      "reviewedSha256": "734ae3aa61930d951e8a2a800409712d6d73fe8bfef6bf13fe311538a6b671ca",
+      "runtimeSha256": "c2d68824c64b2af44591a70d17939d3a2fb986a8f41ba70353b261ee6b34790d",
+      "sizeBytes": 51960,
+      "reference": "/images/practice/topik35/c2d68824c64b2af44591a70d17939d3a2fb986a8f41ba70353b261ee6b34790d.png"
+    },
+    {
+      "assetId": "topik35-writing-q53-chart",
+      "kind": "IMAGE",
+      "reviewedSha256": "47977060c3255f13f67d3f041bfe2d998dc3e0f13e23830e3527363ae8b4bee1",
+      "runtimeSha256": "f02046fc34bf3898b498c58b15871d77f4ae98d1ffb75e9e85661a6dcc447c54",
+      "sizeBytes": 154104,
+      "reference": "/images/practice/topik35/f02046fc34bf3898b498c58b15871d77f4ae98d1ffb75e9e85661a6dcc447c54.png"
+    },
+    {
+      "assetId": "topik35-listening-program-mp3",
+      "kind": "AUDIO",
+      "reviewedSha256": "0f8f7504849689b15c5dcb5f0892580c81c5285b37ead05058e47a9645a91ee1",
+      "runtimeSha256": "1631e1e081a1b90d6aa77c6d87d1ee15f83346c6b7d2eaa3a0f6adfc590bfaa6",
+      "sizeBytes": 60755525,
+      "reference": "/audio/practice/topik35/1631e1e081a1b90d6aa77c6d87d1ee15f83346c6b7d2eaa3a0f6adfc590bfaa6.mp3"
+    }
+  ]
+}
