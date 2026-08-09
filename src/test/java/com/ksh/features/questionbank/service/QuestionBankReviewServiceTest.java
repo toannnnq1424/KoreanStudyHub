@@ -17,6 +17,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class QuestionBankReviewServiceTest {
@@ -73,5 +74,76 @@ class QuestionBankReviewServiceTest {
 
         assertThatThrownBy(() -> service.approve(30L, 10L))
                 .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+    }
+
+    @Test
+    void reject_trims_the_reviewer_note_and_preserves_rejected_state() {
+        service.reject(30L, 10L, "  Thiếu dẫn chứng  ");
+
+        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REJECTED);
+        assertThat(item.getReviewNote()).isEqualTo("Thiếu dẫn chứng");
+        assertThat(item.getReviewedBy()).isEqualTo(30L);
+        verify(itemRepository).save(item);
+    }
+
+    @Test
+    void archive_and_unarchive_restore_the_exact_prior_state() {
+        item.transitionWorkflow(QuestionBankItem.STATUS_APPROVED, 30L, null,
+                java.time.LocalDateTime.now(), java.time.LocalDateTime.now());
+
+        service.archive(30L, 10L, "   ");
+
+        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
+        assertThat(item.getStatusBeforeArchive()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
+        assertThat(item.getReviewNote()).isNull();
+
+        service.unarchive(30L, 10L);
+
+        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
+        assertThat(item.getStatusBeforeArchive()).isNull();
+        verify(itemRepository, org.mockito.Mockito.times(2)).save(item);
+    }
+
+    @Test
+    void unarchive_uses_review_as_the_safe_legacy_fallback() {
+        item.transitionWorkflow(QuestionBankItem.STATUS_ARCHIVED, 30L, null,
+                java.time.LocalDateTime.now(), null);
+
+        service.unarchive(30L, 10L);
+
+        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REVIEW);
+    }
+
+    @Test
+    void bulk_approve_deduplicates_ids_ignores_nulls_and_reports_partial_success() {
+        QuestionBankItem invalid = new QuestionBankItem(5L, 20L, QuestionBankItem.TYPE_MCQ,
+                QuestionBankItem.STATUS_DRAFT, "<p>Invalid</p>", null);
+        ReflectionTestUtils.setField(invalid, "id", 11L);
+        when(itemRepository.findById(11L)).thenReturn(Optional.of(invalid));
+
+        QuestionBankReviewService.BulkResult result = service.approveAll(30L,
+                java.util.Arrays.asList(10L, 10L, null, 11L));
+
+        assertThat(result).isEqualTo(new QuestionBankReviewService.BulkResult(1, 1));
+        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_APPROVED);
+    }
+
+    @Test
+    void bulk_actions_handle_empty_and_missing_items_without_rolling_back_other_rows() {
+        assertThat(service.rejectAll(30L, null, "note"))
+                .isEqualTo(new QuestionBankReviewService.BulkResult(0, 0));
+
+        when(itemRepository.findById(11L)).thenReturn(Optional.empty());
+        QuestionBankReviewService.BulkResult archived = service.archiveAll(30L,
+                List.of(10L, 11L), "archive");
+
+        assertThat(archived).isEqualTo(new QuestionBankReviewService.BulkResult(1, 1));
+        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_ARCHIVED);
+
+        QuestionBankReviewService.BulkResult unarchived = service.unarchiveAll(30L,
+                List.of(10L, 11L));
+
+        assertThat(unarchived).isEqualTo(new QuestionBankReviewService.BulkResult(1, 1));
+        assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REVIEW);
     }
 }

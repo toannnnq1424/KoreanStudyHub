@@ -44,6 +44,8 @@
         var tabsNav = document.querySelector('.detail-tabs');
         if (!panel) return;
 
+        // The create form deliberately has no detail-tab strip, but it still
+        // needs the shared dirty-navigation guard for the header and Back link.
         var dirtyGuard = window.KshDirtyFormGuard.create(panel);
 
         if (!tabsNav) return;

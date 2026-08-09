@@ -12,12 +12,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class StudentTestFlowUiContractTest {
 
     @Test
-    void class_list_opens_a_read_only_detail_before_starting() throws IOException {
+    void class_list_preserves_its_scope_when_opening_a_read_only_detail() throws IOException {
         String template = read("src/main/resources/templates/student/class-tests.html");
 
         assertThat(template)
                 .contains("@{|/my/classes/${view.classId()}/tests/${exam.id()}|}")
-                .doesNotContain("@{|/my/tests/${exam.id()}/take|}");
+                .contains("@{|/my/classes/${view.classId()}/tests/${exam.id()}/start|}")
+                .doesNotContain("@{|/my/tests/${exam.id()}|}");
     }
 
     @Test
@@ -26,7 +27,10 @@ class StudentTestFlowUiContractTest {
         String styles = read("src/main/resources/static/css/test-detail.css");
 
         assertThat(template)
+                .contains("classScopeId != null ?")
                 .contains("'/my/classes/' + classScopeId + '/tests/' + detail.id() + '/start'")
+                .contains("'/my/classes/' + classScopeId + '/tests/' + detail.id() + '/take'")
+                .contains("'/my/classes/' + classScopeId + '/tests/' + detail.id() + '/result/' + detail.attemptId()")
                 .contains("method=\"post\"")
                 .contains("Đồng hồ chỉ bắt đầu")
                 .contains("chỉ cho phép một lượt làm");
