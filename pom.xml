@@ -34,6 +34,7 @@
 		<tomcat.version>10.1.57</tomcat.version>
 		<cyclonedx-maven-plugin.version>2.9.2</cyclonedx-maven-plugin.version>
 		<dependency-check-maven.version>12.2.2</dependency-check-maven.version>
+		<!-- Execution coverage reporting for unit and Spring integration tests. -->
 		<jacoco.version>0.8.12</jacoco.version>
 	</properties>
 

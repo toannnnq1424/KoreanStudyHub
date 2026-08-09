@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -103,6 +104,52 @@ class JoinClassServiceTest {
     }
 
     @Test
+    void ownerCannotRequestToJoinTheirOwnClass() {
+        ClassEntity clazz = activeClass();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+
+        assertThatThrownBy(() -> service.requestJoin(CLASS_ID, OWNER_ID))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("chủ lớp");
+
+        verify(enrollmentRepository, never()).findByUserIdAndClassId(any(), any());
+    }
+
+    @Test
+    void activeEnrollmentReturnsAlreadyJoinedWithoutChangingIt() {
+        ClassEntity clazz = activeClass();
+        Enrollment active = Enrollment.createPending(
+                student(), CLASS_ID, Enrollment.JoinedVia.REQUEST, null);
+        active.activateFromPending();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(active));
+
+        assertThat(service.requestJoin(CLASS_ID, USER_ID))
+                .isInstanceOf(JoinClassService.AlreadyJoined.class);
+        verify(enrollmentRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectedEnrollmentCanOpenANewPendingRequest() {
+        ClassEntity clazz = activeClass();
+        Enrollment rejected = Enrollment.createPending(
+                student(), CLASS_ID, Enrollment.JoinedVia.REQUEST, null);
+        rejected.markRejected();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(rejected));
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
+
+        JoinClassService.PendingRequested result = (JoinClassService.PendingRequested)
+                service.requestJoin(CLASS_ID, USER_ID);
+
+        assertThat(result.alreadyPending()).isFalse();
+        assertThat(rejected.getStatus()).isEqualTo(Enrollment.STATUS_PENDING);
+        verify(enrollmentRepository).save(rejected);
+    }
+
+    @Test
     void capacityIsCheckedAgainWhenOwnerApproves() {
         ClassEntity clazz = activeClass();
         Enrollment pending = Enrollment.createPending(
@@ -142,6 +189,58 @@ class JoinClassServiceTest {
 
         assertThat(pending.getStatus()).isEqualTo(Enrollment.STATUS_ACTIVE);
         verify(enrollmentRepository).save(pending);
+    }
+
+    @Test
+    void rejectionChangesPendingRequestAndNotifiesTheStudent() {
+        ClassEntity clazz = activeClass();
+        Enrollment pending = Enrollment.createPending(
+                student(), CLASS_ID, Enrollment.JoinedVia.REQUEST, null);
+        when(classesService.getEditable(CLASS_ID, OWNER_ID, Role.LECTURER)).thenReturn(clazz);
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(pending));
+
+        assertThat(service.reject(CLASS_ID, USER_ID, OWNER_ID, Role.LECTURER))
+                .isSameAs(clazz);
+
+        assertThat(pending.getStatus()).isEqualTo(Enrollment.STATUS_REJECTED);
+        verify(enrollmentRepository).save(pending);
+        verify(notificationService).create(eq(USER_ID), any(), any(),
+                eq(NotificationType.JOIN_REJECTED), eq(NotificationType.REF_CLASS), eq(CLASS_ID));
+    }
+
+    @Test
+    void notificationFailureDoesNotRollBackTheJoinRequest() {
+        ClassEntity clazz = activeClass();
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.empty());
+        when(enrollmentRepository.countActiveByClassIdForUpdate(CLASS_ID)).thenReturn(0L);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(student()));
+        doThrow(new IllegalStateException("mail service down")).when(notificationService).create(
+                eq(OWNER_ID), any(), any(), eq(NotificationType.JOIN_REQUEST),
+                eq(NotificationType.REF_CLASS), eq(CLASS_ID));
+
+        assertThat(service.requestJoin(CLASS_ID, USER_ID))
+                .isInstanceOf(JoinClassService.PendingRequested.class);
+
+        verify(enrollmentRepository).save(any(Enrollment.class));
+    }
+
+    @Test
+    void activeStudentCanLeaveAndTheirEnrollmentBecomesRemoved() {
+        ClassEntity clazz = activeClass();
+        Enrollment active = Enrollment.createPending(
+                student(), CLASS_ID, Enrollment.JoinedVia.REQUEST, null);
+        active.activateFromPending();
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(active));
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.of(clazz));
+
+        assertThat(service.leave(CLASS_ID, USER_ID)).isSameAs(clazz);
+
+        assertThat(active.getStatus()).isEqualTo(Enrollment.STATUS_REMOVED);
+        verify(enrollmentRepository).save(active);
     }
 
     private static ClassEntity activeClass() {
