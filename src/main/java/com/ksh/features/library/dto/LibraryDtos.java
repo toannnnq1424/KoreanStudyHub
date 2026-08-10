@@ -94,4 +94,14 @@ public final class LibraryDtos {
             int lessonCount
     ) {
     }
+
+    /** Media library view with assets and counts. */
+    public record MediaLibraryView(
+            List<LibraryAssetRow> assets,
+            long totalCount,
+            long documentCount,
+            long videoCount,
+            String currentFilter
+    ) {
+    }
 }

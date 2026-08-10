@@ -133,14 +133,20 @@
 }
 
 .library-list-search {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
 }
 
 .library-subject-search {
   display: flex;
   align-items: center;
   position: relative;
-  max-width: 400px;
+  flex: 1;
+  min-width: 250px;
+  max-width: 500px;
 }
 
 .library-subject-search input {

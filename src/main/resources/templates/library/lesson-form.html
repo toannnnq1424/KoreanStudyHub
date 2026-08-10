@@ -10,7 +10,7 @@
 <header th:replace="~{fragments/app-header :: appHeader('library')}"></header>
 
 <main class="detail-page library-lesson-form-page">
-  <a class="toolbar-back" th:href="@{/lecturer/library/templates(subjectId=${form.subjectId})}">← Quay lại Library</a>
+  <a class="library-back-link" th:href="@{/lecturer/library/templates(subjectId=${form.subjectId})}">‹ Quay lại Library</a>
   <h1 class="detail-title" th:text="${form.id == null ? 'Tạo bài học' : 'Sửa bài học'}">Tạo bài học</h1>
   <p class="detail-sub">Bài học được quản lý theo mã môn → chương → bài học → materials.</p>
 
@@ -103,18 +103,17 @@
            th:hidden="${form.contentType != 'VIDEO'}">
         <label>
           <span>Nguồn video</span>
-          <select th:field="*{videoProvider}" data-ksh-select>
+          <select th:field="*{videoProvider}" data-ksh-select data-video-provider-select>
             <option value="">Chọn nguồn</option>
             <option value="UPLOAD">Video trong Library</option>
-            <option value="YOUTUBE">YouTube</option>
-            <option value="VIMEO">Vimeo</option>
+            <option value="YOUTUBE">YouTube/Vimeo</option>
           </select>
         </label>
-        <label>
+        <label class="library-video-upload-label" data-video-provider="UPLOAD" hidden>
           <span>Tải video MP4</span>
           <input type="file" th:field="*{videoUpload}" accept="video/mp4,.mp4">
         </label>
-        <label>
+        <label class="library-video-library-label" data-video-provider="UPLOAD" hidden>
           <span>Video đã có</span>
           <select th:field="*{videoLibraryAssetId}" data-ksh-select>
             <option value="">Chọn video</option>
@@ -122,7 +121,7 @@
                     th:value="${asset.id()}" th:text="${asset.title()}">Video</option>
           </select>
         </label>
-        <label>
+        <label class="library-video-url-label" data-video-provider="YOUTUBE" hidden>
           <span>URL YouTube/Vimeo</span>
           <input type="url" th:field="*{videoUrl}" maxlength="500" placeholder="https://…">
         </label>

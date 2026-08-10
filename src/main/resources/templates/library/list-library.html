@@ -19,6 +19,7 @@
       <input type="search" placeholder="Gõ mã môn, ví dụ KOR311…"
              autocomplete="off" data-library-list-filter>
     </label>
+    <a class="btn btn-primary" th:href="@{/lecturer/library/media}">📚 Thư viện học liệu</a>
   </div>
 
   <div class="library-list-container" th:if="${!librarySubjectStats.isEmpty()}">
