@@ -479,11 +479,15 @@
 /* Glyph prefix so each state is distinguishable without color
    (deuteranopia / monochrome printing). */
 .status-pill.status-active::before   { content: "● "; }
+.status-pill.status-pending::before  { content: "◌ "; }
 .status-pill.status-inactive::before { content: "○ "; }
 .status-pill.status-locked::before   { content: "■ "; }
 .status-pill.status-deleted::before  { content: "✗ "; }
 
 .status-pill.status-active   { background: var(--color-success-soft); color: var(--color-success); }
+/* Awaiting its owner, not disabled — amber reads as "in progress" rather
+   than the neutral grey used for an admin-disabled account. */
+.status-pill.status-pending  { background: var(--color-warning-soft); color: #92400e; }
 .status-pill.status-inactive { background: var(--color-border-medium); color: var(--color-neutral-strong); }
 .status-pill.status-locked   { background: var(--color-danger-soft); color: #991b1b; }
 .status-pill.status-deleted  { background: var(--color-neutral-soft); color: var(--color-text-muted); }

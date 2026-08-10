@@ -21,7 +21,10 @@
     menu.className = 'ksh-select-menu';
     menu.id = 'ksh-select-menu-' + index;
     menu.setAttribute('role', 'listbox');
-    trigger.setAttribute('aria-controls', menu.id);
+    // menu will be rendered into document.body to avoid ancestor overflow clipping
+    menu.style.position = 'fixed';
+    menu.style.display = 'none';
+    menu.style.zIndex = '1200';
 
     const searchable = select.hasAttribute('data-ksh-searchable') || select.options.length > 8;
     const search = searchable ? document.createElement('input') : null;
@@ -53,10 +56,25 @@
       });
     }
 
+    function detachMenu() {
+      if (!document.body.contains(menu)) document.body.appendChild(menu);
+    }
+
     function close(focusTrigger) {
       wrapper.classList.remove('is-open');
       trigger.setAttribute('aria-expanded', 'false');
+      menu.style.display = 'none';
       if (focusTrigger) trigger.focus();
+    }
+
+    function positionMenu() {
+      const rect = trigger.getBoundingClientRect();
+      const left = Math.max(8, rect.left);
+      const top = rect.bottom + 7;
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+      menu.style.width = rect.width + 'px';
+      menu.style.right = 'auto';
     }
 
     function open() {
@@ -69,12 +87,17 @@
       });
       wrapper.classList.add('is-open');
       trigger.setAttribute('aria-expanded', 'true');
+      detachMenu();
+      positionMenu();
+      menu.style.display = 'grid';
+
       if (search) {
         search.value = '';
         menu.querySelectorAll('.ksh-select-option').forEach(function (button) {
           button.hidden = false;
         });
-        search.focus();
+        // focus the search input after opening
+        window.setTimeout(function () { search.focus(); }, 0);
       } else {
         const active = menu.querySelector('[aria-selected="true"]') || optionButtons()[0];
         if (active) active.focus();
@@ -82,6 +105,7 @@
     }
 
     function rebuildOptions() {
+      // Clear menu but keep search at top when present
       menu.replaceChildren();
       if (search) menu.appendChild(search);
       Array.from(select.options).forEach(function (option) {
@@ -104,9 +128,11 @@
       sync();
     }
 
-    trigger.addEventListener('click', function () {
+    trigger.addEventListener('click', function (ev) {
+      ev.stopPropagation();
       wrapper.classList.contains('is-open') ? close(false) : open();
     });
+
     wrapper.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -125,6 +151,7 @@
       const next = current < 0 ? 0 : (current + delta + buttons.length) % buttons.length;
       if (buttons[next]) buttons[next].focus();
     });
+
     select.addEventListener('change', sync);
     if (select.form) {
       select.form.addEventListener('reset', function () {
@@ -132,13 +159,16 @@
       });
     }
 
+    // Insert wrapper and trigger into DOM; keep native select hidden inside wrapper
     select.parentNode.insertBefore(wrapper, select);
     wrapper.appendChild(trigger);
-    wrapper.appendChild(menu);
     select.classList.add('ksh-native-select');
     select.tabIndex = -1;
     select.setAttribute('aria-hidden', 'true');
     wrapper.appendChild(select);
+
+    // Append menu to body (detached from wrapper) so it won't be clipped
+    document.body.appendChild(menu);
     rebuildOptions();
 
     if (typeof MutationObserver === 'function') {
@@ -150,6 +180,11 @@
         attributeFilter: ['disabled', 'selected', 'label']
       });
     }
+
+    // Reposition on window resize/scroll while open
+    const reposition = function () { if (wrapper.classList.contains('is-open')) positionMenu(); };
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
   }
 
   document.addEventListener('click', function (event) {
@@ -158,6 +193,9 @@
         wrapper.classList.remove('is-open');
         const trigger = wrapper.querySelector('.ksh-select-trigger');
         if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        // hide associated menu
+        const menu = document.querySelector('.ksh-select-menu');
+        if (menu) menu.style.display = 'none';
       }
     });
   });

@@ -3,6 +3,8 @@ package com.ksh.features.admin.users.dto;
 /** Closed enumeration of admissible status filter values on the admin user list. */
 public enum StatusFilter {
     ACTIVE,
+    /** Not deleted, not locked, and never self-activated (activated_at IS NULL). */
+    PENDING,
     INACTIVE,
     LOCKED,
     DELETED;

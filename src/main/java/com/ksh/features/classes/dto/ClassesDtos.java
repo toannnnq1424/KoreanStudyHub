@@ -35,7 +35,8 @@ public class ClassesDtos {
             int lectureCount,
             int assignmentCount,
             int materialCount,
-            String createdAtIso
+            String createdAtIso,
+            String status
     ) {
         /** Returns the first two characters of the class name, uppercased, for use as a thumbnail label. */
         public String thumbLabel() {
@@ -44,7 +45,24 @@ public class ClassesDtos {
             int end = Math.min(2, trimmed.length());
             return trimmed.substring(0, end).toUpperCase();
         }
+
+        public String reviewStateLabel() {
+            if (ClassEntity.STATUS_DRAFT.equals(status)
+                    || ClassEntity.STATUS_REJECTED.equals(status)) {
+                return ClassEntity.statusLabel(status);
+            }
+            return null;
+        }
+
+        /** CSS modifier for the review badge, mirroring the status-pill convention. */
+        public String reviewStateCss() {
+            if (ClassEntity.STATUS_DRAFT.equals(status)) return "status-draft";
+            if (ClassEntity.STATUS_REJECTED.equals(status)) return "status-rejected";
+            return "";
+        }
     }
+
+
 
     /**
      * Form payload for both {@code GET /lecturer/classes/new} + {@code /edit}
