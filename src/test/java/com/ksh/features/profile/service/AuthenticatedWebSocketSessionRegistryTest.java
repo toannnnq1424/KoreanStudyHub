@@ -1,6 +1,7 @@
 package com.ksh.features.profile.service;
 
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.AuthenticatedAccessVersionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.socket.CloseStatus;
@@ -20,13 +21,16 @@ import static org.mockito.Mockito.when;
 
 class AuthenticatedWebSocketSessionRegistryTest {
 
+    private final AuthenticatedAccessVersionService accessVersions =
+            mock(AuthenticatedAccessVersionService.class);
     private final AuthenticatedWebSocketSessionRegistry registry =
-            new AuthenticatedWebSocketSessionRegistry();
+            new AuthenticatedWebSocketSessionRegistry(accessVersions);
 
     @Test
     void closesEveryTransportForStableUserId() throws Exception {
         WebSocketSession first = socket("ws-1", 42L, "member@example.test", "http-1");
         WebSocketSession second = socket("ws-2", 42L, "member@example.test", "http-2");
+        when(accessVersions.isCurrent(42L, 7L)).thenReturn(true);
         registry.register(first);
         registry.register(second);
 
@@ -43,6 +47,7 @@ class AuthenticatedWebSocketSessionRegistryTest {
                 "member@example.test", "http-current");
         WebSocketSession compromised = socket("ws-old", 42L,
                 "member@example.test", "http-old");
+        when(accessVersions.isCurrent(42L, 7L)).thenReturn(true);
         registry.register(current);
         registry.register(compromised);
 
@@ -57,11 +62,24 @@ class AuthenticatedWebSocketSessionRegistryTest {
     void unregisterMakesNormalClosureIdempotent() throws Exception {
         WebSocketSession socket = socket("ws-1", 42L,
                 "member@example.test", "http-1");
+        when(accessVersions.isCurrent(42L, 7L)).thenReturn(true);
         registry.register(socket);
         registry.unregister("ws-1");
 
         assertThat(registry.closeAll(42L)).isZero();
         verify(socket, never()).close(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void stalePrincipalIsClosedEvenWhenItRegistersAfterRevocationSweep() throws Exception {
+        WebSocketSession stale = socket("ws-late", 42L,
+                "member@example.test", "http-late");
+        when(accessVersions.isCurrent(42L, 7L)).thenReturn(false);
+
+        assertThat(registry.register(stale)).isFalse();
+
+        verify(stale).close(revokedCloseStatus());
+        assertThat(registry.closeAll(42L)).isZero();
     }
 
     private static WebSocketSession socket(String socketId, Long userId,
@@ -70,6 +88,7 @@ class AuthenticatedWebSocketSessionRegistryTest {
         KshUserDetails principal = mock(KshUserDetails.class);
         when(principal.getId()).thenReturn(userId);
         when(principal.getUsername()).thenReturn(username);
+        when(principal.getSecurityVersion()).thenReturn(7L);
         var authentication = UsernamePasswordAuthenticationToken.authenticated(
                 principal, null, List.of());
         Map<String, Object> attributes = new HashMap<>();

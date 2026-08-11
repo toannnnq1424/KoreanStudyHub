@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -31,6 +32,23 @@ import java.util.Optional;
  * code path resolves to the same row.
  */
 public interface UserRepository extends JpaRepository<User, Long> {
+
+    /**
+     * Reads the durable version only while the account remains login-capable.
+     * Native SQL deliberately includes the soft-delete predicate rather than
+     * relying on Hibernate's entity restriction.
+     */
+    @Query(value = "SELECT security_version FROM users " +
+                   "WHERE id = :id AND is_active = 1 " +
+                   "AND is_locked = 0 AND is_deleted = 0",
+            nativeQuery = true)
+    Optional<Long> findLoginCapableSecurityVersion(@Param("id") Long id);
+
+    /** Atomically invalidates principals for every user affected by a role grant change. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE User u SET u.securityVersion = u.securityVersion + 1 " +
+           "WHERE u.id IN :userIds")
+    int incrementSecurityVersions(@Param("userIds") Collection<Long> userIds);
 
     /**
      * Looks up an active (non-deleted) user by their email address,

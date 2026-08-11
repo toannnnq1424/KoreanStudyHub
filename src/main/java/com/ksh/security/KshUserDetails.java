@@ -34,6 +34,7 @@ public class KshUserDetails implements UserDetails {
     private final boolean locked;
     private final Collection<GrantedAuthority> authorities;
     private final LocalDateTime permissionAuthoritiesValidUntil;
+    private final long securityVersion;
 
     /**
      * Constructs a {@code KshUserDetails} from a {@link User} entity with role-only
@@ -79,6 +80,7 @@ public class KshUserDetails implements UserDetails {
         this.avatarUrl = user.getAvatarUrl();
         this.active = user.isActive();
         this.locked = user.isLocked();
+        this.securityVersion = user.getSecurityVersion();
 
         List<GrantedAuthority> granted = new ArrayList<>();
         granted.add(new SimpleGrantedAuthority(user.getRole().authority()));
@@ -124,6 +126,11 @@ public class KshUserDetails implements UserDetails {
     /** Nearest override expiry captured when this principal authenticated. */
     public LocalDateTime getPermissionAuthoritiesValidUntil() {
         return permissionAuthoritiesValidUntil;
+    }
+
+    /** Durable account/access version captured during authentication. */
+    public long getSecurityVersion() {
+        return securityVersion;
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */

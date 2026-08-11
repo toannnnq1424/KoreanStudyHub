@@ -146,6 +146,7 @@ public class PermissionOverrideService {
             String targetRole = target.getRole() == null ? null : target.getRole().name();
             permissionsGuard.checkDetachAllowed(targetRole, permission);
         }
+        target.invalidateAuthenticatedAccess();
 
         Optional<UserPermissionOverride> existing =
                 overrideRepository.findByUserIdAndPermissionId(form.userId(), permission.getId());
@@ -184,6 +185,7 @@ public class PermissionOverrideService {
         UserPermissionOverride override = overrideRepository.findById(overrideId)
                 .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_OVERRIDE));
         override.deactivate();
+        target.invalidateAuthenticatedAccess();
 
         String featureKey = permissionRepository.findById(override.getPermissionId())
                 .map(Permission::getFeatureKey)

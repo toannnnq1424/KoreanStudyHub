@@ -107,6 +107,7 @@ public class UserPermissionToggleService {
         String after = describe(fromRole, newOverrideType(granted, fromRole));
 
         applyChange(userId, permission.getId(), granted, fromRole, existing, actorId);
+        user.invalidateAuthenticatedAccess();
         writeAudit(userId, permission, before, after, actorId);
         TransactionLifecycle.afterCommit(() -> {
             permissionResolver.evictUser(userId);

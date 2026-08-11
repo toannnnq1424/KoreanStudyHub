@@ -1,6 +1,7 @@
 package com.ksh.features.profile.service;
 
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.AuthenticatedAccessVersionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -27,24 +28,39 @@ public class AuthenticatedWebSocketSessionRegistry {
             CloseStatus.POLICY_VIOLATION.withReason("Authentication revoked");
 
     private final Map<String, SessionBinding> sessions = new ConcurrentHashMap<>();
+    private final AuthenticatedAccessVersionService accessVersions;
+
+    public AuthenticatedWebSocketSessionRegistry(
+            AuthenticatedAccessVersionService accessVersions) {
+        this.accessVersions = accessVersions;
+    }
 
     /** Registers one established transport when it has an authenticated local principal. */
-    public void register(WebSocketSession session) {
+    public boolean register(WebSocketSession session) {
         if (session == null || session.getId() == null) {
-            return;
+            return false;
         }
         Identity identity = identityOf(session.getPrincipal());
-        if (identity.userId() == null
-                && (identity.username() == null || identity.username().isBlank())) {
-            return;
-        }
         Object httpSessionId = session.getAttributes().get(
                 HttpSessionHandshakeInterceptor.HTTP_SESSION_ID_ATTR_NAME);
-        sessions.put(session.getId(), new SessionBinding(
+        SessionBinding binding = new SessionBinding(
                 session,
                 identity.userId(),
                 identity.username(),
-                httpSessionId instanceof String value ? value : null));
+                httpSessionId instanceof String value ? value : null);
+        sessions.put(session.getId(), binding);
+        try {
+            if (identity.userId() == null
+                    || !accessVersions.isCurrent(
+                    identity.userId(), identity.securityVersion())) {
+                closeBinding(session.getId(), binding);
+                return false;
+            }
+        } catch (RuntimeException ex) {
+            closeBinding(session.getId(), binding);
+            throw ex;
+        }
+        return true;
     }
 
     /** Removes a transport after normal or exceptional connection closure. */
@@ -95,20 +111,24 @@ public class AuthenticatedWebSocketSessionRegistry {
                     && keepHttpSessionId.equals(binding.httpSessionId()))) {
                 continue;
             }
-            if (!sessions.remove(entry.getKey(), binding)) {
-                continue;
-            }
-            try {
-                if (binding.session().isOpen()) {
-                    binding.session().close(ACCESS_REVOKED);
-                    closed++;
-                }
-            } catch (IOException ex) {
-                log.debug("Could not close revoked WebSocket session {}",
-                        entry.getKey(), ex);
-            }
+            closed += closeBinding(entry.getKey(), binding);
         }
         return closed;
+    }
+
+    private int closeBinding(String sessionId, SessionBinding binding) {
+        if (!sessions.remove(sessionId, binding)) {
+            return 0;
+        }
+        try {
+            if (binding.session().isOpen()) {
+                binding.session().close(ACCESS_REVOKED);
+                return 1;
+            }
+        } catch (IOException ex) {
+            log.debug("Could not close revoked WebSocket session {}", sessionId, ex);
+        }
+        return 0;
     }
 
     private static Identity identityOf(Principal connectionPrincipal) {
@@ -117,13 +137,14 @@ public class AuthenticatedWebSocketSessionRegistry {
             principal = authentication.getPrincipal();
         }
         if (principal instanceof KshUserDetails details) {
-            return new Identity(details.getId(), details.getUsername());
+            return new Identity(
+                    details.getId(), details.getUsername(), details.getSecurityVersion());
         }
         return new Identity(null,
-                connectionPrincipal == null ? null : connectionPrincipal.getName());
+                connectionPrincipal == null ? null : connectionPrincipal.getName(), 0L);
     }
 
-    private record Identity(Long userId, String username) {
+    private record Identity(Long userId, String username, long securityVersion) {
     }
 
     private record SessionBinding(WebSocketSession session,

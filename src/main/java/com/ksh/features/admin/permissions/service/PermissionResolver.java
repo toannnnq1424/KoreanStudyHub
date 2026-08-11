@@ -190,15 +190,8 @@ public class PermissionResolver {
      */
     @Transactional(readOnly = true)
     public List<Long> evictRole(String roleCode) {
-        if (roleCode == null || roleCode.isBlank()) {
-            return List.of();
-        }
-        List<Role> affectedRoles = toRoles(descendantRoleCodes(roleCode));
-        if (affectedRoles.isEmpty()) {
-            return List.of();
-        }
+        List<Long> userIds = affectedUserIds(roleCode);
         Cache cache = cacheManager.getCache(CacheConfig.CACHE_USER_PERMISSIONS);
-        List<Long> userIds = rolePermissionRepository.findUserIdsByRoleCodes(affectedRoles);
         // Evict through the CacheManager, not evictUser(): a self-invocation would
         // bypass the Spring proxy and silently skip the @CacheEvict.
         if (cache != null) {
@@ -207,6 +200,19 @@ public class PermissionResolver {
             }
         }
         return List.copyOf(userIds);
+    }
+
+    /** Returns users whose inherited permission set changes with the given role. */
+    @Transactional(readOnly = true)
+    public List<Long> affectedUserIds(String roleCode) {
+        if (roleCode == null || roleCode.isBlank()) {
+            return List.of();
+        }
+        List<Role> affectedRoles = toRoles(descendantRoleCodes(roleCode));
+        if (affectedRoles.isEmpty()) {
+            return List.of();
+        }
+        return List.copyOf(rolePermissionRepository.findUserIdsByRoleCodes(affectedRoles));
     }
 
     /**

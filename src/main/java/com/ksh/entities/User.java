@@ -16,6 +16,7 @@ import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * JPA entity mapped to the {@code users} table.
@@ -41,9 +42,11 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Setter
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
+
+    @Column(name = "security_version", nullable = false)
+    private long securityVersion;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;
@@ -139,6 +142,9 @@ public class User {
      * @param active new value for {@code is_active}
      */
     public void setActive(boolean active) {
+        if (this.active != active) {
+            invalidateAuthenticatedAccess();
+        }
         this.active = active;
     }
 
@@ -150,6 +156,9 @@ public class User {
      * @param reason required, non-blank disciplinary reason
      */
     public void lock(String reason) {
+        if (!this.locked) {
+            invalidateAuthenticatedAccess();
+        }
         this.locked = true;
         this.lockedReason = reason;
     }
@@ -158,6 +167,9 @@ public class User {
      * Unlocks the account and clears any previously recorded lock reason.
      */
     public void unlock() {
+        if (this.locked) {
+            invalidateAuthenticatedAccess();
+        }
         this.locked = false;
         this.lockedReason = null;
     }
@@ -167,6 +179,9 @@ public class User {
      * filter automatically hides this user from subsequent default queries.
      */
     public void softDelete() {
+        if (!this.deleted) {
+            invalidateAuthenticatedAccess();
+        }
         this.deleted = true;
     }
 
@@ -177,6 +192,9 @@ public class User {
      * not have returned it because of the {@code @SQLRestriction} filter.
      */
     public void restore() {
+        if (this.deleted) {
+            invalidateAuthenticatedAccess();
+        }
         this.deleted = false;
     }
 
@@ -193,6 +211,16 @@ public class User {
      * @param bio            optional short biography; blank strings stored as null
      */
     public void updateAdminFields(String email, String fullName, Role role,
+                                  boolean emailVerified, String phone, String bio) {
+        boolean authenticatedAccessChanged = !Objects.equals(this.email, email)
+                || this.role != role;
+        applyAdminFields(email, fullName, role, emailVerified, phone, bio);
+        if (authenticatedAccessChanged) {
+            invalidateAuthenticatedAccess();
+        }
+    }
+
+    private void applyAdminFields(String email, String fullName, Role role,
                                   boolean emailVerified, String phone, String bio) {
         this.email = email;
         this.fullName = fullName;
@@ -216,8 +244,14 @@ public class User {
     public void updateAdminFields(String email, String fullName, Role role,
                                   boolean emailVerified, String phone, String bio,
                                   Long subjectId) {
-        updateAdminFields(email, fullName, role, emailVerified, phone, bio);
+        boolean authenticatedAccessChanged = !Objects.equals(this.email, email)
+                || this.role != role
+                || !Objects.equals(this.subjectId, subjectId);
+        applyAdminFields(email, fullName, role, emailVerified, phone, bio);
         this.subjectId = subjectId;
+        if (authenticatedAccessChanged) {
+            invalidateAuthenticatedAccess();
+        }
     }
 
     /**
@@ -225,6 +259,9 @@ public class User {
      * Used by admin department leader assignment.
      */
     public void promoteToLeader(Long subjectId) {
+        if (this.role != Role.LEADER || !Objects.equals(this.subjectId, subjectId)) {
+            invalidateAuthenticatedAccess();
+        }
         this.role = Role.LEADER;
         this.subjectId = subjectId;
     }
@@ -236,8 +273,24 @@ public class User {
      */
     public void demoteFromLeaderToLecturer() {
         if (this.role != Role.ADMIN) {
+            if (this.role != Role.LECTURER) {
+                invalidateAuthenticatedAccess();
+            }
             this.role = Role.LECTURER;
         }
+    }
+
+    /** Replaces the credential hash and invalidates every principal built from the old one. */
+    public void setPasswordHash(String passwordHash) {
+        if (!Objects.equals(this.passwordHash, passwordHash)) {
+            invalidateAuthenticatedAccess();
+        }
+        this.passwordHash = passwordHash;
+    }
+
+    /** Marks any already-authenticated principal as stale within the current transaction. */
+    public void invalidateAuthenticatedAccess() {
+        securityVersion = Math.incrementExact(securityVersion);
     }
 
     private static String blankToNull(String s) {

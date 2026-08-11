@@ -69,7 +69,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             @Override
             public void afterConnectionEstablished(
                     org.springframework.web.socket.WebSocketSession session) throws Exception {
-                webSocketSessions.register(session);
+                if (!webSocketSessions.register(session)) {
+                    return;
+                }
                 try {
                     super.afterConnectionEstablished(session);
                 } catch (Exception ex) {
