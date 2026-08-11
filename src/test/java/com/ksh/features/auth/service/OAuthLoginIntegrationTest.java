@@ -239,7 +239,7 @@ class OAuthLoginIntegrationTest {
     }
 
     @Test
-    void providerSubjectAlreadyOwnedByAnotherAccount_isRejected() {
+    void providerSubjectAlreadyOwnedByAnotherAccount_resolvesOwnerWithoutRebindingEmailAccount() {
         String ownerEmail = "test-oauth-owner-" + UUID.randomUUID() + "@example.com";
         String targetEmail = "test-oauth-target-" + UUID.randomUUID() + "@example.com";
         seedUser(ownerEmail, false, false);
@@ -248,9 +248,12 @@ class OAuthLoginIntegrationTest {
         String sharedSub = uniqueSub("collision");
         oauthProviderRepo.saveAndFlush(new UserOAuthProvider(owner, "google", sharedSub));
 
-        assertThatThrownBy(() -> customOidcUserService.loadUser(buildRequest(targetEmail, sharedSub)))
-                .isInstanceOf(OAuth2AuthenticationException.class);
+        OidcUser principal = customOidcUserService.loadUser(buildRequest(targetEmail, sharedSub));
 
+        assertThat(principal.getName()).isEqualTo(ownerEmail);
+        assertThat(((CustomOidcUserPrincipal) principal).getId()).isEqualTo(owner.getId());
+        assertThat(userRepository.findByEmailIgnoreCase(ownerEmail).orElseThrow().getGoogleId())
+                .isEqualTo(sharedSub);
         assertThat(userRepository.findByEmailIgnoreCase(targetEmail).orElseThrow().getGoogleId())
                 .isNull();
     }

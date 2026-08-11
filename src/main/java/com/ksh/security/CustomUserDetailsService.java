@@ -1,17 +1,11 @@
 package com.ksh.security;
 
 import com.ksh.entities.User;
-import com.ksh.features.admin.permissions.service.PermissionResolver;
 import com.ksh.features.auth.repository.UserRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Set;
 
 /**
  * Loads user authentication data from the database for Spring Security.
@@ -25,21 +19,19 @@ import java.util.Set;
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private static final Logger log = LoggerFactory.getLogger(CustomUserDetailsService.class);
-
     private final UserRepository userRepository;
-    private final PermissionResolver permissionResolver;
+    private final LoginPermissionResolver loginPermissionResolver;
 
     /**
      * Constructs the service with the required collaborators.
      *
      * @param userRepository     JPA repository used to look up {@link User} records by email
-     * @param permissionResolver resolves the user's effective permission set
+     * @param loginPermissionResolver resolves permissions without making them a login precondition
      */
     public CustomUserDetailsService(UserRepository userRepository,
-                                    PermissionResolver permissionResolver) {
+                                    LoginPermissionResolver loginPermissionResolver) {
         this.userRepository = userRepository;
-        this.permissionResolver = permissionResolver;
+        this.loginPermissionResolver = loginPermissionResolver;
     }
 
     /**
@@ -54,38 +46,14 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @throws UsernameNotFoundException if no account with the given email exists
      */
     @Override
-    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new UsernameNotFoundException("No account found for email: " + email));
 
         // KshUserDetails maps roles to ROLE_<name> and exposes isEnabled()/isAccountNonLocked()
         // so that Spring Security throws DisabledException / LockedException respectively.
-        return new KshUserDetails(user, resolvePermissionsSafely(user.getId()));
+        return new KshUserDetails(
+                user, loginPermissionResolver.resolveSafely(user.getId()));
     }
 
-    /**
-     * Resolves the user's effective permissions without ever failing authentication.
-     *
-     * <p>Permission resolution is an enhancement layered on top of roles, not a
-     * precondition for logging in. If the resolver throws for any reason — database
-     * unavailable, the RBAC tables missing because the migration has not been applied
-     * yet, a malformed row — this method swallows the failure and returns an empty set.
-     * The caller then builds a principal with role-only authorities and login proceeds
-     * exactly as it did before permissions existed.
-     *
-     * @param userId the authenticated user's id
-     * @return the effective feature keys, or an empty set when resolution fails
-     */
-    private Set<String> resolvePermissionsSafely(Long userId) {
-        try {
-            Set<String> featureKeys = permissionResolver.resolvePermissions(userId);
-            return featureKeys == null ? Set.of() : featureKeys;
-        } catch (Exception ex) {
-            // Degrade to role-only authorities rather than blocking the login.
-            log.warn("Permission resolution failed for user {}; continuing with role-only "
-                    + "authorities", userId, ex);
-            return Set.of();
-        }
-    }
 }
