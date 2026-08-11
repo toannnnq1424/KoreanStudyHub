@@ -19,6 +19,28 @@ class ExamFormValidatorTest {
     }
 
     @Test
+    void independent_test_bank_draft_does_not_require_a_class() {
+        ExamForm independent = new ExamForm(null, "Đề độc lập", null, 1L, null,
+                "MOCK", "DRAFT", "INDIVIDUAL", 30,
+                null, null, null, false, false,
+                null, null, List.of(), false);
+
+        assertThatNoException().isThrownBy(() -> ExamFormValidator.validate(independent));
+    }
+
+    @Test
+    void every_exam_still_requires_a_subject_scope() {
+        ExamForm missingSubject = new ExamForm(null, "Đề thiếu môn", null, null, null,
+                "MOCK", "DRAFT", "INDIVIDUAL", 30,
+                null, null, null, false, false,
+                null, null, List.of(), false);
+
+        assertThatIllegalArgumentException().isThrownBy(() ->
+                ExamFormValidator.validate(missingSubject))
+                .withMessageContaining("môn học");
+    }
+
+    @Test
     void published_exam_still_requires_a_question() {
         assertThatIllegalArgumentException().isThrownBy(() ->
                 ExamFormValidator.validate(form("PUBLISHED", List.of())))
@@ -27,7 +49,7 @@ class ExamFormValidatorTest {
 
     @Test
     void published_fixed_window_requires_both_schedule_bounds() {
-        ExamForm form = new ExamForm(null, "Bài test AI", null, 1L,
+        ExamForm form = new ExamForm(null, "Bài test AI", null, 1L, 1L,
                 "MOCK", "PUBLISHED", "FIXED_WINDOW", null,
                 LocalDateTime.now(), null, BigDecimal.ONE, false, false,
                 null, null, List.of(question()), false);
@@ -39,7 +61,7 @@ class ExamFormValidatorTest {
 
     @Test
     void individual_duration_must_be_positive_and_bounded() {
-        ExamForm form = new ExamForm(null, "Bài test AI", null, 1L,
+        ExamForm form = new ExamForm(null, "Bài test AI", null, 1L, 1L,
                 "MOCK", "PUBLISHED", "INDIVIDUAL", 0,
                 null, null, BigDecimal.ONE, false, false,
                 null, null, List.of(question()), false);
@@ -52,7 +74,7 @@ class ExamFormValidatorTest {
     @Test
     void end_time_must_follow_start_time_even_for_draft() {
         LocalDateTime start = LocalDateTime.now();
-        ExamForm form = new ExamForm(null, "Bài test AI", null, 1L,
+        ExamForm form = new ExamForm(null, "Bài test AI", null, 1L, 1L,
                 "MOCK", "DRAFT", "FIXED_WINDOW", null,
                 start, start.minusMinutes(1), BigDecimal.ONE, false, false,
                 null, null, List.of(), false);
@@ -101,7 +123,7 @@ class ExamFormValidatorTest {
 
     private static ExamForm form(String status,
                                  List<com.ksh.features.tests.dto.LecturerTestDtos.QuestionForm> questions) {
-        return new ExamForm(null, "Bài test AI", null, 1L,
+        return new ExamForm(null, "Bài test AI", null, 1L, 1L,
                 "MOCK", status, "INDIVIDUAL", 30,
                 null, null, BigDecimal.ONE, false, false,
                 null, null, questions, false);
@@ -123,7 +145,7 @@ class ExamFormValidatorTest {
     }
 
     private static ExamForm withPassingScore(ExamForm form, BigDecimal passingScore) {
-        return new ExamForm(form.id(), form.title(), form.description(), form.classId(),
+        return new ExamForm(form.id(), form.title(), form.description(), form.subjectId(), form.classId(),
                 form.type(), form.status(), form.timeMode(), form.durationMinutes(),
                 form.startAt(), form.endAt(), passingScore, form.shuffleQuestions(),
                 form.shuffleOptions(), form.mediaType(), form.mediaUrl(), form.questions(),

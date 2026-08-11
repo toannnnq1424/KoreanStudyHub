@@ -65,9 +65,18 @@
 
 /* Lecturer table. */
 .tst-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border: 1px solid #e1e7f0; border-radius: 12px; overflow: hidden; }
-.tst-table th, .tst-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f2; font-size: 14px; }
+.tst-table th, .tst-table td { text-align: left; padding: 12px; border-bottom: 1px solid #e6ebf2; font-size: 14px; vertical-align: middle; }
 .tst-table th { color: #6b7280; font-weight: 600; }
-.tst-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.tst-table tbody tr:last-child td { border-bottom: 0; }
+.tst-col-title { width: 27%; }
+.tst-col-type { width: 11%; }
+.tst-col-status { width: 12%; }
+.tst-col-class { width: 21%; }
+.tst-col-count { width: 7%; }
+.tst-col-actions { width: 22%; }
+.tst-row-actions { display: table-cell; white-space: nowrap; }
+.tst-row-actions-inner { display: inline-flex; align-items: center; flex-wrap: nowrap; gap: 6px; min-height: 34px; }
+.tst-independent-scope { color: #5d6b7e; font-weight: 600; }
 .tst-icon-action { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid #d8e1f0; border-radius: 8px; color: #326ccf; background: #fff; }
 .tst-icon-action:hover { color: #1f55b0; background: #edf4ff; border-color: #a8c6f6; }
 .tst-icon-action svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

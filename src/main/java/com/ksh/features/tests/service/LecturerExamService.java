@@ -13,6 +13,7 @@ import com.ksh.features.tests.dto.LecturerTestDtos.LecturerExamRow;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamFilter;
 import com.ksh.features.tests.dto.LecturerTestDtos.OptionForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.QuestionForm;
+import com.ksh.features.tests.dto.LecturerTestDtos.SubjectOption;
 import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionResult;
 import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionTarget;
 import com.ksh.features.tests.dto.LecturerTestDtos.TestDistributionView;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.ksh.common.IConstant.DEFAULT_EXAM_PAGE_SIZE;
 import static com.ksh.common.IConstant.MSG_EXAM_QUESTION_BANK_LOCKED;
@@ -136,9 +138,19 @@ public class LecturerExamService {
         Role role = accessResolver.managementRole(userId);
         List<ClassOption> options = new ArrayList<>();
         for (ClassEntity c : accessResolver.manageableClasses(userId, role)) {
-            options.add(new ClassOption(c.getId(), c.getName()));
+            options.add(new ClassOption(c.getId(), c.getName(), c.getSubjectId()));
         }
         return options;
+    }
+
+    /** Active subjects available for independent Test Bank authoring. */
+    @Transactional(readOnly = true)
+    public List<SubjectOption> subjectOptions(Long userId) {
+        Role role = accessResolver.managementRole(userId);
+        return departmentRepository.findByActiveTrueOrderByNameAsc().stream()
+                .filter(subject -> accessResolver.canManageSubject(userId, role, subject.getId()))
+                .map(subject -> new SubjectOption(subject.getId(), subject.getCode(), subject.getName()))
+                .toList();
     }
 
     /** Loads an owned exam as an editable form (with its questions + options). */
@@ -156,8 +168,13 @@ public class LecturerExamService {
             qForms.add(new QuestionForm(q.getId(), q.getQuestionType(), q.getContent(),
                     q.getExplanation(), q.getPoints(), optForms));
         }
+        Long subjectId = test.getSubjectId();
+        if (subjectId == null && test.getClassId() != null) {
+            subjectId = classRepository.findById(test.getClassId())
+                    .map(ClassEntity::getSubjectId).orElse(null);
+        }
         return new ExamForm(test.getId(), test.getTitle(), test.getDescription(),
-                test.getClassId(), test.getType(), test.getStatus(), test.getTimeMode(),
+                subjectId, test.getClassId(), test.getType(), test.getStatus(), test.getTimeMode(),
                 test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getPassingScore(), test.isShuffleQuestions(), test.isShuffleOptions(),
                 test.getMediaType(), test.getMediaUrl(), qForms,
@@ -188,8 +205,11 @@ public class LecturerExamService {
         if (!creating && questionBankWriter.hasStudentActivity(existing.getId())) {
             throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
         }
+        if (!creating) {
+            requireStableAuthoringScope(existing, form);
+        }
         ExamFormValidator.validate(form);
-        requireLeadsClass(userId, form.classId());
+        requireAuthoringScope(userId, form.subjectId(), form.classId());
         ExamForm claimedForm = claimStagedImages(userId, form);
 
         Test test = creating
@@ -232,6 +252,7 @@ public class LecturerExamService {
                 form.id(),
                 form.title(),
                 claim.claimIn(form.description()),
+                form.subjectId(),
                 form.classId(),
                 form.type(),
                 form.status(),
@@ -465,8 +486,8 @@ public class LecturerExamService {
         // Description may hold a reading-passage HTML body from the Quill editor.
         String description = trimToNull(form.description());
         test.setDescription(description == null ? null : HtmlSanitizer.sanitize(description));
+        test.setSubjectId(form.subjectId());
         test.setClassId(form.classId());
-        classRepository.findById(form.classId()).ifPresent(clazz -> test.setSubjectId(clazz.getSubjectId()));
         test.setType(defaultType(form.type()));
         test.setStatus(form.status() == null ? Test.STATUS_DRAFT : form.status());
         test.setTimeMode(form.timeMode() == null ? Test.TIME_MODE_FIXED_WINDOW : form.timeMode());
@@ -487,9 +508,41 @@ public class LecturerExamService {
         }
     }
 
-    private void requireLeadsClass(Long userId, Long classId) {
-        accessResolver.requireManageableClass(
-                classId, userId, accessResolver.managementRole(userId));
+    private void requireAuthoringScope(Long userId, Long subjectId, Long classId) {
+        Role role = accessResolver.managementRole(userId);
+        Department subject = departmentRepository.findById(subjectId)
+                .filter(Department::isActive)
+                .orElseThrow(() -> new IllegalArgumentException("Môn học không tồn tại hoặc đã bị ẩn"));
+        if (!accessResolver.canManageSubject(userId, role, subject.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Bạn không có quyền tạo bài test cho môn học này");
+        }
+        if (classId == null) {
+            return;
+        }
+        ClassEntity clazz = accessResolver.requireManageableClass(classId, userId, role);
+        if (!subject.getId().equals(clazz.getSubjectId())) {
+            throw new IllegalArgumentException("Lớp được chọn không thuộc môn học của bài test");
+        }
+    }
+
+    /**
+     * A Test Bank source and a class-local test are different authoring scopes.
+     * Distribution creates independent class snapshots, so editing the source must
+     * never silently move it into one of its recipient classes (or between classes).
+     */
+    private void requireStableAuthoringScope(Test existing, ExamForm form) {
+        Long existingSubjectId = existing.getSubjectId();
+        if (existingSubjectId == null && existing.getClassId() != null) {
+            existingSubjectId = classRepository.findById(existing.getClassId())
+                    .map(ClassEntity::getSubjectId)
+                    .orElse(null);
+        }
+        if (!Objects.equals(existingSubjectId, form.subjectId())
+                || !Objects.equals(existing.getClassId(), form.classId())) {
+            throw new IllegalArgumentException(
+                    "Không thể thay đổi môn học hoặc lớp của bài test sau khi đã tạo");
+        }
     }
 
     private List<Long> manageableClassIds(Long userId, Role role) {

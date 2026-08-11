@@ -70,6 +70,7 @@ class LecturerExamManagementIntegrationTest {
     @Autowired private TestResponseRepository responseRepository;
 
     private Long lecturerId;
+    private Long subjectId;
     private Long classId;
     private Long examId;
 
@@ -77,6 +78,7 @@ class LecturerExamManagementIntegrationTest {
     void setUp() {
         User lecturer = userRepository.findByEmailIgnoreCase(LECTURER).orElseThrow();
         lecturerId = lecturer.getId();
+        subjectId = lecturer.getSubjectId();
         ClassEntity clazz = saveClass(lecturer);
         classId = clazz.getId();
         examId = lecturerExamService.save(lecturerId, validForm(null, "Đề GV JUnit"));
@@ -248,6 +250,7 @@ class LecturerExamManagementIntegrationTest {
                 examId,
                 "Đề GV JUnit",
                 "mô tả",
+                subjectId,
                 classId,
                 "MOCK",
                 "PUBLISHED",
@@ -292,7 +295,7 @@ class LecturerExamManagementIntegrationTest {
         List<QuestionForm> questions = List.of(
                 new QuestionForm(null, "MCQ", "1+1=2?", null, new BigDecimal("2.00"), mcq),
                 new QuestionForm(null, "MR", "Chọn A và B", null, new BigDecimal("3.00"), mr));
-        return new ExamForm(id, title, "mô tả", classId, "MOCK", "PUBLISHED",
+        return new ExamForm(id, title, "mô tả", subjectId, classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(1), new BigDecimal("1.00"), false, false,
                 mediaType, mediaUrl, questions, false);
@@ -300,7 +303,7 @@ class LecturerExamManagementIntegrationTest {
 
     /** A valid form but with a single (possibly invalid) question, for reject tests. */
     private ExamForm formWith(QuestionForm question) {
-        return new ExamForm(null, "Đề lỗi", "mô tả", classId, "MOCK", "PUBLISHED",
+        return new ExamForm(null, "Đề lỗi", "mô tả", subjectId, classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(1), new BigDecimal("1.00"), false, false,
                 null, null, List.of(question), false);
@@ -309,6 +312,7 @@ class LecturerExamManagementIntegrationTest {
     private ClassEntity saveClass(User lecturer) {
         ClassEntity entity = new ClassEntity("Lecturer exam class", lecturer.getId(),
                 lecturer.getId(), null, null, null, 100);
+        entity.setSubjectId(lecturer.getSubjectId());
         entity.setCode("LECEXM");
         try {
             return classRepository.saveAndFlush(entity);

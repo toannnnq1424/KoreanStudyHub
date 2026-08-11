@@ -115,6 +115,7 @@
                 description: window.LfQuill.isEmptyHtml(mode.readDescriptionHtml())
                     ? null
                     : mode.readDescriptionHtml(),
+                subjectId: numOrNull('lfSubject'),
                 classId: numOrNull('lfClass'),
                 type: val('lfType'),
                 status: val('lfStatus'),
@@ -137,6 +138,7 @@
             editId = f.id;
             form.dataset.questionBankLocked = f.questionBankLocked ? '1' : '0';
             document.getElementById('lfTitle').value = f.title || '';
+            if (f.subjectId != null) document.getElementById('lfSubject').value = f.subjectId;
             if (f.classId != null) document.getElementById('lfClass').value = f.classId;
             if (f.type) document.getElementById('lfType').value = f.type;
             if (f.status) document.getElementById('lfStatus').value = f.status;
@@ -152,6 +154,19 @@
             mode.syncExamModeFromFields();
             (f.questions || []).forEach(function (q) { builder.addQuestion(q); });
         }
+
+        function syncSubjectFromClass() {
+            var classSelect = document.getElementById('lfClass');
+            var subjectSelect = document.getElementById('lfSubject');
+            if (!classSelect || !subjectSelect || !classSelect.value) return;
+            var option = classSelect.options[classSelect.selectedIndex];
+            var classSubjectId = option ? option.getAttribute('data-subject-id') : null;
+            if (classSubjectId) subjectSelect.value = classSubjectId;
+        }
+
+        var classSelect = document.getElementById('lfClass');
+        if (classSelect) classSelect.addEventListener('change', syncSubjectFromClass);
+        syncSubjectFromClass();
 
         function readBankSearchUrl() {
             return bankSearchUrl;
@@ -391,6 +406,11 @@
                     return;
                 }
                 var payload = collect();
+                if (!payload.subjectId) {
+                    cancelSubmission();
+                    toast('error', 'Vui lòng chọn môn học cho bài test');
+                    return;
+                }
                 if (saveForAi) {
                     payload.status = 'DRAFT';
                     payload.questions = payload.questions.filter(function (q) {

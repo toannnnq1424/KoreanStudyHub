@@ -142,14 +142,33 @@
           <small class="lf-err" id="lfTitleErr"></small>
         </div>
         <div class="lf-field">
-          <label class="lf-label" for="lfClass">Lớp</label>
-          <select class="lf-input" id="lfClass" data-ksh-select>
-            <option value="">— Chọn lớp —</option>
+          <label class="lf-label" for="lfSubject">Môn học</label>
+          <select class="lf-input" id="lfSubject" data-ksh-select
+                  th:disabled="${mode == 'edit' or (selectedClassId != null and mode == 'create')}">
+            <option value="">— Chọn môn học —</option>
+            <option th:each="subject : ${testSubjects}"
+                    th:value="${subject.id()}"
+                    th:text="${subject.code()} + ' · ' + ${subject.name()}"
+                    th:selected="${selectedSubjectId != null and selectedSubjectId == subject.id()}">Môn học</option>
+          </select>
+          <small class="lf-hint">Phạm vi ổn định của đề độc lập và các bản phân phối sau này.</small>
+          <small class="lf-err" id="lfSubjectErr"></small>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfClass">Lớp khởi tạo <span class="lf-optional">(tuỳ chọn)</span></label>
+          <select class="lf-input" id="lfClass" data-ksh-select
+                  th:disabled="${mode == 'edit' or (selectedClassId != null and mode == 'create')}">
+            <option value="">— Không gắn lớp; lưu trong Test Bank —</option>
             <option th:each="c : ${ledClasses}"
                     th:value="${c.id()}"
+                    th:attr="data-subject-id=${c.subjectId()}"
                     th:text="${c.name()}"
                     th:selected="${selectedClassId != null and selectedClassId == c.id()}">Lớp</option>
           </select>
+          <small class="lf-hint" th:if="${mode == 'create' and selectedClassId == null}">Chỉ chọn khi muốn tạo ngay một bài test cục bộ cho lớp; nếu để trống, đề không thuộc lớp nào.</small>
+          <small class="lf-hint" th:if="${mode == 'create' and selectedClassId != null}">Đang tạo từ lớp này; đề vẫn xuất hiện trong kho “Quản lý bài test”.</small>
+          <small class="lf-hint" th:if="${mode == 'edit' and selectedClassId == null}">Đề Test Bank độc lập không thuộc lớp nào; việc phân phối sẽ tạo các bản sao riêng cho từng lớp.</small>
+          <small class="lf-hint" th:if="${mode == 'edit' and selectedClassId != null}">Đây là bài test cục bộ của lớp; phạm vi lớp không đổi khi chỉnh sửa.</small>
           <small class="lf-err" id="lfClassErr"></small>
         </div>
         <div class="lf-field">
