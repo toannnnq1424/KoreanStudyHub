@@ -21,6 +21,7 @@ import java.util.Optional;
 import static com.ksh.common.IConstant.MSG_ASSIGNMENT_INVALID_TRANSITION;
 import static com.ksh.common.IConstant.MSG_ASSIGNMENT_NOT_FOUND;
 import static com.ksh.common.IConstant.MSG_SUBMIT_AFTER_GRADED;
+import static com.ksh.common.IConstant.MSG_SUBMIT_CONTENT_REQUIRED;
 import static com.ksh.common.IConstant.MSG_SUBMIT_LATE;
 
 /**
@@ -105,6 +106,10 @@ public class StudentAssignmentService {
     @Transactional
     public void submit(Long classId, Long assignmentId, SubmitForm form, Long userId) {
         access.requireActiveEnrollment(classId, userId);
+        String content = form == null || form.content() == null ? null : form.content().trim();
+        if (content == null || content.isEmpty()) {
+            throw new IllegalArgumentException(MSG_SUBMIT_CONTENT_REQUIRED);
+        }
         // The stable assignment row serializes both first-time inserts (where
         // no submission row exists to lock) and concurrent submit-vs-grade.
         Assignment a = assignmentRepository.findByIdAndClassIdNotDeletedForUpdate(assignmentId, classId)
@@ -133,7 +138,7 @@ public class StudentAssignmentService {
         AssignmentSubmission sub = new AssignmentSubmission();
         sub.setAssignmentId(assignmentId);
         sub.setUserId(userId);
-        sub.setContent(form.content());
+        sub.setContent(content);
         sub.setStatus(AssignmentStatus.SUB_SUBMITTED);
         sub.setLate(isLate);
         sub.setSubmittedAt(LocalDateTime.now());

@@ -35,6 +35,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class AdminUsersGuard {
 
+    private static final String INVALID_ROLE_TRANSITION_MESSAGE =
+            "Không thể chuyển đổi giữa tài khoản học viên, giảng viên và quản trị viên. "
+                    + "Chỉ được đổi vai trò Giảng viên ↔ Trưởng bộ môn; trường hợp đổi loại tài khoản phải tạo tài khoản mới.";
+
     private final UserRepository userRepository;
 
     public AdminUsersGuard(UserRepository userRepository) {
@@ -94,6 +98,16 @@ public class AdminUsersGuard {
         if (activeAdmins <= 1) {
             throw new AccessDeniedException(
                     "Không thể hạ vai trò của quản trị viên cuối cùng đang hoạt động.");
+        }
+    }
+
+    /** Student, staff and administrator are distinct account categories. */
+    public void requireAllowedRoleTransition(Role currentRole, Role requestedRole) {
+        if (currentRole == requestedRole) return;
+        boolean staffTransition = (currentRole == Role.LECTURER || currentRole == Role.LEADER)
+                && (requestedRole == Role.LECTURER || requestedRole == Role.LEADER);
+        if (!staffTransition) {
+            throw new InvalidRoleTransitionException(INVALID_ROLE_TRANSITION_MESSAGE);
         }
     }
 }

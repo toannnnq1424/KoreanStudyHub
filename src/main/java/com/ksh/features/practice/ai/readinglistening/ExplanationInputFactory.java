@@ -170,23 +170,25 @@ public class ExplanationInputFactory {
                 descriptors,
                 readinessIssue);
         ExplanationFingerprint fingerprint = fingerprintBuilder.build(input);
-        ExplanationContext context = new ExplanationContext(
-                ExplanationContext.SCHEMA_VERSION,
-                question.getQuestionId(),
-                question.getId(),
-                question.getQuestionNo(),
-                skill,
-                type,
-                immutablePrompt,
-                instruction,
-                sanitizedContent,
-                sanitizedAnswerSpec,
-                null,
-                sanitizedStimulus,
-                sanitizeEvidenceText(question.getExplanation()),
-                input.explanationLanguage(),
-                optionLabelMode,
-                explanationStrategy);
+        ExplanationContext context = readinessIssue == null
+                ? new ExplanationContext(
+                        ExplanationContext.SCHEMA_VERSION,
+                        question.getQuestionId(),
+                        question.getId(),
+                        question.getQuestionNo(),
+                        skill,
+                        type,
+                        immutablePrompt,
+                        instruction,
+                        sanitizedContent,
+                        sanitizedAnswerSpec,
+                        null,
+                        sanitizedStimulus,
+                        sanitizeEvidenceText(question.getExplanation()),
+                        input.explanationLanguage(),
+                        optionLabelMode,
+                        explanationStrategy)
+                : null;
         return new PreparedExplanation(input, fingerprint, context, runtimeMedia);
     }
 

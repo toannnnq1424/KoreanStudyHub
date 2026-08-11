@@ -47,8 +47,17 @@ class NonPracticeLearningUiContractTest {
         assertThat(script).contains(
                 "document.createElement('button')",
                 "setAttribute('role', 'listbox')",
+                "window.KshLearningSelect = { mount: mount }",
+                "ksh:detail-tab-loaded",
+                "dataset.kshSelectReady === 'true'",
                 "event.key === 'Escape'",
                 "event.key !== 'ArrowDown'",
+                "event.key !== 'Enter'",
+                "event.stopPropagation()",
+                ".filter(function (button) { return !button.hidden; })",
+                "select.getAttribute('aria-labelledby')",
+                "select.getAttribute('aria-label')",
+                "labelCopy.querySelectorAll('select, input, textarea, button, .ksh-select')",
                 "select.dispatchEvent(new Event('change'",
                 "select.setAttribute('aria-hidden', 'true')");
         assertThat(script).doesNotContain("<dropdown", "<select-wrapper");

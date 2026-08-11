@@ -5,6 +5,7 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.mail.MailService;
+import com.ksh.features.profile.service.SessionRevocationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -26,8 +27,10 @@ class PasswordRecoveryServiceSecurityTest {
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
     private final MailService mail = mock(MailService.class);
     private final PasswordResetRequestThrottle throttle = mock(PasswordResetRequestThrottle.class);
+    private final SessionRevocationService sessions = mock(SessionRevocationService.class);
     private final PasswordRecoveryService service =
-            new PasswordRecoveryService(users, tokens, encoder, mail, throttle, "https://ksh.test");
+            new PasswordRecoveryService(users, tokens, encoder, mail, throttle,
+                    sessions, "https://ksh.test");
 
     PasswordRecoveryServiceSecurityTest() {
         when(throttle.allow(anyString(), anyString())).thenReturn(true);
@@ -68,6 +71,7 @@ class PasswordRecoveryServiceSecurityTest {
                 .thenReturn(Optional.of(token));
         when(token.isValid()).thenReturn(true);
         when(token.getUser()).thenReturn(user);
+        when(user.getId()).thenReturn(42L);
         when(encoder.encode("new-password")).thenReturn("encoded");
 
         assertThat(service.resetPassword(raw, "new-password")).isTrue();
@@ -77,6 +81,77 @@ class PasswordRecoveryServiceSecurityTest {
         verify(user).setPasswordHash("encoded");
         verify(token).markUsed();
         verify(tokens).save(token);
+        verify(sessions).revokeAllSessions(42L);
+    }
+
+    @Test
+    void validateAcceptsRawTokenOnlyThroughItsDigest() {
+        String raw = "raw-validation-token";
+        PasswordResetToken token = mock(PasswordResetToken.class);
+        User user = mock(User.class);
+        when(tokens.findByToken(PasswordRecoveryService.digestToken(raw)))
+                .thenReturn(Optional.of(token));
+        when(token.isValid()).thenReturn(true);
+        when(token.getUser()).thenReturn(user);
+
+        assertThat(service.validateToken(raw)).isSameAs(user);
+
+        verify(tokens).findByToken(PasswordRecoveryService.digestToken(raw));
+        verify(tokens, never()).findByToken(raw);
+    }
+
+    @Test
+    void validateRejectsPresentedDigestEvenWhenThatDigestIdentifiesAStoredRow() {
+        String raw = "raw-token-whose-digest-was-exposed";
+        String presentedDigest = PasswordRecoveryService.digestToken(raw);
+        PasswordResetToken storedToken = mock(PasswordResetToken.class);
+        when(tokens.findByToken(presentedDigest)).thenReturn(Optional.of(storedToken));
+
+        assertThat(service.validateToken(presentedDigest)).isNull();
+
+        verify(tokens).findByToken(PasswordRecoveryService.digestToken(presentedDigest));
+        verify(tokens, never()).findByToken(presentedDigest);
+        verifyNoInteractions(storedToken);
+    }
+
+    @Test
+    void resetRejectsPresentedDigestEvenWhenThatDigestIdentifiesAStoredRow() {
+        String raw = "raw-token-whose-digest-was-exposed";
+        String presentedDigest = PasswordRecoveryService.digestToken(raw);
+        PasswordResetToken storedToken = mock(PasswordResetToken.class);
+        when(tokens.findByTokenForUpdate(presentedDigest)).thenReturn(Optional.of(storedToken));
+
+        assertThat(service.resetPassword(presentedDigest, "new-password")).isFalse();
+
+        verify(tokens).findByTokenForUpdate(PasswordRecoveryService.digestToken(presentedDigest));
+        verify(tokens, never()).findByTokenForUpdate(presentedDigest);
+        verifyNoInteractions(storedToken, encoder, sessions);
+    }
+
+    @Test
+    void validateRejectsLegacyPlaintextTokenRow() {
+        String legacyPlaintext = "legacy-plaintext-token";
+        PasswordResetToken storedToken = mock(PasswordResetToken.class);
+        when(tokens.findByToken(legacyPlaintext)).thenReturn(Optional.of(storedToken));
+
+        assertThat(service.validateToken(legacyPlaintext)).isNull();
+
+        verify(tokens).findByToken(PasswordRecoveryService.digestToken(legacyPlaintext));
+        verify(tokens, never()).findByToken(legacyPlaintext);
+        verifyNoInteractions(storedToken);
+    }
+
+    @Test
+    void resetRejectsLegacyPlaintextTokenRow() {
+        String legacyPlaintext = "legacy-plaintext-token";
+        PasswordResetToken storedToken = mock(PasswordResetToken.class);
+        when(tokens.findByTokenForUpdate(legacyPlaintext)).thenReturn(Optional.of(storedToken));
+
+        assertThat(service.resetPassword(legacyPlaintext, "new-password")).isFalse();
+
+        verify(tokens).findByTokenForUpdate(PasswordRecoveryService.digestToken(legacyPlaintext));
+        verify(tokens, never()).findByTokenForUpdate(legacyPlaintext);
+        verifyNoInteractions(storedToken, encoder, sessions);
     }
 
     @Test

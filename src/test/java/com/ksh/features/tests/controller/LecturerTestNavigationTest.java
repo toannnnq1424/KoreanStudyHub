@@ -2,6 +2,7 @@ package com.ksh.features.tests.controller;
 
 import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.service.ClassesService;
+import com.ksh.entities.ClassEntity;
 import com.ksh.features.tests.dto.LecturerTestDtos.ClassOption;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamForm;
 import com.ksh.features.tests.dto.LecturerTestDtos.ExamHeader;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class LecturerTestNavigationTest {
@@ -54,6 +56,8 @@ class LecturerTestNavigationTest {
 
     @Test
     void createFromOwnedClassKeepsCanonicalClassContext() {
+        ClassEntity clazz = mock(ClassEntity.class);
+        when(classesService.getViewable(2L, 41L, Role.LECTURER)).thenReturn(clazz);
         ExtendedModelMap model = new ExtendedModelMap();
 
         String view = controller.newForm(2L, user, model);
@@ -61,6 +65,7 @@ class LecturerTestNavigationTest {
         assertEquals("tests/lecturer-form", view);
         assertEquals(2L, model.get("selectedClassId"));
         assertEquals("/lecturer/classes/2/tests", model.get("testReturnUrl"));
+        verify(classDetailSupport).populateDetail(model, clazz, "info", 41L, Role.LECTURER);
     }
 
     @Test

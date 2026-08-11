@@ -1108,6 +1108,8 @@ body.qb-modal-open {
 
 .qb-workspace-search { display: flex; gap: 8px; margin-bottom: 16px; }
 .qb-workspace-search .qb-input { flex: 1; }
+.qb-workspace-search .qb-workspace-status,
+.qb-workspace-search > .ksh-select { flex: 0 0 180px; min-width: 0; }
 .qb-generator { margin: 0 0 16px; border: 1px solid #cfe4ed; border-radius: 14px; background: #f5fbfd; }
 .qb-generator summary { padding: 12px 14px; color: #35657a; font-weight: 750; cursor: pointer; }
 .qb-generator form { display: grid; gap: 12px; padding: 0 14px 14px; }
@@ -1146,6 +1148,11 @@ body.qb-modal-open {
     grid-template-columns: 1fr;
   }
   .qb-generator-grid { grid-template-columns: 1fr; }
+
+  .qb-workspace-search { flex-wrap: wrap; }
+  .qb-workspace-search .qb-workspace-status,
+  .qb-workspace-search > .ksh-select { flex: 1 1 100%; }
+  .qb-workspace-search #qbLecturerQuery { min-width: 0; }
 
   .qb-toolbar-actions,
   .qb-row-actions,

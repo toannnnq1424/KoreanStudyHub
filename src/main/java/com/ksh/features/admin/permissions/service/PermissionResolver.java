@@ -149,23 +149,24 @@ public class PermissionResolver {
      * @param roleCode the role whose permission set changed (e.g. {@code LECTURER})
      */
     @Transactional(readOnly = true)
-    public void evictRole(String roleCode) {
+    public List<Long> evictRole(String roleCode) {
         if (roleCode == null || roleCode.isBlank()) {
-            return;
+            return List.of();
         }
         List<Role> affectedRoles = toRoles(descendantRoleCodes(roleCode));
         if (affectedRoles.isEmpty()) {
-            return;
+            return List.of();
         }
         Cache cache = cacheManager.getCache(CacheConfig.CACHE_USER_PERMISSIONS);
-        if (cache == null) {
-            return;
-        }
+        List<Long> userIds = rolePermissionRepository.findUserIdsByRoleCodes(affectedRoles);
         // Evict through the CacheManager, not evictUser(): a self-invocation would
         // bypass the Spring proxy and silently skip the @CacheEvict.
-        for (Long userId : rolePermissionRepository.findUserIdsByRoleCodes(affectedRoles)) {
-            cache.evict(userId);
+        if (cache != null) {
+            for (Long userId : userIds) {
+                cache.evict(userId);
+            }
         }
+        return List.copyOf(userIds);
     }
 
     /**

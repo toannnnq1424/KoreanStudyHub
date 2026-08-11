@@ -11,6 +11,7 @@ import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +36,7 @@ class AdminUsersLeaderAssignmentGuardTest {
     private final ClassRepository classes = mock(ClassRepository.class);
     private final DepartmentRepository departments = mock(DepartmentRepository.class);
     private final SystemSettingsRepository settings = mock(SystemSettingsRepository.class);
+    private final SessionRevocationService sessionRevocation = mock(SessionRevocationService.class);
 
     @Test
     void editLocksSharedAnchorBeforeUserAndRejectsBreakingLeaderPointer() {
@@ -68,8 +70,8 @@ class AdminUsersLeaderAssignmentGuardTest {
 
     private AdminUsersWriteService service() {
         return new AdminUsersWriteService(
-                users, passwordEncoder, guard, auditWriter, classes,
-                departments, settings);
+                users, passwordEncoder, guard, auditWriter,
+                departments, settings, sessionRevocation);
     }
 
     private static User user(Long id, Role role, Long subjectId) {

@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.ksh.common.IConstant.DEFAULT_EXAM_PAGE_SIZE;
+import static com.ksh.common.IConstant.MSG_EXAM_QUESTION_BANK_LOCKED;
 import static com.ksh.common.IConstant.MSG_QB_INSERT_EMPTY;
 import static com.ksh.common.IConstant.MSG_QB_INSERT_LOCKED;
 
@@ -174,31 +175,31 @@ public class LecturerExamService {
     }
 
     /**
-     * Creates or updates an exam. Always persists form fields (including media)
-     * and question/option content. When student responses already exist the bank
-     * shape is locked (no add/remove/reorder of questions or options) so FK rows
-     * in {@code test_responses} stay valid — content text/HTML may still change.
+     * Creates or updates an exam. Once any student has started, the complete
+     * assessment contract is immutable so historical attempts always render the
+     * same class, timing, content, options and answer evidence seen at attempt time.
      * Returns the persisted exam id.
      */
     @Transactional
     public Long save(Long userId, ExamForm form) {
+        boolean creating = form.id() == null;
+        Test existing = creating ? null
+                : accessResolver.requireManageableForUpdate(form.id(), userId);
+        if (!creating && questionBankWriter.hasStudentActivity(existing.getId())) {
+            throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
+        }
         ExamFormValidator.validate(form);
         requireLeadsClass(userId, form.classId());
         ExamForm claimedForm = claimStagedImages(userId, form);
 
-        boolean creating = claimedForm.id() == null;
         Test test = creating
                 ? new Test(userId, defaultType(claimedForm.type()))
-                : accessResolver.requireManageableForUpdate(claimedForm.id(), userId);
+                : existing;
         String previousStatus = creating ? null : test.getStatus();
         applyFields(test, claimedForm);
         Test saved = testRepository.save(test);
 
-        if (creating || !questionBankWriter.hasStudentActivity(saved.getId())) {
-            questionBankWriter.replaceQuestions(saved.getId(), claimedForm.questions());
-        } else {
-            questionBankWriter.updateQuestionContentsInPlace(saved.getId(), claimedForm.questions());
-        }
+        questionBankWriter.replaceQuestions(saved.getId(), claimedForm.questions());
         saved.setTotalQuestions(claimedForm.questions().size());
         testRepository.save(saved);
 

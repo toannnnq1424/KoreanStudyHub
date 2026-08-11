@@ -3,6 +3,7 @@
 <head th:replace="~{fragments/head :: head('Xem lại bài làm', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-result.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
 </head>
@@ -13,7 +14,10 @@
      review body on the right. Student view has no class context, so the layout
      collapses to a single centred column (rv-no-sidebar). -->
 <div class="class-detail-layout"
-     th:classappend="${!review.lecturerView() or clazz == null} ? 'rv-no-sidebar'">
+     th:classappend="${(review.lecturerView() and clazz == null) or (!review.lecturerView() and view == null)} ? 'rv-no-sidebar'">
+  <th:block th:if="${!review.lecturerView() and view != null}">
+    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('tests', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
+  </th:block>
   <!-- th:if must live on an OUTER element, not the same tag as th:replace:
        th:replace has higher precedence and would resolve the fragment even
        when the condition is false, calling classSidebar(null) on the student

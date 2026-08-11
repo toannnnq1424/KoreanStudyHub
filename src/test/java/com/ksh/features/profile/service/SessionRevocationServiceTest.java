@@ -41,6 +41,40 @@ class SessionRevocationServiceTest {
     }
 
     @Test
+    void revokesEveryFormAndOidcSessionWhenAdminChangesAccountAccess() {
+        KshUserDetails form = mock(KshUserDetails.class);
+        CustomOidcUserPrincipal oidc = mock(CustomOidcUserPrincipal.class);
+        when(form.getUsername()).thenReturn(EMAIL);
+        when(oidc.getUsername()).thenReturn(EMAIL);
+        SessionInformation browser = session(form, "browser");
+        SessionInformation google = session(oidc, "google");
+        when(registry.getAllPrincipals()).thenReturn(List.of(form, oidc));
+        when(registry.getAllSessions(form, false)).thenReturn(List.of(browser));
+        when(registry.getAllSessions(oidc, false)).thenReturn(List.of(google));
+
+        assertThat(service.revokeAllSessions(EMAIL)).isEqualTo(2);
+        assertThat(browser.isExpired()).isTrue();
+        assertThat(google.isExpired()).isTrue();
+    }
+
+    @Test
+    void revokesSessionsByStableUserIdWhenRolePermissionChanges() {
+        KshUserDetails form = mock(KshUserDetails.class);
+        CustomOidcUserPrincipal oidc = mock(CustomOidcUserPrincipal.class);
+        when(form.getId()).thenReturn(42L);
+        when(oidc.getId()).thenReturn(42L);
+        SessionInformation browser = session(form, "browser");
+        SessionInformation google = session(oidc, "google");
+        when(registry.getAllPrincipals()).thenReturn(List.of(form, oidc));
+        when(registry.getAllSessions(form, false)).thenReturn(List.of(browser));
+        when(registry.getAllSessions(oidc, false)).thenReturn(List.of(google));
+
+        assertThat(service.revokeAllSessions(42L)).isEqualTo(2);
+        assertThat(browser.isExpired()).isTrue();
+        assertThat(google.isExpired()).isTrue();
+    }
+
+    @Test
     void blankUsernameDoesNotTouchRegistry() {
         assertThat(service.revokeOtherSessions(" ", "current")).isZero();
         verifyNoInteractions(registry);

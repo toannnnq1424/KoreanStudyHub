@@ -39,6 +39,12 @@ public enum ImportRowStatus {
     /** Persisting the enrollment failed at the row level (DB error or unexpected state mid-confirm). */
     PERSISTENCE_FAILED("Không lưu được, vui lòng thử lại"),
 
+    /** The class reached its configured maximum while the import was being confirmed. */
+    CLASS_FULL("Lớp đã đủ sĩ số — không thể thêm"),
+
+    /** A completed enrollment is historical and must not be silently reopened. */
+    ENROLLMENT_COMPLETED("Sinh viên đã hoàn thành lớp — không thể kích hoạt lại"),
+
     /** User exists but their role is not STUDENT. */
     NOT_A_STUDENT("Tài khoản không phải sinh viên"),
 
@@ -71,7 +77,8 @@ public enum ImportRowStatus {
     public boolean isError() {
         return switch (this) {
             case INVALID_EMAIL, INVALID_STUDENT_ID, USER_NOT_FOUND,
-                 PERSISTENCE_FAILED, NOT_A_STUDENT, USER_INACTIVE,
+                 PERSISTENCE_FAILED, CLASS_FULL, ENROLLMENT_COMPLETED,
+                 NOT_A_STUDENT, USER_INACTIVE,
                  DUPLICATE_IN_FILE, MISSING_REQUIRED -> true;
             default -> false;
         };

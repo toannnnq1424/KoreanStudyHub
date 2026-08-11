@@ -3,6 +3,7 @@ package com.ksh.features.practice.ai.readinglistening;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ksh.entities.LecturerAsset;
 import com.ksh.entities.PracticeQuestionVersion;
+import com.ksh.entities.PracticeQuestionGroupVersion;
 import com.ksh.entities.PracticeSectionVersion;
 import com.ksh.entities.PracticeSetVersion;
 import com.ksh.features.practice.assessment.AnswerSpec;
@@ -199,6 +200,65 @@ class ExplanationInputFactoryTest {
                 .doesNotContain("draft_blank_a");
         assertThat(repeated.fingerprint().inputContractJson())
                 .doesNotContain("version_blank_x");
+    }
+
+    @Test
+    void unapprovedListeningTranscriptCreatesTerminalReadinessInput() {
+        AssessmentContractCodec codec = mock(AssessmentContractCodec.class);
+        LecturerAssetRepository assetRepository = mock(LecturerAssetRepository.class);
+        PracticeSetVersionRepository setVersionRepository = mock(PracticeSetVersionRepository.class);
+        ReadingListeningExplanationClient client = mock(ReadingListeningExplanationClient.class);
+        ObjectMapper objectMapper = new ObjectMapper();
+        ExplanationInputFactory factory = new ExplanationInputFactory(
+                codec,
+                new QuestionTypeResolver(),
+                assetRepository,
+                setVersionRepository,
+                objectMapper,
+                new ExplanationFingerprintBuilder(objectMapper, client));
+
+        QuestionContent content = new QuestionContent(
+                QuestionContent.SCHEMA_VERSION,
+                List.of(
+                        new QuestionContent.Option("opt_1", "Đúng"),
+                        new QuestionContent.Option("opt_2", "Sai")),
+                List.of());
+        AnswerSpec answerSpec = new AnswerSpec(
+                AnswerSpec.SCHEMA_VERSION,
+                CanonicalQuestionType.SINGLE_CHOICE,
+                List.of("opt_1"),
+                null,
+                List.of(),
+                ScoringPolicyCode.ALL_OR_NOTHING);
+        when(codec.readQuestionContent(any(), eq(CanonicalQuestionType.SINGLE_CHOICE)))
+                .thenReturn(content);
+        when(codec.readAnswerSpec(any(), any())).thenReturn(answerSpec);
+        when(client.model()).thenReturn("model-v1");
+        when(client.promptVersion()).thenReturn("prompt-v1");
+        when(client.schemaVersion()).thenReturn("schema-v1");
+        PracticeSetVersion setVersion = mock(PracticeSetVersion.class);
+        when(setVersion.getTitle()).thenReturn("Bộ đề nghe");
+        when(setVersionRepository.findByPublishedVersionId(77L)).thenReturn(Optional.of(setVersion));
+
+        PracticeQuestionVersion question = question(301L, 3001L, 7L);
+        when(question.getPrompt()).thenReturn("Chọn đáp án đúng.");
+        when(question.getExplanationStrategyRegistryVersion()).thenReturn(
+                ObjectiveExplanationStrategyRegistry.CURRENT_REGISTRY_VERSION);
+        when(question.getExplanationStrategyCode()).thenReturn(
+                ObjectiveExplanationStrategyRegistry.Code.MCQ_OPTION_ELIMINATION.name());
+        PracticeQuestionGroupVersion group = mock(PracticeQuestionGroupVersion.class);
+        when(group.getTranscriptText()).thenReturn("대화 원문");
+        when(group.getStimulusProvenanceJson()).thenReturn(
+                "{\"source\":\"PUBLISHED_SNAPSHOT\",\"approved\":false}");
+        PracticeSectionVersion section = mock(PracticeSectionVersion.class);
+        when(section.getSkill()).thenReturn("LISTENING");
+
+        ExplanationInputFactory.PreparedExplanation prepared =
+                factory.prepare(question, group, section);
+
+        assertThat(prepared.input().readinessIssue())
+                .isEqualTo(ExplanationInputFactory.ISSUE_EVIDENCE_UNAVAILABLE);
+        assertThat(prepared.context()).isNull();
     }
 
     private static PracticeQuestionVersion question(

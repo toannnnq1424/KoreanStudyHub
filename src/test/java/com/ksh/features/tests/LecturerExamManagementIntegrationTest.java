@@ -201,23 +201,24 @@ class LecturerExamManagementIntegrationTest {
 
     @Test
     @WithUserDetails(LECTURER)
-    void save_with_media_keeps_questions_when_responses_exist() throws Exception {
+    void save_rejects_all_exam_mutation_when_responses_exist() throws Exception {
         List<Question> before = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(examId);
         Question q = before.get(0);
         TestAttempt attempt = attemptRepository.save(new TestAttempt(examId, lecturerId));
         responseRepository.save(new TestResponse(attempt.getId(), q.getId(), "[1]"));
 
         String mediaUrl = "https://youtu.be/8Pu0AM6BvEw?si=h0Wkdo9QivQNTJEb";
-        ExamForm form = validForm(examId, "Đề GV JUnit", "YOUTUBE", mediaUrl);
+        ExamForm form = validForm(examId, "Tiêu đề không được phép sửa", "YOUTUBE", mediaUrl);
         mockMvc.perform(post("/lecturer/tests/save").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(form)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ok").value(true));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.ok").value(false));
 
         com.ksh.features.tests.entity.Test saved = testRepository.findById(examId).orElseThrow();
-        assertEquals("YOUTUBE", saved.getMediaType());
-        assertEquals(mediaUrl, saved.getMediaUrl());
+        assertEquals("Đề GV JUnit", saved.getTitle());
+        assertEquals(null, saved.getMediaType());
+        assertEquals(null, saved.getMediaUrl());
         List<Question> after = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(examId);
         assertEquals(before.size(), after.size());
         assertEquals(before.get(0).getId(), after.get(0).getId());

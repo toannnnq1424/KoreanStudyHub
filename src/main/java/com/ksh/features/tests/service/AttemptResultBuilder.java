@@ -1,5 +1,6 @@
 package com.ksh.features.tests.service;
 
+import com.ksh.common.HtmlSanitizer;
 import com.ksh.features.tests.dto.TestDtos.ResultView;
 import com.ksh.features.tests.dto.TestDtos.ReviewOptionView;
 import com.ksh.features.tests.dto.TestDtos.ReviewQuestionView;
@@ -73,11 +74,12 @@ public class AttemptResultBuilder {
             boolean correct = resp != null && Boolean.TRUE.equals(resp.getCorrect());
             List<ReviewOptionView> optViews = new ArrayList<>();
             for (QuestionOption o : optionsByQuestion.getOrDefault(q.getId(), List.of())) {
-                optViews.add(new ReviewOptionView(o.getId(), o.getContent(),
+                optViews.add(new ReviewOptionView(o.getId(), HtmlSanitizer.sanitize(o.getContent()),
                         o.isCorrect(), selected.contains(o.getId())));
             }
-            views.add(new ReviewQuestionView(q.getId(), q.getQuestionType(), q.getContent(),
-                    q.getExplanation(), correct, optViews));
+            views.add(new ReviewQuestionView(q.getId(), q.getQuestionType(),
+                    HtmlSanitizer.sanitize(q.getContent()),
+                    sanitizeOptional(q.getExplanation()), correct, optViews));
         }
         return new ReviewView(test.getId(), test.getClassId(), attempt.getId(), test.getTitle(),
                 nzInt(attempt.getCorrectCount()), nzInt(attempt.getTotalQuestions()),
@@ -97,5 +99,11 @@ public class AttemptResultBuilder {
 
     private static int nzInt(Integer v) {
         return v == null ? 0 : v;
+    }
+
+    private static String sanitizeOptional(String value) {
+        if (value == null) return null;
+        String sanitized = HtmlSanitizer.sanitize(value).trim();
+        return sanitized.isEmpty() ? null : sanitized;
     }
 }

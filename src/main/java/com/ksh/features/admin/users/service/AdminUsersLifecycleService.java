@@ -1,8 +1,10 @@
 package com.ksh.features.admin.users.service;
 
+import com.ksh.common.TransactionLifecycle;
 import com.ksh.entities.User;
 import com.ksh.entities.UserActivity;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -35,15 +37,18 @@ public class AdminUsersLifecycleService {
     private final PasswordEncoder passwordEncoder;
     private final AdminUsersGuard guard;
     private final AdminUsersAuditWriter auditWriter;
+    private final SessionRevocationService sessionRevocationService;
 
     public AdminUsersLifecycleService(UserRepository userRepository,
                                       PasswordEncoder passwordEncoder,
                                       AdminUsersGuard guard,
-                                      AdminUsersAuditWriter auditWriter) {
+                                      AdminUsersAuditWriter auditWriter,
+                                      SessionRevocationService sessionRevocationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.guard = guard;
         this.auditWriter = auditWriter;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     @Transactional
@@ -56,6 +61,7 @@ public class AdminUsersLifecycleService {
         User saved = userRepository.save(target);
         auditWriter.write(saved.getId(), UserActivity.TYPE_DEACTIVATED,
                 "Vô hiệu hoá " + saved.getEmail(), null, actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
@@ -93,6 +99,7 @@ public class AdminUsersLifecycleService {
         auditWriter.write(saved.getId(), UserActivity.TYPE_LOCKED,
                 "Khoá " + saved.getEmail(),
                 auditWriter.serialize(payload), actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
@@ -109,9 +116,7 @@ public class AdminUsersLifecycleService {
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "đặt lại mật khẩu");
 
-        if (newPassword == null || newPassword.isBlank()) {
-            throw new IllegalArgumentException("Mật khẩu mới không được để trống");
-        }
+        requireValidPassword(newPassword);
 
         target.setPasswordHash(passwordEncoder.encode(newPassword));
         User saved = userRepository.save(target);
@@ -119,6 +124,7 @@ public class AdminUsersLifecycleService {
         // in the audit log.
         auditWriter.write(saved.getId(), UserActivity.TYPE_PASSWORD_RESET,
                 "Đặt lại mật khẩu " + saved.getEmail(), null, actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
@@ -131,6 +137,7 @@ public class AdminUsersLifecycleService {
         User saved = userRepository.save(target);
         auditWriter.write(saved.getId(), UserActivity.TYPE_DELETED,
                 "Xoá " + saved.getEmail(), null, actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
@@ -152,5 +159,18 @@ public class AdminUsersLifecycleService {
     private User lockForLifecycle(Long id) {
         return userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new EntityNotFoundException("Người dùng không tồn tại"));
+    }
+
+    private static void requireValidPassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Mật khẩu mới không được để trống");
+        }
+        if (password.length() < 6 || password.length() > 64) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có từ 6 đến 64 ký tự");
+        }
+    }
+
+    private void revokeAfterCommit(String email) {
+        TransactionLifecycle.afterCommit(() -> sessionRevocationService.revokeAllSessions(email));
     }
 }

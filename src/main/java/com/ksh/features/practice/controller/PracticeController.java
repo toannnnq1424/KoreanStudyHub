@@ -72,7 +72,7 @@ import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping(PracticeRoutes.BASE)
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class PracticeController {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeController.class);

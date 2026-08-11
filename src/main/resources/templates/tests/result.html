@@ -2,13 +2,18 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Kết quả', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-result.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
 </head>
 <body class="ux-polish ux-test-result">
 <header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
 
-<main class="rs-page">
+<main class="rs-shell" th:classappend="${view != null} ? 'has-class-sidebar'">
+  <th:block th:if="${view != null}">
+    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('tests', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
+  </th:block>
+  <section class="rs-page">
   <div class="rs-card">
     <h1 class="rs-title" th:text="${result.title()}">Bài test</h1>
 
@@ -42,6 +47,7 @@
          th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + result.testId() + '/review/' + result.attemptId() : '/my/tests/' + result.testId() + '/review/' + result.attemptId()}">Xem lại bài làm</a>
     </div>
   </div>
+  </section>
 </main>
 
 <script th:src="@{/js/app.js}"></script>

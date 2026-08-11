@@ -7,6 +7,7 @@ import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
@@ -140,7 +141,8 @@ class DepartmentLeaderConcurrencyContractTest {
                 departmentRepository,
                 userRepository,
                 auditWriter,
-                systemSettingsRepository);
+                systemSettingsRepository,
+                org.mockito.Mockito.mock(SessionRevocationService.class));
     }
 
     private void stubAnchor() {

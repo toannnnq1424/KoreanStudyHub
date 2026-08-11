@@ -5,6 +5,8 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.mail.MailService;
+import com.ksh.features.profile.service.SessionRevocationService;
+import com.ksh.common.TransactionLifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,6 +49,7 @@ public class PasswordRecoveryService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final PasswordResetRequestThrottle requestThrottle;
+    private final SessionRevocationService sessionRevocationService;
     private final String baseUrl;
 
     public PasswordRecoveryService(UserRepository userRepository,
@@ -54,12 +57,14 @@ public class PasswordRecoveryService {
                                    PasswordEncoder passwordEncoder,
                                    MailService mailService,
                                    PasswordResetRequestThrottle requestThrottle,
+                                   SessionRevocationService sessionRevocationService,
                                    @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
         this.requestThrottle = requestThrottle;
+        this.sessionRevocationService = sessionRevocationService;
         this.baseUrl = baseUrl;
     }
 
@@ -164,6 +169,9 @@ public class PasswordRecoveryService {
         token.markUsed();
         tokenRepository.save(token);
 
+        Long userId = user.getId();
+        TransactionLifecycle.afterCommit(() -> sessionRevocationService.revokeAllSessions(userId));
+
         return true;
     }
 
@@ -177,16 +185,14 @@ public class PasswordRecoveryService {
         if (rawToken == null || rawToken.isBlank()) {
             return java.util.Optional.empty();
         }
-        var digested = tokenRepository.findByToken(digestToken(rawToken));
-        return digested.isPresent() ? digested : tokenRepository.findByToken(rawToken);
+        return tokenRepository.findByToken(digestToken(rawToken));
     }
 
     private java.util.Optional<PasswordResetToken> findTokenForUpdate(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) {
             return java.util.Optional.empty();
         }
-        var digested = tokenRepository.findByTokenForUpdate(digestToken(rawToken));
-        return digested.isPresent() ? digested : tokenRepository.findByTokenForUpdate(rawToken);
+        return tokenRepository.findByTokenForUpdate(digestToken(rawToken));
     }
 
     static String digestToken(String rawToken) {

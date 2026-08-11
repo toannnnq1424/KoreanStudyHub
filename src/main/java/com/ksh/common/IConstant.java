@@ -364,6 +364,7 @@ public interface IConstant {
     String MSG_EXAM_SUBMITTED        = "Đã nộp bài";
     String MSG_PRACTICE_CREATED      = "Đã tạo bài luyện tập";
     String MSG_EXAM_TITLE_BLANK      = "Tiêu đề bài test không được để trống";
+    String MSG_EXAM_TITLE_TOO_LONG   = "Tiêu đề bài test không được vượt quá 300 ký tự";
     String MSG_EXAM_NEEDS_CLASS      = "Vui lòng chọn lớp cho bài test";
     String MSG_EXAM_NEEDS_QUESTIONS  = "Bài test phải có ít nhất một câu hỏi";
     String MSG_EXAM_TYPE_INVALID     = "Loại bài test không hợp lệ";
@@ -386,12 +387,19 @@ public interface IConstant {
     String MSG_EXAM_IMAGE_INVALID = "Nội dung file không phải ảnh hợp lệ";
     String MSG_EXAM_IMAGE_STAGED_INVALID = "Ảnh tải lên không hợp lệ hoặc đã hết hạn";
     String MSG_QUESTION_CONTENT_BLANK = "Nội dung câu hỏi không được để trống";
+    String MSG_QUESTION_TYPE_INVALID = "Loại câu hỏi không hợp lệ";
+    String MSG_QUESTION_POINTS_INVALID =
+            "Điểm mỗi câu phải lớn hơn 0, tối đa 999.99 và có không quá 2 chữ số thập phân";
+    String MSG_EXAM_TOTAL_POINTS_INVALID =
+            "Tổng điểm bài test không được vượt quá 9999.99";
+    String MSG_EXAM_PASSING_SCORE_INVALID =
+            "Điểm đạt phải từ 0 đến tổng điểm, tối đa 999.99 và có không quá 2 chữ số thập phân";
     String MSG_OPTION_CONTENT_BLANK = "Nội dung đáp án không được để trống";
     String MSG_QUESTION_NEEDS_OPTIONS = "Mỗi câu hỏi phải có ít nhất hai lựa chọn";
     String MSG_QUESTION_NEEDS_CORRECT = "Mỗi câu hỏi phải có ít nhất một đáp án đúng";
     String MSG_MCQ_ONE_CORRECT       = "Câu hỏi một đáp án (MCQ) phải có đúng một đáp án đúng";
     String MSG_EXAM_QUESTION_BANK_LOCKED =
-            "Bài test đã có bài nộp: không thể thêm/xoá câu hỏi hoặc đáp án. Bạn vẫn có thể sửa nội dung.";
+            "Bài test đã có lượt làm: nội dung, đáp án, lớp và cấu hình thời gian đã được khóa để bảo toàn lịch sử chấm điểm.";
     String MSG_EXAM_CONTENT_TOO_LARGE =
             "Nội dung câu hỏi/đáp án quá lớn. Hãy chèn ảnh bằng nút ảnh (không dán base64).";
     String MSG_PRACTICE_EMPTY_POOL   = "Không có câu hỏi phù hợp để tạo bài luyện tập";
@@ -432,12 +440,16 @@ public interface IConstant {
     String MSG_SUBMIT_SUCCESS        = "Đã nộp bài thành công";
     String MSG_SUBMIT_LATE           = "Bài tập đã quá hạn, không thể nộp trễ";
     String MSG_SUBMIT_AFTER_GRADED   = "Mỗi bài tập chỉ được nộp một lần; bài của bạn đã được khóa";
+    String MSG_SUBMIT_CONTENT_REQUIRED = "Nội dung bài nộp không được để trống";
     String MSG_GRADE_SUCCESS         = "Đã chấm điểm thành công";
     String MSG_GRADE_SCORE_INVALID   = "Điểm phải nằm trong khoảng 0 đến điểm tối đa";
     String MSG_ASSIGNMENT_INVALID_TRANSITION = "Không thể thực hiện thao tác này với trạng thái hiện tại";
     String MSG_NOT_ENROLLED          = "Bạn không thuộc lớp này";
     String MSG_ASSIGNMENT_TITLE_BLANK = "Tiêu đề không được để trống";
+    String MSG_ASSIGNMENT_TITLE_TOO_LONG = "Tiêu đề tối đa 300 ký tự";
     String MSG_ASSIGNMENT_MAX_SCORE_NEGATIVE = "Điểm tối đa không được âm";
+    String MSG_ASSIGNMENT_MAX_SCORE_INVALID = "Điểm tối đa không vượt quá 999,99 và chỉ có tối đa 2 chữ số thập phân";
+    String MSG_GRADE_SCORE_FORMAT_INVALID = "Điểm chỉ có tối đa 2 chữ số thập phân và không vượt quá 999,99";
 
     // Notification titles/bodies for assignment events (lecturer/student services).
     String MSG_NOTIF_ASSIGNMENT_PUBLISHED_TITLE = "Bài tập mới được xuất bản";

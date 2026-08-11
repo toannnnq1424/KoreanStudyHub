@@ -7,6 +7,8 @@ import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
+import com.ksh.common.TransactionLifecycle;
 import com.ksh.security.Role;
 import com.ksh.utils.StringUtils;
 import org.springframework.stereotype.Service;
@@ -48,15 +50,18 @@ public class DepartmentService {
     private final UserRepository userRepository;
     private final SubjectAuditWriter auditWriter;
     private final SystemSettingsRepository systemSettingsRepository;
+    private final SessionRevocationService sessionRevocationService;
 
     public DepartmentService(DepartmentRepository departmentRepository,
                              UserRepository userRepository,
                              SubjectAuditWriter auditWriter,
-                             SystemSettingsRepository systemSettingsRepository) {
+                             SystemSettingsRepository systemSettingsRepository,
+                             SessionRevocationService sessionRevocationService) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.auditWriter = auditWriter;
         this.systemSettingsRepository = systemSettingsRepository;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     @Transactional
@@ -183,6 +188,9 @@ public class DepartmentService {
                     || !Objects.equals(candidate.getSubjectId(), entity.getId()))) {
                 candidate.promoteToLeader(entity.getId());
                 userRepository.save(candidate);
+                Long repairedLeaderId = candidate.getId();
+                TransactionLifecycle.afterCommit(
+                        () -> sessionRevocationService.revokeAllSessions(repairedLeaderId));
             }
             return;
         }
@@ -201,6 +209,13 @@ public class DepartmentService {
         if (oldLeaderId != null && !oldLeaderId.equals(newLeaderUserId)) {
             demoteIfNoLongerLeader(affectedUsers.get(oldLeaderId));
         }
+
+        List<Long> changedPrincipalIds = Stream.of(oldLeaderId, newLeaderUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        TransactionLifecycle.afterCommit(() -> changedPrincipalIds
+                .forEach(sessionRevocationService::revokeAllSessions));
 
         if (entity.getId() != null) {
             if (newLeaderUserId == null) {

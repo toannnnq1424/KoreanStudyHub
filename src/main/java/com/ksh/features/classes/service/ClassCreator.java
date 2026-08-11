@@ -44,7 +44,7 @@ final class ClassCreator {
                 .orElseThrow(() -> new IllegalArgumentException("Mã môn không tồn tại hoặc đã ngừng sử dụng"));
         ClassEntity entity = new ClassEntity(
                 form.name(), userId, userId,
-                form.description(), null, form.endDate(),
+                form.description(), form.startDate(), form.endDate(),
                 form.maxStudents());
         entity.setSubjectId(subject.getId());
         ClassEntity saved = classRepository.saveAndFlush(entity);

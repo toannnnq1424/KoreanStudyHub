@@ -157,6 +157,7 @@ public class LecturerTestController {
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         model.addAttribute(ATTR_SELECTED_CLASS_ID, selectedClassId);
         model.addAttribute(ATTR_TEST_RETURN_URL, returnUrlForClass(selectedClassId));
+        populateClassSidebarIfViewable(selectedClassId, user, model);
         return VIEW_TEST_LECTURER_FORM;
     }
 

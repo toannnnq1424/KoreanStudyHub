@@ -42,6 +42,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     Optional<User> findByEmailIgnoreCase(String email);
 
+    /** Locks the local identity while an external provider link is validated/created. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:email)")
+    Optional<User> findByEmailIgnoreCaseForUpdate(@Param("email") String email);
+
     /**
      * Returns the first non-deleted user whose email equals the argument
      * case-insensitively. Used by Create-form uniqueness checks.

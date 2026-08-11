@@ -153,6 +153,27 @@ class AdminUsersGuardTest {
                 .doesNotThrowAnyException();
     }
 
+    @Test
+    void role_transition_allows_only_staff_responsibility_changes() {
+        assertThatCode(() -> guard.requireAllowedRoleTransition(Role.LECTURER, Role.LEADER))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> guard.requireAllowedRoleTransition(Role.LEADER, Role.LECTURER))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> guard.requireAllowedRoleTransition(Role.STUDENT, Role.STUDENT))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void role_transition_rejects_student_staff_and_admin_category_changes() {
+        assertThatThrownBy(() -> guard.requireAllowedRoleTransition(Role.STUDENT, Role.LECTURER))
+                .isInstanceOf(InvalidRoleTransitionException.class)
+                .hasMessageContaining("tạo tài khoản mới");
+        assertThatThrownBy(() -> guard.requireAllowedRoleTransition(Role.LECTURER, Role.STUDENT))
+                .isInstanceOf(InvalidRoleTransitionException.class);
+        assertThatThrownBy(() -> guard.requireAllowedRoleTransition(Role.ADMIN, Role.LEADER))
+                .isInstanceOf(InvalidRoleTransitionException.class);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────
 
     private static User userOf(Long id, Role role, boolean active, boolean deleted) {

@@ -49,7 +49,31 @@ class StudentTestFlowUiContractTest {
         assertThat(script)
                 .contains("deadline - Date.now()")
                 .contains("if (submitting) return;")
+                .contains("function countUnanswered(form)")
+                .contains("Bạn còn ' + unanswered + ' câu chưa trả lời")
+                .contains("if (unanswered > 0 && !window.confirm(")
+                .contains("Deadline submission is authoritative")
                 .contains("Hết giờ — bài của bạn đang được nộp tự động.");
+        assertThat(script.indexOf("if (unanswered > 0 && !window.confirm("))
+                .isLessThan(script.indexOf("// Recompute from the absolute server deadline"));
+        String deadlineFlow = script.substring(
+                script.indexOf("// Recompute from the absolute server deadline"));
+        assertThat(deadlineFlow)
+                .contains("if (!submitting)", "doSubmit();")
+                .doesNotContain("window.confirm");
+    }
+
+    @Test
+    void result_and_review_gate_optional_sidebar_before_fragment_evaluation() throws IOException {
+        String result = read("src/main/resources/templates/tests/result.html");
+        String review = read("src/main/resources/templates/tests/review.html");
+
+        assertThat(result)
+                .contains("<th:block th:if=\"${view != null}\">")
+                .doesNotContain("<div th:if=\"${view != null}\"\n       th:replace=");
+        assertThat(review)
+                .contains("<th:block th:if=\"${!review.lecturerView() and view != null}\">")
+                .doesNotContain("<div th:if=\"${!review.lecturerView() and view != null}\"\n       th:replace=");
     }
 
     private static String read(String path) throws IOException {

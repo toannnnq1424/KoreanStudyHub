@@ -121,6 +121,7 @@ public class StudentClassTestsController {
         requireClassScope(classId, result.classId());
         model.addAttribute(ATTR_RESULT, result);
         model.addAttribute("classScopeId", classId);
+        model.addAttribute(ATTR_VIEW, catalogService.listClassTests(classId, user.getId(), null, 0));
         return VIEW_TEST_RESULT;
     }
 
@@ -131,6 +132,7 @@ public class StudentClassTestsController {
         requireClassScope(classId, review.classId());
         model.addAttribute(ATTR_REVIEW, review);
         model.addAttribute("classScopeId", classId);
+        model.addAttribute(ATTR_VIEW, catalogService.listClassTests(classId, user.getId(), null, 0));
         return VIEW_TEST_REVIEW;
     }
 
