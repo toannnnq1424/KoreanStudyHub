@@ -37,7 +37,10 @@
     <!-- Sticky toolbar: Quay lại / Lưu. Lưu is form-associated (form="lfForm")
          and disabled on non-info tabs — there is no form to submit there. -->
     <div class="detail-toolbar">
-      <a th:href="${testReturnUrl}" class="toolbar-back">← Quay lại</a>
+      <a th:href="${testReturnUrl}" class="toolbar-back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Quay lại</span>
+      </a>
       <span class="toolbar-spacer"></span>
       <a class="toolbar-secondary"
          th:href="@{'/lecturer/tests/' + ${test.id()} + '/preview'}">Xem trước</a>
@@ -95,7 +98,10 @@
          an AJAX tab swap carries the fresh JSON; read by id, never executed. -->
     <script type="application/json" id="lfData" th:inline="javascript">/*[[${examForm}]]*/ null</script>
     <div class="lf-bar" th:if="${mode == 'create'}">
-      <a th:href="${testReturnUrl}" class="toolbar-back">← Quay lại</a>
+      <a th:href="${testReturnUrl}" class="toolbar-back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Quay lại</span>
+      </a>
       <h1 class="lf-title">Tạo bài test</h1>
       <button type="submit" class="tst-btn tst-btn-primary" id="lfSave">Lưu bài test</button>
     </div>

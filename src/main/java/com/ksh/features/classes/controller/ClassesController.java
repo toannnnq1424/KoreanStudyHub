@@ -84,6 +84,9 @@ public class ClassesController {
                        @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "createdAt",
                                direction = Sort.Direction.DESC) Pageable pageable,
                        Model model) {
+        if (user == null) {
+            return "redirect:/login";
+        }
         Page<ClassRow> page = classesService.listForUser(user.getId(), user.getRole(), pageable);
         // Keep the existing template loop driven by ${classes} (a List). The Page
         // object is exposed separately as ${classesPage} for the pagination block.

@@ -195,8 +195,38 @@
 .tst-status-ARCHIVED { background: #f2f0f6; color: #6b6179; }
 
 /* Question Bank authoring */
-.qb-page { padding-top: 32px; background: var(--learn-bg); }
-.qb-page .toolbar-back { color: #397a9f; font-weight: 650; }
+.qb-page .toolbar-back,
+.toolbar-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4f46e5;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 8px;
+  transition: color 0.16s ease;
+}
+.qb-page .toolbar-back svg,
+.toolbar-back svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  transition: transform 0.16s ease;
+}
+.qb-page .toolbar-back:hover,
+.toolbar-back:hover {
+  color: #3730a3;
+  text-decoration: none;
+}
+.qb-page .toolbar-back:hover svg,
+.toolbar-back:hover svg {
+  transform: translateX(-3px);
+}
 .qb-page .detail-page-title { color: var(--learn-ink); letter-spacing: -.02em; }
 .qb-page .detail-sub { color: var(--learn-muted); }
 .qb-page .detail-card.qb-form { padding: 0; border: 0; background: transparent; box-shadow: none; }

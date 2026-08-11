@@ -20,8 +20,10 @@
 
   <div class="qb-toolbar">
     <div>
-      <a class="toolbar-back" th:if="${!catalogMode}"
-         th:href="@{/lecturer/question-bank}">← Danh sách mã môn</a>
+      <a class="toolbar-back" th:if="${!catalogMode}" th:href="@{/lecturer/question-bank}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Danh sách mã môn</span>
+      </a>
       <h1 class="detail-title"
           th:text="${catalogMode ? 'Ngân hàng câu hỏi' : workspace.subject().code() + ' · Ngân hàng câu hỏi'}">
         Ngân hàng câu hỏi

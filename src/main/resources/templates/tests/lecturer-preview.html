@@ -14,8 +14,11 @@
       <strong>Chế độ xem trước</strong>
       <span>Đây là giao diện sinh viên sẽ thấy. Bạn có thể chọn đáp án để thử, nhưng không nộp bài / không chấm điểm.</span>
     </div>
-    <a class="tst-btn"
-       th:href="@{'/lecturer/tests/' + ${preview.testId()} + '/edit'(tab='info')}">← Quay lại chỉnh sửa</a>
+    <a class="btn-back-link"
+       th:href="@{'/lecturer/tests/' + ${preview.testId()} + '/edit'(tab='info')}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      <span>Quay lại chỉnh sửa</span>
+    </a>
   </div>
 
   <div class="tk-bar">

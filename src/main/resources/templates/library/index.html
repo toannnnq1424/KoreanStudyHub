@@ -13,7 +13,10 @@
 <main class="library-detail-page">
   <div class="library-detail-header">
     <div>
-      <a th:href="@{/lecturer/library/list}" class="library-back-link">‹ Quay lại danh sách</a>
+      <a th:href="@{/lecturer/library/list}" class="btn-back-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Quay lại danh sách</span>
+      </a>
       <h1 th:text="${librarySubjectCode}">KOR311</h1>
       <p th:text="${librarySubjectName}">Tiếng Hàn</p>
       <small th:if="${librarySubjectDescription != null}"

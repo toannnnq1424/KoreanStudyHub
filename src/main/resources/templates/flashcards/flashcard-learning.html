@@ -10,7 +10,10 @@
 
 <main class="fc-learning-shell">
   <div class="fc-learning-topbar">
-    <a class="fc-learning-back" th:href="@{|/my/flashcards/${deck.id()}|}">← Bộ thẻ</a>
+    <a class="btn-back-link" th:href="@{|/my/flashcards/${deck.id()}|}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      <span>Bộ thẻ</span>
+    </a>
     <div class="fc-learning-heading">
       <span class="fc-learning-kicker">PHÒNG LUYỆN TẬP</span>
       <h1 th:text="${deck.title()}">Tên bộ thẻ</h1>

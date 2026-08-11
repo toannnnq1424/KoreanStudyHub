@@ -20,7 +20,10 @@
   <main class="col student-assignment-main">
     <div class="detail-topbar">
       <a th:href="@{/classes/{cid}/assignments/{aid}(cid=${classId},aid=${assignment.id})}"
-         class="btn btn-outline btn-sm">&larr; Chi tiết bài tập</a>
+         class="btn-back-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Chi tiết bài tập</span>
+      </a>
       <h1 class="detail-title">Kết quả chấm điểm</h1>
     </div>
 

@@ -18,7 +18,10 @@
   <main class="col">
     <div class="detail-topbar">
       <a th:href="@{/lecturer/classes/{cid}/assignments/{aid}/submissions(cid=${classId},aid=${assignment})}"
-         class="btn btn-outline btn-sm">&larr; Danh sách bài nộp</a>
+         class="btn-back-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Danh sách bài nộp</span>
+      </a>
       <h1 class="detail-title">Chấm điểm</h1>
     </div>
 

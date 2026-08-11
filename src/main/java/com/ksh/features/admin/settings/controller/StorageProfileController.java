@@ -1,6 +1,7 @@
 package com.ksh.features.admin.settings.controller;
 
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileForm;
+import com.ksh.features.admin.settings.dto.StorageSettingsDtos.TestResult;
 import com.ksh.features.admin.settings.service.StorageProfileAdminService;
 import com.ksh.features.storage.profile.StorageProfileCode;
 import com.ksh.security.KshUserDetails;
@@ -139,6 +140,13 @@ public class StorageProfileController {
                 .<Map<String, Object>>map(secret -> Map.of("ok", true, "secret", secret))
                 .orElseGet(() -> Map.of("ok", false, "errorCode", "STORAGE_SECRET_UNAVAILABLE"));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
+    }
+
+    /** AJAX HeadBucket test against the saved credentials for a specific profile. */
+    @PostMapping(value = "/{code}/test", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public TestResult testConnection(@PathVariable StorageProfileCode code) {
+        return service.testConnection(code);
     }
 
     private static void populateForm(Model model, String mode, StorageProfileCode code) {

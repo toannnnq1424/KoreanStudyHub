@@ -61,7 +61,7 @@
                     <div class="form-row" th:if="${form.revision != null}"><span class="form-row-label">Revision</span><code th:text="${form.revision}">0</code><p class="field-hint">Revision bắt đầu từ 0 và tăng khi cập nhật.</p></div>
                 </div>
             </details>
-            <div class="settings-form-actions"><a class="btn-ghost" th:href="@{/admin/settings/practice-ai}">Hủy</a><button class="btn btn-primary" type="submit" th:text="${mode == 'create' ? 'Lưu và chọn model' : 'Lưu thay đổi'}">Lưu và chọn model</button></div>
+            <div class="settings-form-actions"><a class="btn-back-link" th:href="@{/admin/settings/practice-ai}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Quay lại</span></a><button class="btn btn-primary" type="submit" th:text="${mode == 'create' ? 'Lưu và chọn model' : 'Lưu thay đổi'}">Lưu và chọn model</button></div>
         </form>
     </main>
 </div>

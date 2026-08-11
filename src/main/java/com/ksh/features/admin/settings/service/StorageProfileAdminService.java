@@ -2,6 +2,7 @@ package com.ksh.features.admin.settings.service;
 
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileForm;
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileRow;
+import com.ksh.features.admin.settings.dto.StorageSettingsDtos.TestResult;
 import com.ksh.features.storage.profile.StorageBackend;
 import com.ksh.features.storage.profile.StorageProfile;
 import com.ksh.features.storage.profile.StorageProfileCode;
@@ -134,6 +135,41 @@ public class StorageProfileAdminService {
         return repository.findById(code)
                 .map(StorageProfile::getSecretAccessKey)
                 .filter(secret -> secret != null && !secret.isBlank());
+    }
+
+    /**
+     * HeadBucket test against the saved R2 credentials for a specific profile.
+     * For LOCAL backend, always returns ok (local disk is assumed reachable).
+     */
+    @Transactional(readOnly = true)
+    public TestResult testConnection(StorageProfileCode code) {
+        var profileOpt = repository.findById(code);
+        if (profileOpt.isEmpty()) {
+            return new TestResult(false, "STORAGE_PROFILE_NOT_FOUND");
+        }
+        StorageProfile profile = profileOpt.get();
+        if (profile.getBackend() == StorageBackend.LOCAL) {
+            return new TestResult(true, null);
+        }
+        // R2 backend — try HeadBucket
+        if (profile.getAccessKeyId() == null || profile.getAccessKeyId().isBlank()
+                || profile.getSecretAccessKey() == null || profile.getSecretAccessKey().isBlank()
+                || profile.getBucket() == null || profile.getBucket().isBlank()
+                || profile.getEndpoint() == null || profile.getEndpoint().isBlank()) {
+            return new TestResult(false, "Thiếu thông tin R2 (accessKey / secret / bucket / endpoint).");
+        }
+        try {
+            var resolved = resolver.validate(profile);
+            var client = r2Clients.client(resolved);
+            client.headBucket(software.amazon.awssdk.services.s3.model.HeadBucketRequest.builder()
+                    .bucket(profile.getBucket().trim()).build());
+            return new TestResult(true, null);
+        } catch (RuntimeException ex) {
+            log.warn("R2 HeadBucket test failed for profile {}: {}", code, ex.getMessage());
+            String msg = ex.getMessage() == null || ex.getMessage().isBlank()
+                    ? "Không thể kết nối R2." : ex.getMessage();
+            return new TestResult(false, msg);
+        }
     }
 
     private long referenceCount(StorageProfileCode code) {

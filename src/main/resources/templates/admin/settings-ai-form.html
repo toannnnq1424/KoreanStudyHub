@@ -158,7 +158,10 @@
             </section>
 
             <div class="form-actions" th:if="${mode == 'create'}">
-                <a th:href="@{/admin/settings/ai}" class="btn-ghost">Huỷ</a>
+                <a th:href="@{/admin/settings/ai}" class="btn-back-link">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Quay lại</span>
+                </a>
                 <button type="submit" class="btn-primary">Thêm provider</button>
             </div>
         </form>

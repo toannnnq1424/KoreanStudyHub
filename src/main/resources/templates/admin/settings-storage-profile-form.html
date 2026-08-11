@@ -41,11 +41,63 @@
                 </div>
             </section>
             <details class="settings-technical settings-form-advanced"><summary>Chi tiết kỹ thuật</summary><div class="settings-form-grid"><div class="form-row"><label for="keyPrefix">Key prefix bất biến</label><input id="keyPrefix" th:field="*{keyPrefix}" readonly><p class="field-hint">Object key không được thoát prefix này.</p></div><div class="form-row" th:if="${form.revision != null}"><span class="form-row-label">Revision</span><code th:text="${form.revision}">0</code><p class="field-hint">Revision bắt đầu từ 0 và chống cập nhật stale.</p></div></div></details>
-            <div class="settings-form-actions"><a class="btn-ghost" th:href="${globalProfile ? '/admin/settings/storage' : '/admin/settings/storage-profiles'}">Hủy</a><button class="btn btn-primary" type="submit">Lưu cấu hình</button></div>
+            <div class="settings-form-actions">
+                <a class="btn-back-link" th:href="${globalProfile ? '/admin/settings/storage' : '/admin/settings/storage-profiles'}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Quay lại</span>
+                </a>
+                <button id="btn-test-connection" class="btn-ghost" type="button" th:data-profile-code="${form.profileCode}">Kiểm tra kết nối</button>
+                <button class="btn btn-primary" type="submit">Lưu cấu hình</button>
+            </div>
+            <div id="storage-test-result" role="alert" aria-live="polite" style="display:none; margin-top:0.5rem; padding:0.6rem 1rem; border-radius:6px; font-size:0.875rem; font-weight:500;"></div>
         </form>
     </main>
 </div>
 <div id="storageProfileActionResult" class="sr-only" role="status" aria-live="polite"></div>
 <script th:src="@{/js/app.js}"></script><script th:src="@{/js/admin.js}"></script><script th:src="@{/js/admin-settings-storage-profiles.js}"></script>
+<script>
+document.getElementById('btn-test-connection')?.addEventListener('click', function() {
+    const btn = this;
+    const code = btn.dataset.profileCode;
+    const resultEl = document.getElementById('storage-test-result');
+    const csrfInput = document.querySelector('input[name="_csrf"]');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    btn.disabled = true;
+    btn.textContent = 'Đang kiểm tra...';
+    resultEl.style.display = 'none';
+
+    fetch('/admin/settings/storage-profiles/' + code + '/test?_csrf=' + encodeURIComponent(csrfToken), {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    })
+    .then(data => {
+        const ok = data.ok === true;
+        resultEl.textContent = ok
+            ? '✅ Kết nối thành công! Storage hoạt động bình thường.'
+            : '❌ Kết nối thất bại: ' + (data.error || 'Lỗi không xác định');
+        resultEl.style.background = ok ? '#d1fae5' : '#fee2e2';
+        resultEl.style.color      = ok ? '#065f46' : '#991b1b';
+        resultEl.style.border     = ok ? '1px solid #6ee7b7' : '1px solid #fca5a5';
+        resultEl.style.display    = 'block';
+    })
+    .catch(err => {
+        resultEl.textContent = '❌ Lỗi khi gọi API: ' + err.message;
+        resultEl.style.background = '#fee2e2';
+        resultEl.style.color      = '#991b1b';
+        resultEl.style.border     = '1px solid #fca5a5';
+        resultEl.style.display    = 'block';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Kiểm tra kết nối';
+    });
+});
+</script>
 </body>
 </html>
