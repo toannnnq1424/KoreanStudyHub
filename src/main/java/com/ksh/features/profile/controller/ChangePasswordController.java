@@ -2,9 +2,9 @@ package com.ksh.features.profile.controller;
 
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.features.profile.dto.ProfileDtos;
-import com.ksh.features.profile.service.SessionRevocationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDateTime;
+
 import static com.ksh.common.IConstant.*;
 
 /**
@@ -24,6 +26,10 @@ import static com.ksh.common.IConstant.*;
  *
  * <p>Requires the user to confirm their current password before a new password
  * is accepted, preventing unauthorised password changes on unattended sessions.</p>
+ *
+ * <p>A successful change also revokes the user's other sessions. The old
+ * password authorised those sessions, so leaving them alive would mean a
+ * stolen session survives the very action taken to shut it out.</p>
  */
 @Controller
 public class ChangePasswordController {
@@ -35,13 +41,19 @@ public class ChangePasswordController {
     // ── Local model attribute keys ────────────────────────────────
     private static final String ATTR_WRONG_CURRENT    = "wrongCurrent";
     private static final String ATTR_MISMATCH        = "mismatch";
-    private static final String ATTR_PASSWORD_CHANGED = "passwordChanged";
+
+    // ── User-facing messages ──────────────────────────────────────
+    private static final String MSG_PASSWORD_CHANGED =
+            "Đổi mật khẩu thành công.";
+    private static final String MSG_PASSWORD_CHANGED_SESSIONS_REVOKED =
+            "Đổi mật khẩu thành công. Các phiên đăng nhập khác đã bị đăng xuất.";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SessionRevocationService sessionRevocationService;
 
-    public ChangePasswordController(UserRepository userRepository, PasswordEncoder passwordEncoder,
+    public ChangePasswordController(UserRepository userRepository,
+                                    PasswordEncoder passwordEncoder,
                                     SessionRevocationService sessionRevocationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -69,12 +81,14 @@ public class ChangePasswordController {
      *   <li>Current password verification against the stored BCrypt hash.</li>
      *   <li>New password / confirm-password match check.</li>
      * </ol>
-     * On success the new password is BCrypt-encoded, persisted, and the user is
-     * redirected back to the form with a {@code passwordChanged} flash attribute.
+     * On success the new password is BCrypt-encoded and persisted, the user's
+     * other sessions are revoked, and the browser is redirected back to the
+     * form with a success flash message.
      *
      * @param form      the submitted {@link ProfileDtos.ChangePasswordRequest} (validated)
      * @param result    binding result carrying any constraint violations
      * @param principal the authenticated principal — id sourced from Spring Security
+     * @param request   the current request, used to identify the session to keep
      * @param model     the Spring MVC model for error flags
      * @param ra        redirect attributes used to pass the success flash message
      * @return a redirect to {@code /change-password} on success, or the view name
@@ -83,11 +97,11 @@ public class ChangePasswordController {
      */
     @PostMapping("/change-password")
     public String change(@Valid @ModelAttribute("form") ProfileDtos.ChangePasswordRequest form,
-                          BindingResult result,
-                          @AuthenticationPrincipal KshUserDetails principal,
-                          HttpServletRequest request,
-                          Model model,
-                          RedirectAttributes ra) {
+                         BindingResult result,
+                         @AuthenticationPrincipal KshUserDetails principal,
+                         HttpServletRequest request,
+                         Model model,
+                         RedirectAttributes ra) {
         if (result.hasErrors()) {
             return VIEW_CHANGE_PASSWORD;
         }
@@ -107,14 +121,20 @@ public class ChangePasswordController {
             return VIEW_CHANGE_PASSWORD;
         }
 
-        user.setPasswordHash(passwordEncoder.encode(form.newPassword()));
+        user.setKnownPassword(passwordEncoder.encode(form.newPassword()), LocalDateTime.now());
         userRepository.save(user);
 
+        // The old password authorised every live session, so revoke them all —
+        // except this one, which the user is actively working in.
         String currentSessionId = request.getSession(false) == null
-                ? null : request.getSession(false).getId();
-        sessionRevocationService.revokeOtherSessions(user.getEmail(), currentSessionId);
+                ? null
+                : request.getSession(false).getId();
+        int revoked = sessionRevocationService.revokeOtherSessions(
+                user.getEmail(), currentSessionId);
 
-        ra.addFlashAttribute(ATTR_PASSWORD_CHANGED, true);
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, revoked > 0
+                ? MSG_PASSWORD_CHANGED_SESSIONS_REVOKED
+                : MSG_PASSWORD_CHANGED);
         return REDIRECT_CHANGE_PASSWORD;
     }
 }

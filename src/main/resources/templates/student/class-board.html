@@ -1,27 +1,94 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(${view.className()} + ' — Bảng tin', ~{::link.page-css})}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/student-class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/student-class-detail.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
+
+<span id="flash-data"
+      th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
+      style="display:none;"></span>
+
 <main class="student-lessons-shell student-class-detail-shell">
-  <div class="student-class-detail-grid">
-    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('board', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
-    <section class="student-class-detail-main">
-      <header class="student-class-detail-heading">
-        <h2>Bảng tin</h2>
-        <p>Thông báo và nội dung chung của lớp sẽ xuất hiện tại đây.</p>
-      </header>
-      <div class="student-class-board-empty">
-        <span class="student-class-board-icon" aria-hidden="true">💬</span>
-        <h3>Chưa có thông báo mới</h3>
-        <p>Khi giảng viên đăng thông báo, bạn sẽ đọc được trực tiếp trên bảng tin lớp.</p>
-      </div>
-    </section>
-  </div>
+    <div class="student-class-detail-grid">
+        <div th:replace="~{fragments/student-class-sidebar :: classSidebar('board', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
+        <section class="student-class-detail-main">
+            <header class="student-class-detail-heading">
+                <h2>Bảng tin</h2>
+                <p>Thông báo và nội dung chung của lớp sẽ xuất hiện tại đây.</p>
+            </header>
+
+            <!-- Empty state renders only when the feed genuinely holds no rows. -->
+            <div class="student-class-board-empty"
+                 th:if="${announcementsPage.totalElements == 0}">
+                <span class="student-class-board-icon" aria-hidden="true">💬</span>
+                <h3>Chưa có thông báo mới</h3>
+                <p>Khi giảng viên đăng thông báo, bạn sẽ đọc được trực tiếp trên bảng tin lớp.</p>
+            </div>
+
+            <div class="student-ann-feed" th:if="${announcementsPage.totalElements > 0}">
+                <article class="student-ann-item" th:each="ann : ${announcementsPage.content}">
+                    <header class="student-ann-head">
+                        <span class="student-ann-author" th:text="${ann.displayAuthor()}">—</span>
+                        <span class="student-ann-stamp" th:text="${ann.displayCreatedAt()}">—</span>
+                        <span class="student-ann-edited" th:if="${ann.edited()}">(đã chỉnh sửa)</span>
+                    </header>
+                    <!-- Content is sanitized on write, so utext is safe here. -->
+                    <div class="student-ann-body" th:utext="${ann.content()}"></div>
+
+                    <section class="student-ann-comments">
+                        <p class="student-ann-comment-count"
+                           th:text="${ann.displayCommentCount()}">0 bình luận</p>
+
+                        <!-- Comment bodies are plain text: th:text, never th:utext. That is
+                             the only thing standing between a student-authored comment and
+                             stored XSS. -->
+                        <div class="student-ann-comment" th:each="c : ${ann.comments()}">
+              <span class="student-ann-comment-avatar" aria-hidden="true"
+                    th:style="'background:' + ${c.avatarGradient()}"
+                    th:text="${c.avatarLabel()}">??</span>
+                            <div class="student-ann-comment-main">
+                                <div class="student-ann-comment-bubble">
+                  <span class="student-ann-comment-author"
+                        th:text="${c.displayAuthor()}">—</span>
+                                    <span class="student-ann-comment-text" th:text="${c.content()}">—</span>
+                                </div>
+                                <div class="student-ann-comment-meta">
+                  <span class="student-ann-comment-stamp"
+                        th:text="${c.displayCreatedAt()}">—</span>
+                                    <!-- Hiding this control is UX only; the server re-checks. -->
+                                    <form method="post" class="student-ann-comment-delete"
+                                          th:if="${c.canDelete()}"
+                                          th:action="@{'/my/classes/' + ${view.classId()} + '/announcements/' + ${ann.id()} + '/comments/' + ${c.id()} + '/delete'}">
+                                        <button type="submit" class="student-ann-comment-delete-btn">Xoá</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form method="post" class="student-ann-comment-form"
+                              th:action="@{'/my/classes/' + ${view.classId()} + '/announcements/' + ${ann.id()} + '/comments'}">
+                            <input type="text" name="content" class="student-ann-comment-input"
+                                   placeholder="Viết bình luận…" maxlength="2000"
+                                   th:value="${commentForm != null and commentForm.announcementId() == ann.id()}
+                               ? ${commentForm.rejectedContent()} : ''">
+                            <button type="submit" class="btn btn-sm btn-primary">Gửi</button>
+                        </form>
+                        <!-- Field validation renders inline here, never as a toast. -->
+                        <p class="student-ann-comment-error"
+                           th:if="${commentForm != null and commentForm.announcementId() == ann.id()}"
+                           th:text="${commentForm.errorMessage()}"></p>
+                    </section>
+                </article>
+
+                <div th:replace="~{fragments/pager :: pager(${announcementsPage}, '/my/classes/' + ${view.classId()} + '/board', null)}"></div>
+            </div>
+        </section>
+    </div>
 </main>
 <script th:src="@{/js/app.js}"></script>
 </body>

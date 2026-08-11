@@ -2,6 +2,8 @@ package com.ksh.entities;
 
 import com.ksh.security.Role;
 
+import java.time.LocalDateTime;
+
 /**
  * Package-private factory for constructing new {@link User} instances.
  *
@@ -20,6 +22,16 @@ public final class UserFactory {
     /**
      * Builds a fully-populated {@link User} for the admin Create flow.
      *
+     * <p>{@code activated_at} is stamped at creation because the admin chooses
+     * the password here and hands it to the owner: the account is usable from
+     * the moment it is saved, with no activation step left to complete. That
+     * keeps the invariant {@link User#hasNoUsablePassword()} relies on — an
+     * account with a password someone knows always carries a non-NULL
+     * {@code activated_at} — true by construction. Leaving it NULL would let a
+     * later {@code deactivate} recreate the very state the re-send gate reads
+     * as "nobody can sign in", and issue an activation link for an account
+     * whose password the admin already knows.
+     *
      * @param normalizedEmail email already trimmed and lower-cased by the service
      * @param passwordHash    a BCrypt hash; callers MUST encode before passing
      * @param fullName        display name
@@ -36,7 +48,7 @@ public final class UserFactory {
                                        boolean emailVerified,
                                        String phone,
                                        String bio) {
-        return new User(
+        User u = new User(
                 normalizedEmail,
                 passwordHash,
                 fullName,
@@ -48,5 +60,30 @@ public final class UserFactory {
                 phone,
                 bio
         );
+        u.markActivated(LocalDateTime.now());
+        return u;
+    }
+
+    /**
+     * Builds an account whose owner has not yet activated it: {@code is_active}
+     * is {@code 0} and {@code activated_at} is {@code NULL}. Used by the admin
+     * roster import, where nobody — including the importing admin — knows a
+     * password that authenticates the account until the owner sets one.
+     *
+     * @param normalizedEmail email already trimmed and lower-cased by the caller
+     * @param passwordHash    BCrypt hash of an undisclosed random secret
+     * @param fullName        display name
+     * @param role            role to assign on creation
+     * @param phone           optional phone (already null-coerced when blank)
+     * @param departmentId    optional department ownership; {@code null} when none
+     * @return a {@link User} entity ready for {@code repository.save(...)}
+     */
+    public static User newPendingActivation(String normalizedEmail,
+                                            String passwordHash,
+                                            String fullName,
+                                            Role role,
+                                            String phone,
+                                            Long departmentId) {
+        return new User(normalizedEmail, passwordHash, fullName, role, phone, departmentId);
     }
 }

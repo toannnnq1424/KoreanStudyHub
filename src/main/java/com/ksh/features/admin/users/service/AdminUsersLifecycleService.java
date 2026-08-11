@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -113,7 +114,10 @@ public class AdminUsersLifecycleService {
             throw new IllegalArgumentException("Mật khẩu mới không được để trống");
         }
 
-        target.setPasswordHash(passwordEncoder.encode(newPassword));
+        // setKnownPassword also stamps activated_at: from here on somebody
+        // knows this account's password, so it must never read as "nobody can
+        // sign in" and be issued an activation link. See User#hasNoUsablePassword.
+        target.setKnownPassword(passwordEncoder.encode(newPassword), LocalDateTime.now());
         User saved = userRepository.save(target);
         // Intentionally null metadata — the plaintext password must not appear
         // in the audit log.

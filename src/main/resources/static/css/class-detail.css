@@ -424,3 +424,238 @@
 .detail-form-grid .form-row input[type=date][aria-invalid="true"]:focus {
     box-shadow: 0 0 0 3px var(--danger-soft, #FDECEA);
 }
+
+
+/* ── Board announcements — newsfeed layout ──────────────────────────
+   The board reads as a stream of standalone cards (compose box on top,
+   one card per post) rather than one bordered panel of rows. Cards span
+   the full main column, matching .detail-panel on the sibling tabs
+   (Thành viên, Bài giảng) so switching tabs shows no width jump — the
+   column's own `padding: 30px clamp(24px,3vw,48px)` supplies the gutter. */
+.ann-compose,
+.ann-empty,
+.ann-feed > .ann-item {
+    background: var(--bg, #fff);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius, 8px);
+    box-shadow: var(--shadow-sm);
+}
+.ann-compose { padding: 12px 16px; margin-bottom: 16px; }
+
+/* Shared avatar disc; background gradient is set inline per author. */
+.ann-avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex: none;
+    color: #fff; display: grid; place-items: center;
+    font-weight: 700; font-size: 13px; line-height: 1;
+}
+
+/* ── Compose box: collapsed prompt ─────────────────────────────────── */
+.ann-compose-prompt { display: flex; align-items: center; gap: 10px; }
+.ann-compose-trigger {
+    flex: 1; min-width: 0; text-align: left; cursor: pointer;
+    padding: 10px 16px; border: 0; border-radius: 999px;
+    background: var(--bg-soft, #F7F8FC);
+    color: var(--muted); font-family: var(--font); font-size: 14px;
+}
+.ann-compose-trigger:hover { background: var(--border-soft); }
+.ann-compose-trigger:focus-visible {
+    outline: none; box-shadow: 0 0 0 3px var(--primary-soft, #E8F2FD);
+}
+
+/* ── Compose box: expanded editor ──────────────────────────────────── */
+/* Collapsed is the default so the box stays compact before first click. */
+.ann-compose-body { display: none; }
+.ann-compose[data-compose-open="true"] .ann-compose-body {
+    display: grid; gap: 10px;
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid var(--border-soft);
+}
+.ann-compose[data-compose-open="true"] .ann-compose-prompt { display: none; }
+.ann-compose-label {
+    margin: 0; font-size: 12px; font-weight: 750; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted-2);
+}
+.ann-compose [data-announcement-editor] {
+    min-height: 140px; background: var(--bg, #fff);
+    border-radius: 0 0 var(--radius, 8px) var(--radius, 8px);
+}
+.ann-compose .ql-toolbar { border-radius: var(--radius, 8px) var(--radius, 8px) 0 0; }
+.ann-compose-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.ann-error {
+    margin: 0; font-size: 13px; font-weight: 650;
+    color: var(--danger, #D32F2F);
+}
+
+/* ── Empty state ───────────────────────────────────────────────────── */
+.ann-empty { text-align: center; padding: 34px 18px; }
+.ann-empty-ico {
+    width: 34px; height: 34px; margin-bottom: 8px;
+    fill: none; stroke: var(--muted-2); stroke-width: 1.6;
+    stroke-linecap: round; stroke-linejoin: round;
+}
+.ann-empty h2 { margin: 0 0 6px; font-size: 16px; color: var(--heading); }
+.ann-empty p { margin: 0; color: var(--muted); font-size: 13.5px; }
+
+/* ── Feed cards ────────────────────────────────────────────────────── */
+/* `justify-items: stretch` (the grid default) so cards track the column
+   width; `start` would shrink them to content now that the cap is gone. */
+.ann-feed { display: grid; gap: 16px; }
+.ann-feed > .ann-item {
+    display: grid; gap: 10px; padding: 14px 16px;
+    width: 100%; box-sizing: border-box;
+}
+.ann-item-head { display: flex; align-items: center; gap: 10px; }
+.ann-item-meta { display: grid; gap: 1px; min-width: 0; }
+.ann-author { font-weight: 700; font-size: 14px; color: var(--heading); }
+.ann-submeta { font-size: 12px; color: var(--muted); }
+.ann-stamp, .ann-edited { color: var(--muted); }
+.ann-body { font-size: 14.5px; line-height: 1.65; word-break: break-word; }
+.ann-body p { margin: 0 0 8px; }
+/* The global reset strips the UA's default ul/ol padding, so `outside` markers
+   would paint left of the content edge and spill into the card padding. */
+.ann-body ul,
+.ann-body ol { margin: 0 0 8px; padding-left: 22px; }
+/* Nested lists indent one more step and never double the block spacing. */
+.ann-body li > ul,
+.ann-body li > ol { margin-top: 4px; margin-bottom: 4px; }
+.ann-body li { margin: 0 0 2px; }
+.ann-body :last-child { margin-bottom: 0; }
+.ann-body img { max-width: 100%; height: auto; }
+
+/* ── Kebab menu (card top-right) ────────────────────────────────────── */
+/* `margin-left: auto` pushes it to the header's right edge; the relative
+   wrapper anchors the absolutely-positioned panel. */
+.ann-menu { position: relative; margin-left: auto; flex: none; }
+.ann-menu-trigger {
+    width: 30px; height: 30px; display: grid; place-items: center;
+    border: 1px solid transparent; border-radius: 50%;
+    background: transparent; color: var(--muted); cursor: pointer;
+}
+.ann-menu-trigger:hover {
+    background: var(--bg-soft, #F7F8FC); color: var(--fg, #1F2430);
+}
+.ann-menu-trigger[aria-expanded="true"] {
+    background: var(--bg-soft, #F7F8FC); color: var(--fg, #1F2430);
+}
+.ann-menu-trigger:focus-visible {
+    outline: none; border-color: var(--primary, #1E88E5);
+    box-shadow: 0 0 0 3px var(--primary-soft, #E8F2FD);
+}
+.ann-menu-ico { width: 18px; height: 18px; fill: currentColor; stroke: none; }
+
+.ann-menu-panel {
+    position: absolute; top: 100%; right: 0; margin-top: 4px;
+    min-width: 160px; padding: 4px; z-index: 20;
+    display: flex; flex-direction: column; gap: 1px;
+    background: var(--bg, #fff);
+    border: 1px solid var(--border, #E3E6EF);
+    border-radius: var(--radius, 8px);
+    box-shadow: var(--shadow-sm);
+}
+/* `display: flex` above defeats the user-agent `[hidden] { display: none }`;
+   restore it so the panel stays hidden until the script opens it. */
+.ann-menu-panel[hidden] { display: none; }
+
+.ann-menu-item {
+    display: block; width: 100%; text-align: left;
+    padding: 8px 10px; border: 0; border-radius: 6px;
+    background: transparent; cursor: pointer;
+    font-family: inherit; font-size: 13px; line-height: 1.3;
+    color: var(--fg, #1F2430);
+}
+.ann-menu-item:hover { background: var(--bg-soft, #F7F8FC); }
+.ann-menu-item:focus-visible {
+    outline: none; box-shadow: 0 0 0 2px var(--primary, #1E88E5) inset;
+}
+/* Destructive item: coloured at rest, filled once armed for confirmation. */
+.ann-menu-item-danger { color: var(--danger, #D32F2F); font-weight: 650; }
+.ann-menu-item-danger:hover { background: var(--danger-soft, #FDECEA); }
+.ann-menu-item-danger[data-armed="true"] {
+    color: #fff; font-weight: 700;
+    background: var(--danger, #D32F2F);
+}
+.ann-menu-item-danger:focus-visible {
+    box-shadow: 0 0 0 2px var(--danger, #D32F2F) inset;
+}
+
+/* ── Inline edit panel (revealed by the menu, not a dropdown child) ──── */
+.ann-edit {
+    padding-top: 10px; border-top: 1px solid var(--border-soft);
+}
+.ann-edit[hidden] { display: none; }
+/* The delete form is a submit target only; it must not occupy card space. */
+.ann-delete-form { display: none; }
+.ann-edit-label {
+    display: block; margin: 8px 0 4px;
+    font-size: 12px; font-weight: 650; color: var(--muted-2);
+}
+.ann-edit-input {
+    width: 100%; box-sizing: border-box;
+    min-height: 96px; resize: vertical; line-height: 1.5;
+    padding: 8px 10px; font-family: var(--font); font-size: 14px;
+    border: 1px solid var(--border); border-radius: var(--radius, 8px);
+}
+.ann-edit-input:focus {
+    outline: none; border-color: var(--primary, #1E88E5);
+    box-shadow: 0 0 0 3px var(--primary-soft, #E8F2FD);
+}
+.ann-edit-actions {
+    display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;
+}
+
+/* ── Compose: image affordance ─────────────────────────────────────── */
+/* Sits left of the submit button so the actions row reads left-to-right:
+   add content, then post. */
+.ann-compose-actions { align-items: center; }
+.ann-image-btn {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    margin-right: auto; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border-soft); background: transparent;
+    color: var(--muted); font-family: var(--font); font-size: 13px;
+}
+.ann-image-btn:hover { background: var(--bg-soft, #F7F8FC); color: var(--text); }
+.ann-image-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+
+/* ── Announcement comments ─────────────────────────────────────────── */
+/* Deliberately no max-width here: the board is full width, matching
+   .detail-panel on the Members tab. */
+.ann-comments { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.ann-comment-count { margin: 0 0 8px; font-size: 13px; font-weight: 650; color: var(--muted); }
+
+.ann-avatar-sm { width: 28px; height: 28px; font-size: 11px; }
+
+.ann-comment { display: flex; gap: 8px; margin-bottom: 8px; }
+.ann-comment-main { min-width: 0; flex: 1; }
+.ann-comment-bubble {
+    display: inline-block; max-width: 100%; padding: 7px 12px;
+    border-radius: 14px; background: var(--bg-soft, #F7F8FC);
+}
+.ann-comment-author { display: block; font-size: 13px; font-weight: 700; }
+/* Plain text may hold long unbroken runs; wrap rather than overflow the card. */
+.ann-comment-text {
+    display: block; font-size: 13.5px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+}
+.ann-comment-meta {
+    display: flex; align-items: center; gap: 10px;
+    margin: 3px 0 0 12px; font-size: 12px; color: var(--muted);
+}
+.ann-comment-delete { display: inline; }
+.ann-comment-delete-btn {
+    padding: 0; border: 0; background: none; cursor: pointer;
+    color: var(--muted); font-family: var(--font); font-size: 12px;
+}
+.ann-comment-delete-btn:hover { color: var(--danger, #D64545); text-decoration: underline; }
+
+.ann-comment-form { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; }
+.ann-comment-input-wrap { flex: 1; min-width: 0; }
+.ann-comment-input {
+    width: 100%; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--border-soft); background: var(--bg-soft, #F7F8FC);
+    font-family: var(--font); font-size: 13.5px; color: var(--text);
+}
+.ann-comment-input:focus {
+    outline: none; border-color: var(--primary, #1E88E5); background: #fff;
+    box-shadow: 0 0 0 3px var(--primary-soft, #E8F2FD);
+}
+.ann-comment-error { margin: 4px 0 0; }

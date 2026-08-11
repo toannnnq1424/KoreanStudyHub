@@ -1,7 +1,7 @@
 package com.ksh.features.admin.users.controller;
 
 import com.ksh.entities.User;
-import com.ksh.features.admin.departments.service.DepartmentValidationException;
+import com.ksh.features.admin.users.dto.AccountStatusLabel;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.admin.users.service.AdminUsersReadService;
 import com.ksh.features.admin.users.service.AdminUsersWriteService;
@@ -42,6 +42,11 @@ import static com.ksh.features.admin.users.controller.AdminUsersFormSupport.user
  * so each controller stays focused on a single screen. Both controllers share
  * the {@code /admin/users} base mapping, the ADMIN role precondition, and
  * {@link AdminUsersFormSupport} for common form rendering.
+ *
+ * <p>Authorization is layered: the {@code /admin/**} matcher in {@code SecurityConfig}
+ * still restricts this controller to the ADMIN role, and the permission check below adds
+ * a second, finer gate. {@code user.edit} belongs to the USER_MANAGE group, which the
+ * permission guard refuses to detach from ADMIN.
  */
 @Controller
 @RequestMapping("/admin/users")
@@ -58,12 +63,6 @@ public class AdminUsersEditController {
     private static final String ATTR_TARGET_CREATED_AT = "targetCreatedAt";
     private static final String ATTR_ACTIVITIES_PAGE   = "activitiesPage";
     private static final String ATTR_PERMISSION_VIEW   = "permissionView";
-
-    // ── Status labels (domain enum-like) ──────────────────────────
-    private static final String STATUS_ACTIVE   = "ACTIVE";
-    private static final String STATUS_INACTIVE = "INACTIVE";
-    private static final String STATUS_LOCKED   = "LOCKED";
-    private static final String STATUS_DELETED  = "DELETED";
 
     // ── Flash messages (Vietnamese UI text) ───────────────────────
     private static final String MSG_USER_UPDATED    = "Đã cập nhật tài khoản";
@@ -114,8 +113,7 @@ public class AdminUsersEditController {
         String activeTab = VALID_TABS.contains(tab) ? tab : TAB_INFO;
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);
 
-        // Status label drives the header pill (ACTIVE | INACTIVE | LOCKED | DELETED).
-        // Ordering matters: deleted > locked > inactive > active. Mirrors UserRow.statusLabel().
+        // Status label drives the header pill; shared with UserRow.statusLabel().
         model.addAttribute(ATTR_STATUS_LABEL, deriveStatusLabel(u));
 
         // "Tạo lúc" timestamp — the User entity does not map created_at, so
@@ -179,22 +177,16 @@ public class AdminUsersEditController {
         } catch (EmailAlreadyUsedException ex) {
             result.rejectValue("email", "email.duplicate", MSG_EMAIL_DUPLICATE);
             return reRenderEditForm(model, id);
-        } catch (DepartmentValidationException ex) {
-            result.rejectValue("role", "leader.assignment", ex.getMessage());
-            return reRenderEditForm(model, id);
         }
     }
 
     /**
-     * Derives the four-state status label used by the detail header pill.
-     * Ordering: DELETED takes precedence over LOCKED, which takes precedence
-     * over INACTIVE; otherwise ACTIVE.
+     * Derives the status label used by the detail header pill, delegating to
+     * the shared resolver so this page always agrees with the user list.
      */
     private static String deriveStatusLabel(User u) {
-        if (u.isDeleted()) return STATUS_DELETED;
-        if (u.isLocked())  return STATUS_LOCKED;
-        if (!u.isActive()) return STATUS_INACTIVE;
-        return STATUS_ACTIVE;
+        return AccountStatusLabel.resolve(u.isDeleted(), u.isLocked(), u.isActive(),
+                u.getActivatedAt());
     }
 
     /**

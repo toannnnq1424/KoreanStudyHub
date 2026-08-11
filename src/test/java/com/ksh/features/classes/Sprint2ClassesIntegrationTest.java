@@ -490,12 +490,18 @@ class Sprint2ClassesIntegrationTest {
                 .andExpect(content().string(containsString("Bài tập")));
     }
 
+    /**
+     * The board route moved from {@code ClassesService.getViewable} (403) to
+     * {@code ClassAccessPolicy.requireViewAccess} (404) in
+     * change {@code class-announcement-board}, so class existence is no longer
+     * disclosed to an unrelated lecturer. Members still uses the 403 gate.
+     */
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void detail_non_owner_lecturer_returns_403() throws Exception {
+    void detail_non_owner_lecturer_board_returns_404() throws Exception {
         ClassEntity c = saveClass("OwnedByLeader", leader.getId(), "OWNHD");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/board"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test

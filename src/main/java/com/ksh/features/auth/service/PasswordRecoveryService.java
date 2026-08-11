@@ -158,7 +158,9 @@ public class PasswordRecoveryService {
         }
 
         User user = token.getUser();
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        // Stamps activated_at alongside the hash — the owner now knows a working
+        // password, so the account must not read as awaiting activation.
+        user.setKnownPassword(passwordEncoder.encode(newPassword), LocalDateTime.now());
         userRepository.save(user);
 
         token.markUsed();

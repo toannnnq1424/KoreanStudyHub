@@ -223,7 +223,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/uploads/avatars/**",
                                 "/uploads/exams/**",
-                                "/uploads/flashcards/**"
+                                "/uploads/flashcards/**",
+                                "/uploads/announcements/**"
                         ).permitAll()
                         .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
@@ -233,6 +234,7 @@ public class SecurityConfig {
                         .requestMatchers("/practice/preferences/**")
                         .hasAnyRole(Roles.STUDENT, Roles.LECTURER)
                         .requestMatchers("/practice/progress", "/practice/profile").hasRole(Roles.STUDENT)
+                        .requestMatchers("/lecturer/dashboard").hasAnyRole(Roles.LECTURER, Roles.LEADER, Roles.ADMIN)
                         .requestMatchers("/lecturer/**").hasAnyRole(Roles.LECTURER, Roles.LEADER, Roles.ADMIN)
                         .requestMatchers("/leader/**").hasRole(Roles.LEADER)
                         .requestMatchers("/admin/**").hasRole(Roles.ADMIN)
