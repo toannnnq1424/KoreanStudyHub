@@ -52,8 +52,10 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         // KshUserDetails maps roles to ROLE_<name> and exposes isEnabled()/isAccountNonLocked()
         // so that Spring Security throws DisabledException / LockedException respectively.
+        LoginPermissionResolver.PermissionSnapshot permissions =
+                loginPermissionResolver.resolveSnapshotSafely(user.getId());
         return new KshUserDetails(
-                user, loginPermissionResolver.resolveSafely(user.getId()));
+                user, permissions.featureKeys(), permissions.validUntil());
     }
 
 }

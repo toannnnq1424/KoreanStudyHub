@@ -129,6 +129,46 @@ public class PermissionResolver {
     }
 
     /**
+     * Describes the expiry boundary of active overrides for one user.
+     *
+     * <p>The login path uses this metadata for two related safeguards. An already
+     * elapsed row means a previously cached permission set may still contain a
+     * temporary grant, so that cache entry must be evicted before resolving the
+     * new principal. The nearest future expiry is copied into the principal so
+     * the authenticated HTTP session can be retired at that exact boundary.
+     *
+     * @param userId user whose override timeline is requested
+     * @param now one shared clock value for all comparisons
+     * @return elapsed/future expiry metadata; never {@code null}
+     */
+    @Transactional(readOnly = true)
+    public PermissionTimeline permissionTimeline(Long userId, LocalDateTime now) {
+        if (userId == null) {
+            return new PermissionTimeline(false, null);
+        }
+        LocalDateTime observedAt = now == null ? LocalDateTime.now() : now;
+        boolean hasElapsedActiveOverride = false;
+        LocalDateTime nextExpiry = null;
+        for (UserPermissionOverride override : overrideRepository.findByUserIdOrderByIdDesc(userId)) {
+            if (!override.isActive() || override.getExpiresAt() == null) {
+                continue;
+            }
+            LocalDateTime expiry = override.getExpiresAt();
+            if (!expiry.isAfter(observedAt)) {
+                hasElapsedActiveOverride = true;
+            } else if (nextExpiry == null || expiry.isBefore(nextExpiry)) {
+                nextExpiry = expiry;
+            }
+        }
+        return new PermissionTimeline(hasElapsedActiveOverride, nextExpiry);
+    }
+
+    /** Cache/session freshness metadata associated with one permission resolution. */
+    public record PermissionTimeline(boolean hasElapsedActiveOverride,
+                                     LocalDateTime nextExpiry) {
+    }
+
+    /**
      * Drops the cached permission set of one user.
      *
      * @param userId the user whose next resolution should re-read the database

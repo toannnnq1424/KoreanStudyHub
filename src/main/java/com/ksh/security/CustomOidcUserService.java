@@ -80,7 +80,9 @@ public class CustomOidcUserService extends OidcUserService {
         User user = accountLinkService.resolveAndLink(email, googleSub);
 
         // Match form-login authority semantics: role plus effective RBAC permissions.
+        LoginPermissionResolver.PermissionSnapshot permissions =
+                loginPermissionResolver.resolveSnapshotSafely(user.getId());
         return new CustomOidcUserPrincipal(
-                oidcUser, user, loginPermissionResolver.resolveSafely(user.getId()));
+                oidcUser, user, permissions.featureKeys(), permissions.validUntil());
     }
 }

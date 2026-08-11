@@ -6,6 +6,7 @@ import com.ksh.entities.User;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
+import com.ksh.features.admin.permissions.service.PermissionResolver;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.common.TransactionLifecycle;
@@ -51,17 +52,20 @@ public class DepartmentService {
     private final SubjectAuditWriter auditWriter;
     private final SystemSettingsRepository systemSettingsRepository;
     private final SessionRevocationService sessionRevocationService;
+    private final PermissionResolver permissionResolver;
 
     public DepartmentService(DepartmentRepository departmentRepository,
                              UserRepository userRepository,
                              SubjectAuditWriter auditWriter,
                              SystemSettingsRepository systemSettingsRepository,
-                             SessionRevocationService sessionRevocationService) {
+                             SessionRevocationService sessionRevocationService,
+                             PermissionResolver permissionResolver) {
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.auditWriter = auditWriter;
         this.systemSettingsRepository = systemSettingsRepository;
         this.sessionRevocationService = sessionRevocationService;
+        this.permissionResolver = permissionResolver;
     }
 
     @Transactional
@@ -189,8 +193,10 @@ public class DepartmentService {
                 candidate.promoteToLeader(entity.getId());
                 userRepository.save(candidate);
                 Long repairedLeaderId = candidate.getId();
-                TransactionLifecycle.afterCommit(
-                        () -> sessionRevocationService.revokeAllSessions(repairedLeaderId));
+                TransactionLifecycle.afterCommit(() -> {
+                    permissionResolver.evictUser(repairedLeaderId);
+                    sessionRevocationService.revokeAllSessions(repairedLeaderId);
+                });
             }
             return;
         }
@@ -214,8 +220,10 @@ public class DepartmentService {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        TransactionLifecycle.afterCommit(() -> changedPrincipalIds
-                .forEach(sessionRevocationService::revokeAllSessions));
+        TransactionLifecycle.afterCommit(() -> changedPrincipalIds.forEach(userId -> {
+            permissionResolver.evictUser(userId);
+            sessionRevocationService.revokeAllSessions(userId);
+        }));
 
         if (entity.getId() != null) {
             if (newLeaderUserId == null) {

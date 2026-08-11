@@ -7,6 +7,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.io.Serial;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -32,6 +33,7 @@ public class KshUserDetails implements UserDetails {
     private final boolean active;
     private final boolean locked;
     private final Collection<GrantedAuthority> authorities;
+    private final LocalDateTime permissionAuthoritiesValidUntil;
 
     /**
      * Constructs a {@code KshUserDetails} from a {@link User} entity with role-only
@@ -60,6 +62,15 @@ public class KshUserDetails implements UserDetails {
      * @param featureKeys effective permission feature keys, or {@code null} for none
      */
     public KshUserDetails(User user, Collection<String> featureKeys) {
+        this(user, featureKeys, null);
+    }
+
+    /**
+     * Constructs a principal whose permission authorities expire at a known
+     * override boundary. Role authority itself is unaffected by this timestamp.
+     */
+    public KshUserDetails(User user, Collection<String> featureKeys,
+                          LocalDateTime permissionAuthoritiesValidUntil) {
         this.id = user.getId();
         this.role = user.getRole();
         this.username = user.getEmail();
@@ -80,6 +91,7 @@ public class KshUserDetails implements UserDetails {
             }
         }
         this.authorities = List.copyOf(granted);
+        this.permissionAuthoritiesValidUntil = permissionAuthoritiesValidUntil;
     }
 
     /**
@@ -107,6 +119,11 @@ public class KshUserDetails implements UserDetails {
      */
     public Role getRole() {
         return role;
+    }
+
+    /** Nearest override expiry captured when this principal authenticated. */
+    public LocalDateTime getPermissionAuthoritiesValidUntil() {
+        return permissionAuthoritiesValidUntil;
     }
 
     /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */

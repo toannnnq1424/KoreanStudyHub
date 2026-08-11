@@ -5,6 +5,7 @@ import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +24,13 @@ public class CustomOidcUserPrincipal extends KshUserDetails implements OidcUser 
 
     public CustomOidcUserPrincipal(OidcUser delegate, User user,
                                    Collection<String> featureKeys) {
-        super(user, featureKeys);
+        this(delegate, user, featureKeys, null);
+    }
+
+    public CustomOidcUserPrincipal(OidcUser delegate, User user,
+                                   Collection<String> featureKeys,
+                                   LocalDateTime permissionAuthoritiesValidUntil) {
+        super(user, featureKeys, permissionAuthoritiesValidUntil);
         this.delegate = delegate;
     }
 

@@ -7,6 +7,7 @@ import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.admin.departments.service.DepartmentService;
 import com.ksh.features.admin.departments.service.DepartmentValidationException;
+import com.ksh.features.admin.permissions.service.PermissionResolver;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.CreateUserForm;
 import com.ksh.features.admin.users.dto.EditUserForm;
@@ -52,6 +53,7 @@ public class AdminUsersWriteService {
     private final SystemSettingsRepository systemSettingsRepository;
     private final SessionRevocationService sessionRevocationService;
     private final CredentialRotationService credentialRotationService;
+    private final PermissionResolver permissionResolver;
 
     public AdminUsersWriteService(UserRepository userRepository,
                                   PasswordEncoder passwordEncoder,
@@ -60,7 +62,8 @@ public class AdminUsersWriteService {
                                   DepartmentRepository departmentRepository,
                                   SystemSettingsRepository systemSettingsRepository,
                                   SessionRevocationService sessionRevocationService,
-                                  CredentialRotationService credentialRotationService) {
+                                  CredentialRotationService credentialRotationService,
+                                  PermissionResolver permissionResolver) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.guard = guard;
@@ -69,6 +72,7 @@ public class AdminUsersWriteService {
         this.systemSettingsRepository = systemSettingsRepository;
         this.sessionRevocationService = sessionRevocationService;
         this.credentialRotationService = credentialRotationService;
+        this.permissionResolver = permissionResolver;
     }
 
     /**
@@ -169,8 +173,14 @@ public class AdminUsersWriteService {
         if (!Objects.equals(oldEmail, saved.getEmail())
                 || oldRole != saved.getRole()
                 || !Objects.equals(oldSubjectId, saved.getSubjectId())) {
-            TransactionLifecycle.afterCommit(
-                    () -> sessionRevocationService.revokeAllSessions(oldEmail));
+            Long changedUserId = saved.getId();
+            boolean roleChanged = oldRole != saved.getRole();
+            TransactionLifecycle.afterCommit(() -> {
+                if (roleChanged) {
+                    permissionResolver.evictUser(changedUserId);
+                }
+                sessionRevocationService.revokeAllSessions(changedUserId);
+            });
         }
 
         if (!Objects.equals(oldEmail, saved.getEmail())) {

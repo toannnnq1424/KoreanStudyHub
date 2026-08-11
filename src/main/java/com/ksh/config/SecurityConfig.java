@@ -4,7 +4,9 @@ import com.ksh.security.Roles;
 import com.ksh.security.CustomOidcUserService;
 import com.ksh.security.LoginAttemptThrottle;
 import com.ksh.security.LoginThrottleFilter;
+import com.ksh.security.PermissionExpiryFilter;
 import com.ksh.security.RoleAwareAuthenticationSuccessHandler;
+import com.ksh.features.admin.permissions.service.PermissionResolver;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +28,7 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
@@ -207,6 +210,7 @@ public class SecurityConfig {
             @Qualifier("formSuccessHandler")
             AuthenticationSuccessHandler formSuccessHandler,
             RoleAwareAuthenticationSuccessHandler roleAwareSuccessHandler,
+            PermissionResolver permissionResolver,
             RequestCache requestCache) throws Exception {
         http
                 // Allow same-origin framing so the in-app PDF.js / docx
@@ -272,6 +276,11 @@ public class SecurityConfig {
                 .addFilterBefore(
                         new LoginThrottleFilter(loginAttemptThrottle),
                         UsernamePasswordAuthenticationFilter.class)
+                // PERM_* authorities are a login snapshot. Retire the session at
+                // the nearest override expiry before authorization can reuse it.
+                .addFilterBefore(
+                        new PermissionExpiryFilter(permissionResolver),
+                        AuthorizationFilter.class)
                 // Eagerly materialize CSRF token before the view starts rendering.
                 // Without this, the deferred CSRF lookup happens deep inside Thymeleaf's
                 // form rendering, after the response buffer has already been flushed —
