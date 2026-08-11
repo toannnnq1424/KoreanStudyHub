@@ -251,13 +251,7 @@ public class LessonTemplateService {
         form.setContentRichtext(template.getContentRichtext() == null ? "" : template.getContentRichtext());
         form.setPdfLibraryAssetId(template.getPdfLibraryAssetId());
         form.setVideoProvider(template.getVideoProvider());
-        // An UPLOAD template stores an internal object key in videoUrl. That is
-        // not a YouTube/Vimeo URL and must never be rebound into the external
-        // video-link input when the author edits the lesson.
-        if (VIDEO_PROVIDER_YOUTUBE.equals(template.getVideoProvider())
-                || VIDEO_PROVIDER_VIMEO.equals(template.getVideoProvider())) {
-            form.setVideoUrl(template.getVideoUrl());
-        }
+        form.setVideoUrl(template.getVideoUrl());
         form.setVideoLibraryAssetId(template.getVideoLibraryAssetId());
         LinkedHashSet<Long> retainedAssets = templateAttachmentRepository
                 .findByTemplateIdOrderByDisplayOrderAsc(templateId).stream()
