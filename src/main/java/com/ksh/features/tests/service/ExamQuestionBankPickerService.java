@@ -88,7 +88,7 @@ public class ExamQuestionBankPickerService {
             byId.put(snapshot.id(), snapshot);
         }
         List<BankItemSnapshot> ordered = new ArrayList<>();
-        for (Long id : itemIds) {
+        for (Long id : wanted) {
             if (byId.containsKey(id)) ordered.add(byId.get(id));
         }
         return ordered;

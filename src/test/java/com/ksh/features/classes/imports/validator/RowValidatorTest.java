@@ -134,6 +134,21 @@ class RowValidatorTest {
     }
 
     @Test
+    void completed_enrollment_is_historical_and_cannot_be_reactivated() {
+        User student = stubUser(81L, "completed@ksh.vn", Role.STUDENT, true, false);
+        when(userRepository.findByEmailIgnoreCase("completed@ksh.vn"))
+                .thenReturn(Optional.of(student));
+        Enrollment e = newEnrollment(student, Enrollment.STATUS_COMPLETED);
+        when(enrollmentRepository.findByUserIdAndClassId(81L, CLASS_ID))
+                .thenReturn(Optional.of(e));
+
+        ImportRow row = run(new ExcelParser.RawRow(
+                2, "completed@ksh.vn", "SV0081", "Completed", ""));
+
+        assertThat(row.getStatus()).isEqualTo(ImportRowStatus.ENROLLMENT_COMPLETED);
+    }
+
+    @Test
     void ok_when_user_matches_and_no_existing_enrollment() {
         User student = stubUser(90L, "ok@ksh.vn", Role.STUDENT, true, false);
         when(userRepository.findByEmailIgnoreCase("ok@ksh.vn")).thenReturn(Optional.of(student));

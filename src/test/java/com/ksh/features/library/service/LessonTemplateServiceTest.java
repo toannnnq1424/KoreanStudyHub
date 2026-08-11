@@ -95,6 +95,21 @@ class LessonTemplateServiceTest {
     }
 
     @Test
+    void distribute_rejects_class_that_is_still_awaiting_approval() {
+        LessonTemplateRow template = templateService.saveForm(
+                lecturer.getId(), Role.LECTURER, richtextForm("Chương 1", "Bài chờ duyệt"));
+        ClassEntity pending = new ClassEntity("Library pending", lecturer.getId(), lecturer.getId(),
+                null, null, null, 100);
+        pending.setSubjectId(lecturer.getSubjectId());
+        ClassEntity savedPending = classRepository.saveAndFlush(pending);
+
+        assertThatThrownBy(() -> templateService.distribute(template.id(), List.of(savedPending.getId()),
+                lecturer.getId(), Role.LECTURER))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("đang sử dụng");
+    }
+
+    @Test
     void library_is_a_subject_wide_canonical_hierarchy_not_an_owner_only_list() {
         LessonTemplateRow created = templateService.saveForm(
                 lecturer.getId(), Role.LECTURER, richtextForm("Chương 92", "Bài dùng chung"));

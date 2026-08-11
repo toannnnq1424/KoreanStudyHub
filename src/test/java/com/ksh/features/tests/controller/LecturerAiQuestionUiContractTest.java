@@ -33,4 +33,22 @@ class LecturerAiQuestionUiContractTest {
                 .contains("get('openAi') === '1'")
                 .contains("panel.hidden = false");
     }
+
+    @Test
+    void question_bank_search_is_last_request_wins_and_close_cancels_pending_work()
+            throws IOException {
+        String formScript = Files.readString(
+                Path.of("src/main/resources/static/js/test-lecturer-form.js"),
+                StandardCharsets.UTF_8);
+
+        assertThat(formScript)
+                .contains("bankSearchSequence")
+                .contains("new window.AbortController()")
+                .contains("options.signal = bankSearchController.signal")
+                .contains("requestId !== bankSearchSequence")
+                .contains("err.name === 'AbortError'")
+                .contains("cancelBankSearch();");
+        assertThat(formScript.indexOf("if (requestId !== bankSearchSequence) return;"))
+                .isLessThan(formScript.indexOf("renderBankResults(items);"));
+    }
 }

@@ -7,6 +7,7 @@ import com.ksh.features.tests.dto.LecturerTestDtos.QuestionForm;
 import com.ksh.features.tests.entity.Question;
 import com.ksh.features.tests.entity.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
@@ -21,16 +22,21 @@ import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_URL_SCHEME;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_YOUTUBE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_NEEDS_CLASS;
 import static com.ksh.common.IConstant.MSG_EXAM_NEEDS_QUESTIONS;
+import static com.ksh.common.IConstant.MSG_EXAM_PASSING_SCORE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_STATUS_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_TIME_MODE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_TIME_RANGE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_TITLE_BLANK;
+import static com.ksh.common.IConstant.MSG_EXAM_TITLE_TOO_LONG;
+import static com.ksh.common.IConstant.MSG_EXAM_TOTAL_POINTS_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_TYPE_INVALID;
 import static com.ksh.common.IConstant.MSG_MCQ_ONE_CORRECT;
 import static com.ksh.common.IConstant.MSG_OPTION_CONTENT_BLANK;
 import static com.ksh.common.IConstant.MSG_QUESTION_CONTENT_BLANK;
 import static com.ksh.common.IConstant.MSG_QUESTION_NEEDS_CORRECT;
 import static com.ksh.common.IConstant.MSG_QUESTION_NEEDS_OPTIONS;
+import static com.ksh.common.IConstant.MSG_QUESTION_POINTS_INVALID;
+import static com.ksh.common.IConstant.MSG_QUESTION_TYPE_INVALID;
 
 /**
  * Validates a lecturer exam form before any persistence. Rules: title + class
@@ -50,6 +56,10 @@ public final class ExamFormValidator {
             Test.STATUS_DRAFT, Test.STATUS_PUBLISHED, Test.STATUS_ARCHIVED);
     private static final Set<String> ALLOWED_TIME_MODES = Set.of(
             Test.TIME_MODE_FIXED_WINDOW, Test.TIME_MODE_INDIVIDUAL);
+    private static final Set<String> ALLOWED_QUESTION_TYPES = Set.of(
+            Question.TYPE_MCQ, Question.TYPE_MR);
+    private static final BigDecimal MAX_DECIMAL_5_2 = new BigDecimal("999.99");
+    private static final BigDecimal MAX_ATTEMPT_TOTAL = new BigDecimal("9999.99");
 
     private ExamFormValidator() {
         // utility holder
@@ -59,6 +69,9 @@ public final class ExamFormValidator {
     public static void validate(ExamForm form) {
         if (isBlank(form.title())) {
             throw new IllegalArgumentException(MSG_EXAM_TITLE_BLANK);
+        }
+        if (form.title().trim().length() > 300) {
+            throw new IllegalArgumentException(MSG_EXAM_TITLE_TOO_LONG);
         }
         if (form.classId() == null) {
             throw new IllegalArgumentException(MSG_EXAM_NEEDS_CLASS);
@@ -78,9 +91,15 @@ public final class ExamFormValidator {
         if (questions.isEmpty() && !Test.STATUS_DRAFT.equals(form.status())) {
             throw new IllegalArgumentException(MSG_EXAM_NEEDS_QUESTIONS);
         }
+        BigDecimal totalPoints = BigDecimal.ZERO;
         for (QuestionForm q : questions) {
             validateQuestion(q);
+            totalPoints = totalPoints.add(q.points());
+            if (totalPoints.compareTo(MAX_ATTEMPT_TOTAL) > 0) {
+                throw new IllegalArgumentException(MSG_EXAM_TOTAL_POINTS_INVALID);
+            }
         }
+        validatePassingScore(form.passingScore(), questions, totalPoints);
     }
 
     private static void validateTiming(ExamForm form) {
@@ -136,6 +155,12 @@ public final class ExamFormValidator {
     private static final int MAX_HTML_CHARS = 200_000;
 
     private static void validateQuestion(QuestionForm q) {
+        if (q == null || !ALLOWED_QUESTION_TYPES.contains(q.type())) {
+            throw new IllegalArgumentException(MSG_QUESTION_TYPE_INVALID);
+        }
+        if (!validQuestionPoints(q.points())) {
+            throw new IllegalArgumentException(MSG_QUESTION_POINTS_INVALID);
+        }
         if (isBlank(plainText(q.content()))) {
             throw new IllegalArgumentException(MSG_QUESTION_CONTENT_BLANK);
         }
@@ -162,6 +187,30 @@ public final class ExamFormValidator {
         if (Question.TYPE_MCQ.equals(q.type()) && correct != 1) {
             throw new IllegalArgumentException(MSG_MCQ_ONE_CORRECT);
         }
+    }
+
+    private static void validatePassingScore(BigDecimal passingScore,
+                                             List<QuestionForm> questions,
+                                             BigDecimal totalPoints) {
+        if (passingScore == null) return;
+        boolean invalid = passingScore.signum() < 0
+                || passingScore.compareTo(MAX_DECIMAL_5_2) > 0
+                || decimalPlaces(passingScore) > 2
+                || (!questions.isEmpty() && passingScore.compareTo(totalPoints) > 0);
+        if (invalid) {
+            throw new IllegalArgumentException(MSG_EXAM_PASSING_SCORE_INVALID);
+        }
+    }
+
+    private static boolean validQuestionPoints(BigDecimal points) {
+        return points != null
+                && points.signum() > 0
+                && points.compareTo(MAX_DECIMAL_5_2) <= 0
+                && decimalPlaces(points) <= 2;
+    }
+
+    private static int decimalPlaces(BigDecimal value) {
+        return Math.max(0, value.stripTrailingZeros().scale());
     }
 
     private static boolean isBlank(String s) {

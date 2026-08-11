@@ -45,6 +45,14 @@
         return { answers: answers };
     }
 
+    function countUnanswered(form) {
+        var unanswered = 0;
+        form.querySelectorAll('.tk-question').forEach(function (question) {
+            if (!question.querySelector('.tk-option-input:checked')) unanswered += 1;
+        });
+        return unanswered;
+    }
+
     /**
      * Wires the left-rail navigator + prev/next for a question list.
      * Works for both the live take form and the lecturer preview shell.
@@ -167,6 +175,11 @@
 
         form.addEventListener('submit', function (e) {
             e.preventDefault();
+            var unanswered = countUnanswered(form);
+            if (unanswered > 0 && !window.confirm(
+                'Bạn còn ' + unanswered + ' câu chưa trả lời. Bạn vẫn muốn nộp bài?')) {
+                return;
+            }
             doSubmit();
         });
 
@@ -191,6 +204,8 @@
                     if (tick) clearInterval(tick);
                     if (!submitting) {
                         toast('info', 'Hết giờ — bài của bạn đang được nộp tự động.');
+                        // Deadline submission is authoritative and must never be
+                        // blocked behind a confirmation dialog.
                         doSubmit();
                     }
                 }

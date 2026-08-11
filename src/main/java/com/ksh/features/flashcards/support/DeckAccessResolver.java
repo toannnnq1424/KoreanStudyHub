@@ -1,6 +1,7 @@
 package com.ksh.features.flashcards.support;
 
 import com.ksh.entities.Enrollment;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
 import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
@@ -41,11 +42,14 @@ public class DeckAccessResolver {
 
     private final FlashcardDeckRepository deckRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final ClassRepository classRepository;
 
     public DeckAccessResolver(FlashcardDeckRepository deckRepository,
-                              EnrollmentRepository enrollmentRepository) {
+                              EnrollmentRepository enrollmentRepository,
+                              ClassRepository classRepository) {
         this.deckRepository = deckRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.classRepository = classRepository;
     }
 
     /**
@@ -102,6 +106,10 @@ public class DeckAccessResolver {
         if (!deck.isShared() || deck.getClassId() == null) {
             return false;
         }
+        boolean liveClass = classRepository.findById(deck.getClassId())
+                .filter(clazz -> !clazz.isDeleted())
+                .isPresent();
+        if (!liveClass) return false;
         return enrollmentRepository.findByUserIdAndClassId(userId, deck.getClassId())
                 .map(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
                 .orElse(false);

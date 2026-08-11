@@ -34,6 +34,111 @@
   background: var(--ux-primary-hover);
 }
 
+/* Test authoring --------------------------------------------------------- */
+.ux-test-authoring .class-detail-layout {
+  min-height: calc(100vh - 74px);
+  background: var(--ux-bg);
+}
+
+.ux-test-authoring .lf-page {
+  width: 100%;
+  max-width: 1120px;
+}
+
+.ux-test-authoring .class-detail-layout:not(.lf-no-sidebar) .lf-page {
+  max-width: none;
+}
+
+.ux-test-authoring :is(.lf-bar, .detail-toolbar) {
+  min-height: 58px;
+  margin: 0 0 22px;
+  padding: 0 4px 14px;
+  border-bottom: 1px solid var(--ux-line);
+  background: transparent;
+}
+
+.ux-test-authoring #lfForm {
+  overflow: hidden;
+  border: 1px solid var(--ux-line);
+  border-radius: 16px;
+  background: var(--ux-surface);
+  box-shadow: var(--ux-shadow);
+}
+
+.ux-test-authoring #lfForm > .lf-bar {
+  margin: 0;
+  padding: 16px 22px;
+  background: #f8fafc;
+}
+
+.ux-test-authoring .lf-panel {
+  margin: 0;
+  padding: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ux-test-authoring .lf-panel + .lf-panel {
+  border-top: 1px solid var(--ux-line-soft);
+}
+
+.ux-test-authoring .lf-mode-card {
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.ux-test-authoring .lf-question {
+  border-color: var(--ux-line-soft);
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+@media (max-width: 760px) {
+  .ux-test-authoring .class-detail-layout:not(.lf-no-sidebar) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ux-test-authoring .class-detail-layout:not(.lf-no-sidebar) > aside.col {
+    display: none;
+  }
+
+  .ux-test-authoring .lf-bar {
+    gap: 12px;
+  }
+
+  .ux-test-authoring .lf-bar .lf-title {
+    min-width: 0;
+    flex: 1;
+    font-size: 18px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .ux-test-authoring .lf-bar {
+    gap: 12px;
+  }
+
+  .ux-test-authoring .lf-bar .lf-title {
+    min-width: 0;
+    flex: 1;
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .ux-test-authoring .class-detail-layout:not(.lf-no-sidebar) .lf-page,
+  .ux-test-authoring .lf-page {
+    padding: 20px 14px 44px;
+  }
+
+  .ux-test-authoring #lfForm {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 /* Lecturer test catalog --------------------------------------------------- */
 .ux-test-catalog .tst-page {
   max-width: 1180px;
@@ -327,12 +432,28 @@
 }
 
 /* Result and answer review ---------------------------------------------- */
+.ux-test-result .rs-shell {
+  min-height: calc(100vh - 74px);
+  background: var(--ux-bg);
+}
+
+.ux-test-result .rs-shell.has-class-sidebar {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
 .ux-test-result .rs-page {
   display: grid;
   place-items: start center;
   min-height: calc(100vh - 74px);
   max-width: 760px;
   padding-top: clamp(54px, 9vh, 110px);
+}
+
+.ux-test-result .rs-shell.has-class-sidebar .rs-page {
+  align-self: start;
+  width: min(760px, calc(100% - 40px));
+  margin: 0 auto;
 }
 
 .ux-test-result .rs-card {
@@ -506,6 +627,30 @@
 }
 
 @media (max-width: 900px) {
+  .ux-test-result .rs-shell.has-class-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .ux-test-result .rs-shell.has-class-sidebar > .student-lessons-sidebar {
+    display: none;
+  }
+
+  .ux-test-review .class-detail-layout:not(.rv-no-sidebar) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ux-test-review .class-detail-layout:not(.rv-no-sidebar) > .student-lessons-sidebar {
+    display: none;
+  }
+
+  .ux-test-review .class-detail-layout:not(.rv-no-sidebar) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ux-test-review .class-detail-layout:not(.rv-no-sidebar) > .student-lessons-sidebar {
+    display: none;
+  }
+
   .ux-class-progress .pg-cards,
   .ux-test-detail .td-grid,
   .ux-leader-dashboard .leader-kpi-grid {

@@ -49,7 +49,62 @@ class StudentTestFlowUiContractTest {
         assertThat(script)
                 .contains("deadline - Date.now()")
                 .contains("if (submitting) return;")
+                .contains("function countUnanswered(form)")
+                .contains("Bạn còn ' + unanswered + ' câu chưa trả lời")
+                .contains("if (unanswered > 0 && !window.confirm(")
+                .contains("Deadline submission is authoritative")
                 .contains("Hết giờ — bài của bạn đang được nộp tự động.");
+        assertThat(script.indexOf("if (unanswered > 0 && !window.confirm("))
+                .isLessThan(script.indexOf("// Recompute from the absolute server deadline"));
+        String deadlineFlow = script.substring(
+                script.indexOf("// Recompute from the absolute server deadline"));
+        assertThat(deadlineFlow)
+                .contains("if (!submitting)", "doSubmit();")
+                .doesNotContain("window.confirm");
+    }
+
+    @Test
+    void result_and_review_gate_optional_sidebar_before_fragment_evaluation() throws IOException {
+        String result = read("src/main/resources/templates/tests/result.html");
+        String review = read("src/main/resources/templates/tests/review.html");
+
+        assertThat(result)
+                .contains("<th:block th:if=\"${view != null}\">")
+                .doesNotContain("<div th:if=\"${view != null}\"\n       th:replace=");
+        assertThat(review)
+                .contains("<th:block th:if=\"${!review.lecturerView() and view != null}\">")
+                .doesNotContain("<div th:if=\"${!review.lecturerView() and view != null}\"\n       th:replace=");
+    }
+
+    @Test
+    void result_and_review_present_a_responsive_accessible_analysis() throws IOException {
+        String result = read("src/main/resources/templates/tests/result.html");
+        String review = read("src/main/resources/templates/tests/review.html");
+        String styles = read("src/main/resources/static/css/test-result.css");
+
+        assertThat(result)
+                .contains("class=\"rs-score-ring\"")
+                .contains("result.scorePercent()")
+                .contains("class=\"rs-metrics\"")
+                .contains("class=\"rs-next\"")
+                .contains("role=\"progressbar\"")
+                .doesNotContain("experience-polish.css");
+        assertThat(review)
+                .contains("class=\"rv-summary\"")
+                .contains("!q.answered()")
+                .contains("class=\"rv-option-tags\"")
+                .contains("Giải thích đáp án")
+                .contains("Quay lại kết quả")
+                .contains("th:utext=\"${q.explanation()}\"")
+                .doesNotContain("experience-polish.css");
+        assertThat(styles)
+                .contains(".rv-question.is-unanswered")
+                .contains(".rv-option.is-wrong-selection")
+                .contains("overflow-wrap: anywhere")
+                .contains(":focus-visible")
+                .contains("@media (max-width: 900px)")
+                .contains("@media (max-width: 540px)")
+                .contains("@media (prefers-reduced-motion: reduce)");
     }
 
     private static String read(String path) throws IOException {

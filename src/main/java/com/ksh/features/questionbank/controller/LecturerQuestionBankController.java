@@ -63,10 +63,11 @@ public class LecturerQuestionBankController {
                        @RequestParam(name = "size", defaultValue = "25") int size,
                        @AuthenticationPrincipal KshUserDetails user,
                        Model model) {
+        String effectiveStatus = normalizeStatus(status);
         boolean emptyDepartment = !itemService.hasSubject(user.getId(), user.getRole());
         model.addAttribute(ATTR_QB_EMPTY_DEPARTMENT, emptyDepartment);
         model.addAttribute("subjectOptions", itemService.subjectOptions(user.getId(), user.getRole()));
-        model.addAttribute(ATTR_QB_SELECTED_STATUS, status);
+        model.addAttribute(ATTR_QB_SELECTED_STATUS, effectiveStatus);
         model.addAttribute(ATTR_QB_QUERY, q);
         if (emptyDepartment) {
             model.addAttribute("catalogMode", true);
@@ -92,11 +93,22 @@ public class LecturerQuestionBankController {
         model.addAttribute("generatorClasses", generationService.eligibleClasses(
                 user.getId(), user.getRole(), selectedSubjectId));
         var itemPage = itemService.page(user.getId(), user.getRole(), selectedSubjectId,
-                status, q, page, size);
+                effectiveStatus, q, page, size);
         model.addAttribute("itemPage", itemPage);
         model.addAttribute(ATTR_QB_ITEMS,
                 itemPage.getContent());
         return VIEW_QB_LIST;
+    }
+
+    private static String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return "ALL";
+        }
+        String normalized = status.trim().toUpperCase(java.util.Locale.ROOT);
+        return switch (normalized) {
+            case "DRAFT", "REVIEW", "APPROVED", "REJECTED", "ARCHIVED" -> normalized;
+            default -> "ALL";
+        };
     }
 
     @GetMapping("/new")

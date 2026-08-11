@@ -51,6 +51,9 @@ class LibraryLearningFlowContractTest {
                 "data-inline-edit",
                 "library-drag-handle",
                 "clazz.alreadyDistributed()",
+                "data-library-share",
+                "libraryDistribution\" class=\"library-subject-distribution library-subject-distribution--flat is-hidden",
+                "library-distribution-close",
                 "/js/library-inline.js")
                 .doesNotContain("library-distribute-form", "<select multiple");
         assertThat(form).contains(
@@ -62,7 +65,10 @@ class LibraryLearningFlowContractTest {
                 "name=\"materialAssetIds\"",
                 "data-library-file-dropzone",
                 "Kéo thả file vào đây",
-                "multiple");
+                "multiple",
+                "data-library-cancel-url",
+                "quill@2.0.3/dist/quill.js",
+                "/js/library-inline.js");
         String inlineScript = readResource("static/js/library-inline.js");
         assertThat(inlineScript).contains(
                 "new DataTransfer()",
@@ -70,7 +76,20 @@ class LibraryLearningFlowContractTest {
                 "uploadForm(form",
                 "data-library-file-list",
                 "library-selected-file-remove",
-                "chapterNumbers");
+                "chapterNumbers",
+                "editorRequestSequence",
+                "new window.AbortController()",
+                "requestId !== editorRequestSequence",
+                "cancelEditorRequest()",
+                "setDistributionOpen",
+                "aria-expanded",
+                "library-distribution-close",
+                "message.textContent = error.message",
+                "form.dataset.libraryEditorReady",
+                "const inlineDialogForm = Boolean(dialog && dialog.contains(form))",
+                "if (!inlineDialogForm)",
+                "window.location.assign(cancelUrl",
+                "acceptFiles(form, event.dataTransfer.files)");
         assertThat(index + form).doesNotContain(
                 "libraryAttachWizard",
                 "attach-to-class",

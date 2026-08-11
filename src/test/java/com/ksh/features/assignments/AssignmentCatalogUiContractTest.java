@@ -53,6 +53,7 @@ class AssignmentCatalogUiContractTest {
     @Test
     void catalog_script_filters_sorts_and_updates_lecturer_detail_actions() throws IOException {
         String script = Files.readString(STATIC.resolve("js/assignments.js"));
+        String css = Files.readString(STATIC.resolve("css/assignments.css"));
 
         assertThat(script).contains(
                 "data-assignment-status-shortcut",
@@ -61,6 +62,12 @@ class AssignmentCatalogUiContractTest {
                 "data-detail-edit-link",
                 "data-detail-publish-form",
                 "data-detail-close-form",
-                "setDetail(rows.find");
+                "syncVisibleSelection()",
+                "const firstVisible = rows.find((row) => !row.hidden)",
+                "detail.hidden = true",
+                "status.dispatchEvent(new Event('change', { bubbles: true }))");
+        assertThat(css)
+                .contains("@media(max-width:620px)", ".asgn-catalog-toolbar select{min-height:42px}")
+                .doesNotContain(".asgn-catalog-toolbar select{display:none}");
     }
 }

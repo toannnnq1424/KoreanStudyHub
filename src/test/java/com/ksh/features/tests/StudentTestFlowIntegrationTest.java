@@ -13,6 +13,7 @@ import com.ksh.features.tests.dto.TestDtos.SubmitRequest;
 import com.ksh.features.tests.dto.TestDtos.TakeView;
 import com.ksh.features.tests.entity.Question;
 import com.ksh.features.tests.entity.QuestionOption;
+import com.ksh.features.tests.entity.TestAttempt;
 import com.ksh.features.tests.repository.QuestionOptionRepository;
 import com.ksh.features.tests.repository.QuestionRepository;
 import com.ksh.features.tests.repository.TestAttemptRepository;
@@ -154,7 +155,7 @@ class StudentTestFlowIntegrationTest {
 
     @Test
     @WithUserDetails(STUDENT)
-    void late_submit_is_timed_out_but_graded() throws Exception {
+    void late_submit_is_timed_out_and_payload_cannot_earn_points() throws Exception {
         Long attemptId = openAttempt(lateExamId);
         com.ksh.features.tests.entity.Test exam =
                 testRepository.findById(lateExamId).orElseThrow();
@@ -167,6 +168,10 @@ class StudentTestFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true))
                 .andExpect(jsonPath("$.data.status").value("TIMED_OUT"));
+
+        TestAttempt timedOut = attemptRepository.findById(attemptId).orElseThrow();
+        assertEquals(0, timedOut.getScore().compareTo(java.math.BigDecimal.ZERO));
+        assertEquals(0, timedOut.getCorrectCount());
     }
 
     @Test

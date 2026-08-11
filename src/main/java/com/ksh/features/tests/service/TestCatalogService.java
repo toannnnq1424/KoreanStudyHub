@@ -1,5 +1,6 @@
 package com.ksh.features.tests.service;
 
+import com.ksh.common.HtmlSanitizer;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
@@ -46,6 +47,7 @@ public class TestCatalogService {
     private final UserRepository userRepository;
     private final TestAccessResolver accessResolver;
     private final DepartmentRepository subjectRepository;
+    private final TestAttemptService attemptLifecycle;
 
     public TestCatalogService(TestAccessQueries accessQueries,
                               TestAttemptRepository attemptRepository,
@@ -54,7 +56,8 @@ public class TestCatalogService {
                               EnrollmentRepository enrollmentRepository,
                               UserRepository userRepository,
                               TestAccessResolver accessResolver,
-                              DepartmentRepository subjectRepository) {
+                              DepartmentRepository subjectRepository,
+                              TestAttemptService attemptLifecycle) {
         this.accessQueries = accessQueries;
         this.attemptRepository = attemptRepository;
         this.classRepository = classRepository;
@@ -63,6 +66,7 @@ public class TestCatalogService {
         this.userRepository = userRepository;
         this.accessResolver = accessResolver;
         this.subjectRepository = subjectRepository;
+        this.attemptLifecycle = attemptLifecycle;
     }
 
     /**
@@ -130,7 +134,7 @@ public class TestCatalogService {
      * Loads the class-exam landing page without creating an attempt. The
      * student starts the timer only after explicitly submitting the start form.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public StudentTestDetail detailForStudent(Long testId, Long userId) {
         Test test = accessResolver.requireViewable(testId, userId);
         List<TestAttempt> attempts =
@@ -138,6 +142,17 @@ public class TestCatalogService {
         TestAttempt open = attempts.stream().filter(TestAttempt::isInProgress).findFirst().orElse(null);
         TestAttempt completed = attempts.stream().filter(a -> !a.isInProgress()).findFirst().orElse(null);
         boolean singleAttemptCompleted = !test.isPractice() && completed != null;
+        if (!singleAttemptCompleted && open != null) {
+            TestAttempt refreshed = attemptLifecycle.lockAndFinalizeExpiredAttempt(
+                    test, open.getId(), userId);
+            if (!refreshed.isInProgress()) {
+                completed = refreshed;
+                open = null;
+                singleAttemptCompleted = !test.isPractice();
+            } else {
+                open = refreshed;
+            }
+        }
         LocalDateTime now = LocalDateTime.now();
 
         String availability;
@@ -170,7 +185,7 @@ public class TestCatalogService {
         String className = test.getClassId() == null ? null
                 : classRepository.findById(test.getClassId()).map(ClassEntity::getName).orElse(null);
         return new StudentTestDetail(
-                test.getId(), test.getTitle(), test.getDescription(),
+                test.getId(), test.getTitle(), sanitizeOptional(test.getDescription()),
                 test.getClassId(), className, test.getType(), test.getTimeMode(),
                 test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getTotalQuestions() == null ? 0 : test.getTotalQuestions(),
@@ -179,6 +194,12 @@ public class TestCatalogService {
                 shownAttempt == null ? null : shownAttempt.getStatus(),
                 singleAttemptCompleted ? scorePercent(completed) : null,
                 canStart, canResume, singleAttemptCompleted);
+    }
+
+    private static String sanitizeOptional(String value) {
+        if (value == null) return null;
+        String sanitized = HtmlSanitizer.sanitize(value).trim();
+        return sanitized.isEmpty() ? null : sanitized;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

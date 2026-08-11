@@ -46,7 +46,7 @@ public class LeaderClassApprovalService {
         for (Department subject : subjects) {
             subjectCodes.put(subject.getId(), subject.getCode());
             pending.addAll(classRepository.findAllBySubjectIdAndStatusOrderByCreatedAtDesc(
-                    subject.getId(), ClassEntity.STATUS_DRAFT));
+                    subject.getId(), ClassEntity.STATUS_PENDING));
         }
         pending.sort((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()));
         Map<Long, String> names = new HashMap<>();

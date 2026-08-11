@@ -1,17 +1,19 @@
 package com.ksh.features.admin.users.service;
 
-import com.ksh.entities.ClassEntity;
+import com.ksh.common.TransactionLifecycle;
 import com.ksh.entities.User;
 import com.ksh.entities.UserActivity;
 import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.admin.departments.service.DepartmentService;
 import com.ksh.features.admin.departments.service.DepartmentValidationException;
+import com.ksh.features.admin.permissions.service.PermissionResolver;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.CreateUserForm;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
+import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
 import com.ksh.utils.StringUtils;
 import jakarta.persistence.EntityNotFoundException;
@@ -30,8 +32,8 @@ import java.util.Objects;
  *
  * <p>Pulled out of the original {@code AdminUsersService} during the C.2
  * structural split. Handles persistence + audit for new-user creation and
- * admin-editable field updates (including role changes and demote
- * warnings). Last-active-admin / self-role-change guards are delegated to
+ * admin-editable field updates (including allowed role changes).
+ * Last-active-admin / self-role-change guards are delegated to
  * {@link AdminUsersGuard}; audit writes funnel through
  * {@link AdminUsersAuditWriter}.
  *
@@ -47,24 +49,30 @@ public class AdminUsersWriteService {
     private final PasswordEncoder passwordEncoder;
     private final AdminUsersGuard guard;
     private final AdminUsersAuditWriter auditWriter;
-    private final ClassRepository classRepository;
     private final DepartmentRepository departmentRepository;
     private final SystemSettingsRepository systemSettingsRepository;
+    private final SessionRevocationService sessionRevocationService;
+    private final CredentialRotationService credentialRotationService;
+    private final PermissionResolver permissionResolver;
 
     public AdminUsersWriteService(UserRepository userRepository,
                                   PasswordEncoder passwordEncoder,
                                   AdminUsersGuard guard,
                                   AdminUsersAuditWriter auditWriter,
-                                  ClassRepository classRepository,
                                   DepartmentRepository departmentRepository,
-                                  SystemSettingsRepository systemSettingsRepository) {
+                                  SystemSettingsRepository systemSettingsRepository,
+                                  SessionRevocationService sessionRevocationService,
+                                  CredentialRotationService credentialRotationService,
+                                  PermissionResolver permissionResolver) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.guard = guard;
         this.auditWriter = auditWriter;
-        this.classRepository = classRepository;
         this.departmentRepository = departmentRepository;
         this.systemSettingsRepository = systemSettingsRepository;
+        this.sessionRevocationService = sessionRevocationService;
+        this.credentialRotationService = credentialRotationService;
+        this.permissionResolver = permissionResolver;
     }
 
     /**
@@ -74,6 +82,7 @@ public class AdminUsersWriteService {
      */
     @Transactional
     public User create(CreateUserForm form, Long actingUserId) {
+        requireValidPassword(form.password(), "Mật khẩu tạm thời");
         String email = normalizeEmail(form.email());
         userRepository.findFirstByEmailIgnoreCase(email).ifPresent(u -> {
             throw new EmailAlreadyUsedException(email);
@@ -96,11 +105,7 @@ public class AdminUsersWriteService {
         return saved;
     }
 
-    /**
-     * Updates the admin-editable fields of a user. Returns a list of warning
-     * messages: empty when no warning applies, otherwise a single message
-     * describing the demote-impact on owned classes.
-     */
+    /** Updates the admin-editable fields of a user. */
     @Transactional
     public List<String> update(Long id, EditUserForm form, Long actingUserId) {
         lockLeaderAssignmentAnchor();
@@ -119,6 +124,11 @@ public class AdminUsersWriteService {
         // guard's own short-circuit handles it.
         guard.requireRoleNotDemotingLastAdmin(target, form.role());
 
+        // Validate the general account-category invariant only after the more
+        // specific security guards above. Self/last-admin attempts must remain
+        // hard 403 denials instead of being downgraded to a form validation 200.
+        guard.requireAllowedRoleTransition(target.getRole(), form.role());
+
         String newEmail = normalizeEmail(form.email());
         userRepository.findFirstByEmailIgnoreCaseAndIdNot(newEmail, target.getId())
                 .ifPresent(other -> {
@@ -128,6 +138,8 @@ public class AdminUsersWriteService {
         Map<String, Object> oldState = snapshot(target);
 
         Role oldRole = target.getRole();
+        String oldEmail = target.getEmail();
+        Long oldSubjectId = target.getSubjectId();
         target.updateAdminFields(
                 newEmail,
                 form.fullName(),
@@ -158,21 +170,21 @@ public class AdminUsersWriteService {
                     auditWriter.serialize(rolePayload), actingUserId);
         }
 
-        // Demote warning: if the user was LECTURER or LEADER and is now STUDENT,
-        // surface affected classes so the admin can reassign them later.
-        if ((oldRole == Role.LECTURER || oldRole == Role.LEADER)
-                && saved.getRole() == Role.STUDENT) {
-            List<ClassEntity> owned = classRepository.findAllByLecturerId(saved.getId());
-            if (!owned.isEmpty()) {
-                String classList = owned.stream()
-                        .map(ClassEntity::getName)
-                        .reduce((a, b) -> a + ", " + b)
-                        .orElse("");
-                return List.of(
-                        "Người dùng đang là giảng viên của " + owned.size()
-                                + " lớp: " + classList
-                                + ". Vui lòng phân công lại giảng viên.");
-            }
+        if (!Objects.equals(oldEmail, saved.getEmail())
+                || oldRole != saved.getRole()
+                || !Objects.equals(oldSubjectId, saved.getSubjectId())) {
+            Long changedUserId = saved.getId();
+            boolean roleChanged = oldRole != saved.getRole();
+            TransactionLifecycle.afterCommit(() -> {
+                if (roleChanged) {
+                    permissionResolver.evictUser(changedUserId);
+                }
+                sessionRevocationService.revokeAllSessions(changedUserId);
+            });
+        }
+
+        if (!Objects.equals(oldEmail, saved.getEmail())) {
+            credentialRotationService.invalidateRecoveryTokens(saved.getId());
         }
 
         return List.of();
@@ -183,6 +195,15 @@ public class AdminUsersWriteService {
     private static String normalizeEmail(String raw) {
         if (raw == null) return null;
         return raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static void requireValidPassword(String password, String fieldName) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " không được để trống");
+        }
+        if (password.length() < 6 || password.length() > 64) {
+            throw new IllegalArgumentException(fieldName + " phải có từ 6 đến 64 ký tự");
+        }
     }
 
     /**

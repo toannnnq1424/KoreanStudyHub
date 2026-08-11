@@ -29,6 +29,24 @@ class NonPracticeLearningFlowMigrationContractTest {
     }
 
     @Test
+    void class_approval_uses_only_pending_rejected_active_and_archived() throws IOException {
+        String migration = read("V124__class_four_state_approval_lifecycle.sql");
+        String entity = Files.readString(Path.of("src/main/java/com/ksh/entities/ClassEntity.java"));
+        String approvalService = Files.readString(Path.of(
+                "src/main/java/com/ksh/features/leader/service/LeaderClassApprovalService.java"));
+
+        assertThat(migration).contains(
+                "CHECK (status IN ('PENDING','REJECTED','ACTIVE','ARCHIVED'))",
+                "DEFAULT 'PENDING'",
+                "WHEN status = 'DRAFT'");
+        assertThat(entity).contains(
+                "STATUS_PENDING", "STATUS_REJECTED", "STATUS_ACTIVE", "STATUS_ARCHIVED",
+                "resubmitForReview()")
+                .doesNotContain("STATUS_DRAFT", "STATUS_UPCOMING", "STATUS_COMPLETED", "STATUS_CANCELLED");
+        assertThat(approvalService).contains("ClassEntity.STATUS_PENDING");
+    }
+
+    @Test
     void compaction_adds_only_the_approved_co_lecturer_table() throws IOException {
         List<String> files = List.of(
                 "V88__subject_catalog_and_class_lifecycle.sql",

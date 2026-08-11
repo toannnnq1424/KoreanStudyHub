@@ -12,6 +12,7 @@ import com.ksh.features.admin.permissions.dto.PermissionDtos.OverrideRow;
 import com.ksh.features.admin.permissions.repository.PermissionRepository;
 import com.ksh.features.admin.permissions.repository.UserPermissionOverrideRepository;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,18 +51,24 @@ public class PermissionOverrideService {
     private final PermissionRepository permissionRepository;
     private final UserRepository userRepository;
     private final PermissionAuditWriter auditWriter;
+    private final AdminPermissionsGuard permissionsGuard;
     private final PermissionResolver permissionResolver;
+    private final SessionRevocationService sessionRevocationService;
 
     public PermissionOverrideService(UserPermissionOverrideRepository overrideRepository,
                                      PermissionRepository permissionRepository,
                                      UserRepository userRepository,
                                      PermissionAuditWriter auditWriter,
-                                     PermissionResolver permissionResolver) {
+                                     AdminPermissionsGuard permissionsGuard,
+                                     PermissionResolver permissionResolver,
+                                     SessionRevocationService sessionRevocationService) {
         this.overrideRepository = overrideRepository;
         this.permissionRepository = permissionRepository;
         this.userRepository = userRepository;
         this.auditWriter = auditWriter;
+        this.permissionsGuard = permissionsGuard;
         this.permissionResolver = permissionResolver;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     /**
@@ -134,7 +141,12 @@ public class PermissionOverrideService {
     public void createOrReplace(OverrideForm form, Long actorId) {
         validate(form);
         Permission permission = requirePermission(form.featureKey());
-        lockUser(form.userId());
+        User target = lockUser(form.userId());
+        if (UserPermissionOverride.TYPE_REVOKE.equals(form.overrideType())) {
+            String targetRole = target.getRole() == null ? null : target.getRole().name();
+            permissionsGuard.checkDetachAllowed(targetRole, permission);
+        }
+        target.invalidateAuthenticatedAccess();
 
         Optional<UserPermissionOverride> existing =
                 overrideRepository.findByUserIdAndPermissionId(form.userId(), permission.getId());
@@ -153,7 +165,10 @@ public class PermissionOverrideService {
 
         auditWriter.writeOverrideChange(auditType, form.userId(), form.featureKey(),
                 form.overrideType(), form.reason(), actorId);
-        TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser(form.userId()));
+        TransactionLifecycle.afterCommit(() -> {
+            permissionResolver.evictUser(form.userId());
+            sessionRevocationService.revokeAllSessions(target.getId());
+        });
     }
 
     /**
@@ -166,17 +181,21 @@ public class PermissionOverrideService {
     public void deactivate(Long overrideId, Long actorId) {
         Long targetUserId = overrideRepository.findUserIdById(overrideId)
                 .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_OVERRIDE));
-        lockUser(targetUserId);
+        User target = lockUser(targetUserId);
         UserPermissionOverride override = overrideRepository.findById(overrideId)
                 .orElseThrow(() -> new NoSuchElementException(MSG_UNKNOWN_OVERRIDE));
         override.deactivate();
+        target.invalidateAuthenticatedAccess();
 
         String featureKey = permissionRepository.findById(override.getPermissionId())
                 .map(Permission::getFeatureKey)
                 .orElse(null);
         auditWriter.writeOverrideChange(PermissionActivity.TYPE_OVERRIDE_DEACTIVATED,
                 override.getUserId(), featureKey, null, override.getReason(), actorId);
-        TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser(override.getUserId()));
+        TransactionLifecycle.afterCommit(() -> {
+            permissionResolver.evictUser(override.getUserId());
+            sessionRevocationService.revokeAllSessions(target.getId());
+        });
     }
 
     /** Rejects a blank reason and any type outside {GRANT, REVOKE}. */

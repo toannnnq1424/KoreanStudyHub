@@ -85,7 +85,7 @@ class QuestionBankTestGenerationServiceTest {
         when(subjectRepository.findById(SUBJECT_ID)).thenReturn(Optional.of(activeSubject()));
         when(testAccessResolver.manageableClasses(USER_ID, Role.LECTURER)).thenReturn(List.of(
                 classroom(1L, SUBJECT_ID, ClassEntity.STATUS_ACTIVE, "Lớp hợp lệ"),
-                classroom(2L, SUBJECT_ID, ClassEntity.STATUS_DRAFT, "Lớp nháp"),
+                classroom(2L, SUBJECT_ID, ClassEntity.STATUS_PENDING, "Lớp chờ duyệt"),
                 classroom(3L, 99L, ClassEntity.STATUS_ACTIVE, "Sai mã môn")
         ));
 

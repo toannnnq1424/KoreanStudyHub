@@ -250,6 +250,10 @@ public class TestAccessResolver {
 
     private boolean isActiveEnrolled(Long userId, Long classId) {
         if (classId == null) return false;
+        boolean liveClass = classRepository.findById(classId)
+                .filter(clazz -> !clazz.isDeleted())
+                .isPresent();
+        if (!liveClass) return false;
         return enrollmentRepository.findByUserIdAndClassId(userId, classId)
                 .map(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
                 .orElse(false);

@@ -208,6 +208,24 @@ class LessonAttachmentsServiceTest {
     }
 
     @Test
+    void download_blocked_after_parent_class_is_deleted() throws Exception {
+        LessonAttachmentRow row = attachmentsService.upload(
+                clazz.getId(), section.getId(), lessonId, somePdf(),
+                lecturer.getId(), Role.LECTURER);
+        publishService.publish(clazz.getId(), section.getId(), lessonId,
+                lecturer.getId(), Role.LECTURER);
+        enrollStudent();
+
+        clazz.softDelete();
+        classRepository.saveAndFlush(clazz);
+        entityManager.clear();
+
+        assertThatThrownBy(() -> attachmentsService.download(
+                lessonId, row.id(), student.getId(), Role.STUDENT))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void download_blocked_for_non_enrolled_student_even_when_published() throws Exception {
         LessonAttachmentRow row = attachmentsService.upload(
                 clazz.getId(), section.getId(), lessonId, somePdf(),

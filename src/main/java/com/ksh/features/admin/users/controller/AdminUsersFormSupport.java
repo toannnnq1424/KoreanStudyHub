@@ -43,12 +43,26 @@ class AdminUsersFormSupport {
      * both the Create and Edit flows.
      */
     void populateFormModel(Model model, String mode, Long userId) {
+        populateFormModel(model, mode, userId, null);
+    }
+
+    void populateFormModel(Model model, String mode, Long userId, Role currentRole) {
         model.addAttribute(ATTR_MODE, mode);
         model.addAttribute(ATTR_FORM_ACTION,
                 MODE_CREATE.equals(mode) ? URL_BASE : userUrl(userId));
-        model.addAttribute(ATTR_ROLES, Role.values());
+        model.addAttribute(ATTR_ROLES, editableRoles(mode, currentRole));
         List<DepartmentOption> departments = departmentQueryService.options();
         model.addAttribute(ATTR_DEPARTMENTS, departments);
         model.addAttribute(ATTR_ACTIVE_TAB, TAB_USERS);
+    }
+
+    private static List<Role> editableRoles(String mode, Role currentRole) {
+        if (MODE_CREATE.equals(mode) || currentRole == null) {
+            return List.of(Role.STUDENT, Role.LECTURER, Role.ADMIN);
+        }
+        if (currentRole == Role.LECTURER || currentRole == Role.LEADER) {
+            return List.of(Role.LECTURER, Role.LEADER);
+        }
+        return List.of(currentRole);
     }
 }

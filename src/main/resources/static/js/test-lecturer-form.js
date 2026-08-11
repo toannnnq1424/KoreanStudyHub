@@ -11,6 +11,15 @@
 (function () {
     'use strict';
 
+    var bankSearchSequence = 0;
+    var bankSearchController = null;
+
+    function cancelBankSearch() {
+        bankSearchSequence += 1;
+        if (bankSearchController) bankSearchController.abort();
+        bankSearchController = null;
+    }
+
     function ready(fn) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', fn);
@@ -51,8 +60,13 @@
 
     function mount() {
         var form = document.getElementById('lfForm');
-        if (!form) return;
+        if (!form) {
+            cancelBankSearch();
+            return;
+        }
         if (form.dataset.lfMounted === '1') return;
+        // A pending search belongs to the previous AJAX panel, if any.
+        cancelBankSearch();
         form.dataset.lfMounted = '1';
 
         window.LfQuill.waitForQuill(function () {
@@ -162,6 +176,19 @@
             return form.dataset.questionBankLocked === '1';
         }
 
+        function applyImmutableState() {
+            if (!isQuestionBankLocked()) return;
+            form.classList.add('is-immutable');
+            form.setAttribute('aria-readonly', 'true');
+            form.querySelectorAll('input, select, textarea, button').forEach(function (control) {
+                control.disabled = true;
+            });
+            form.querySelectorAll('[contenteditable="true"]').forEach(function (editor) {
+                editor.setAttribute('contenteditable', 'false');
+                editor.setAttribute('aria-readonly', 'true');
+            });
+        }
+
         function bindQuestionAddButton(button, handler) {
             if (!button) return;
             button.addEventListener('click', function () {
@@ -244,6 +271,11 @@
         }
 
         function runBankSearch() {
+            var requestId = ++bankSearchSequence;
+            if (bankSearchController) bankSearchController.abort();
+            bankSearchController = typeof window.AbortController === 'function'
+                ? new window.AbortController()
+                : null;
             var state = document.getElementById('lfBankState');
             var host = document.getElementById('lfBankResults');
             if (state) state.textContent = 'Đang tải câu hỏi cộng tác đã duyệt...';
@@ -251,7 +283,12 @@
             var url = new URL(readBankSearchUrl(), window.location.origin);
             var query = val('lfBankQuery');
             if (query) url.searchParams.set('q', query);
-            fetch(url.toString(), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            var options = {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            };
+            if (bankSearchController) options.signal = bankSearchController.signal;
+            fetch(url.toString(), options)
                 .then(function (res) {
                     return res.json().then(function (data) {
                         if (!res.ok || !data || !data.ok) {
@@ -260,9 +297,16 @@
                         return data.data || [];
                     });
                 })
-                .then(renderBankResults)
+                .then(function (items) {
+                    if (requestId !== bankSearchSequence) return;
+                    renderBankResults(items);
+                })
                 .catch(function (err) {
+                    if (requestId !== bankSearchSequence || err.name === 'AbortError') return;
                     if (state) state.textContent = err.message || 'Không tải được danh sách câu hỏi cộng tác của bài test.';
+                })
+                .finally(function () {
+                    if (requestId === bankSearchSequence) bankSearchController = null;
                 });
         }
 
@@ -273,6 +317,7 @@
             var searchBtn = document.getElementById('lfBankSearch');
             if (!picker || !openBtn || !closeBtn || !searchBtn) return;
             closeBtn.addEventListener('click', function () {
+                cancelBankSearch();
                 picker.hidden = true;
             });
             searchBtn.addEventListener('click', runBankSearch);
@@ -437,6 +482,7 @@
         }
         mode.syncDuration();
         builder.refreshEmptyHint();
+        applyImmutableState();
 
         // Hydration creates the dynamic question controls and Quill roots.
         // Capture the baseline only after that work, and only if this is still

@@ -44,20 +44,25 @@ final class ClassCreator {
                 .orElseThrow(() -> new IllegalArgumentException("Mã môn không tồn tại hoặc đã ngừng sử dụng"));
         ClassEntity entity = new ClassEntity(
                 form.name(), userId, userId,
-                form.description(), null, form.endDate(),
+                form.description(), form.startDate(), form.endDate(),
                 form.maxStudents());
         entity.setSubjectId(subject.getId());
         ClassEntity saved = classRepository.saveAndFlush(entity);
         activityWriter.write(saved.getId(), ClassActivity.TYPE_CREATED,
                 "Tạo lớp " + saved.getName(), userId);
+        publishPendingReview(saved, subject.getCode());
+        return saved;
+    }
+
+    /** Emits the after-commit leader notification for a new or resubmitted class. */
+    void publishPendingReview(ClassEntity clazz, String subjectCode) {
         try {
             eventPublisher.publishEvent(new ClassPendingReviewEvent(
-                    saved.getId(), saved.getSubjectId(), saved.getLecturerId(),
-                    saved.getName(), subject.getCode()));
+                    clazz.getId(), clazz.getSubjectId(), clazz.getLecturerId(),
+                    clazz.getName(), subjectCode));
         } catch (RuntimeException exception) {
             log.warn("Không đăng ký được thông báo chờ duyệt cho lớp {}",
-                    saved.getId(), exception);
+                    clazz.getId(), exception);
         }
-        return saved;
     }
 }

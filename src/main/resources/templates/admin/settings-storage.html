@@ -43,8 +43,15 @@
                 </details>
                 <div class="settings-actions">
                     <a class="btn btn-primary" th:href="@{/admin/settings/storage-profiles/GENERAL_UPLOADS/edit}">Sửa cấu hình</a>
+                    <button th:if="${generalProfile.backend == T(com.ksh.features.storage.profile.StorageBackend).R2}"
+                            type="button" class="btn-ghost js-storage-profile-test"
+                            data-profile-code="GENERAL_UPLOADS"
+                            aria-controls="storageProfileTestResult-GENERAL_UPLOADS">Kiểm tra R2</button>
                     <form method="post" th:action="@{/admin/settings/storage-profiles/GENERAL_UPLOADS/toggle}"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><input type="hidden" name="revision" th:value="${generalProfile.revision}"><button class="btn-ghost" type="submit" th:text="${generalProfile.enabled} ? 'Tạm tắt' : 'Bật lại'">Bật lại</button></form>
                 </div>
+                <p th:if="${generalProfile.backend == T(com.ksh.features.storage.profile.StorageBackend).R2}"
+                   id="storageProfileTestResult-GENERAL_UPLOADS" class="storage-connection-result"
+                   role="status" aria-live="polite" hidden></p>
             </article>
             <div class="settings-empty" role="status" th:if="${generalProfileMissing}">
                 <strong>Chưa thiết lập lưu trữ toàn hệ thống</strong>
@@ -55,6 +62,6 @@
         <aside class="settings-boundary-note"><strong>Ranh giới dữ liệu:</strong> Practice Authoring và Speaking dùng profile riêng, fail closed và không đọc cấu hình global này làm fallback.</aside>
     </main>
 </div>
-<script th:src="@{/js/app.js}"></script><script th:src="@{/js/admin.js}"></script>
+<script th:src="@{/js/app.js}"></script><script th:src="@{/js/admin.js}"></script><script th:src="@{/js/admin-settings-storage-profiles.js}"></script>
 </body>
 </html>

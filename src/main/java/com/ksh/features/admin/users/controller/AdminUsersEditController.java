@@ -6,6 +6,7 @@ import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.admin.users.service.AdminUsersReadService;
 import com.ksh.features.admin.users.service.AdminUsersWriteService;
 import com.ksh.features.admin.users.service.EmailAlreadyUsedException;
+import com.ksh.features.admin.users.service.InvalidRoleTransitionException;
 import com.ksh.features.admin.users.service.UserPermissionToggleService;
 import com.ksh.features.admin.users.service.UserPermissionViewBuilder;
 import com.ksh.security.KshUserDetails;
@@ -106,7 +107,7 @@ public class AdminUsersEditController {
         if (!model.containsAttribute(ATTR_FORM)) {
             model.addAttribute(ATTR_FORM, EditUserForm.fromUser(u));
         }
-        formSupport.populateFormModel(model, MODE_EDIT, id);
+        formSupport.populateFormModel(model, MODE_EDIT, id, u.getRole());
         model.addAttribute(ATTR_TARGET_USER, u);
 
         // Normalize the tab query parameter. Invalid values silently fall back
@@ -182,6 +183,9 @@ public class AdminUsersEditController {
         } catch (DepartmentValidationException ex) {
             result.rejectValue("role", "leader.assignment", ex.getMessage());
             return reRenderEditForm(model, id);
+        } catch (InvalidRoleTransitionException ex) {
+            result.rejectValue("role", "role.transition.invalid", ex.getMessage());
+            return reRenderEditForm(model, id);
         }
     }
 
@@ -204,8 +208,8 @@ public class AdminUsersEditController {
      * lives) so submission never bounces the user onto activity / history.
      */
     private String reRenderEditForm(Model model, Long id) {
-        formSupport.populateFormModel(model, MODE_EDIT, id);
         User reloaded = readService.getEditable(id);
+        formSupport.populateFormModel(model, MODE_EDIT, id, reloaded.getRole());
         model.addAttribute(ATTR_TARGET_USER, reloaded);
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, TAB_INFO);
         model.addAttribute(ATTR_STATUS_LABEL, deriveStatusLabel(reloaded));
