@@ -20,7 +20,7 @@ import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_TYPE_REQUIRED;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_URL_REQUIRED;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_URL_SCHEME;
 import static com.ksh.common.IConstant.MSG_EXAM_MEDIA_YOUTUBE_INVALID;
-import static com.ksh.common.IConstant.MSG_EXAM_NEEDS_CLASS;
+import static com.ksh.common.IConstant.MSG_EXAM_NEEDS_SUBJECT;
 import static com.ksh.common.IConstant.MSG_EXAM_NEEDS_QUESTIONS;
 import static com.ksh.common.IConstant.MSG_EXAM_PASSING_SCORE_INVALID;
 import static com.ksh.common.IConstant.MSG_EXAM_STATUS_INVALID;
@@ -39,8 +39,9 @@ import static com.ksh.common.IConstant.MSG_QUESTION_POINTS_INVALID;
 import static com.ksh.common.IConstant.MSG_QUESTION_TYPE_INVALID;
 
 /**
- * Validates a lecturer exam form before any persistence. Rules: title + class
- * required, and a publishable exam needs at least one question. An empty DRAFT
+ * Validates a lecturer exam form before any persistence. Rules: title + subject
+ * required; class is optional for independent Test Bank items. A publishable exam
+ * needs at least one question. An empty DRAFT
  * is allowed so the lecturer can persist the shell before generating questions
  * with AI. Every present question needs ≥2 options and ≥1 correct, and an MCQ
  * needs exactly one correct option. Optional media fields must be both empty or
@@ -73,8 +74,8 @@ public final class ExamFormValidator {
         if (form.title().trim().length() > 300) {
             throw new IllegalArgumentException(MSG_EXAM_TITLE_TOO_LONG);
         }
-        if (form.classId() == null) {
-            throw new IllegalArgumentException(MSG_EXAM_NEEDS_CLASS);
+        if (form.subjectId() == null) {
+            throw new IllegalArgumentException(MSG_EXAM_NEEDS_SUBJECT);
         }
         if (!ALLOWED_TYPES.contains(form.type())) {
             throw new IllegalArgumentException(MSG_EXAM_TYPE_INVALID);

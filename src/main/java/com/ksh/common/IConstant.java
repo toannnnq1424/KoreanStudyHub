@@ -366,6 +366,7 @@ public interface IConstant {
     String MSG_EXAM_TITLE_BLANK      = "Tiêu đề bài test không được để trống";
     String MSG_EXAM_TITLE_TOO_LONG   = "Tiêu đề bài test không được vượt quá 300 ký tự";
     String MSG_EXAM_NEEDS_CLASS      = "Vui lòng chọn lớp cho bài test";
+    String MSG_EXAM_NEEDS_SUBJECT    = "Vui lòng chọn môn học cho bài test";
     String MSG_EXAM_NEEDS_QUESTIONS  = "Bài test phải có ít nhất một câu hỏi";
     String MSG_EXAM_TYPE_INVALID     = "Loại bài test không hợp lệ";
     String MSG_EXAM_STATUS_INVALID   = "Trạng thái bài test không hợp lệ";

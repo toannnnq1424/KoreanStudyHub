@@ -197,6 +197,23 @@ public class TestAccessResolver {
         return List.of();
     }
 
+    /**
+     * Whether the actor may author an independent Test Bank item for a subject.
+     * A subject is the stable authoring scope; a class is only an optional first
+     * recipient. This mirrors Question Bank access without coupling the Test
+     * feature to a controller-only model.
+     */
+    public boolean canManageSubject(Long userId, Role role, Long subjectId) {
+        if (userId == null || role == null || subjectId == null) {
+            return false;
+        }
+        if (role == Role.ADMIN || role == Role.LECTURER) {
+            return true;
+        }
+        return role == Role.LEADER
+                && classAccessPolicy.leaderSubjectIds(userId).contains(subjectId);
+    }
+
     /** Loads a class and enforces the same ADMIN/LEADER/LECTURER scope. */
     public ClassEntity requireManageableClass(Long classId, Long userId, Role role) {
         ClassEntity clazz = classRepository.findById(classId)

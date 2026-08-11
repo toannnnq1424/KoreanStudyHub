@@ -51,4 +51,32 @@ class LecturerAiQuestionUiContractTest {
         assertThat(formScript.indexOf("if (requestId !== bankSearchSequence) return;"))
                 .isLessThan(formScript.indexOf("renderBankResults(items);"));
     }
+
+    @Test
+    void independent_test_bank_scope_is_explicit_and_table_rows_keep_native_layout()
+            throws IOException {
+        String template = Files.readString(
+                Path.of("src/main/resources/templates/tests/lecturer-form.html"),
+                StandardCharsets.UTF_8);
+        String listTemplate = Files.readString(
+                Path.of("src/main/resources/templates/tests/lecturer-list.html"),
+                StandardCharsets.UTF_8);
+        String listCss = Files.readString(
+                Path.of("src/main/resources/static/css/test-list.css"),
+                StandardCharsets.UTF_8);
+
+        assertThat(template)
+                .contains("id=\"lfSubject\"")
+                .contains("Lớp khởi tạo")
+                .contains("Không gắn lớp; lưu trong Test Bank")
+                .contains("mode == 'edit' or (selectedClassId != null and mode == 'create')")
+                .contains("việc phân phối sẽ tạo các bản sao riêng cho từng lớp");
+        assertThat(listTemplate)
+                .contains("Test Bank độc lập")
+                .contains("tst-row-actions-inner");
+        assertThat(listCss)
+                .contains(".tst-row-actions-inner")
+                .contains("display: table-cell")
+                .doesNotContain(".tst-row-actions {\n  display: flex");
+    }
 }
