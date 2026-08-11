@@ -20,7 +20,8 @@
              th:text="${librarySubjectDescription}">Chương trình đào tạo</small>
     </div>
     <div class="library-header-actions">
-      <button class="btn-ghost" type="button" data-library-share>Chia sẻ cho lớp</button>
+      <button class="btn-ghost" type="button" data-library-share
+              aria-controls="libraryDistribution" aria-expanded="false">Chia sẻ cho lớp</button>
       <button class="content-create-btn js-library-editor" type="button"
               th:attr="data-form-url=@{/lecturer/library/templates/new(subjectId=${librarySubjectId})}">Tạo bài học</button>
     </div>
@@ -50,13 +51,14 @@
       </form>
     </div>
 
-    <section id="libraryDistribution" class="library-subject-distribution library-subject-distribution--flat" th:if="${libraryTemplateCount > 0}"
+    <section id="libraryDistribution" class="library-subject-distribution library-subject-distribution--flat is-hidden" th:if="${libraryTemplateCount > 0}"
              aria-labelledby="subjectDistributionTitle">
       <div class="library-distribution-heading">
         <span class="library-eyebrow">Phân phối bài giảng</span>
         <h3 id="subjectDistributionTitle"
             th:text="'Toàn bộ học liệu ' + ${librarySubjectCode}">Toàn bộ học liệu KOR311</h3>
         <p>Gửi một lần toàn bộ chương, bài học và file hiện có tới các lớp cùng mã môn.</p>
+        <button type="button" class="library-distribution-close" aria-label="Đóng phân phối bài giảng">×</button>
       </div>
       <form method="post" class="library-subject-distribution-form"
             th:action="@{|/lecturer/library/templates/subjects/${librarySubjectId}/distribute|}">

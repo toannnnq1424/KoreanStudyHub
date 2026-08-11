@@ -51,6 +51,9 @@ class LibraryLearningFlowContractTest {
                 "data-inline-edit",
                 "library-drag-handle",
                 "clazz.alreadyDistributed()",
+                "data-library-share",
+                "libraryDistribution\" class=\"library-subject-distribution library-subject-distribution--flat is-hidden",
+                "library-distribution-close",
                 "/js/library-inline.js")
                 .doesNotContain("library-distribute-form", "<select multiple");
         assertThat(form).contains(
@@ -78,6 +81,9 @@ class LibraryLearningFlowContractTest {
                 "new window.AbortController()",
                 "requestId !== editorRequestSequence",
                 "cancelEditorRequest()",
+                "setDistributionOpen",
+                "aria-expanded",
+                "library-distribution-close",
                 "message.textContent = error.message",
                 "form.dataset.libraryEditorReady",
                 "const inlineDialogForm = Boolean(dialog && dialog.contains(form))",

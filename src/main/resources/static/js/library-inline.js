@@ -343,10 +343,21 @@
     document.documentElement.classList.remove('library-dialog-open');
   });
   dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
-  document.querySelector('[data-library-share]')?.addEventListener('click', () => {
-    const distribution = document.querySelector('#libraryDistribution');
+  const distribution = document.querySelector('#libraryDistribution');
+  const shareButton = document.querySelector('[data-library-share]');
+  const setDistributionOpen = open => {
+    if (!distribution) return;
+    distribution.classList.toggle('is-hidden', !open);
+    shareButton?.setAttribute('aria-expanded', String(open));
+  };
+  shareButton?.addEventListener('click', () => {
+    setDistributionOpen(true);
     distribution?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     window.setTimeout(() => distribution?.querySelector('input[type="search"]')?.focus(), 350);
+  });
+  distribution?.querySelector('.library-distribution-close')?.addEventListener('click', () => {
+    setDistributionOpen(false);
+    shareButton?.focus();
   });
 
   if (dropSurface) {
