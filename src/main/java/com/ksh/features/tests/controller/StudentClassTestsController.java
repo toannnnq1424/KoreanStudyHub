@@ -116,24 +116,36 @@ public class StudentClassTestsController {
 
     @GetMapping("/{testId}/result/{attemptId}")
     public String result(@PathVariable Long classId, @PathVariable Long testId, @PathVariable Long attemptId,
-                         @AuthenticationPrincipal KshUserDetails user, Model model) {
-        ResultView result = attemptService.result(testId, attemptId, user.getId());
-        requireClassScope(classId, result.classId());
-        model.addAttribute(ATTR_RESULT, result);
-        model.addAttribute("classScopeId", classId);
-        model.addAttribute(ATTR_VIEW, catalogService.listClassTests(classId, user.getId(), null, 0));
-        return VIEW_TEST_RESULT;
+                         @AuthenticationPrincipal KshUserDetails user, Model model,
+                         RedirectAttributes ra) {
+        try {
+            ResultView result = attemptService.result(testId, attemptId, user.getId());
+            requireClassScope(classId, result.classId());
+            model.addAttribute(ATTR_RESULT, result);
+            model.addAttribute("classScopeId", classId);
+            model.addAttribute(ATTR_VIEW, catalogService.listClassTests(classId, user.getId(), null, 0));
+            return VIEW_TEST_RESULT;
+        } catch (TestAttemptUnavailableException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:/my/classes/" + classId + "/tests/" + testId + "/take";
+        }
     }
 
     @GetMapping("/{testId}/review/{attemptId}")
     public String review(@PathVariable Long classId, @PathVariable Long testId, @PathVariable Long attemptId,
-                         @AuthenticationPrincipal KshUserDetails user, Model model) {
-        ReviewView review = attemptService.review(testId, attemptId, user.getId());
-        requireClassScope(classId, review.classId());
-        model.addAttribute(ATTR_REVIEW, review);
-        model.addAttribute("classScopeId", classId);
-        model.addAttribute(ATTR_VIEW, catalogService.listClassTests(classId, user.getId(), null, 0));
-        return VIEW_TEST_REVIEW;
+                         @AuthenticationPrincipal KshUserDetails user, Model model,
+                         RedirectAttributes ra) {
+        try {
+            ReviewView review = attemptService.review(testId, attemptId, user.getId());
+            requireClassScope(classId, review.classId());
+            model.addAttribute(ATTR_REVIEW, review);
+            model.addAttribute("classScopeId", classId);
+            model.addAttribute(ATTR_VIEW, catalogService.listClassTests(classId, user.getId(), null, 0));
+            return VIEW_TEST_REVIEW;
+        } catch (TestAttemptUnavailableException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:/my/classes/" + classId + "/tests/" + testId + "/take";
+        }
     }
 
     private static void requireClassScope(Long expectedClassId, Long actualClassId) {
