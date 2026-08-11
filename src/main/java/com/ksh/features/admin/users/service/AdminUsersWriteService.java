@@ -11,6 +11,7 @@ import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.CreateUserForm;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
 import com.ksh.utils.StringUtils;
@@ -50,6 +51,7 @@ public class AdminUsersWriteService {
     private final DepartmentRepository departmentRepository;
     private final SystemSettingsRepository systemSettingsRepository;
     private final SessionRevocationService sessionRevocationService;
+    private final CredentialRotationService credentialRotationService;
 
     public AdminUsersWriteService(UserRepository userRepository,
                                   PasswordEncoder passwordEncoder,
@@ -57,7 +59,8 @@ public class AdminUsersWriteService {
                                   AdminUsersAuditWriter auditWriter,
                                   DepartmentRepository departmentRepository,
                                   SystemSettingsRepository systemSettingsRepository,
-                                  SessionRevocationService sessionRevocationService) {
+                                  SessionRevocationService sessionRevocationService,
+                                  CredentialRotationService credentialRotationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.guard = guard;
@@ -65,6 +68,7 @@ public class AdminUsersWriteService {
         this.departmentRepository = departmentRepository;
         this.systemSettingsRepository = systemSettingsRepository;
         this.sessionRevocationService = sessionRevocationService;
+        this.credentialRotationService = credentialRotationService;
     }
 
     /**
@@ -167,6 +171,10 @@ public class AdminUsersWriteService {
                 || !Objects.equals(oldSubjectId, saved.getSubjectId())) {
             TransactionLifecycle.afterCommit(
                     () -> sessionRevocationService.revokeAllSessions(oldEmail));
+        }
+
+        if (!Objects.equals(oldEmail, saved.getEmail())) {
+            credentialRotationService.invalidateRecoveryTokens(saved.getId());
         }
 
         return List.of();

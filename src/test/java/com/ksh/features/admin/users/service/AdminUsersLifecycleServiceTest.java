@@ -3,12 +3,12 @@ package com.ksh.features.admin.users.service;
 import com.ksh.entities.User;
 import com.ksh.entities.UserFactory;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -24,16 +24,18 @@ import static org.mockito.Mockito.when;
 class AdminUsersLifecycleServiceTest {
 
     private UserRepository userRepository;
+    private CredentialRotationService credentialRotationService;
     private AdminUsersGuard guard;
     private AdminUsersLifecycleService service;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
+        credentialRotationService = mock(CredentialRotationService.class);
         guard = mock(AdminUsersGuard.class);
         service = new AdminUsersLifecycleService(
                 userRepository,
-                mock(PasswordEncoder.class),
+                credentialRotationService,
                 guard,
                 mock(AdminUsersAuditWriter.class),
                 mock(SessionRevocationService.class));
@@ -75,6 +77,19 @@ class AdminUsersLifecycleServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("quản trị");
         verify(userRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void adminPasswordResetRotatesPasswordAndEveryOutstandingRecoveryLink() {
+        User target = admin(21L, "target-admin@ksh.test");
+        when(userRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(target));
+        when(credentialRotationService.replacePassword(target, "new-password"))
+                .thenReturn(target);
+
+        service.resetPassword(21L, "new-password", 99L);
+
+        verify(credentialRotationService).replacePassword(target, "new-password");
+        verify(userRepository, never()).save(target);
     }
 
     private User arrangeLockedTarget(Long targetId) {

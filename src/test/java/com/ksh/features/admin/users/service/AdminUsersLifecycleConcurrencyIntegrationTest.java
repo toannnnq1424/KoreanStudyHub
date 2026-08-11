@@ -5,6 +5,7 @@ import com.ksh.entities.User;
 import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.users.repository.UserActivityRepository;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -53,7 +53,7 @@ class AdminUsersLifecycleConcurrencyIntegrationTest {
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private JdbcTemplate jdbcTemplate;
 
-    @MockitoBean private PasswordEncoder passwordEncoder;
+    @MockitoBean private CredentialRotationService credentialRotationService;
     @MockitoBean private SessionRevocationService sessionRevocationService;
 
     @Test

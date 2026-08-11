@@ -10,6 +10,7 @@ import com.ksh.features.admin.departments.service.DepartmentValidationException;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
@@ -37,6 +38,7 @@ class AdminUsersLeaderAssignmentGuardTest {
     private final DepartmentRepository departments = mock(DepartmentRepository.class);
     private final SystemSettingsRepository settings = mock(SystemSettingsRepository.class);
     private final SessionRevocationService sessionRevocation = mock(SessionRevocationService.class);
+    private final CredentialRotationService credentialRotation = mock(CredentialRotationService.class);
 
     @Test
     void editLocksSharedAnchorBeforeUserAndRejectsBreakingLeaderPointer() {
@@ -71,7 +73,7 @@ class AdminUsersLeaderAssignmentGuardTest {
     private AdminUsersWriteService service() {
         return new AdminUsersWriteService(
                 users, passwordEncoder, guard, auditWriter,
-                departments, settings, sessionRevocation);
+                departments, settings, sessionRevocation, credentialRotation);
     }
 
     private static User user(Long id, Role role, Long subjectId) {

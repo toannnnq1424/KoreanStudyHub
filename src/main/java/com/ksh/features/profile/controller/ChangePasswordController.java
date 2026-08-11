@@ -1,14 +1,12 @@
 package com.ksh.features.profile.controller;
 
-import com.ksh.entities.User;
-import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.features.profile.dto.ProfileDtos;
 import com.ksh.features.profile.service.SessionRevocationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -37,14 +35,12 @@ public class ChangePasswordController {
     private static final String ATTR_MISMATCH        = "mismatch";
     private static final String ATTR_PASSWORD_CHANGED = "passwordChanged";
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final CredentialRotationService credentialRotationService;
     private final SessionRevocationService sessionRevocationService;
 
-    public ChangePasswordController(UserRepository userRepository, PasswordEncoder passwordEncoder,
+    public ChangePasswordController(CredentialRotationService credentialRotationService,
                                     SessionRevocationService sessionRevocationService) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.credentialRotationService = credentialRotationService;
         this.sessionRevocationService = sessionRevocationService;
     }
 
@@ -66,11 +62,12 @@ public class ChangePasswordController {
      * <p>Validation steps performed in order:</p>
      * <ol>
      *   <li>Bean-validation errors on the form — redisplay the form if any.</li>
-     *   <li>Current password verification against the stored BCrypt hash.</li>
      *   <li>New password / confirm-password match check.</li>
+     *   <li>Current password verification against the stored BCrypt hash.</li>
      * </ol>
-     * On success the new password is BCrypt-encoded, persisted, and the user is
-     * redirected back to the form with a {@code passwordChanged} flash attribute.
+     * On success the new password is BCrypt-encoded, persisted, all outstanding
+     * reset links are invalidated, and the user is redirected back to the form
+     * with a {@code passwordChanged} flash attribute.
      *
      * @param form      the submitted {@link ProfileDtos.ChangePasswordRequest} (validated)
      * @param result    binding result carrying any constraint violations
@@ -92,27 +89,23 @@ public class ChangePasswordController {
             return VIEW_CHANGE_PASSWORD;
         }
 
-        User user = userRepository.findById(principal.getId())
-                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
-
-        // Reject if current password doesn't match — blocks unattended-session abuse.
-        if (!passwordEncoder.matches(form.currentPassword(), user.getPasswordHash())) {
-            model.addAttribute(ATTR_WRONG_CURRENT, true);
-            return VIEW_CHANGE_PASSWORD;
-        }
-
         // Reject when confirm field doesn't match new password — typo safety net.
         if (!form.newPassword().equals(form.confirmPassword())) {
             model.addAttribute(ATTR_MISMATCH, true);
             return VIEW_CHANGE_PASSWORD;
         }
 
-        user.setPasswordHash(passwordEncoder.encode(form.newPassword()));
-        userRepository.save(user);
+        var changed = credentialRotationService.changeOwnPassword(
+                principal.getId(), form.currentPassword(), form.newPassword());
+        // Reject if current password doesn't match — blocks unattended-session abuse.
+        if (changed.isEmpty()) {
+            model.addAttribute(ATTR_WRONG_CURRENT, true);
+            return VIEW_CHANGE_PASSWORD;
+        }
 
         String currentSessionId = request.getSession(false) == null
                 ? null : request.getSession(false).getId();
-        sessionRevocationService.revokeOtherSessions(user.getEmail(), currentSessionId);
+        sessionRevocationService.revokeOtherSessions(changed.get().email(), currentSessionId);
 
         ra.addFlashAttribute(ATTR_PASSWORD_CHANGED, true);
         return REDIRECT_CHANGE_PASSWORD;

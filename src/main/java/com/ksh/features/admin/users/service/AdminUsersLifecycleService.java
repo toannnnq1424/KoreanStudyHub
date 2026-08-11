@@ -4,10 +4,10 @@ import com.ksh.common.TransactionLifecycle;
 import com.ksh.entities.User;
 import com.ksh.entities.UserActivity;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,18 +35,18 @@ import java.util.Map;
 public class AdminUsersLifecycleService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final CredentialRotationService credentialRotationService;
     private final AdminUsersGuard guard;
     private final AdminUsersAuditWriter auditWriter;
     private final SessionRevocationService sessionRevocationService;
 
     public AdminUsersLifecycleService(UserRepository userRepository,
-                                      PasswordEncoder passwordEncoder,
+                                      CredentialRotationService credentialRotationService,
                                       AdminUsersGuard guard,
                                       AdminUsersAuditWriter auditWriter,
                                       SessionRevocationService sessionRevocationService) {
         this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.credentialRotationService = credentialRotationService;
         this.guard = guard;
         this.auditWriter = auditWriter;
         this.sessionRevocationService = sessionRevocationService;
@@ -121,8 +121,7 @@ public class AdminUsersLifecycleService {
 
         requireValidPassword(newPassword);
 
-        target.setPasswordHash(passwordEncoder.encode(newPassword));
-        User saved = userRepository.save(target);
+        User saved = credentialRotationService.replacePassword(target, newPassword);
         // Intentionally null metadata — the plaintext password must not appear
         // in the audit log.
         auditWriter.write(saved.getId(), UserActivity.TYPE_PASSWORD_RESET,

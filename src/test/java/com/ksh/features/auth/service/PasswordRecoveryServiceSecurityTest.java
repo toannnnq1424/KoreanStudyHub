@@ -11,7 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
@@ -24,12 +23,12 @@ class PasswordRecoveryServiceSecurityTest {
 
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordResetTokenRepository tokens = mock(PasswordResetTokenRepository.class);
-    private final PasswordEncoder encoder = mock(PasswordEncoder.class);
+    private final CredentialRotationService credentials = mock(CredentialRotationService.class);
     private final MailService mail = mock(MailService.class);
     private final PasswordResetRequestThrottle throttle = mock(PasswordResetRequestThrottle.class);
     private final SessionRevocationService sessions = mock(SessionRevocationService.class);
     private final PasswordRecoveryService service =
-            new PasswordRecoveryService(users, tokens, encoder, mail, throttle,
+            new PasswordRecoveryService(users, tokens, credentials, mail, throttle,
                     sessions, "https://ksh.test");
 
     PasswordRecoveryServiceSecurityTest() {
@@ -41,7 +40,8 @@ class PasswordRecoveryServiceSecurityTest {
         User user = mock(User.class);
         when(user.getEmail()).thenReturn("student@example.test");
         when(user.getFullName()).thenReturn("Student");
-        when(users.findByEmailIgnoreCase("student@example.test")).thenReturn(Optional.of(user));
+        when(users.findByEmailIgnoreCaseForUpdate("student@example.test"))
+                .thenReturn(Optional.of(user));
         when(mail.send(anyString(), anyString(), anyString())).thenReturn(true);
 
         when(user.getId()).thenReturn(7L);
@@ -51,6 +51,7 @@ class PasswordRecoveryServiceSecurityTest {
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(tokens).save(entity.capture());
         verify(tokens).invalidateUnusedForUser(eq(7L), any());
+        verify(users, never()).findByEmailIgnoreCase("student@example.test");
         verify(mail).send(eq("student@example.test"), eq("KSH Password Reset"), body.capture());
 
         String marker = "token=";
@@ -67,21 +68,45 @@ class PasswordRecoveryServiceSecurityTest {
         String raw = "raw-reset-token";
         PasswordResetToken token = mock(PasswordResetToken.class);
         User user = mock(User.class);
+        when(tokens.findUserIdByToken(PasswordRecoveryService.digestToken(raw)))
+                .thenReturn(Optional.of(42L));
+        when(users.findByIdForUpdate(42L)).thenReturn(Optional.of(user));
         when(tokens.findByTokenForUpdate(PasswordRecoveryService.digestToken(raw)))
                 .thenReturn(Optional.of(token));
         when(token.isValid()).thenReturn(true);
         when(token.getUser()).thenReturn(user);
         when(user.getId()).thenReturn(42L);
-        when(encoder.encode("new-password")).thenReturn("encoded");
+        when(credentials.replacePassword(user, "new-password")).thenReturn(user);
 
         assertThat(service.resetPassword(raw, "new-password")).isTrue();
 
-        verify(tokens).findByTokenForUpdate(PasswordRecoveryService.digestToken(raw));
+        var order = inOrder(tokens, users, credentials);
+        order.verify(tokens).findUserIdByToken(PasswordRecoveryService.digestToken(raw));
+        order.verify(users).findByIdForUpdate(42L);
+        order.verify(tokens).findByTokenForUpdate(PasswordRecoveryService.digestToken(raw));
+        order.verify(credentials).replacePassword(user, "new-password");
         verify(tokens, never()).findByTokenForUpdate(raw);
-        verify(user).setPasswordHash("encoded");
-        verify(token).markUsed();
-        verify(tokens).save(token);
+        verify(tokens, never()).save(token);
         verify(sessions).revokeAllSessions(42L);
+    }
+
+    @Test
+    void resetRejectsTokenInvalidatedWhileWaitingForTheUserLock() {
+        String raw = "racing-reset-token";
+        String digest = PasswordRecoveryService.digestToken(raw);
+        PasswordResetToken token = mock(PasswordResetToken.class);
+        User user = mock(User.class);
+        when(tokens.findUserIdByToken(digest)).thenReturn(Optional.of(42L));
+        when(users.findByIdForUpdate(42L)).thenReturn(Optional.of(user));
+        when(tokens.findByTokenForUpdate(digest)).thenReturn(Optional.of(token));
+        when(token.getUser()).thenReturn(user);
+        when(user.getId()).thenReturn(42L);
+        when(token.isValid()).thenReturn(false);
+
+        assertThat(service.resetPassword(raw, "new-password")).isFalse();
+
+        verify(credentials, never()).replacePassword(any(), anyString());
+        verifyNoInteractions(sessions);
     }
 
     @Test
@@ -119,13 +144,14 @@ class PasswordRecoveryServiceSecurityTest {
         String raw = "raw-token-whose-digest-was-exposed";
         String presentedDigest = PasswordRecoveryService.digestToken(raw);
         PasswordResetToken storedToken = mock(PasswordResetToken.class);
-        when(tokens.findByTokenForUpdate(presentedDigest)).thenReturn(Optional.of(storedToken));
+        when(tokens.findUserIdByToken(presentedDigest)).thenReturn(Optional.of(42L));
 
         assertThat(service.resetPassword(presentedDigest, "new-password")).isFalse();
 
-        verify(tokens).findByTokenForUpdate(PasswordRecoveryService.digestToken(presentedDigest));
-        verify(tokens, never()).findByTokenForUpdate(presentedDigest);
-        verifyNoInteractions(storedToken, encoder, sessions);
+        verify(tokens).findUserIdByToken(PasswordRecoveryService.digestToken(presentedDigest));
+        verify(tokens, never()).findUserIdByToken(presentedDigest);
+        verify(tokens, never()).findByTokenForUpdate(anyString());
+        verifyNoInteractions(storedToken, credentials, sessions);
     }
 
     @Test
@@ -145,18 +171,20 @@ class PasswordRecoveryServiceSecurityTest {
     void resetRejectsLegacyPlaintextTokenRow() {
         String legacyPlaintext = "legacy-plaintext-token";
         PasswordResetToken storedToken = mock(PasswordResetToken.class);
-        when(tokens.findByTokenForUpdate(legacyPlaintext)).thenReturn(Optional.of(storedToken));
+        when(tokens.findUserIdByToken(legacyPlaintext)).thenReturn(Optional.of(42L));
 
         assertThat(service.resetPassword(legacyPlaintext, "new-password")).isFalse();
 
-        verify(tokens).findByTokenForUpdate(PasswordRecoveryService.digestToken(legacyPlaintext));
-        verify(tokens, never()).findByTokenForUpdate(legacyPlaintext);
-        verifyNoInteractions(storedToken, encoder, sessions);
+        verify(tokens).findUserIdByToken(PasswordRecoveryService.digestToken(legacyPlaintext));
+        verify(tokens, never()).findUserIdByToken(legacyPlaintext);
+        verify(tokens, never()).findByTokenForUpdate(anyString());
+        verifyNoInteractions(storedToken, credentials, sessions);
     }
 
     @Test
     void unknownEmailIsEnumerationNeutralAndCreatesNoSideEffects() {
-        when(users.findByEmailIgnoreCase("missing@example.test")).thenReturn(Optional.empty());
+        when(users.findByEmailIgnoreCaseForUpdate("missing@example.test"))
+                .thenReturn(Optional.empty());
 
         service.requestReset("missing@example.test", "192.0.2.2");
 
@@ -168,7 +196,8 @@ class PasswordRecoveryServiceSecurityTest {
         User user = mock(User.class);
         when(user.getEmail()).thenReturn("private@example.test");
         when(user.getFullName()).thenReturn("Private");
-        when(users.findByEmailIgnoreCase("private@example.test")).thenReturn(Optional.of(user));
+        when(users.findByEmailIgnoreCaseForUpdate("private@example.test"))
+                .thenReturn(Optional.of(user));
         when(mail.send(anyString(), anyString(), anyString())).thenReturn(false);
 
         service.requestReset("private@example.test", "192.0.2.3");

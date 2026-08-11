@@ -10,7 +10,6 @@ import com.ksh.common.TransactionLifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +19,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Objects;
 
 /**
  * Handles the forgot-password flow: generates a single-use reset token, sends the
@@ -46,7 +46,7 @@ public class PasswordRecoveryService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final CredentialRotationService credentialRotationService;
     private final MailService mailService;
     private final PasswordResetRequestThrottle requestThrottle;
     private final SessionRevocationService sessionRevocationService;
@@ -54,14 +54,14 @@ public class PasswordRecoveryService {
 
     public PasswordRecoveryService(UserRepository userRepository,
                                    PasswordResetTokenRepository tokenRepository,
-                                   PasswordEncoder passwordEncoder,
+                                   CredentialRotationService credentialRotationService,
                                    MailService mailService,
                                    PasswordResetRequestThrottle requestThrottle,
                                    SessionRevocationService sessionRevocationService,
                                    @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.credentialRotationService = credentialRotationService;
         this.mailService = mailService;
         this.requestThrottle = requestThrottle;
         this.sessionRevocationService = sessionRevocationService;
@@ -83,7 +83,7 @@ public class PasswordRecoveryService {
         if (!requestThrottle.allow(email, clientIp)) {
             return;
         }
-        var userOpt = userRepository.findByEmailIgnoreCase(email);
+        var userOpt = userRepository.findByEmailIgnoreCaseForUpdate(email);
         if (userOpt.isEmpty()) {
             return; // silent — neutral response to avoid user enumeration
         }
@@ -104,12 +104,8 @@ public class PasswordRecoveryService {
                 + "If you did not request this, you can safely ignore this email.\n\n"
                 + "— KSH Team";
 
-        boolean sent = mailService.send(user.getEmail(),
-                "KSH Password Reset", body);
-        if (!sent) {
-            // Keep both the recipient and bearer-token reset link out of logs.
-            log.warn("Password-reset email was not sent (SMTP unavailable or delivery failed)");
-        }
+        String recipient = user.getEmail();
+        TransactionLifecycle.afterCommit(() -> sendResetEmail(recipient, body));
     }
 
     /**
@@ -140,11 +136,12 @@ public class PasswordRecoveryService {
     }
 
     /**
-     * Resets the user's password and marks the token as consumed.
+     * Resets the user's password and consumes every outstanding token for the account.
      *
      * <p>The token must exist, be unused, and not have expired. If any of those
      * checks fail this method returns {@code false} and leaves the account
-     * unchanged.
+     * unchanged. The user row is locked before the token row so issuance,
+     * password changes, and reset consumption share one deadlock-safe order.
      *
      * @param rawToken    the plain-text reset token from the email link
      * @param newPassword the desired new password in plain text (will be BCrypt-encoded)
@@ -153,23 +150,28 @@ public class PasswordRecoveryService {
      */
     @Transactional
     public boolean resetPassword(String rawToken, String newPassword) {
-        var opt = findTokenForUpdate(rawToken);
-        if (opt.isEmpty()) {
-            return false;
-        }
-        PasswordResetToken token = opt.get();
-        if (!token.isValid()) {
+        var ownerId = findTokenOwnerId(rawToken);
+        if (ownerId.isEmpty()) {
             return false;
         }
 
-        User user = token.getUser();
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        User user = userRepository.findByIdForUpdate(ownerId.get()).orElse(null);
+        if (user == null) {
+            return false;
+        }
 
-        token.markUsed();
-        tokenRepository.save(token);
+        var tokenOpt = findTokenForUpdate(rawToken);
+        if (tokenOpt.isEmpty()) {
+            return false;
+        }
+        PasswordResetToken token = tokenOpt.get();
+        Long lockedOwnerId = token.getUser().getId();
+        if (!Objects.equals(ownerId.get(), lockedOwnerId) || !token.isValid()) {
+            return false;
+        }
 
-        Long userId = user.getId();
+        User saved = credentialRotationService.replacePassword(user, newPassword);
+        Long userId = saved.getId();
         TransactionLifecycle.afterCommit(() -> sessionRevocationService.revokeAllSessions(userId));
 
         return true;
@@ -193,6 +195,21 @@ public class PasswordRecoveryService {
             return java.util.Optional.empty();
         }
         return tokenRepository.findByTokenForUpdate(digestToken(rawToken));
+    }
+
+    private java.util.Optional<Long> findTokenOwnerId(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return tokenRepository.findUserIdByToken(digestToken(rawToken));
+    }
+
+    private void sendResetEmail(String recipient, String body) {
+        boolean sent = mailService.send(recipient, "KSH Password Reset", body);
+        if (!sent) {
+            // Keep both the recipient and bearer-token reset link out of logs.
+            log.warn("Password-reset email was not sent (SMTP unavailable or delivery failed)");
+        }
     }
 
     static String digestToken(String rawToken) {
