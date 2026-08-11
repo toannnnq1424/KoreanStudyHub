@@ -223,7 +223,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/uploads/avatars/**",
                                 "/uploads/exams/**",
-                                "/uploads/flashcards/**"
+                                "/uploads/flashcards/**",
+                                "/uploads/announcements/**"
                         ).permitAll()
                         .requestMatchers("/uploads/**").denyAll()
                         .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()

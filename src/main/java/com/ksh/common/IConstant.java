@@ -80,6 +80,66 @@ public interface IConstant {
     String ATTR_PLACEHOLDER_TAB   = "placeholderTab";
     String ATTR_PLACEHOLDER_LABEL = "placeholderLabel";
 
+    // ───────── Class Board announcements (class-announcement-board) ────
+    /** Announcements per board page; not client-controllable. */
+    int DEFAULT_ANNOUNCEMENT_PAGE_SIZE = 10;
+    /** Upper bound on sanitized announcement content length. */
+    int MAX_ANNOUNCEMENT_LENGTH = 20000;
+
+    String VIEW_STUDENT_CLASS_BOARD = "student/class-board";
+
+    String ATTR_ANNOUNCEMENTS_PAGE = "announcementsPage";
+    String ATTR_ANNOUNCEMENT_FORM  = "announcementForm";
+
+    String MSG_ANNOUNCEMENT_CREATED  = "Đã đăng thông báo";
+    String MSG_ANNOUNCEMENT_UPDATED  = "Đã cập nhật thông báo";
+    String MSG_ANNOUNCEMENT_DELETED  = "Đã xoá thông báo";
+    String MSG_ANNOUNCEMENT_EMPTY    = "Nội dung thông báo không được để trống";
+    String MSG_ANNOUNCEMENT_TOO_LONG = "Nội dung thông báo quá dài (tối đa 20000 ký tự)";
+
+    String MSG_ANNOUNCEMENT_ACTIVITY_CREATED = "Đăng thông báo lớp";
+    String MSG_ANNOUNCEMENT_ACTIVITY_UPDATED = "Cập nhật thông báo lớp";
+    String MSG_ANNOUNCEMENT_ACTIVITY_DELETED = "Xoá thông báo lớp";
+
+    /** Title of the in-app notification fanned out when an announcement is published. */
+    String MSG_ANNOUNCEMENT_NOTIFY_TITLE = "Thông báo mới từ lớp học";
+
+    // ───────── Announcement comments (announcement-images-and-comments) ─
+    /** Upper bound on a single plain-text comment body. */
+    int MAX_COMMENT_LENGTH = 2000;
+    /** Newest comments shown inline under each announcement in the feed. */
+    int DEFAULT_COMMENT_PREVIEW_SIZE = 3;
+
+    String ATTR_COMMENT_FORM = "commentForm";
+
+    String MSG_COMMENT_CREATED = "Đã gửi bình luận";
+    String MSG_COMMENT_DELETED = "Đã xoá bình luận";
+    String MSG_COMMENT_EMPTY   = "Nội dung bình luận không được để trống";
+    /**
+     * Interpolates {@link #MAX_COMMENT_LENGTH} rather than repeating the number,
+     * so raising the cap cannot leave a message that lies about the limit.
+     */
+    String MSG_COMMENT_TOO_LONG = "Bình luận quá dài (tối đa " + MAX_COMMENT_LENGTH + " ký tự)";
+    String MSG_COMMENT_NOT_FOUND = "Bình luận không tồn tại";
+    String MSG_COMMENT_FORBIDDEN = "Bạn không thể xoá bình luận này";
+
+    String MSG_COMMENT_ACTIVITY_CREATED = "Bình luận thông báo lớp";
+    String MSG_COMMENT_ACTIVITY_DELETED = "Xoá bình luận thông báo lớp";
+
+    /** Title of the in-app notification sent to an announcement's author. */
+    String MSG_COMMENT_NOTIFY_TITLE = "Có bình luận mới về thông báo của bạn";
+    /** Body is {@code <author name> + this prefix + <class name>}. */
+    String MSG_COMMENT_NOTIFY_BODY_PREFIX = "đã bình luận về thông báo của bạn trong lớp ";
+    /** Stands in for the commenter when their display name is missing or blank. */
+    String MSG_COMMENT_NOTIFY_ANONYMOUS_ACTOR = "Một thành viên";
+
+    // ───────── Announcement images (announcement-images-and-comments) ───
+    String MSG_ANNOUNCEMENT_IMAGE_EMPTY = "File ảnh rỗng";
+    String MSG_ANNOUNCEMENT_IMAGE_TOO_LARGE = "Ảnh vượt quá giới hạn 2MB";
+    String MSG_ANNOUNCEMENT_IMAGE_TYPE = "Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP";
+    String MSG_ANNOUNCEMENT_IMAGE_INVALID = "Nội dung file không phải ảnh hợp lệ";
+    String MSG_ANNOUNCEMENT_IMAGE_STAGED_INVALID = "Ảnh tải lên không hợp lệ hoặc đã hết hạn";
+
     // Lecturer progress dashboard (lecturer-student-progress).
     String ATTR_PROGRESS_SUMMARY = "progressSummary";
     String ATTR_PROGRESS_PAGE    = "progressPage";

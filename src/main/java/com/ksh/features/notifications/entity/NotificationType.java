@@ -45,6 +45,28 @@ public final class NotificationType {
     public static final String CLASS_PENDING_APPROVAL = "CLASS_PENDING_APPROVAL";
 
     /**
+     * A lecturer published a board announcement to a class the student is
+     * enrolled in. Intentionally excluded from {@link #EMAIL_TYPES} — in-app
+     * only, matching the existing policy for lesson publication.
+     */
+    public static final String CLASS_ANNOUNCEMENT = "CLASS_ANNOUNCEMENT";
+
+    /**
+     * A member commented on an announcement the recipient authored.
+     * Intentionally excluded from {@link #EMAIL_TYPES} — comment traffic is the
+     * highest-volume event on the board, so emailing it would be the fastest way
+     * to make users mute the platform (design D9).
+     *
+     * <p>Carries {@link #REF_CLASS} with the <b>class</b> id, so
+     * {@code NotificationController.resolveClassRedirect} must route it to
+     * {@code /board} explicitly; that method branches on notification type and
+     * everything unrecognised falls through to {@code /lessons}.
+     *
+     * <p>Value is 20 characters, within the {@code VARCHAR(30)} column.
+     */
+    public static final String ANNOUNCEMENT_COMMENT = "ANNOUNCEMENT_COMMENT";
+
+    /**
      * The set of notification types that trigger a durable email outbox job.
      * Join-approval lifecycle types and CLASS_ENROLLED / ASSIGNMENT_GRADED
      * are intentionally excluded (in-app only).

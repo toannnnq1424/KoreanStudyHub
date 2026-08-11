@@ -40,6 +40,23 @@ public class ClassActivity {
     public static final String TYPE_MEMBER_JOINED = "MEMBER_JOINED";
     /** A student left the class via {@code /my/classes/{id}/leave}. */
     public static final String TYPE_MEMBER_LEFT = "MEMBER_LEFT";
+    /** A board announcement was published to the class. */
+    public static final String TYPE_ANNOUNCEMENT_CREATED = "TYPE_ANNOUNCEMENT_CREATED";
+    /** An existing board announcement had its content edited. */
+    public static final String TYPE_ANNOUNCEMENT_UPDATED = "TYPE_ANNOUNCEMENT_UPDATED";
+    /** A board announcement was soft-deleted. */
+    public static final String TYPE_ANNOUNCEMENT_DELETED = "TYPE_ANNOUNCEMENT_DELETED";
+    /**
+     * A member commented on a board announcement. The value repeats the constant
+     * name, matching the three TYPE_ANNOUNCEMENT_* constants above — unusual, but
+     * the established convention in this file, and both fit the
+     * {@code activity_classes.type VARCHAR(50)} column.
+     */
+    public static final String TYPE_ANNOUNCEMENT_COMMENT_CREATED =
+            "TYPE_ANNOUNCEMENT_COMMENT_CREATED";
+    /** A board announcement comment was soft-deleted. */
+    public static final String TYPE_ANNOUNCEMENT_COMMENT_DELETED =
+            "TYPE_ANNOUNCEMENT_COMMENT_DELETED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

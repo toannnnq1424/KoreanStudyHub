@@ -20,6 +20,7 @@
     const menu = document.createElement('div');
     menu.className = 'ksh-select-menu';
     menu.id = 'ksh-select-menu-' + index;
+    wrapper.dataset.menuId = menu.id; // Link wrapper to menu
     menu.setAttribute('role', 'listbox');
     // menu will be rendered into document.body to avoid ancestor overflow clipping
     menu.style.position = 'fixed';
@@ -78,13 +79,17 @@
     }
 
     function open() {
+      // Close all other open ksh-selects first
       document.querySelectorAll('.ksh-select.is-open').forEach(function (other) {
-        if (other !== wrapper) {
-          other.classList.remove('is-open');
-          const otherTrigger = other.querySelector('.ksh-select-trigger');
-          if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
-        }
+        if (other === wrapper) return;
+        other.classList.remove('is-open');
+        const otherTrigger = other.querySelector('.ksh-select-trigger');
+        if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
+        const otherMenu = document.getElementById(other.dataset.menuId);
+        if (otherMenu) otherMenu.style.display = 'none';
       });
+
+      // Now open this one
       wrapper.classList.add('is-open');
       trigger.setAttribute('aria-expanded', 'true');
       detachMenu();
@@ -189,12 +194,12 @@
 
   document.addEventListener('click', function (event) {
     document.querySelectorAll('.ksh-select.is-open').forEach(function (wrapper) {
-      if (!wrapper.contains(event.target)) {
+      const menu = document.getElementById(wrapper.dataset.menuId);
+      // Close if the click is outside the trigger and the menu
+      if (!wrapper.contains(event.target) && !(menu && menu.contains(event.target))) {
         wrapper.classList.remove('is-open');
         const trigger = wrapper.querySelector('.ksh-select-trigger');
         if (trigger) trigger.setAttribute('aria-expanded', 'false');
-        // hide associated menu
-        const menu = document.querySelector('.ksh-select-menu');
         if (menu) menu.style.display = 'none';
       }
     });

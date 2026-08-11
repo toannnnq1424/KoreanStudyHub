@@ -23,8 +23,8 @@ import java.util.Set;
 
 /**
  * Serves the public subset of uploaded objects: {@code avatars/*},
- * {@code exams/*}, and card-side images under {@code flashcards/*}
- * (exactly two path segments). Nested keys such as
+ * {@code exams/*}, {@code announcements/*}, and card-side images under
+ * {@code flashcards/*} (exactly two path segments). Nested keys such as
  * {@code lessons/1/x.pdf} or {@code library/1/x} intentionally 404 — those
  * require authenticated download/stream endpoints.
  *
@@ -38,7 +38,8 @@ public class PublicUploadsController {
     private static final Logger log = LoggerFactory.getLogger(PublicUploadsController.class);
 
     private static final String UPLOADS_PREFIX = "/uploads/";
-    private static final Set<String> PUBLIC_FOLDERS = Set.of("avatars", "exams", "flashcards");
+    private static final Set<String> PUBLIC_FOLDERS =
+            Set.of("avatars", "exams", "flashcards", "announcements");
 
     private final ObjectStorage objectStorage;
 
@@ -114,7 +115,9 @@ public class PublicUploadsController {
             if (obj.contentLength() >= 0) {
                 headers.setContentLength(obj.contentLength());
             }
-            if ("exams".equals(folderNorm) && filename.startsWith("staged-")) {
+            // Staged uploads are transient and owner-bound — never cache them.
+            if (("exams".equals(folderNorm) || "announcements".equals(folderNorm))
+                    && filename.startsWith("staged-")) {
                 headers.setCacheControl("private, no-store");
             } else {
                 headers.setCacheControl("public, max-age=86400");
