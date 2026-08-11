@@ -2,6 +2,7 @@ package com.ksh.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -15,6 +16,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * {@code /ws/**}. Messages are pushed to a specific user via
  * {@code SimpMessagingTemplate.convertAndSendToUser(email, "/queue/messages", ...)},
  * which resolves through the {@code /user} destination prefix registered here.
+ * Clients may only subscribe to their own unresolved user destination; all
+ * client SEND/MESSAGE frames are rejected because application writes use the
+ * authenticated HTTP messaging endpoints.
  *
  * <p>Uses the in-memory simple broker ({@code /topic}, {@code /queue}). This is
  * single-instance only; a full broker relay is a later scaling step (out of scope).
@@ -35,5 +39,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         config.setApplicationDestinationPrefixes("/app");
         // convertAndSendToUser targets /user/{username}/queue/messages under this prefix.
         config.setUserDestinationPrefix("/user");
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(new StompInboundAuthorizationInterceptor());
     }
 }
