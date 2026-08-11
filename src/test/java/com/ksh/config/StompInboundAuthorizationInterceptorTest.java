@@ -28,7 +28,9 @@ class StompInboundAuthorizationInterceptorTest {
         ArgumentCaptor<ChannelInterceptor[]> captor =
                 ArgumentCaptor.forClass(ChannelInterceptor[].class);
 
-        new WebSocketConfig().configureClientInboundChannel(registration);
+        new WebSocketConfig(org.mockito.Mockito.mock(
+                com.ksh.features.profile.service.AuthenticatedWebSocketSessionRegistry.class))
+                .configureClientInboundChannel(registration);
 
         verify(registration).interceptors(captor.capture());
         assertThat(captor.getValue())

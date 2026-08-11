@@ -14,9 +14,12 @@ public class SessionRevocationService {
 
     private static final Logger log = LoggerFactory.getLogger(SessionRevocationService.class);
     private final SessionRegistry sessionRegistry;
+    private final AuthenticatedWebSocketSessionRegistry webSocketSessions;
 
-    public SessionRevocationService(SessionRegistry sessionRegistry) {
+    public SessionRevocationService(SessionRegistry sessionRegistry,
+                                    AuthenticatedWebSocketSessionRegistry webSocketSessions) {
         this.sessionRegistry = sessionRegistry;
+        this.webSocketSessions = webSocketSessions;
     }
 
     /** Expires every session for {@code username}. */
@@ -38,7 +41,9 @@ public class SessionRevocationService {
     private int revokeSessions(Long userId, String username, String keepSessionId) {
         if (userId == null && (username == null || username.isBlank())) return 0;
 
-        int revoked = 0;
+        int revoked = userId != null
+                ? webSocketSessions.closeAll(userId)
+                : webSocketSessions.closeOther(username, keepSessionId);
         for (Object principal : sessionRegistry.getAllPrincipals()) {
             if (!matches(principal, userId, username)) continue;
             for (SessionInformation session : sessionRegistry.getAllSessions(principal, false)) {

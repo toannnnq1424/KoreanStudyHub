@@ -7,6 +7,7 @@ import com.ksh.security.LoginThrottleFilter;
 import com.ksh.security.PermissionExpiryFilter;
 import com.ksh.security.RoleAwareAuthenticationSuccessHandler;
 import com.ksh.features.admin.permissions.service.PermissionResolver;
+import com.ksh.features.profile.service.AuthenticatedWebSocketSessionRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -211,6 +212,7 @@ public class SecurityConfig {
             AuthenticationSuccessHandler formSuccessHandler,
             RoleAwareAuthenticationSuccessHandler roleAwareSuccessHandler,
             PermissionResolver permissionResolver,
+            AuthenticatedWebSocketSessionRegistry webSocketSessions,
             RequestCache requestCache) throws Exception {
         http
                 // Allow same-origin framing so the in-app PDF.js / docx
@@ -279,7 +281,7 @@ public class SecurityConfig {
                 // PERM_* authorities are a login snapshot. Retire the session at
                 // the nearest override expiry before authorization can reuse it.
                 .addFilterBefore(
-                        new PermissionExpiryFilter(permissionResolver),
+                        new PermissionExpiryFilter(permissionResolver, webSocketSessions),
                         AuthorizationFilter.class)
                 // Eagerly materialize CSRF token before the view starts rendering.
                 // Without this, the deferred CSRF lookup happens deep inside Thymeleaf's

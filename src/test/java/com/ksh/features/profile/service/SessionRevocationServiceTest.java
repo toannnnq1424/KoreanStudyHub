@@ -15,7 +15,10 @@ import static org.mockito.Mockito.*;
 class SessionRevocationServiceTest {
     private static final String EMAIL = "member@ksh.edu.vn";
     private final SessionRegistry registry = mock(SessionRegistry.class);
-    private final SessionRevocationService service = new SessionRevocationService(registry);
+    private final AuthenticatedWebSocketSessionRegistry webSockets =
+            mock(AuthenticatedWebSocketSessionRegistry.class);
+    private final SessionRevocationService service =
+            new SessionRevocationService(registry, webSockets);
 
     private static SessionInformation session(Object principal, String id) {
         return new SessionInformation(principal, id, new Date());
@@ -38,6 +41,7 @@ class SessionRevocationServiceTest {
         assertThat(current.isExpired()).isFalse();
         assertThat(laptop.isExpired()).isTrue();
         assertThat(google.isExpired()).isTrue();
+        verify(webSockets).closeOther(EMAIL, "current");
     }
 
     @Test
@@ -55,6 +59,7 @@ class SessionRevocationServiceTest {
         assertThat(service.revokeAllSessions(EMAIL)).isEqualTo(2);
         assertThat(browser.isExpired()).isTrue();
         assertThat(google.isExpired()).isTrue();
+        verify(webSockets).closeOther(EMAIL, null);
     }
 
     @Test
@@ -72,11 +77,12 @@ class SessionRevocationServiceTest {
         assertThat(service.revokeAllSessions(42L)).isEqualTo(2);
         assertThat(browser.isExpired()).isTrue();
         assertThat(google.isExpired()).isTrue();
+        verify(webSockets).closeAll(42L);
     }
 
     @Test
     void blankUsernameDoesNotTouchRegistry() {
         assertThat(service.revokeOtherSessions(" ", "current")).isZero();
-        verifyNoInteractions(registry);
+        verifyNoInteractions(registry, webSockets);
     }
 }

@@ -1,6 +1,7 @@
 package com.ksh.security;
 
 import com.ksh.features.admin.permissions.service.PermissionResolver;
+import com.ksh.features.profile.service.AuthenticatedWebSocketSessionRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,9 +18,12 @@ import java.time.LocalDateTime;
 public final class PermissionExpiryFilter extends OncePerRequestFilter {
 
     private final PermissionResolver permissionResolver;
+    private final AuthenticatedWebSocketSessionRegistry webSocketSessions;
 
-    public PermissionExpiryFilter(PermissionResolver permissionResolver) {
+    public PermissionExpiryFilter(PermissionResolver permissionResolver,
+                                  AuthenticatedWebSocketSessionRegistry webSocketSessions) {
         this.permissionResolver = permissionResolver;
+        this.webSocketSessions = webSocketSessions;
     }
 
     @Override
@@ -34,6 +38,7 @@ public final class PermissionExpiryFilter extends OncePerRequestFilter {
             // Remove any set cached before the override deadline. The next login
             // resolves a fresh role + permission snapshot from the database.
             permissionResolver.evictUser(principal.getId());
+            webSocketSessions.closeAll(principal.getId());
             HttpSession session = request.getSession(false);
             if (session != null) {
                 session.invalidate();

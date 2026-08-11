@@ -3,6 +3,7 @@ package com.ksh.security;
 import com.ksh.entities.User;
 import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.permissions.service.PermissionResolver;
+import com.ksh.features.profile.service.AuthenticatedWebSocketSessionRegistry;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,10 @@ import static org.mockito.Mockito.verify;
 class PermissionExpiryFilterTest {
 
     private final PermissionResolver permissionResolver = mock(PermissionResolver.class);
-    private final PermissionExpiryFilter filter = new PermissionExpiryFilter(permissionResolver);
+    private final AuthenticatedWebSocketSessionRegistry webSocketSessions =
+            mock(AuthenticatedWebSocketSessionRegistry.class);
+    private final PermissionExpiryFilter filter =
+            new PermissionExpiryFilter(permissionResolver, webSocketSessions);
 
     @AfterEach
     void clearSecurityContext() {
@@ -46,6 +50,7 @@ class PermissionExpiryFilterTest {
         assertThat(session.isInvalid()).isTrue();
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(permissionResolver).evictUser(77L);
+        verify(webSocketSessions).closeAll(77L);
         verify(chain).doFilter(request, response);
     }
 
@@ -62,6 +67,7 @@ class PermissionExpiryFilterTest {
         assertThat(session.isInvalid()).isFalse();
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
         verify(permissionResolver, never()).evictUser(77L);
+        verify(webSocketSessions, never()).closeAll(77L);
     }
 
     private static KshUserDetails principal(LocalDateTime validUntil) {
