@@ -1,0 +1,167 @@
+package com.ksh.features.tests;
+
+import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Department;
+import com.ksh.entities.User;
+import com.ksh.features.admin.departments.repository.DepartmentRepository;
+import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.tests.dto.LecturerTestDtos.ExamForm;
+import com.ksh.features.tests.dto.LecturerTestDtos.OptionForm;
+import com.ksh.features.tests.dto.LecturerTestDtos.QuestionForm;
+import com.ksh.features.tests.entity.Question;
+import com.ksh.features.tests.entity.QuestionOption;
+import com.ksh.features.tests.repository.QuestionOptionRepository;
+import com.ksh.features.tests.repository.QuestionRepository;
+import com.ksh.features.tests.repository.TestRepository;
+import com.ksh.features.tests.service.LecturerExamService;
+import com.ksh.security.Role;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class ClassExamDistributionIntegrationTest {
+
+    private static final String LECTURER_EMAIL = "lecturer@ksh.edu.vn";
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private UserRepository userRepository;
+    @Autowired private DepartmentRepository departmentRepository;
+    @Autowired private ClassRepository classRepository;
+    @Autowired private TestRepository testRepository;
+    @Autowired private QuestionRepository questionRepository;
+    @Autowired private QuestionOptionRepository optionRepository;
+    @Autowired private LecturerExamService examService;
+
+    private User lecturer;
+    private ClassEntity sourceClass;
+    private Long sourceTestId;
+    private String title;
+
+    @BeforeEach
+    void setUp() {
+        lecturer = userRepository.findByEmailIgnoreCase(LECTURER_EMAIL).orElseThrow();
+        assertThat(lecturer.getSubjectId()).isNotNull();
+        sourceClass = activeClass("Lớp nguồn", lecturer.getSubjectId());
+        title = "Đề phân phối " + UUID.randomUUID().toString().substring(0, 8);
+        sourceTestId = examService.save(lecturer.getId(), examForm(sourceClass.getId(), title,
+                com.ksh.features.tests.entity.Test.STATUS_PUBLISHED));
+    }
+
+    @Test
+    @WithUserDetails(LECTURER_EMAIL)
+    void distributionPageAndPostCopyFinishedTestToMultipleSameSubjectClasses() throws Exception {
+        ClassEntity first = activeClass("KOR target A", lecturer.getSubjectId());
+        ClassEntity second = activeClass("KOR target B", lecturer.getSubjectId());
+
+        mockMvc.perform(get("/lecturer/tests/" + sourceTestId + "/distribute"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(title)))
+                .andExpect(content().string(containsString("KOR target A")))
+                .andExpect(content().string(containsString("Phân phối bài test đã hoàn tất")));
+
+        mockMvc.perform(post("/lecturer/tests/" + sourceTestId + "/distribute").with(csrf())
+                        .param("classIds", first.getId().toString(), second.getId().toString()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/lecturer/tests"))
+                .andExpect(flash().attribute("flashSuccess", "Đã phân phối bài test tới 2 lớp"));
+
+        var firstCopies = testRepository.findByClassId(first.getId(), PageRequest.of(0, 20));
+        var secondCopies = testRepository.findByClassId(second.getId(), PageRequest.of(0, 20));
+        assertThat(firstCopies.getContent()).singleElement().satisfies(copy -> {
+            assertThat(copy.getTitle()).isEqualTo(title);
+            assertThat(copy.getStatus()).isEqualTo(com.ksh.features.tests.entity.Test.STATUS_PUBLISHED);
+            assertThat(copy.getCreatedBy()).isEqualTo(lecturer.getId());
+        });
+        assertThat(secondCopies.getContent()).singleElement()
+                .extracting(com.ksh.features.tests.entity.Test::getTitle)
+                .isEqualTo(title);
+
+        Long copyId = firstCopies.getContent().get(0).getId();
+        List<Question> sourceQuestions = questionRepository
+                .findByTestIdOrderBySortOrderAscIdAsc(sourceTestId);
+        List<Question> copiedQuestions = questionRepository
+                .findByTestIdOrderBySortOrderAscIdAsc(copyId);
+        assertThat(copiedQuestions).hasSameSizeAs(sourceQuestions);
+        assertThat(copiedQuestions).extracting(Question::getId)
+                .doesNotContainAnyElementsOf(sourceQuestions.stream().map(Question::getId).toList());
+        List<QuestionOption> copiedOptions = optionRepository
+                .findByQuestionIdOrderBySortOrderAscIdAsc(copiedQuestions.get(0).getId());
+        assertThat(copiedOptions).extracting(QuestionOption::getContent)
+                .containsExactly("Đúng", "Sai");
+    }
+
+    @Test
+    void distributionIsAtomicAndRejectsDifferentSubject() {
+        Department otherSubject = departmentRepository.saveAndFlush(new Department(
+                "Môn khác " + UUID.randomUUID().toString().substring(0, 6),
+                "OTH" + UUID.randomUUID().toString().substring(0, 5).toUpperCase(),
+                null, true));
+        ClassEntity valid = activeClass("KOR valid target", lecturer.getSubjectId());
+        ClassEntity invalid = activeClass("Other subject target", otherSubject.getId());
+
+        assertThatThrownBy(() -> examService.distributePublished(
+                lecturer.getId(), Role.LECTURER, sourceTestId,
+                List.of(valid.getId(), invalid.getId())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cùng mã môn");
+
+        assertThat(testRepository.existsByClassIdAndTitleIgnoreCase(valid.getId(), title)).isFalse();
+        assertThat(testRepository.existsByClassIdAndTitleIgnoreCase(invalid.getId(), title)).isFalse();
+    }
+
+    @Test
+    void draftTestCannotEnterFinishedDistributionFlow() {
+        Long draftId = examService.save(lecturer.getId(), examForm(
+                sourceClass.getId(), title + " nháp",
+                com.ksh.features.tests.entity.Test.STATUS_DRAFT));
+
+        assertThatThrownBy(() -> examService.distributionView(
+                lecturer.getId(), Role.LECTURER, draftId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("đã hoàn tất và xuất bản");
+    }
+
+    private ClassEntity activeClass(String name, Long subjectId) {
+        ClassEntity clazz = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
+                null, null, null, 100);
+        clazz.setSubjectId(subjectId);
+        clazz.approve(lecturer.getId(), LocalDateTime.now());
+        return classRepository.saveAndFlush(clazz);
+    }
+
+    private static ExamForm examForm(Long classId, String title, String status) {
+        List<QuestionForm> questions = List.of(
+                new QuestionForm(null, "MCQ", "1 + 1 = 2?", "Giải thích",
+                        new BigDecimal("2.00"), List.of(
+                        new OptionForm(null, "Đúng", true),
+                        new OptionForm(null, "Sai", false))));
+        return new ExamForm(null, title, "Nội dung đề", classId, "MOCK", status,
+                "FIXED_WINDOW", 30, LocalDateTime.now().minusMinutes(5),
+                LocalDateTime.now().plusDays(3), new BigDecimal("1.00"),
+                false, false, null, null, questions, false);
+    }
+}

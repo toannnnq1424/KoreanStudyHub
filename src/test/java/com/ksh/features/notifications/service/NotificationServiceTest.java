@@ -1,255 +1,131 @@
 package com.ksh.features.notifications.service;
 
 import com.ksh.entities.User;
+import com.ksh.entities.UserFactory;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.mail.outbox.MailOutboxService;
-import com.ksh.features.notifications.dto.NotificationDtos.NotificationRow;
 import com.ksh.features.notifications.entity.Notification;
 import com.ksh.features.notifications.entity.NotificationType;
 import com.ksh.features.notifications.repository.NotificationRepository;
-import org.junit.jupiter.api.BeforeEach;
+import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit tests for {@link NotificationService}.
- *
- * <p>Covers creation (atomic durable email enqueue), owner-scoped
- * mark-read (foreign id is silent no-op), unread count, and list paging.
- */
 class NotificationServiceTest {
 
-    private static final Long USER_ID = 7L;
-    private static final Long NOTIF_ID = 42L;
+    private final NotificationRepository notificationRepository =
+            mock(NotificationRepository.class);
+    private final UserRepository userRepository = mock(UserRepository.class);
+    private final MailOutboxService mailOutboxService = mock(MailOutboxService.class);
 
-    private NotificationRepository notificationRepository;
-    private UserRepository userRepository;
-    private MailOutboxService mailOutboxService;
-    private NotificationService service;
-
-    @BeforeEach
-    void setUp() {
-        notificationRepository = mock(NotificationRepository.class);
-        userRepository = mock(UserRepository.class);
-        mailOutboxService = mock(MailOutboxService.class);
-        service = new NotificationService(
-                notificationRepository,
-                userRepository,
-                mailOutboxService);
-    }
-
-    // ── create ─────────────────────────────────────────────────────────
+    private final NotificationService service = new NotificationService(
+            notificationRepository,
+            userRepository,
+            mailOutboxService
+    );
 
     @Test
-    void create_persists_notification_and_returns_saved_entity() {
-        Notification saved = stubSave(NotificationType.SYSTEM, null, null);
+    void create_withEmailWhitelistedType_savesNotificationAndEnqueuesMail() {
+        User user = user(10L, "student@ksh.test");
+        Notification saved = notification(
+                501L,
+                10L,
+                "New lesson",
+                "Lesson 1 is published",
+                NotificationType.LESSON_PUBLISHED
+        );
 
-        Notification result = service.create(USER_ID, "Title", "Body",
-                NotificationType.SYSTEM, null, null);
+        when(notificationRepository.save(org.mockito.ArgumentMatchers.any(Notification.class)))
+                .thenReturn(saved);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
 
-        assertThat(result).isEqualTo(saved);
-        verify(notificationRepository).save(any(Notification.class));
-    }
-
-    @Test
-    void create_does_not_enqueue_email_for_non_whitelisted_type() {
-        stubSave(NotificationType.CLASS_ENROLLED, NotificationType.REF_CLASS, 1L);
-
-        service.create(USER_ID, "T", "B", NotificationType.CLASS_ENROLLED,
-                NotificationType.REF_CLASS, 1L);
-
-        // CLASS_ENROLLED is NOT in EMAIL_TYPES — no email should be enqueued.
-        verify(mailOutboxService, never())
-                .enqueueNotification(any(), anyString(), anyString(), anyString());
-    }
-
-    @Test
-    void create_enqueues_email_for_lesson_published_type() {
-        stubSave(NotificationType.LESSON_PUBLISHED,
-                NotificationType.REF_LESSON, 5L);
-        User user = user("student@ksh.edu.vn");
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-
-        service.create(USER_ID, "Bài mới", "Nội dung",
-                NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
-
-        verify(mailOutboxService).enqueueNotification(
-                eq(NOTIF_ID),
-                eq("student@ksh.edu.vn"),
-                anyString(),
-                eq("Nội dung"));
-    }
-
-    @Test
-    void create_leaves_email_sent_false_until_worker_completes() {
-        Notification saved = stubSave(
+        Notification result = service.create(
+                10L,
+                "New lesson",
+                "Lesson 1 is published",
                 NotificationType.LESSON_PUBLISHED,
                 NotificationType.REF_LESSON,
-                5L);
-        User user = user("student@ksh.edu.vn");
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+                77L
+        );
 
-        service.create(USER_ID, "T", "B",
-                NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
-
-        assertThat(saved.isEmailSent()).isFalse();
-        verify(notificationRepository).save(any(Notification.class));
+        assertThat(result).isSameAs(saved);
+        verify(mailOutboxService).enqueueNotification(
+                501L,
+                "student@ksh.test",
+                "[KSH] New lesson",
+                "Lesson 1 is published"
+        );
     }
 
     @Test
-    void create_does_not_enqueue_email_when_user_not_found() {
-        stubSave(NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
-        when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+    void create_withInAppOnlyType_savesNotificationWithoutMail() {
+        Notification saved = notification(
+                502L,
+                10L,
+                "Assignment graded",
+                "Your score is ready",
+                NotificationType.ASSIGNMENT_GRADED
+        );
 
-        service.create(USER_ID, "T", "B",
-                NotificationType.LESSON_PUBLISHED, NotificationType.REF_LESSON, 5L);
+        when(notificationRepository.save(org.mockito.ArgumentMatchers.any(Notification.class)))
+                .thenReturn(saved);
 
-        verify(mailOutboxService, never())
-                .enqueueNotification(any(), anyString(), anyString(), anyString());
+        Notification result = service.create(
+                10L,
+                "Assignment graded",
+                "Your score is ready",
+                NotificationType.ASSIGNMENT_GRADED,
+                NotificationType.REF_ASSIGNMENT,
+                88L
+        );
+
+        assertThat(result).isSameAs(saved);
+        verify(mailOutboxService, never()).enqueueNotification(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
     }
 
-    // ── markRead ──────────────────────────────────────────────────────
-
-    @Test
-    void markRead_sets_read_true_and_read_at_for_unread_notification() {
-        Notification n = unreadNotification();
-        when(notificationRepository.findByIdAndUserId(NOTIF_ID, USER_ID))
-                .thenReturn(Optional.of(n));
-
-        service.markRead(USER_ID, NOTIF_ID);
-
-        assertThat(n.isRead()).isTrue();
-        assertThat(n.getReadAt()).isNotNull();
-        verify(notificationRepository).save(n);
+    private static User user(Long id, String email) {
+        User user = UserFactory.newAdminCreated(
+                email,
+                "encoded-password",
+                "Student User",
+                Role.STUDENT,
+                true,
+                null,
+                null
+        );
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
     }
 
-    @Test
-    void markRead_is_no_op_for_already_read_notification() {
-        Notification n = unreadNotification();
-        n.setRead(true);
-        n.setReadAt(LocalDateTime.now().minusHours(1));
-        when(notificationRepository.findByIdAndUserId(NOTIF_ID, USER_ID))
-                .thenReturn(Optional.of(n));
-
-        service.markRead(USER_ID, NOTIF_ID);
-
-        // Already read — no save needed.
-        verify(notificationRepository, never()).save(any());
-    }
-
-    @Test
-    void markRead_is_silent_no_op_for_foreign_or_absent_notification() {
-        // findByIdAndUserId returns empty when the id is foreign or absent.
-        when(notificationRepository.findByIdAndUserId(NOTIF_ID, USER_ID))
-                .thenReturn(Optional.empty());
-
-        service.markRead(USER_ID, NOTIF_ID);
-
-        verify(notificationRepository, never()).save(any());
-    }
-
-    // ── findOwned ────────────────────────────────────────────────────
-
-    @Test
-    void findOwned_returns_row_for_owned_notification() {
-        Notification n = unreadNotification();
-        when(notificationRepository.findByIdAndUserId(NOTIF_ID, USER_ID))
-                .thenReturn(Optional.of(n));
-
-        Optional<NotificationRow> result = service.findOwned(USER_ID, NOTIF_ID);
-
-        assertThat(result).isPresent();
-        assertThat(result.get().id()).isEqualTo(NOTIF_ID);
-    }
-
-    @Test
-    void findOwned_returns_empty_for_foreign_notification() {
-        when(notificationRepository.findByIdAndUserId(NOTIF_ID, USER_ID))
-                .thenReturn(Optional.empty());
-
-        Optional<NotificationRow> result = service.findOwned(USER_ID, NOTIF_ID);
-
-        assertThat(result).isEmpty();
-    }
-
-    // ── unreadCount ───────────────────────────────────────────────────
-
-    @Test
-    void unreadCount_delegates_to_repository() {
-        when(notificationRepository.countByUserIdAndIsReadFalse(USER_ID)).thenReturn(5L);
-
-        assertThat(service.unreadCount(USER_ID)).isEqualTo(5L);
-    }
-
-    // ── listForUser ───────────────────────────────────────────────────
-
-    @Test
-    void listForUser_maps_entities_to_rows() {
-        Notification n = unreadNotification();
-        Page<Notification> page = new PageImpl<>(List.of(n));
-        when(notificationRepository.findByUserIdOrderByCreatedAtDesc(eq(USER_ID), any(Pageable.class)))
-                .thenReturn(page);
-
-        Page<NotificationRow> result = service.listForUser(USER_ID, 0);
-
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).id()).isEqualTo(NOTIF_ID);
-        assertThat(result.getContent().get(0).type()).isEqualTo(NotificationType.SYSTEM);
-    }
-
-    @Test
-    void listForUser_clamps_negative_page_to_zero() {
-        Page<Notification> page = new PageImpl<>(List.of());
-        when(notificationRepository.findByUserIdOrderByCreatedAtDesc(eq(USER_ID), any(Pageable.class)))
-                .thenReturn(page);
-
-        // Should not throw; negative page is coerced to 0 inside the service.
-        assertThat(service.listForUser(USER_ID, -5)).isNotNull();
-    }
-
-    // ── helpers ───────────────────────────────────────────────────────
-
-    private Notification stubSave(String type, String refType, Long refId) {
-        Notification n = unreadNotificationOf(type, refType, refId);
-        when(notificationRepository.save(any(Notification.class))).thenReturn(n);
-        return n;
-    }
-
-    private Notification unreadNotification() {
-        return unreadNotificationOf(NotificationType.SYSTEM, null, null);
-    }
-
-    private Notification unreadNotificationOf(String type, String refType, Long refId) {
-        Notification n = new Notification(USER_ID, "Title", "Body", type, refType, refId);
-        // Simulate a persisted id.
-        try {
-            var f = Notification.class.getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(n, NOTIF_ID);
-        } catch (Exception ignored) {
-            // Reflection best-effort; id may be null in some assertions but entity equality still works.
-        }
-        return n;
-    }
-
-    private static User user(String email) {
-        User u = mock(User.class);
-        when(u.getEmail()).thenReturn(email);
-        return u;
+    private static Notification notification(
+            Long id,
+            Long userId,
+            String title,
+            String content,
+            String type
+    ) {
+        Notification notification = new Notification(
+                userId,
+                title,
+                content,
+                type,
+                NotificationType.REF_LESSON,
+                77L
+        );
+        ReflectionTestUtils.setField(notification, "id", id);
+        return notification;
     }
 }

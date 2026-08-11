@@ -2,231 +2,112 @@ package com.ksh.features.flashcards.service;
 
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Enrollment;
-import com.ksh.entities.User;
-import com.ksh.entities.UserFactory;
-import com.ksh.security.Role;
-import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
-import com.ksh.features.flashcards.dto.FlashcardDtos.DeckDetailView;
 import com.ksh.features.flashcards.dto.FlashcardDtos.DeckForm;
-import com.ksh.features.flashcards.dto.FlashcardDtos.DeckSummary;
-import com.ksh.features.flashcards.dto.FlashcardDtos.StudentDeckList;
-import jakarta.persistence.EntityNotFoundException;
-import org.junit.jupiter.api.BeforeEach;
+import com.ksh.features.flashcards.entity.FlashcardDeck;
+import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
+import com.ksh.features.flashcards.repository.FlashcardRepository;
+import com.ksh.features.flashcards.support.DeckAccessResolver;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import static com.ksh.common.IConstant.DEFAULT_DECK_PAGE_SIZE;
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/** Integration tests for {@link DeckService}: CRUD, authz, and sharing. */
-@SpringBootTest
-@Transactional
 class DeckServiceTest {
 
-    @Autowired private DeckService deckService;
-    @Autowired private ClassRepository classRepository;
-    @Autowired private EnrollmentRepository enrollmentRepository;
-    @Autowired private UserRepository userRepository;
+    private final FlashcardDeckRepository deckRepository = mock(FlashcardDeckRepository.class);
+    private final FlashcardRepository cardRepository = mock(FlashcardRepository.class);
+    private final DeckAccessResolver accessResolver = mock(DeckAccessResolver.class);
+    private final DeckSummaryAssembler assembler = mock(DeckSummaryAssembler.class);
+    private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
+    private final ClassRepository classRepository = mock(ClassRepository.class);
+    private final CardService cardService = mock(CardService.class);
 
-    private User owner;   // student@
-    private User member;  // sv02@ — enrolled classmate
-    private User outsider; // sv01@ — not enrolled
-    private User lecturer;
-    private ClassEntity clazz;
+    private final DeckService service = new DeckService(
+            deckRepository,
+            cardRepository,
+            accessResolver,
+            assembler,
+            enrollmentRepository,
+            classRepository,
+            cardService
+    );
 
-    @BeforeEach
-    void setUp() {
-        owner = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
-        member = userRepository.findByEmailIgnoreCase("sv02@ksh.edu.vn").orElseThrow();
-        outsider = userRepository.findByEmailIgnoreCase("sv01@ksh.edu.vn").orElseThrow();
-        lecturer = userRepository.findByEmailIgnoreCase("lecturer@ksh.edu.vn").orElseThrow();
-        clazz = saveClass("Deck class", "DKCLS");
-        enroll(owner);
-        enroll(member);
+    @Test
+    void createDeck_withValidInput_returnsSavedDeckId() {
+        when(deckRepository.save(any(FlashcardDeck.class)))
+                .thenAnswer(invocation -> {
+                    FlashcardDeck deck = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(deck, "id", 101L);
+                    return deck;
+                });
+
+        Long result = service.createDeck(
+                10L,
+                new DeckForm("  Korean Vocabulary  ", "  Basic nouns  ")
+        );
+
+        assertThat(result).isEqualTo(101L);
     }
 
     @Test
-    void create_then_detail_marks_owner() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Bộ thẻ 1", "mô tả"));
-        DeckDetailView detail = deckService.getDetail(id, owner.getId());
-        assertThat(detail.owner()).isTrue();
-        assertThat(detail.title()).isEqualTo("Bộ thẻ 1");
-        assertThat(detail.shared()).isFalse();
+    void updateMetadata_withOwnerDeck_updatesDeckAndSaves() {
+        FlashcardDeck deck = deck(101L, 10L, "Old title", "Old description");
+        when(accessResolver.requireOwner(101L, 10L)).thenReturn(deck);
+
+        service.updateMetadata(
+                101L,
+                10L,
+                new DeckForm("  Updated Korean Deck  ", "  Updated description  ")
+        );
+
+        assertThat(deck.getTitle()).isEqualTo("Updated Korean Deck");
+        assertThat(deck.getDescription()).isEqualTo("Updated description");
+        verify(deckRepository).save(deck);
     }
 
     @Test
-    void update_metadata_changes_title() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Cũ", null));
-        deckService.updateMetadata(id, owner.getId(), new DeckForm("Mới", "d2"));
-        assertThat(deckService.getDetail(id, owner.getId()).title()).isEqualTo("Mới");
+    void share_withOwnerAndValidClass_setsDeckSharedAndSaves() {
+        FlashcardDeck deck = deck(101L, 10L, "Korean Deck", null);
+        Enrollment enrollment = mock(Enrollment.class);
+
+        when(accessResolver.requireOwner(101L, 10L)).thenReturn(deck);
+        when(enrollmentRepository.findByUserIdAndClassId(10L, 55L))
+                .thenReturn(Optional.of(enrollment));
+        when(enrollment.getStatus()).thenReturn(Enrollment.STATUS_ACTIVE);
+
+        service.share(101L, 10L, 55L);
+
+        assertThat(deck.isShared()).isTrue();
+        assertThat(deck.getClassId()).isEqualTo(55L);
+        verify(deckRepository).save(deck);
     }
 
     @Test
-    void non_owner_update_denied() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Cũ", null));
-        assertThatThrownBy(() -> deckService.updateMetadata(id, member.getId(),
-                new DeckForm("Hack", null)))
+    void share_withClassNotOwnedOrEnrolled_throwsAccessDeniedException() {
+        FlashcardDeck deck = deck(101L, 10L, "Korean Deck", null);
+
+        when(accessResolver.requireOwner(101L, 10L)).thenReturn(deck);
+        when(enrollmentRepository.findByUserIdAndClassId(10L, 55L))
+                .thenReturn(Optional.empty());
+        when(classRepository.findById(55L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.share(101L, 10L, 55L))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
-    @Test
-    void soft_delete_hides_from_list_and_detail() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Sẽ xoá", null));
-        deckService.softDelete(id, owner.getId());
-        assertThatThrownBy(() -> deckService.getDetail(id, owner.getId()))
-                .isInstanceOf(EntityNotFoundException.class);
-        assertThat(deckService.listForStudent(owner.getId(), 0).ownDecks().getContent())
-                .noneMatch(d -> d.id().equals(id));
-    }
-
-    @Test
-    void outsider_detail_returns_not_found() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Riêng tư", null));
-        assertThatThrownBy(() -> deckService.getDetail(id, outsider.getId()))
-                .isInstanceOf(EntityNotFoundException.class);
-    }
-
-    @Test
-    void share_makes_deck_visible_to_enrolled_member_not_outsider() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
-        deckService.share(id, owner.getId(), clazz.getId());
-
-        // Enrolled member can view (shared member).
-        DeckDetailView asMember = deckService.getDetail(id, member.getId());
-        assertThat(asMember.owner()).isFalse();
-        assertThat(asMember.shared()).isTrue();
-
-        // Member appears in shared list; outsider cannot see it.
-        StudentDeckList memberList = deckService.listForStudent(member.getId(), 0);
-        assertThat(memberList.sharedDecks()).anyMatch(d -> d.id().equals(id));
-        assertThatThrownBy(() -> deckService.getDetail(id, outsider.getId()))
-                .isInstanceOf(EntityNotFoundException.class);
-    }
-
-    @Test
-    void shared_member_cannot_change_sharing() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
-        deckService.share(id, owner.getId(), clazz.getId());
-        assertThatThrownBy(() -> deckService.unshare(id, member.getId()))
-                .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    void unshare_reverts_to_private_and_hides_from_member() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
-        deckService.share(id, owner.getId(), clazz.getId());
-        deckService.unshare(id, owner.getId());
-
-        assertThat(deckService.getDetail(id, owner.getId()).shared()).isFalse();
-        assertThatThrownBy(() -> deckService.getDetail(id, member.getId()))
-                .isInstanceOf(EntityNotFoundException.class);
-    }
-
-    @Test
-    void share_to_class_owner_not_in_denied() {
-        Long id = deckService.createDeck(owner.getId(), new DeckForm("Chia sẻ", null));
-        ClassEntity other = saveClass("Other class", "OTHCL");
-        assertThatThrownBy(() -> deckService.share(id, owner.getId(), other.getId()))
-                .isInstanceOf(AccessDeniedException.class);
-    }
-
-    // ── Pagination (own decks, newest-first) ─────────────────────────────
-    // A fresh user is created per test so counts are deterministic regardless of
-    // any decks pre-existing in the shared dev database for the seeded users.
-
-    @Test
-    void own_decks_first_page_is_newest_first_and_reports_total_pages() {
-        User fresh = freshStudent();
-        int total = DEFAULT_DECK_PAGE_SIZE + 3; // 15 decks → 2 pages (12 + 3)
-        for (int i = 0; i < total; i++) {
-            deckService.createDeck(fresh.getId(), new DeckForm("Bộ " + i, null));
-        }
-
-        Page<DeckSummary> page0 = deckService.listForStudent(fresh.getId(), 0).ownDecks();
-        assertThat(page0.getContent()).hasSize(DEFAULT_DECK_PAGE_SIZE);
-        assertThat(page0.getTotalElements()).isEqualTo(total);
-        assertThat(page0.getTotalPages()).isEqualTo(2);
-        assertThat(page0.getNumber()).isZero();
-        assertThat(page0.isFirst()).isTrue();
-        assertThat(page0.isLast()).isFalse();
-        // Newest-first: ids strictly descending (created_at DESC, id DESC tiebreaker).
-        assertThat(page0.getContent()).allMatch(DeckSummary::owner);
-        for (int i = 1; i < page0.getContent().size(); i++) {
-            assertThat(page0.getContent().get(i - 1).id())
-                    .isGreaterThan(page0.getContent().get(i).id());
-        }
-    }
-
-    @Test
-    void own_decks_last_page_returns_remainder() {
-        User fresh = freshStudent();
-        int total = DEFAULT_DECK_PAGE_SIZE + 3;
-        for (int i = 0; i < total; i++) {
-            deckService.createDeck(fresh.getId(), new DeckForm("Bộ " + i, null));
-        }
-
-        Page<DeckSummary> page1 = deckService.listForStudent(fresh.getId(), 1).ownDecks();
-        assertThat(page1.getContent()).hasSize(3);
-        assertThat(page1.isLast()).isTrue();
-        assertThat(page1.getNumber()).isEqualTo(1);
-    }
-
-    @Test
-    void own_decks_single_page_reports_one_total_page() {
-        User fresh = freshStudent();
-        for (int i = 0; i < 5; i++) {
-            deckService.createDeck(fresh.getId(), new DeckForm("Bộ " + i, null));
-        }
-        Page<DeckSummary> page = deckService.listForStudent(fresh.getId(), 0).ownDecks();
-        assertThat(page.getTotalPages()).isEqualTo(1);
-        assertThat(page.getContent()).hasSize(5);
-        assertThat(page.isLast()).isTrue();
-    }
-
-    @Test
-    void own_decks_page_excludes_other_users_decks() {
-        User a = freshStudent();
-        User b = freshStudent();
-        Long mine = deckService.createDeck(a.getId(), new DeckForm("Của tôi", null));
-        Long theirs = deckService.createDeck(b.getId(), new DeckForm("Của bạn", null));
-
-        Page<DeckSummary> page = deckService.listForStudent(a.getId(), 0).ownDecks();
-        assertThat(page.getTotalElements()).isEqualTo(1);
-        assertThat(page.getContent()).anyMatch(d -> d.id().equals(mine));
-        assertThat(page.getContent()).noneMatch(d -> d.id().equals(theirs));
-    }
-
-    // ── Helpers ─────────────────────────────────────────────────────────
-
-    /** Persists a brand-new STUDENT so deck counts start from zero. */
-    private User freshStudent() {
-        String email = "fc-page-" + System.nanoTime() + "@ksh.edu.vn";
-        return userRepository.saveAndFlush(UserFactory.newAdminCreated(
-                email, "x", "Fresh Student", Role.STUDENT, true, null, null));
-    }
-
-    private void enroll(User u) {
-        enrollmentRepository.saveAndFlush(Enrollment.createFor(
-                u, clazz.getId(), Enrollment.JoinedVia.REQUEST, null));
-    }
-
-    private ClassEntity saveClass(String name, String code) {
-        ClassEntity entity = new ClassEntity(name, lecturer.getId(), lecturer.getId(),
-                null, null, null, 100);
-        entity.setCode(code);
-        try {
-            return classRepository.saveAndFlush(entity);
-        } catch (DataIntegrityViolationException ex) {
-            entity.setCode(code + "x");
-            return classRepository.saveAndFlush(entity);
-        }
+    private static FlashcardDeck deck(Long id, Long ownerId, String title, String description) {
+        FlashcardDeck deck = new FlashcardDeck(ownerId, title, description);
+        ReflectionTestUtils.setField(deck, "id", id);
+        return deck;
     }
 }

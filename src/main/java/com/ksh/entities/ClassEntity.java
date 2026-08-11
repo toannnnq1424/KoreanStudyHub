@@ -135,6 +135,7 @@ public class ClassEntity {
                               Integer maxStudents) {
         this.name = name;
         this.description = description;
+        this.startDate = startDate;
         this.endDate = endDate;
         if (maxStudents != null) {
             this.maxStudents = maxStudents;
