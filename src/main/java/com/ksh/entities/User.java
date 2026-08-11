@@ -58,6 +58,10 @@ public class User {
     @Column(name = "is_active")
     private boolean active = true;
 
+    @Column(name = "activated_at")
+    private LocalDateTime activatedAt;
+
+
     @Column(name = "is_locked")
     private boolean locked = false;
 
@@ -114,6 +118,24 @@ public class User {
         this.bio = bio;
     }
 
+    /**
+     * Package-private constructor for accounts whose owner has not yet
+     * activated: {@code is_active = 0} and {@code activated_at = NULL}.
+     * Used by {@link UserFactory#newPendingActivation}.
+     */
+    User(String email, String passwordHash, String fullName, Role role,
+         String phone, Long subjectId) {
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.fullName = fullName;
+        this.role = role;
+        this.emailVerified = false;
+        this.active = false;
+        this.locked = false;
+        this.deleted = false;
+        this.phone = phone;
+        this.subjectId = subjectId;
+    }
     // â”€â”€ Business helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
@@ -140,6 +162,28 @@ public class User {
      */
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public void markActivated(LocalDateTime activatedAt) {
+        this.active = true;
+        if (this.activatedAt == null) {
+            this.activatedAt = activatedAt;
+        }
+    }
+
+    public void setKnownPassword(String passwordHash, LocalDateTime at) {
+        this.passwordHash = passwordHash;
+        if (this.activatedAt == null) {
+            this.activatedAt = at;
+        }
+    }
+
+    public boolean isPendingActivation() {
+        return this.activatedAt == null;
+    }
+
+    public boolean hasNoUsablePassword() {
+        return this.activatedAt == null && !this.active;
     }
 
     /**

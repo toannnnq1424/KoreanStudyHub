@@ -283,10 +283,16 @@
   dialog?.querySelector('[data-library-editor-close]')?.addEventListener('click', () => dialog.close());
   dialog?.addEventListener('close', () => document.documentElement.classList.remove('library-dialog-open'));
   dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  const distribution = document.querySelector('#libraryDistribution');
   document.querySelector('[data-library-share]')?.addEventListener('click', () => {
-    const distribution = document.querySelector('#libraryDistribution');
-    distribution?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.setTimeout(() => distribution?.querySelector('input[type="search"]')?.focus(), 350);
+    if (distribution) {
+      distribution.classList.remove('is-hidden');
+      distribution.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.setTimeout(() => distribution.querySelector('input[type="search"]')?.focus(), 350);
+    }
+  });
+  distribution?.querySelector('.library-distribution-close')?.addEventListener('click', () => {
+    distribution.classList.add('is-hidden');
   });
 
   if (dropSurface) {
