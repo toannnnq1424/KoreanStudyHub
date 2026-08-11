@@ -21,22 +21,21 @@ public interface UserRow {
     boolean isActive();
     boolean isLocked();
     boolean isDeleted();
-    Long getSubjectId();
+    Long getDepartmentId();
+    String getSubjectId();
     LocalDateTime getLastLoginAt();
     LocalDateTime getCreatedAt();
     String getAvatarUrl();
+    LocalDateTime getActivatedAt();
 
     /**
      * Computed status label used by the template for the status pill.
-     * Ordering matters: a deleted row is reported as DELETED regardless
-     * of its active/locked flags, then locked, then inactive, then active.
+     * Delegates to {@link AccountStatusLabel} so this page and the admin edit
+     * page can never report different statuses for the same account.
      *
-     * @return one of {@code ACTIVE | INACTIVE | LOCKED | DELETED}
+     * @return one of {@code ACTIVE | INACTIVE | PENDING | LOCKED | DELETED}
      */
     default String statusLabel() {
-        if (isDeleted()) return "DELETED";
-        if (isLocked())  return "LOCKED";
-        if (!isActive()) return "INACTIVE";
-        return "ACTIVE";
+        return AccountStatusLabel.resolve(isDeleted(), isLocked(), isActive(), getActivatedAt());
     }
 }

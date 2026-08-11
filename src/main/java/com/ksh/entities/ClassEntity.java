@@ -35,6 +35,12 @@ public class ClassEntity {
     public static final String STATUS_DRAFT = "DRAFT";
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_ARCHIVED = "ARCHIVED";
+    public static final String STATUS_REJECTED = "REJECTED";
+    public static final String STATUS_UPCOMING = "UPCOMING";
+    public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_CANCELLED = "CANCELLED";
+
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -148,6 +154,21 @@ public class ClassEntity {
      */
     public void softDelete() {
         this.deleted = true;
+    }
+
+    public static String statusLabel(String status) {
+        if (status == null) {
+            return "";
+        }
+        return switch (status) {
+            case STATUS_DRAFT -> "Chờ duyệt";
+            case STATUS_REJECTED -> "Bị từ chối";
+            case STATUS_UPCOMING -> "Sắp khai giảng";
+            case STATUS_ACTIVE -> "Đang hoạt động";
+            case STATUS_COMPLETED -> "Đã kết thúc";
+            case STATUS_CANCELLED -> "Đã huỷ";
+            default -> status;
+        };
     }
 
     public void approve(Long reviewerId, LocalDateTime reviewedAt) {

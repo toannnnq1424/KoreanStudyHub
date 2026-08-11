@@ -251,7 +251,12 @@ public class LessonTemplateService {
         form.setContentRichtext(template.getContentRichtext() == null ? "" : template.getContentRichtext());
         form.setPdfLibraryAssetId(template.getPdfLibraryAssetId());
         form.setVideoProvider(template.getVideoProvider());
-        form.setVideoUrl(template.getVideoUrl());
+        // Only bind videoUrl for YouTube/Vimeo; for UPLOAD, videoUrl is the store path
+        // and should not appear in the form UI (only videoLibraryAssetId should be used)
+        if (VIDEO_PROVIDER_YOUTUBE.equals(template.getVideoProvider())
+                || VIDEO_PROVIDER_VIMEO.equals(template.getVideoProvider())) {
+            form.setVideoUrl(template.getVideoUrl());
+        }
         form.setVideoLibraryAssetId(template.getVideoLibraryAssetId());
         LinkedHashSet<Long> retainedAssets = templateAttachmentRepository
                 .findByTemplateIdOrderByDisplayOrderAsc(templateId).stream()

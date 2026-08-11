@@ -41,7 +41,8 @@ final class ClassRowMapper {
                 ClassGradient.forIndex(index).css(),
                 Math.toIntExact(studentCount), Math.toIntExact(lectureCount),
                 Math.toIntExact(assignmentCount), Math.toIntExact(materialCount),
-                createdAtIso
+                createdAtIso,
+                e.getStatus()
         );
     }
 
