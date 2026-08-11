@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Kho học liệu - ' + ${librarySubjectCode}, ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Kho bài giảng - ' + ${librarySubjectCode}, ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/library.css}">
@@ -50,13 +50,14 @@
       </form>
     </div>
 
-    <section id="libraryDistribution" class="library-subject-distribution library-subject-distribution--flat" th:if="${libraryTemplateCount > 0}"
+    <section id="libraryDistribution" class="library-subject-distribution library-subject-distribution--flat is-hidden" th:if="${libraryTemplateCount > 0}"
              aria-labelledby="subjectDistributionTitle">
       <div class="library-distribution-heading">
         <span class="library-eyebrow">Phân phối bài giảng</span>
         <h3 id="subjectDistributionTitle"
             th:text="'Toàn bộ học liệu ' + ${librarySubjectCode}">Toàn bộ học liệu KOR311</h3>
         <p>Gửi một lần toàn bộ chương, bài học và file hiện có tới các lớp cùng mã môn.</p>
+        <button type="button" class="library-distribution-close" aria-label="Đóng">×</button>
       </div>
       <form method="post" class="library-subject-distribution-form"
             th:action="@{|/lecturer/library/templates/subjects/${librarySubjectId}/distribute|}">

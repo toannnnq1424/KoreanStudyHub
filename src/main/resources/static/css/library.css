@@ -689,6 +689,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
+  position: relative;
 }
 .library-subject-distribution--flat > div:first-child { margin-bottom: 14px; }
 .library-subject-distribution-form .ksh-checklist-options { grid-template-columns: 1fr; }
@@ -711,6 +712,22 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 2px;
+}
+.library-distribution-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  color: #607784;
+  cursor: pointer;
+}
+.library-distribution-close:hover {
+  color: #203744;
 }
 .library-subject-distribution-form .ksh-search-checklist,
 .library-subject-distribution-form .ksh-checklist-options {
@@ -783,7 +800,7 @@
 .library-chapter {
   overflow: visible;
   border: 0;
-  border-bottom: 2px solid #223743;
+  border-bottom: 1px dashed #e0e8ec;
   border-radius: 0;
 }
 .library-chapter-head {
