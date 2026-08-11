@@ -5,6 +5,7 @@ import com.ksh.entities.User;
 import com.ksh.entities.UserActivity;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.profile.service.SessionRevocationService;
+import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,7 @@ public class AdminUsersLifecycleService {
 
     @Transactional
     public void deactivate(Long id, Long actingUserId) {
+        lockAdminLifecycleMutex();
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "vô hiệu hoá");
         guard.requireNotLastActiveAdmin(target, "vô hiệu hoá");
@@ -76,6 +78,7 @@ public class AdminUsersLifecycleService {
 
     @Transactional
     public void lock(Long id, String reason, Long actingUserId) {
+        lockAdminLifecycleMutex();
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "khoá");
         guard.requireNotLastActiveAdmin(target, "khoá");
@@ -129,6 +132,7 @@ public class AdminUsersLifecycleService {
 
     @Transactional
     public void softDelete(Long id, Long actingUserId) {
+        lockAdminLifecycleMutex();
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "xoá");
         guard.requireNotLastActiveAdmin(target, "xoá");
@@ -155,6 +159,12 @@ public class AdminUsersLifecycleService {
     }
 
     // ── Internals ─────────────────────────────────────────────────
+
+    private void lockAdminLifecycleMutex() {
+        userRepository.findAdminLifecycleMutexForUpdate(Role.ADMIN.name())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Không tìm thấy tài khoản quản trị làm khoá vòng đời"));
+    }
 
     private User lockForLifecycle(Long id) {
         return userRepository.findByIdForUpdate(id)

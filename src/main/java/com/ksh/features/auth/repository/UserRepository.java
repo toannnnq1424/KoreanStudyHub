@@ -62,7 +62,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findFirstByEmailIgnoreCaseAndIdNot(String email, Long id);
 
     /**
-     * Counts active, non-deleted administrators.
+     * Counts administrators that can still authenticate: active, unlocked,
+     * and non-deleted.
      *
      * <p>Native SQL because the {@code @SQLRestriction} on the entity already
      * filters {@code is_deleted = 0} at the JPQL layer, but bypassing
@@ -71,12 +72,32 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * last-admin guard relies on.
      *
      * @param role the role name (string) to count, typically {@code "ADMIN"}
-     * @return number of users matching role AND is_active = 1 AND is_deleted = 0
+     * @return number of users matching role AND is_active = 1 AND
+     *         is_locked = 0 AND is_deleted = 0
      */
     @Query(value = "SELECT COUNT(*) FROM users " +
-                   "WHERE role = :role AND is_active = 1 AND is_deleted = 0",
+                   "WHERE role = :role AND is_active = 1 " +
+                   "AND is_locked = 0 AND is_deleted = 0",
             nativeQuery = true)
     long countActiveAdmins(@Param("role") String role);
+
+    /**
+     * Acquires the shared database mutex for mutations that can remove an
+     * administrator from the usable-admin pool.
+     *
+     * <p>The oldest administrator row is a durable mutex owner: soft-delete
+     * does not physically remove it and ADMIN cannot be changed to another
+     * account category through the application. The native lookup
+     * intentionally bypasses {@link User}'s {@code @SQLRestriction}, so the
+     * same row remains the mutex even after it has been soft-deleted.
+     * Callers must acquire this lock before locking a mutation target and must
+     * run inside an active transaction.
+     */
+    @Query(value = "SELECT * FROM users " +
+                   "WHERE role = :role " +
+                   "ORDER BY id LIMIT 1 FOR UPDATE",
+            nativeQuery = true)
+    Optional<User> findAdminLifecycleMutexForUpdate(@Param("role") String role);
 
     /**
      * Loads a user by ID, INCLUDING soft-deleted rows.

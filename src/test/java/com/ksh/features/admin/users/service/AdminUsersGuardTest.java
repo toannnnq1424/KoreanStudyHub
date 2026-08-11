@@ -11,6 +11,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -76,6 +77,16 @@ class AdminUsersGuardTest {
         User deletedAdmin = userOf(12L, Role.ADMIN, true, true);
         assertThatCode(() -> guard.requireNotLastActiveAdmin(deletedAdmin, "delete"))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void requireNotLastActiveAdmin_passes_without_count_when_target_is_locked() {
+        User lockedAdmin = userOf(121L, Role.ADMIN, true, false);
+        ReflectionTestUtils.setField(lockedAdmin, "locked", true);
+
+        assertThatCode(() -> guard.requireNotLastActiveAdmin(lockedAdmin, "deactivate"))
+                .doesNotThrowAnyException();
+        verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -151,6 +162,16 @@ class AdminUsersGuardTest {
         User deletedAdmin = userOf(24L, Role.ADMIN, true, true);
         assertThatCode(() -> guard.requireRoleNotDemotingLastAdmin(deletedAdmin, Role.LECTURER))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void requireRoleNotDemotingLastAdmin_passes_without_count_when_target_is_locked() {
+        User lockedAdmin = userOf(25L, Role.ADMIN, true, false);
+        ReflectionTestUtils.setField(lockedAdmin, "locked", true);
+
+        assertThatCode(() -> guard.requireRoleNotDemotingLastAdmin(
+                lockedAdmin, Role.LECTURER)).doesNotThrowAnyException();
+        verifyNoInteractions(userRepository);
     }
 
     @Test
