@@ -35,7 +35,8 @@ public class ClassesDtos {
             int lectureCount,
             int assignmentCount,
             int materialCount,
-            String createdAtIso
+            String createdAtIso,
+            String status
     ) {
         /** Returns the first two characters of the class name, uppercased, for use as a thumbnail label. */
         public String thumbLabel() {
@@ -43,6 +44,24 @@ public class ClassesDtos {
             String trimmed = name.trim();
             int end = Math.min(2, trimmed.length());
             return trimmed.substring(0, end).toUpperCase();
+        }
+
+        /** Human-readable review state shown only before the class becomes operational. */
+        public String reviewStateLabel() {
+            return switch (status == null ? "" : status) {
+                case ClassEntity.STATUS_PENDING -> "Chờ duyệt";
+                case ClassEntity.STATUS_REJECTED -> "Bị từ chối";
+                default -> null;
+            };
+        }
+
+        /** CSS modifier paired with {@link #reviewStateLabel()}. */
+        public String reviewStateCss() {
+            return switch (status == null ? "" : status) {
+                case ClassEntity.STATUS_PENDING -> "state-pending";
+                case ClassEntity.STATUS_REJECTED -> "state-rejected";
+                default -> "";
+            };
         }
     }
 

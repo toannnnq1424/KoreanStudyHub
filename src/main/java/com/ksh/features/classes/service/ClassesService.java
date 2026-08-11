@@ -219,6 +219,26 @@ public class ClassesService {
         return saved;
     }
 
+    /**
+     * Explicitly returns a rejected class to the leader approval queue. Editing
+     * it does not silently change its lifecycle state; the owner chooses this
+     * action only after the rejection has been addressed.
+     */
+    @Transactional
+    public ClassEntity resubmitForReview(Long id, Long userId, Role role) {
+        ClassEntity entity = loadOwnerManaged(id, userId, role);
+        if (!entity.resubmitForReview()) {
+            throw new IllegalStateException("Chỉ lớp bị từ chối mới có thể gửi duyệt lại");
+        }
+        ClassEntity saved = classRepository.save(entity);
+        activityWriter.write(saved.getId(), ClassActivity.TYPE_UPDATED,
+                "Gửi duyệt lại lớp " + saved.getName(), userId);
+        subjectRepository.findById(saved.getSubjectId())
+                .map(subject -> subject.getCode())
+                .ifPresent(code -> creator.publishPendingReview(saved, code));
+        return saved;
+    }
+
     /** Soft-deletes a class. Authorization is enforced; writes a DELETED activity row. */
     @Transactional
     public void softDelete(Long id, Long userId, Role role) {

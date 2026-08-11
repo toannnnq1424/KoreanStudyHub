@@ -210,7 +210,7 @@ class ClassesServiceTest {
 
         assertThat(saved.getSubjectId()).isEqualTo(12L);
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
-        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_PENDING);
 
         verify(activityWriter).write(eq(100L), eq(ClassActivity.TYPE_CREATED),
                 eq("Tạo lớp Java"), eq(LECTURER_ID));
@@ -325,6 +325,35 @@ class ClassesServiceTest {
     }
 
     // ───────────────── Soft-delete ─────────────────
+
+    @Test
+    void rejected_class_is_resubmitted_only_by_an_explicit_owner_action() {
+        ClassEntity entity = buildClass(9L, "Needs correction", LECTURER_ID);
+        ReflectionTestUtils.setField(entity, "subjectId", 12L);
+        entity.reject(LEADER_ID, "Thiếu lịch học", java.time.LocalDateTime.now());
+        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+        when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ClassEntity saved = service.resubmitForReview(9L, LECTURER_ID, Role.LECTURER);
+
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_PENDING);
+        assertThat(saved.getRejectionNote()).isNull();
+        verify(activityWriter).write(eq(9L), eq(ClassActivity.TYPE_UPDATED),
+                eq("Gửi duyệt lại lớp Needs correction"), eq(LECTURER_ID));
+        verify(eventPublisher).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void active_class_cannot_be_resubmitted_for_review() {
+        ClassEntity entity = buildClass(9L, "Active", LECTURER_ID);
+        entity.approve(LEADER_ID, java.time.LocalDateTime.now());
+        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> service.resubmitForReview(9L, LECTURER_ID, Role.LECTURER))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("bị từ chối");
+        verify(classRepository, never()).save(any(ClassEntity.class));
+    }
 
     @Test
     void soft_delete_by_owner_marks_deleted_and_writes_activity() {

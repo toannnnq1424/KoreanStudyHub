@@ -120,7 +120,7 @@ public class LessonTemplateService {
         for (ClassRow row : owned.getContent()) {
             classRepository.findById(row.id())
                     .filter(clazz -> subjectId.equals(clazz.getSubjectId()))
-                    .filter(clazz -> !ClassEntity.STATUS_ARCHIVED.equals(clazz.getStatus()))
+                    .filter(clazz -> ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus()))
                     .ifPresent(clazz -> options.add(new AttachTargetClassRow(
                             row.id(), row.name(), row.code(),
                             hasDistributedSubjectSnapshot(row.id(), subjectId))));
@@ -544,7 +544,7 @@ public class LessonTemplateService {
             if (classId == null) continue;
             ClassEntity clazz = classesService.getEditable(classId, userId, role);
             if (!subject.getId().equals(clazz.getSubjectId())
-                    || ClassEntity.STATUS_ARCHIVED.equals(clazz.getStatus())) {
+                    || !ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus())) {
                 throw new IllegalArgumentException("Chỉ được phân phối tới lớp cùng mã môn đang sử dụng");
             }
             Section section = sectionRepository.findByClassIdOrderByDisplayOrderAsc(classId).stream()

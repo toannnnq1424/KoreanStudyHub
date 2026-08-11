@@ -159,7 +159,7 @@ class Sprint2ClassesIntegrationTest {
         ClassEntity saved = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lecturer.getId())
                 .stream().filter(c -> "Java cơ bản".equals(c.getName())).findFirst().orElseThrow();
         assertThat(saved.getSubjectId()).isEqualTo(lecturer.getSubjectId());
-        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_PENDING);
         assertThat(saved.getStartDate()).isEqualTo(java.time.LocalDate.of(2026, 7, 1));
 
     }
