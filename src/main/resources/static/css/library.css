@@ -707,10 +707,36 @@
   border-top: 1px solid #d9e4ea;
   border-bottom: 1px solid #d9e4ea;
 }
+.library-subject-distribution[hidden] { display: none; }
 .library-distribution-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 36px;
   gap: 2px;
+}
+.library-distribution-heading > :not(.library-distribution-close) { grid-column: 1; }
+.library-distribution-close {
+  display: inline-grid;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #d4e1e7;
+  border-radius: 50%;
+  background: #fff;
+  color: #536b77;
+  cursor: pointer;
+}
+.library-distribution-close:hover { background: #eef5f8; color: #203743; }
+.library-distribution-close:focus-visible { outline: 3px solid rgba(54, 127, 169, .24); outline-offset: 2px; }
+.library-distribution-close svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
 }
 .library-subject-distribution-form .ksh-search-checklist,
 .library-subject-distribution-form .ksh-checklist-options {
@@ -783,7 +809,7 @@
 .library-chapter {
   overflow: visible;
   border: 0;
-  border-bottom: 2px solid #223743;
+  border-bottom: 1px dashed #b9cbd4;
   border-radius: 0;
 }
 .library-chapter-head {

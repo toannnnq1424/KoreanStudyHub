@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -68,14 +69,50 @@ class LearningProgressControllerTest {
 
     @Test
     @WithUserDetails(STUDENT_EMAIL)
-    void toggle_redirects_with_flash() throws Exception {
+    void legacy_toggle_redirects_with_checklist_warning_without_bypass() throws Exception {
         String expected = "/my/classes/" + clazz.getId() + "/lessons"
                 + "?section=" + section.getId() + "&lesson=" + lesson.getId();
 
         mockMvc.perform(post(toggleUrl()).param("section", section.getId().toString()).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl(expected))
-                .andExpect(flash().attributeExists("flashSuccess"));
+                .andExpect(flash().attributeExists("flashWarning"));
+    }
+
+    @Test
+    @WithUserDetails(STUDENT_EMAIL)
+    void checkpoint_returns_applicability_and_persisted_server_state() throws Exception {
+        mockMvc.perform(post(checkpointUrl())
+                        .param("tab", "CONTENT")
+                        .param("active", "true")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.applicable").value(true))
+                .andExpect(jsonPath("$.content.seconds").value(0))
+                .andExpect(jsonPath("$.content.requiredSeconds").value(60))
+                .andExpect(jsonPath("$.video.applicable").value(false))
+                .andExpect(jsonPath("$.video.satisfied").value(true))
+                .andExpect(jsonPath("$.attachments.applicable").value(false))
+                .andExpect(jsonPath("$.eligible").value(false))
+                .andExpect(jsonPath("$.overallCompleted").value(false));
+    }
+
+    @Test
+    @WithUserDetails(STUDENT_EMAIL)
+    void checkpoint_rejects_unknown_tab_and_missing_csrf() throws Exception {
+        mockMvc.perform(post(checkpointUrl()).param("tab", "SCORE").with(csrf()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(checkpointUrl()).with(csrf()))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(checkpointUrl()).param("tab", "CONTENT"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void lecturer_cannot_mutate_student_checklist() throws Exception {
+        mockMvc.perform(post(checkpointUrl()).param("tab", "CONTENT").with(csrf()))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -94,6 +131,11 @@ class LearningProgressControllerTest {
 
     private String toggleUrl() {
         return "/my/classes/" + clazz.getId() + "/lessons/" + lesson.getId() + "/progress/toggle";
+    }
+
+    private String checkpointUrl() {
+        return "/my/classes/" + clazz.getId() + "/lessons/" + lesson.getId()
+                + "/progress/checkpoint";
     }
 
     private ClassEntity saveClass(String name, String code) {

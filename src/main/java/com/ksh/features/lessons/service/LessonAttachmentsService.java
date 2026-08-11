@@ -22,9 +22,11 @@ import com.ksh.features.upload.LessonAttachmentStorageService.StoredAttachment;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,6 +41,8 @@ import static com.ksh.common.IConstant.MSG_LESSON_NOT_FOUND;
 import static com.ksh.common.IConstant.MSG_LIBRARY_BIND_INVALID_KIND;
 import static com.ksh.common.IConstant.MSG_LIBRARY_BIND_NOT_PDF;
 import static com.ksh.entities.LibraryAsset.KIND_DOCUMENT;
+import static com.ksh.entities.LessonAttachment.ORIGIN_CANONICAL_TEMPLATE;
+import static com.ksh.entities.LessonAttachment.ORIGIN_CLASS_PRIVATE;
 
 /**
  * Business service for lesson attachments.
@@ -54,6 +58,13 @@ import static com.ksh.entities.LibraryAsset.KIND_DOCUMENT;
  */
 @Service
 public class LessonAttachmentsService {
+
+    private static final String MSG_CANONICAL_CONTENT_LOCKED =
+            "Bài giảng được phân phối từ Kho bài giảng; hãy sửa nội dung chính tại bản chuẩn";
+    private static final String MSG_CANONICAL_ATTACHMENT_LOCKED =
+            "Tài liệu chuẩn phải được gỡ trong Kho bài giảng";
+    private static final String MSG_LIBRARY_ALREADY_BOUND =
+            "Tài liệu này đã được gắn vào bài giảng";
 
     private final LessonAttachmentRepository attachmentRepository;
     private final LessonRepository lessonRepository;
@@ -119,7 +130,8 @@ public class LessonAttachmentsService {
         StorageTransactionLifecycle.deleteOnRollback(
                 () -> storage.delete(stored.storedPath()));
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
-                stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
+                stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId,
+                null, ORIGIN_CLASS_PRIVATE);
         LessonAttachment saved = attachmentRepository.save(row);
         activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_ADDED,
                 "Thêm tệp đính kèm: " + saved.getOriginalFilename(), userId);
@@ -142,6 +154,7 @@ public class LessonAttachmentsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        rejectCanonicalMainOverride(lesson);
 
         if (file == null || !"application/pdf".equalsIgnoreCase(file.getContentType())) {
             throw new IllegalArgumentException("Chỉ chấp nhận tệp PDF cho bài giảng dạng PDF");
@@ -155,7 +168,8 @@ public class LessonAttachmentsService {
         StorageTransactionLifecycle.deleteOnRollback(
                 () -> storage.delete(stored.storedPath()));
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
-                stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
+                stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId,
+                null, ORIGIN_CLASS_PRIVATE);
         LessonAttachment saved = attachmentRepository.saveAndFlush(row);
         lesson.setPdfAttachmentId(saved.getId());
         lessonRepository.saveAndFlush(lesson);
@@ -180,6 +194,7 @@ public class LessonAttachmentsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        rejectCanonicalMainOverride(lesson);
         LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_DOCUMENT.equals(asset.getKind())
                 || !"application/pdf".equalsIgnoreCase(asset.getMimeType())) {
@@ -189,7 +204,8 @@ public class LessonAttachmentsService {
         Long previousMainId = lesson.getPdfAttachmentId();
         LessonAttachment row = new LessonAttachment(
                 lessonId, asset.getOriginalFilename(), asset.getStoredPath(),
-                asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
+                asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId(),
+                ORIGIN_CLASS_PRIVATE);
         LessonAttachment saved = attachmentRepository.saveAndFlush(row);
         // Required data must exist before type switch validates PDF shape.
         lesson.setPdfAttachmentId(saved.getId());
@@ -218,16 +234,27 @@ public class LessonAttachmentsService {
     @Transactional
     public LessonAttachmentRow bindAttachmentFromLibrary(Long classId, Long sectionId, Long lessonId,
                                                           Long assetId, Long userId, Role role) {
-        classesService.getEditable(classId, userId, role);
+        // Personal sharing is intentionally narrower than general class edit:
+        // immutable class owner or ADMIN only (no co-lecturer/leader widening).
+        classesService.getOwnerManaged(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
-        loadLesson(sectionId, lessonId);
+        // Global lock order for library-backed lesson mutations is asset then
+        // lesson. Canonical snapshot refresh already locks its referenced
+        // assets before flushing lesson changes; matching that order prevents
+        // a direct share and a refresh from waiting on each other in reverse.
         LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_DOCUMENT.equals(asset.getKind())) {
             throw new IllegalArgumentException(MSG_LIBRARY_BIND_INVALID_KIND);
         }
+        String ownedKey = libraryService.requireOwnedStorageKey(userId, asset);
+        loadLessonForUpdate(sectionId, lessonId);
+        if (attachmentRepository.existsByLessonIdAndLibraryAssetId(lessonId, asset.getId())) {
+            throw new IllegalArgumentException(MSG_LIBRARY_ALREADY_BOUND);
+        }
         LessonAttachment row = new LessonAttachment(
-                lessonId, asset.getOriginalFilename(), asset.getStoredPath(),
-                asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId());
+                lessonId, asset.getOriginalFilename(), ownedKey,
+                asset.getMimeType(), asset.getSizeBytes(), userId, asset.getId(),
+                ORIGIN_CLASS_PRIVATE);
         LessonAttachment saved = attachmentRepository.save(row);
         activityWriter.write(lessonId, LessonActivity.TYPE_ATTACHMENT_ADDED,
                 "Gắn tệp từ kho: " + saved.getOriginalFilename(), userId);
@@ -243,6 +270,12 @@ public class LessonAttachmentsService {
         Lesson lesson = loadLesson(sectionId, lessonId);
         LessonAttachment att = attachmentRepository.findByIdAndLessonId(attachmentId, lessonId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ATTACHMENT_NOT_FOUND));
+        if (att.isCanonicalTemplate()
+                || (lesson.getSourceLessonTemplateId() != null
+                    && attachmentId.equals(lesson.getPdfAttachmentId()))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, MSG_CANONICAL_ATTACHMENT_LOCKED);
+        }
         // If this is the main PDF, switch the lesson to RICHTEXT first
         // so clearing pdf_attachment_id doesn't violate the CHECK constraint.
         if (attachmentId.equals(lesson.getPdfAttachmentId())) {
@@ -304,8 +337,12 @@ public class LessonAttachmentsService {
                 : isEnrolledStudentForPublishedLesson(classId, userId, lesson);
         if (!allowed) throw new AccessDeniedException(MSG_FORBIDDEN_FOR_CLASS);
 
-        // storageKey is the relative object key (lessons/... or library/...).
-        String key = StorageKeys.requireSafeKey(att.getStoredPath());
+        // Library-backed rows must still match their asset owner's prefix;
+        // classic one-off rows retain the generic safe-key check.
+        String key = att.isLibraryBacked()
+                ? libraryService.requireReferencedStorageKey(
+                        att.getLibraryAssetId(), att.getStoredPath())
+                : StorageKeys.requireSafeKey(att.getStoredPath());
         return new DownloadHandle(key, att.getOriginalFilename(),
                 att.getMimeType(), att.getSizeBytes());
     }
@@ -316,8 +353,12 @@ public class LessonAttachmentsService {
      */
     boolean attachmentExists(LessonAttachment att) {
         try {
-            return objectStorage.exists(StorageKeys.requireSafeKey(att.getStoredPath()));
-        } catch (IllegalArgumentException ex) {
+            String key = att.isLibraryBacked()
+                    ? libraryService.requireReferencedStorageKey(
+                            att.getLibraryAssetId(), att.getStoredPath())
+                    : StorageKeys.requireSafeKey(att.getStoredPath());
+            return objectStorage.exists(key);
+        } catch (IllegalArgumentException | EntityNotFoundException ex) {
             return false;
         }
     }
@@ -327,6 +368,17 @@ public class LessonAttachmentsService {
     private Lesson loadLesson(Long sectionId, Long lessonId) {
         return lessonRepository.findByIdAndSectionId(lessonId, sectionId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_LESSON_NOT_FOUND));
+    }
+
+    private Lesson loadLessonForUpdate(Long sectionId, Long lessonId) {
+        return lessonRepository.findByIdAndSectionIdForUpdate(lessonId, sectionId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_LESSON_NOT_FOUND));
+    }
+
+    private static void rejectCanonicalMainOverride(Lesson lesson) {
+        if (lesson != null && lesson.getSourceLessonTemplateId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_CANONICAL_CONTENT_LOCKED);
+        }
     }
 
     /** Traverses lesson → section → class id. */

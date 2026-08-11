@@ -665,6 +665,32 @@ public class PracticeController {
         }
     }
 
+    /**
+     * A submit URL is occasionally restored by browser history or pasted into
+     * the address bar.  GET must never be reported as an internal server error;
+     * return the owner to the canonical player/result route instead.
+     */
+    @GetMapping(PracticeRoutes.ATTEMPT_SUBMIT)
+    public String redirectSubmitGet(
+            @PathVariable Long attemptId,
+            @RequestParam(value = PracticeFormFields.MODE,
+                    defaultValue = "practice") String mode,
+            @AuthenticationPrincipal KshUserDetails user,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
+        PracticeAttempt attempt = practiceService.getPracticeAttemptForRouting(
+                attemptId, user.getId());
+        if (!PracticeAttempt.STATUS_IN_PROGRESS.equals(
+                attempt.getStatus())) {
+            return redirectForTerminalAttempt(
+                    attempt, session, redirectAttributes, false);
+        }
+        redirectAttributes.addFlashAttribute(
+                "warning",
+                "Hãy dùng nút Nộp bài trong phòng làm bài để gửi đáp án.");
+        return PracticeRoutes.redirectToAttempt(attemptId, mode);
+    }
+
     @PostMapping(PracticeRoutes.ATTEMPT_SUBMIT)
     public String submitAttempt(@PathVariable Long attemptId,
                                 @RequestParam(value = PracticeFormFields.MODE, defaultValue = "practice") String mode,

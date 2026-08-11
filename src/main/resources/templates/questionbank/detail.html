@@ -33,7 +33,7 @@
       <span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(detail.workflowStatus())}"
             th:text="${detail.workflowStatus()}">DRAFT</span>
       <span>Mã môn: <strong th:text="${detail.subjectCode()}">KOR311</strong></span>
-      <span>Người tạo: <strong th:text="${detail.contributorName()}">GV</strong></span>
+      <span>Người tải lên: <strong th:text="${detail.contributorName() + ' · ID ' + detail.contributorId()}">GV · ID 1</strong></span>
       <span>Cập nhật: <strong th:text="${detail.updatedAt() != null ? #temporals.format(detail.updatedAt(), 'HH:mm dd/MM/yyyy') : '—'}">—</strong></span>
     </div>
 

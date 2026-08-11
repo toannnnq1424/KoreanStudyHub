@@ -18,6 +18,9 @@ class PracticePremiumCanonicalSeedMigrationTest {
     private static final Path PREMIUM_MIGRATION = Path.of(
             "src/main/resources/db/migration/"
                     + "V119__practice_topik35_premium_canonical_catalog.sql");
+    private static final Path DEMO_REPAIR_MIGRATION = Path.of(
+            "src/main/resources/db/migration/"
+                    + "V126__repair_practice_demo_assessment_contracts.sql");
     private static final Pattern STATIC_REFERENCE = Pattern.compile(
             "/(images|audio)/practice/topik35/([0-9a-f]{64})\\.(png|mp3)");
 
@@ -66,6 +69,24 @@ class PracticePremiumCanonicalSeedMigrationTest {
                 .contains("50.00,3,'Q54'")
                 .contains("writing-blanks.v1")
                 .contains("writing-blank-authority.v1");
+    }
+
+    @Test
+    void demoRepairIsForwardOnlySnapshotCompatibleAndAddsNoSchemaSurface()
+            throws Exception {
+        String sql = Files.readString(DEMO_REPAIR_MIGRATION);
+
+        assertThat(sql)
+                .contains("practice-demo-canonical-v1")
+                .contains("'$.correctValue', 'FALSE'")
+                .contains("'$.correctOptionIds', JSON_ARRAY()")
+                .contains("'$.schemaVersion', 'question-content-v3'")
+                .contains("UPDATE practice_questions q")
+                .contains("UPDATE practice_question_versions qv")
+                .doesNotContain("topik35-premium-canonical-v1")
+                .doesNotContainIgnoringCase(
+                        "CREATE TABLE", "DROP TABLE", "TRUNCATE TABLE",
+                        "DELETE FROM", "ALTER TABLE");
     }
 
     @Test

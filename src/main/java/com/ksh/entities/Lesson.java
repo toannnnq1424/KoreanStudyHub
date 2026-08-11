@@ -77,6 +77,10 @@ public class Lesson {
     @Column(name = "video_url", length = 500)
     private String videoUrl;
 
+    /** Optional plain-text summary shown with a configured lesson video. */
+    @Column(name = "video_summary", length = 1000)
+    private String videoSummary;
+
     /** YOUTUBE / VIMEO / UPLOAD — NULL outside VIDEO. */
     @Column(name = "video_provider", length = 20)
     private String videoProvider;
@@ -90,6 +94,14 @@ public class Lesson {
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
+
+    /**
+     * Stable provenance for a lesson materialized from the subject Library.
+     * Null means the lesson was authored directly in a class (or is a legacy
+     * snapshot whose origin could not be proven safely).
+     */
+    @Column(name = "source_lesson_template_id")
+    private Long sourceLessonTemplateId;
 
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
@@ -205,6 +217,11 @@ public class Lesson {
         this.videoUrl = videoUrl;
     }
 
+    /** Sets the optional plain-text video summary. */
+    public void setVideoSummary(String videoSummary) {
+        this.videoSummary = videoSummary;
+    }
+
     /** Sets the video provider (YOUTUBE / VIMEO / UPLOAD). */
     public void setVideoProvider(String videoProvider) {
         this.videoProvider = videoProvider;
@@ -213,6 +230,11 @@ public class Lesson {
     /** Sets the optional library asset FK for an uploaded library video. */
     public void setVideoLibraryAssetId(Long videoLibraryAssetId) {
         this.videoLibraryAssetId = videoLibraryAssetId;
+    }
+
+    /** Binds this class snapshot to its exact canonical Library template. */
+    public void setSourceLessonTemplateId(Long sourceLessonTemplateId) {
+        this.sourceLessonTemplateId = sourceLessonTemplateId;
     }
 
     /** True when the uploaded video is backed by a library asset. */
@@ -243,6 +265,7 @@ public class Lesson {
         }
         if (!CONTENT_TYPE_VIDEO.equals(newType)) {
             this.videoUrl = null;
+            this.videoSummary = null;
             this.videoProvider = null;
             this.videoLibraryAssetId = null;
         }
@@ -293,6 +316,10 @@ public class Lesson {
         return videoUrl;
     }
 
+    public String getVideoSummary() {
+        return videoSummary;
+    }
+
     public String getVideoProvider() {
         return videoProvider;
     }
@@ -303,6 +330,10 @@ public class Lesson {
 
     public Long getCreatedBy() {
         return createdBy;
+    }
+
+    public Long getSourceLessonTemplateId() {
+        return sourceLessonTemplateId;
     }
 
     public LocalDateTime getPublishedAt() {

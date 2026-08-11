@@ -38,6 +38,13 @@ public interface LessonAttachmentRepository extends JpaRepository<LessonAttachme
     /** Loads an attachment scoped by lesson to harden the URL hierarchy. */
     Optional<LessonAttachment> findByIdAndLessonId(Long id, Long lessonId);
 
+    /** Duplicate guard for no-copy personal/canonical library bindings. */
+    boolean existsByLessonIdAndLibraryAssetId(Long lessonId, Long libraryAssetId);
+
+    /** Canonical subset replaced during an exact-provenance snapshot refresh. */
+    List<LessonAttachment> findByLessonIdAndOriginScopeOrderByUploadedAtAsc(
+            Long lessonId, String originScope);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM LessonAttachment a WHERE a.id = :id")
     Optional<LessonAttachment> findByIdForUpdate(@Param("id") Long id);
@@ -50,4 +57,13 @@ public interface LessonAttachmentRepository extends JpaRepository<LessonAttachme
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM LessonAttachment a WHERE a.lessonId = :lessonId")
     int deleteByLessonId(@Param("lessonId") Long lessonId);
+
+    /** Deletes one provenance family while preserving sibling attachment rows. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            DELETE FROM LessonAttachment a
+            WHERE a.lessonId = :lessonId AND a.originScope = :originScope
+            """)
+    int deleteByLessonIdAndOriginScope(@Param("lessonId") Long lessonId,
+                                       @Param("originScope") String originScope);
 }

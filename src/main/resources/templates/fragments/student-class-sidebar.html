@@ -34,8 +34,16 @@
 
   <!-- Student class navigation: keep only real, useful class tasks. Messaging
        starts from a member row instead of occupying a separate class tab. -->
-  <div>
-    <p class="student-lessons-sidebar-title">Danh mục</p>
+  <details class="student-class-menu"
+           open
+           th:attr="data-auto-collapse=${active == 'lessons'}">
+    <summary class="student-class-menu-summary">
+      <span>Danh mục</span>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </summary>
     <ul class="student-lessons-nav">
       <li>
         <a class="student-lessons-nav-item"
@@ -89,7 +97,7 @@
         </span>
       </li>
     </ul>
-  </div>
+  </details>
 
   <!-- Lessons-only extras (shared decks + chapter switcher) inject here. -->
   <th:block th:replace="${extrasSlot}"></th:block>

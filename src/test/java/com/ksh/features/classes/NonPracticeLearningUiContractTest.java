@@ -1,10 +1,13 @@
 package com.ksh.features.classes;
 
 import org.junit.jupiter.api.Test;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,6 +50,8 @@ class NonPracticeLearningUiContractTest {
         assertThat(script).contains(
                 "document.createElement('button')",
                 "setAttribute('role', 'listbox')",
+                "document.body.appendChild(menu)",
+                "wrapper.contains(target) || menu.contains(target)",
                 "event.key === 'Escape'",
                 "event.key !== 'ArrowDown'",
                 "select.dispatchEvent(new Event('change'",
@@ -120,6 +125,8 @@ class NonPracticeLearningUiContractTest {
     void lesson_authoring_uses_one_fixed_context_with_inline_content_and_optional_resources()
             throws IOException {
         String template = Files.readString(TEMPLATES.resolve("library/lesson-form.html"));
+        String script = Files.readString(STATIC.resolve("js/library-lesson-form.js"));
+        String css = Files.readString(STATIC.resolve("css/learning-ui.css"));
 
         assertThat(template).contains(
                 "data-inline-action=",
@@ -127,7 +134,10 @@ class NonPracticeLearningUiContractTest {
                 "th:field=\"*{chapterNumber}\"",
                 "th:field=\"*{lessonNumber}\"",
                 "th:field=\"*{title}\"",
-                "th:field=\"*{contentType}\" value=\"RICHTEXT\"",
+                "th:field=\"*{contentType}\" data-library-content-type",
+                "data-library-form-tab=\"CONTENT\"",
+                "data-library-form-tab=\"VIDEO\"",
+                "data-library-form-tab=\"ATTACHMENTS\"",
                 "data-library-richtext-value",
                 "data-library-richtext-editor",
                 "th:field=\"*{videoUrl}\"",
@@ -137,8 +147,28 @@ class NonPracticeLearningUiContractTest {
                 "library-subject-banner",
                 "library-fixed-subject",
                 "library-numbered-input",
-                "data-library-content-type",
                 "data-content-section=");
+
+        var document = Jsoup.parse(template);
+        for (String name : List.of("CONTENT", "VIDEO", "ATTACHMENTS")) {
+            Element tab = document.selectFirst("[role=tab][data-library-form-tab=" + name + "]");
+            Element panel = document.selectFirst("[role=tabpanel][data-library-form-panel=" + name + "]");
+            assertThat(tab).as("authoring tab %s", name).isNotNull();
+            assertThat(panel).as("authoring panel %s", name).isNotNull();
+            assertThat(tab.id()).as("tab id for %s", name).isNotBlank();
+            assertThat(panel.id()).as("panel id for %s", name).isNotBlank();
+            assertThat(tab.attr("aria-controls")).isEqualTo(panel.id());
+            assertThat(panel.attr("aria-labelledby")).isEqualTo(tab.id());
+        }
+        assertThat(script).contains(
+                "tab.tabIndex = active ? 0 : -1",
+                "event.key === 'ArrowRight'",
+                "event.key === 'ArrowLeft'",
+                "event.key === 'Home'",
+                "event.key === 'End'",
+                "activeTab.focus()");
+        assertThat(css).contains(
+                ".library-form-section[hidden] { display: none !important; }");
     }
 
     @Test

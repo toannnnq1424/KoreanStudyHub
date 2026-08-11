@@ -14,6 +14,37 @@ import java.util.List;
  */
 public class StudentLessonsDtos {
 
+    /** Stable wire values accepted by the lesson engagement endpoint. */
+    public enum LessonEngagementTab {
+        CONTENT,
+        VIDEO,
+        ATTACHMENTS
+    }
+
+    /** One item in the one-minute-per-applicable-tab completion checklist. */
+    public record LessonEngagementItemView(
+            boolean applicable,
+            int seconds,
+            int requiredSeconds,
+            boolean complete,
+            boolean satisfied
+    ) {
+        @com.fasterxml.jackson.annotation.JsonProperty("remainingSeconds")
+        public int remainingSeconds() {
+            return applicable ? Math.max(0, requiredSeconds - seconds) : 0;
+        }
+    }
+
+    /** Persisted checklist state returned to the lesson page and checkpoint API. */
+    public record LessonEngagementView(
+            LessonEngagementItemView content,
+            LessonEngagementItemView video,
+            LessonEngagementItemView attachments,
+            boolean eligible,
+            boolean overallCompleted,
+            int overallPercent
+    ) { }
+
     /**
      * A single PUBLISHED lesson row rendered in the main panel.
      *
@@ -166,6 +197,7 @@ public class StudentLessonsDtos {
      * @param pdfDownloadUrl  download URL of the main PDF when type=PDF
      * @param pdfViewerUrl    PDF.js iframe URL when type=PDF; null otherwise
      * @param videoUrl        embed URL (YOUTUBE/VIMEO) or stream URL (UPLOAD)
+     * @param videoSummary    optional plain-text summary for the configured video
      * @param videoProvider   YOUTUBE / VIMEO / UPLOAD — null outside VIDEO
      */
     public record LessonDetailView(
@@ -182,6 +214,7 @@ public class StudentLessonsDtos {
             String pdfDownloadUrl,
             String pdfViewerUrl,
             String videoUrl,
+            String videoSummary,
             String videoProvider
     ) { }
 }

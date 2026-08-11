@@ -59,6 +59,7 @@ public class LessonsTabController {
         model.addAttribute("view", view);
         model.addAttribute("activeSectionId", activeSectionId);
         model.addAttribute("teachingView", true);
+        model.addAttribute("activeLessonCompleted", false);
         model.addAttribute("classSharedDecks", java.util.List.of());
         model.addAttribute("lessonBasePath", "/lecturer/classes/" + classId + "/lessons");
         detailSupport.populateDetail(model, clazz, "lessons", user.getId(), user.getRole());

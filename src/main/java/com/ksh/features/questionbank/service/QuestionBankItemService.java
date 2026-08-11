@@ -173,6 +173,7 @@ public class QuestionBankItemService {
                         item.getId(), preview(item.getContent()), item.getQuestionType(),
                         item.getWorkflowStatus(), subjectCode, item.getLessonTemplateId(),
                         chapterOrder, lessonOrder, chapterTitle, lessonTitle,
+                        item.getContributorId(),
                         userNames.getOrDefault(item.getContributorId(), "—"),
                         item.getUpdatedAt(), canEdit(actor, item), canReview(actor, item),
                         lesson != null);
@@ -523,7 +524,8 @@ public class QuestionBankItemService {
         return new ItemDetail(item.getId(), item.getQuestionType(), item.getWorkflowStatus(),
                 item.getContent(), preview(item.getContent()), item.getExplanation(),
                 item.getReviewNote(), subjectCode,
-                names.getOrDefault(item.getContributorId(), "—"), names.get(item.getReviewedBy()),
+                item.getContributorId(), names.getOrDefault(item.getContributorId(), "—"),
+                names.get(item.getReviewedBy()),
                 item.getReviewedAt(), item.getApprovedAt(), item.getUpdatedAt(),
                 options.getOrDefault(item.getId(), List.of()), canEdit(actor, item),
                 canReview(actor, item), canArchive(actor, item), canUnarchive(actor, item));

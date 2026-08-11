@@ -674,6 +674,25 @@
       });
   };
 
+  const awaitInFlightAutosaveBeforeSubmit = () => {
+    window.clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    // Prevent the in-flight PUT's finally block from scheduling another PUT
+    // between the lock-version refresh and the native submit POST.  The POST
+    // already contains the complete current form, so that follow-up autosave
+    // would race the submit against the same optimistic-lock version.
+    autosaveSubmitDrain = true;
+    // The submit POST already carries the complete current form. Starting a
+    // second PUT here duplicated the write and, on a server error, made the
+    // learner wait through the 1s/2s/4s retry chain before POST was attempted.
+    // Only drain a PUT that was already in flight so its newer lock version is
+    // observed; otherwise submit the form immediately.
+    return (autosaveInFlight || Promise.resolve(true))
+      .finally(() => {
+        autosaveSubmitDrain = false;
+      });
+  };
+
   player.addEventListener('input', (event) => {
     const fill = event.target.closest && event.target.closest('[data-fill-question]');
     if (fill) syncFillAnswer(fill);
@@ -1119,17 +1138,8 @@
         player.submit();
         return;
       }
-      window.clearTimeout(autosaveTimer);
-      flushLatestAnswers().then((saved) => {
-        if (!saved) {
-          if (deadlineSubmission && !nativeSubmitAuthorized) {
-            nativeSubmitAuthorized = true;
-            allowNavigation = true;
-            player.submit();
-          }
-          return;
-        }
-        if (autosaveBlocked) return;
+      awaitInFlightAutosaveBeforeSubmit().then(() => {
+        if (autosaveBlocked && !deadlineSubmission) return;
         nativeSubmitAuthorized = true;
         allowNavigation = true;
         player.submit();

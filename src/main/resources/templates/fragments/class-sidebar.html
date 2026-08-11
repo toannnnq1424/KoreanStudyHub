@@ -45,7 +45,16 @@
     </div>
 
     <div class="side-sep"></div>
-    <p class="menu-title">Danh mục</p>
+    <details class="side-group student-class-menu lecturer-class-menu"
+             open
+             th:attr="data-auto-collapse=${activeTab == 'lessons'}">
+      <summary class="side-group-toggle">
+        <span class="side-group-label">Danh mục</span>
+        <svg class="ico ico-sm side-group-caret" aria-hidden="true"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </summary>
 
     <ul class="side-nav">
       <li>
@@ -97,6 +106,7 @@
         </a>
       </li>
     </ul>
+    </details>
 
     <div class="side-foot" th:if="${isPrimaryClassOwner}">
       <a th:href="@{'/lecturer/classes/' + ${clazz.id} + '/settings'}"

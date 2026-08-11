@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,6 +52,18 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/resources/static/css/practice-result.css");
     private static final Path PRACTICE_RESULT_PREP_CSS =
             Path.of("src/main/resources/static/css/practice-result-prep.css");
+    private static final Path PRACTICE_WORKSPACE_POLISH_CSS =
+            Path.of("src/main/resources/static/css/practice/practice-workspace-polish.css");
+    private static final String PRACTICE_WORKSPACE_POLISH_HREF =
+            "@{/css/practice/practice-workspace-polish.css}";
+    private static final List<String> PRACTICE_WORKSPACE_TEMPLATES = List.of(
+            "player.html",
+            "player-writing.html",
+            "player-speaking.html",
+            "result.html",
+            "result-detail-objective.html",
+            "result-detail-writing.html",
+            "result-detail-speaking.html");
     private static final Path PRACTICE_RESULT_JS =
             Path.of("src/main/resources/static/js/practice-result.js");
     private static final Path WRITING_RESULT_PRESENTER =
@@ -61,6 +74,65 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/java/com/ksh/features/practice/service/PracticeService.java");
     private static final Path PRACTICE_ATTEMPT_REPOSITORY =
             Path.of("src/main/java/com/ksh/features/practice/repository/PracticeAttemptRepository.java");
+
+    @Test
+    void sharedWorkspacePolishLoadsLastOnExactlySevenCanonicalPracticeScreens()
+            throws IOException {
+        for (String templateName : PRACTICE_WORKSPACE_TEMPLATES) {
+            Element head = Jsoup.parse(
+                            Files.readString(PRACTICE_TEMPLATES.resolve(templateName)))
+                    .head();
+            List<Element> pageStyles = head.select("link.page-css");
+
+            assertThat(pageStyles)
+                    .as("page styles in %s", templateName)
+                    .isNotEmpty();
+            assertThat(pageStyles.get(pageStyles.size() - 1).attr("th:href"))
+                    .as("last page stylesheet in %s", templateName)
+                    .isEqualTo(PRACTICE_WORKSPACE_POLISH_HREF);
+        }
+
+        long templateCount;
+        try (var templates = Files.walk(PRACTICE_TEMPLATES)) {
+            templateCount = templates
+                    .filter(path -> path.toString().endsWith(".html"))
+                    .filter(path -> {
+                        try {
+                            return Files.readString(path)
+                                    .contains(PRACTICE_WORKSPACE_POLISH_HREF);
+                        } catch (IOException exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    })
+                    .count();
+        }
+        assertThat(templateCount)
+                .as("canonical Practice templates loading the shared workspace polish")
+                .isEqualTo(PRACTICE_WORKSPACE_TEMPLATES.size());
+
+        String workspaceCss = Files.readString(PRACTICE_WORKSPACE_POLISH_CSS);
+        assertThat(workspaceCss).contains(
+                ":root",
+                "--ksh-workspace-canvas",
+                "@media (min-width: 901px)",
+                "body.exam-shell",
+                ".exam-player",
+                ".exam-workspace",
+                ".writing-workspace",
+                "body.spp-body",
+                ".spp-player",
+                ".spp-stage",
+                ".practice-result-page .pr-main",
+                ".prd-objective-layout",
+                ".prd-writing-shell",
+                ".prd-speaking-shell");
+        assertThat(workspaceCss).contains(
+                ".exam-topbar .exam-identity span,\n"
+                        + ".exam-topbar .exam-progress,\n"
+                        + ".spp-header .spp-heading span {\n"
+                        + "  color: #fff;\n"
+                        + "}");
+    }
 
     @Test
     void typedObjectivePlayerAndAttemptScopedPinsAreFunctional() throws IOException {
@@ -1527,7 +1599,10 @@ class PracticeFunctionalUiContractTest {
                 "maxAutosaveRetries",
                 "autosaveRetryExhausted",
                 "autosaveSubmitDrain",
+                "autosaveSubmitDrain = true",
+                "autosaveSubmitDrain = false",
                 "drainLatestAnswers",
+                "awaitInFlightAutosaveBeforeSubmit",
                 "submissionPending",
                 "exitPending",
                 "flushLatestAnswers",

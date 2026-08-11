@@ -94,7 +94,9 @@
   border: 1px solid var(--learn-border-strong, #bfdbe9); border-radius: 14px;
   background: #fff; box-shadow: 0 16px 34px rgba(35, 70, 91, .16);
 }
-.ksh-select.is-open .ksh-select-menu { display: grid; gap: 3px; }
+.ksh-select-menu--portal { position: fixed; z-index: 1200; right: auto; }
+.ksh-select.is-open .ksh-select-menu,
+.ksh-select-menu.is-open { display: grid; gap: 3px; }
 .ksh-select-search {
   position: sticky; top: 0; z-index: 1; width: 100%; min-height: 40px;
   padding: 8px 10px; border: 1px solid var(--learn-border-strong, #bfdbe9);
@@ -273,6 +275,7 @@
 }
 .library-lesson-context > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .library-form-section { display: grid; gap: 15px; padding: 4px 0; }
+.library-form-section[hidden] { display: none !important; }
 .library-form-section + .library-form-section { padding-top: 22px; border-top: 1px solid #e4eef3; }
 .library-form-section h2 { margin: 0; color: #315267; font-size: 1.05rem; }
 .library-chapter-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 14px; }

@@ -25,6 +25,72 @@ public final class LibraryDtos {
     ) {
     }
 
+    /**
+     * Paginated view model for the lecturer-private asset inventory. Counts
+     * are owner-scoped and intentionally independent of the active search so
+     * the document/video rail remains stable while filtering.
+     */
+    public record LibraryAssetPageView(
+            Page<LibraryAssetRow> page,
+            String q,
+            String kind,
+            long totalCount,
+            long documentCount,
+            long videoCount
+    ) {
+    }
+
+    /** Minimal owner-private item returned to reusable asset pickers. */
+    public record LibraryAssetPickerItem(
+            Long id,
+            String title,
+            String originalFilename,
+            String kind,
+            String mimeType,
+            long sizeBytes
+    ) {
+    }
+
+    /** JSON page envelope used by lesson/class asset selectors. */
+    public record LibraryAssetPickerPage(
+            List<LibraryAssetPickerItem> items,
+            int page,
+            int size,
+            int totalPages,
+            long totalElements
+    ) {
+    }
+
+    /** Owner/admin class → section → lesson tree for one personal DOCUMENT. */
+    public record PersonalAssetClassTargets(
+            Long assetId,
+            List<PersonalAssetClassTarget> classes
+    ) {
+    }
+
+    public record PersonalAssetClassTarget(
+            Long id,
+            String name,
+            String status,
+            List<PersonalAssetSectionTarget> sections
+    ) {
+    }
+
+    public record PersonalAssetSectionTarget(
+            Long id,
+            String title,
+            List<PersonalAssetLessonTarget> lessons
+    ) {
+    }
+
+    public record PersonalAssetLessonTarget(
+            Long id,
+            String title,
+            String status,
+            boolean canonicalSnapshot
+    ) {
+    }
+
     /** One editable class row for the library attach wizard. */
     public record AttachTargetClassRow(
             Long id,
@@ -43,6 +109,8 @@ public final class LibraryDtos {
             int lessonNumber,
             String title,
             String contentType,
+            Long uploaderUserId,
+            String uploaderDisplayName,
             LocalDateTime updatedAt,
             int attachmentCount,
             boolean canManage,

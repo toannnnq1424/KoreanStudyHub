@@ -1,9 +1,11 @@
 package com.ksh.features.lessons.repository;
 
 import com.ksh.entities.Lesson;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,6 +24,13 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     /** Returns the live lessons of a section ordered by {@code display_order}. */
     List<Lesson> findBySectionIdOrderByDisplayOrderAsc(Long sectionId);
+
+    /**
+     * Batch counterpart used by class-target trees. Callers pass bounded,
+     * non-empty id batches and group the ordered flat result in memory.
+     */
+    List<Lesson> findBySectionIdInOrderBySectionIdAscDisplayOrderAsc(
+            Collection<Long> sectionIds);
 
     /**
      * Returns a section's live lessons in the given status, ordered by
@@ -76,7 +85,36 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
 
+    /** Serializes supplementary asset duplicate checks for one existing lesson. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM Lesson l WHERE l.id = :id AND l.sectionId = :sectionId")
+    Optional<Lesson> findByIdAndSectionIdForUpdate(@Param("id") Long id,
+                                                   @Param("sectionId") Long sectionId);
+
     Optional<Lesson> findFirstBySectionIdAndTitleIgnoreCase(Long sectionId, String title);
+
+    /**
+     * Loads only snapshots with an exact persisted Library provenance. Legacy
+     * or directly-authored lessons have a null source id and therefore fail
+     * closed instead of being guessed from a matching chapter/title.
+     */
+    List<Lesson> findBySourceLessonTemplateIdOrderByIdAsc(Long sourceLessonTemplateId);
+
+    /**
+     * Exact provenance duplicate guard for one target class. The section join
+     * intentionally makes the invariant class-wide, so moving/renaming a
+     * canonical chapter cannot permit a second snapshot of the same template.
+     */
+    @Query("""
+            SELECT CASE WHEN COUNT(l) > 0 THEN true ELSE false END
+            FROM Lesson l, Section s
+            WHERE l.sectionId = s.id
+              AND s.classId = :classId
+              AND l.sourceLessonTemplateId = :sourceLessonTemplateId
+            """)
+    boolean existsByClassIdAndSourceLessonTemplateId(
+            @Param("classId") Long classId,
+            @Param("sourceLessonTemplateId") Long sourceLessonTemplateId);
 
     /**
      * Lessons belonging to classes owned by {@code lecturerId}, newest update first.

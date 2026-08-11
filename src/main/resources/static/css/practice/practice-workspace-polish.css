@@ -1,0 +1,513 @@
+/*
+ * Practice desktop workspace polish.
+ *
+ * This final cascade owns presentation only. The existing templates, state
+ * machines, split-ratio variables, scoring truth and responsive contracts stay
+ * authoritative. KSH keeps its own visual identity while using more of the
+ * desktop viewport and a clearer surface hierarchy.
+ */
+
+:root {
+  --ksh-workspace-blue: #405f9e;
+  --ksh-workspace-accent: #5276b5;
+  --ksh-workspace-canvas: #ffffff;
+  --ksh-workspace-canvas-soft: #ffffff;
+  --ksh-workspace-header-start: #3b568e;
+  --ksh-workspace-header-mid: #4869a2;
+  --ksh-workspace-header-end: #587bb0;
+  --ksh-workspace-surface: #ffffff;
+  --ksh-workspace-surface-soft: #f7f9fc;
+  --ksh-workspace-line: #e3e8f0;
+  --ksh-workspace-ink: #1d2638;
+  --ksh-workspace-muted: #697386;
+  --ksh-workspace-radius: 16px;
+  --ksh-workspace-panel-radius: 12px;
+  --ksh-workspace-shadow: 0 16px 40px rgba(31, 68, 135, 0.14);
+}
+
+@media (min-width: 901px) {
+  body.exam-shell {
+    padding: 12px 16px;
+    background: #fff;
+  }
+
+  .exam-player {
+    height: calc(100dvh - 24px);
+    border: 1px solid rgba(218, 226, 239, 0.94);
+    border-radius: var(--ksh-workspace-radius);
+    background: var(--ksh-workspace-surface);
+    box-shadow: var(--ksh-workspace-shadow);
+  }
+
+  .exam-topbar {
+    height: 58px;
+    padding-inline: clamp(16px, 1.5vw, 28px);
+    border: 0;
+    border-radius: var(--ksh-workspace-radius) var(--ksh-workspace-radius) 0 0;
+    color: #fff;
+    background: linear-gradient(
+      100deg,
+      var(--ksh-workspace-header-start) 0%,
+      var(--ksh-workspace-header-mid) 58%,
+      var(--ksh-workspace-header-end) 100%
+    );
+  }
+
+  .exam-topbar .exam-icon-button {
+    border-color: rgba(255, 255, 255, 0.34);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .exam-topbar .exam-icon-button:hover {
+    border-color: rgba(255, 255, 255, 0.58);
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .exam-topbar .exam-timer {
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .exam-topbar .exam-timer.is-danger {
+    border-color: rgba(255, 207, 203, 0.72);
+    color: #fff4f3;
+    background: rgba(166, 31, 31, 0.34);
+  }
+
+  .exam-topbar .exam-timer.is-unconfigured {
+    color: rgba(255, 255, 255, 0.76);
+  }
+
+  .exam-submit-button {
+    color: #244bcf;
+    background: #fff;
+    box-shadow: 0 6px 16px rgba(21, 47, 129, 0.18);
+  }
+
+  .exam-submit-button:hover {
+    color: #173cac;
+    background: #f3f7ff;
+  }
+
+  .exam-autosave-status {
+    min-height: 29px;
+    padding-inline: clamp(16px, 1.5vw, 28px);
+    border-color: var(--ksh-workspace-line);
+    background: #f8faff;
+  }
+
+  .exam-section-band {
+    min-height: 58px;
+    padding: 9px clamp(18px, 1.6vw, 30px);
+    border-color: var(--ksh-workspace-line);
+    background: linear-gradient(90deg, #f7f9fc 0%, #fff 55%, #f7f9fc 100%);
+  }
+
+  .exam-workspace,
+  .writing-workspace {
+    height: calc(100dvh - 246px);
+    background: var(--ksh-workspace-surface);
+  }
+
+  .exam-player:has(> .exam-program-audio) .exam-workspace {
+    height: calc(100dvh - 318px);
+  }
+
+  .exam-program-audio {
+    min-height: 72px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .exam-source-pane,
+  .exam-question-pane,
+  .writing-source-pane,
+  .writing-answer-pane {
+    padding: clamp(18px, 1.5vw, 30px) clamp(20px, 2vw, 38px) 48px;
+    scrollbar-gutter: stable;
+  }
+
+  .is-listening .exam-question-pane {
+    max-width: none;
+    margin: 0;
+  }
+
+  .is-listening .exam-group-stage {
+    display: grid;
+    grid-template-columns: minmax(300px, 0.82fr) minmax(460px, 1.18fr);
+    gap: clamp(24px, 3vw, 54px);
+    width: min(1480px, 100%);
+    margin-inline: auto;
+    align-items: start;
+  }
+
+  .is-listening .exam-listening-lead,
+  .is-listening .exam-example {
+    grid-column: 1;
+  }
+
+  .is-listening .exam-listening-lead {
+    position: sticky;
+    top: 0;
+    margin-bottom: 0;
+  }
+
+  .is-listening .exam-question-list {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+
+  .exam-bottom-bar {
+    right: 16px;
+    bottom: 12px;
+    left: 16px;
+    height: 72px;
+    padding-inline: clamp(16px, 1.5vw, 28px);
+    border-color: var(--ksh-workspace-line);
+    border-radius: 0 0 var(--ksh-workspace-radius) var(--ksh-workspace-radius);
+    box-shadow: 0 -8px 22px rgba(31, 68, 135, 0.06);
+  }
+
+  .exam-group-tabs button {
+    height: 44px;
+  }
+
+  .writing-answer-block,
+  .writing-editor,
+  .writing-short-answer {
+    min-height: 0;
+  }
+
+  .writing-editor textarea,
+  .writing-short-answer textarea {
+    min-height: clamp(300px, 48dvh, 560px);
+  }
+
+  body.spp-body {
+    min-height: 100dvh;
+    padding: 12px 16px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .spp-player {
+    min-height: calc(100dvh - 24px);
+    border: 1px solid rgba(218, 226, 239, 0.94);
+    border-radius: var(--ksh-workspace-radius);
+    background: var(--ksh-workspace-surface);
+    box-shadow: var(--ksh-workspace-shadow);
+  }
+
+  .spp-header {
+    min-height: 60px;
+    padding: 8px clamp(16px, 1.5vw, 28px);
+    border: 0;
+    border-radius: var(--ksh-workspace-radius) var(--ksh-workspace-radius) 0 0;
+    color: #fff;
+    background: linear-gradient(
+      100deg,
+      var(--ksh-workspace-header-start) 0%,
+      var(--ksh-workspace-header-mid) 58%,
+      var(--ksh-workspace-header-end) 100%
+    );
+  }
+
+  .spp-header .spp-icon-button {
+    border-color: rgba(255, 255, 255, 0.34);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .spp-stage {
+    grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+    grid-template-rows: auto minmax(250px, 1fr);
+    min-height: calc(100dvh - 84px);
+    place-items: center stretch;
+    align-content: stretch;
+    gap: 22px clamp(24px, 3vw, 52px);
+    padding: clamp(28px, 4vw, 64px);
+    background: #fff;
+  }
+
+  .spp-prompt-audio {
+    grid-column: 1;
+    justify-self: center;
+  }
+
+  .spp-prompt {
+    grid-column: 1;
+    width: 100%;
+    max-width: none;
+    border: 0;
+    border-radius: var(--ksh-workspace-panel-radius);
+    background: linear-gradient(135deg, #3157e8 0%, #4b84f4 100%);
+  }
+
+  .spp-state-panel {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    width: 100%;
+    min-height: 330px;
+    padding: clamp(22px, 3vw, 42px);
+    border-radius: var(--ksh-workspace-panel-radius);
+    box-shadow: 0 12px 30px rgba(42, 71, 128, 0.1);
+  }
+
+  .spp-mascot {
+    right: clamp(28px, 3vw, 56px);
+    bottom: clamp(26px, 3vw, 48px);
+  }
+}
+
+@media (min-width: 981px) {
+  .practice-result-page {
+    background: #fff;
+    background-attachment: scroll;
+  }
+
+  .practice-result-page:is([data-result-skill="WRITING"], [data-result-skill="SPEAKING"]) {
+    background: #fff;
+    background-attachment: scroll;
+  }
+
+  .practice-result-page .pr-sky-particles,
+  .practice-result-page .pr-shell::before,
+  .practice-result-page .pr-shell::after {
+    display: none;
+  }
+
+  .practice-result-page {
+    --prep-overview-panel-width: calc(100vw - 32px);
+  }
+
+  .practice-result-page .pr-topbar {
+    min-height: 58px;
+    background: linear-gradient(
+      100deg,
+      var(--ksh-workspace-header-start),
+      var(--ksh-workspace-header-mid) 58%,
+      var(--ksh-workspace-header-end)
+    );
+  }
+
+  .practice-result-page .pr-main {
+    width: calc(100vw - 32px);
+    max-width: none;
+    margin-top: 16px;
+  }
+
+  .practice-result-page .pr-summary,
+  .practice-result-page .pr-section,
+  .practice-result-page[data-result-skill="WRITING"] .pr-summary,
+  .practice-result-page[data-result-skill="SPEAKING"] .pr-summary {
+    width: 100%;
+    max-width: none;
+    border-radius: var(--ksh-workspace-radius);
+    box-shadow: var(--ksh-workspace-shadow);
+  }
+
+  .practice-result-page .pr-summary,
+  .practice-result-page .pr-section {
+    border-color: rgba(222, 229, 240, 0.96);
+  }
+
+  .prd-objective-body {
+    background: #fff;
+  }
+
+  .prd-objective-body .prd-boundary-header {
+    border-bottom-color: rgba(218, 225, 236, 0.92);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 8px 22px rgba(31, 68, 135, 0.08);
+    backdrop-filter: blur(12px);
+  }
+
+  .prd-objective-body .prd-objective-shell {
+    right: 16px;
+    left: 16px;
+    width: auto;
+    padding: 12px 0;
+  }
+
+  .prd-objective-body .prd-objective-layout,
+  .prd-objective-body .prd-objective-group-panel {
+    height: 100%;
+  }
+
+  .prd-objective-body .prd-objective-sources,
+  .prd-objective-body .prd-objective-review {
+    border: 1px solid var(--ksh-workspace-line);
+    border-radius: var(--ksh-workspace-panel-radius);
+    box-shadow: 0 10px 26px rgba(31, 68, 135, 0.08);
+  }
+
+  .prd-objective-body .prd-objective-audio-dock {
+    left: 16px;
+  }
+
+  .prd-objective-body .prd-question-rail {
+    right: 16px;
+    bottom: 12px;
+    left: 16px;
+    width: auto;
+    border: 1px solid var(--ksh-workspace-line);
+    border-radius: var(--ksh-workspace-panel-radius);
+    box-shadow: 0 -8px 22px rgba(31, 68, 135, 0.08);
+  }
+
+  .prd-writing-body,
+  .prd-speaking-body {
+    background: #fff;
+  }
+
+  .prd-writing-body .prd-boundary-header,
+  .prd-speaking-body .prd-boundary-header {
+    color: #fff;
+    border-bottom-color: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(
+      100deg,
+      var(--ksh-workspace-header-start) 0%,
+      var(--ksh-workspace-header-mid) 58%,
+      var(--ksh-workspace-header-end) 100%
+    );
+  }
+
+  .prd-writing-body .prd-back-btn,
+  .prd-speaking-body .prd-back-btn,
+  .prd-writing-body .prd-back-btn:hover,
+  .prd-speaking-body .prd-back-btn:hover {
+    color: #fff;
+  }
+
+  .prd-writing-body .prd-complete-btn,
+  .prd-speaking-body .prd-complete-btn,
+  .prd-writing-body .prd-speaking-result-info > summary,
+  .prd-speaking-body .prd-speaking-result-info > summary {
+    border-color: rgba(255, 255, 255, 0.38);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.13);
+  }
+
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    top: 76px;
+    width: calc(100vw - 32px);
+    height: calc(100dvh - 88px);
+    border-color: rgba(218, 226, 239, 0.94);
+    border-radius: var(--ksh-workspace-radius);
+    box-shadow: var(--ksh-workspace-shadow);
+  }
+
+  .prd-writing-topbar,
+  .prd-speaking-topbar {
+    min-height: 58px;
+    border-color: var(--ksh-workspace-line);
+    border-radius: var(--ksh-workspace-radius) var(--ksh-workspace-radius) 0 0;
+    background: #fff;
+  }
+
+  .prd-writing-review-layout,
+  .prd-speaking-review-layout {
+    height: calc(100dvh - 146px);
+    min-height: 0;
+    border-radius: 0 0 var(--ksh-workspace-radius) var(--ksh-workspace-radius);
+  }
+
+  .prd-writing-source,
+  .prd-speaking-source {
+    padding: clamp(22px, 2vw, 38px) clamp(24px, 2.4vw, 46px) 48px;
+  }
+
+  .prd-writing-panel,
+  .prd-speaking-panel {
+    padding: clamp(20px, 1.7vw, 32px) clamp(22px, 2vw, 38px) 42px;
+  }
+}
+
+/*
+ * Colour contract shared by desktop, tablet and compact layouts. Geometry
+ * remains breakpoint-owned above; these rules only keep every Practice skill
+ * on a calm white canvas and use the same less-saturated header family.
+ */
+body.exam-shell,
+body.spp-body,
+.exam-workspace,
+.writing-workspace,
+.spp-stage,
+.practice-result-page,
+.practice-result-page:is([data-result-skill="WRITING"], [data-result-skill="SPEAKING"]),
+.prd-objective-body,
+.prd-writing-body,
+.prd-speaking-body {
+  background: #fff;
+  background-image: none;
+  background-attachment: scroll;
+}
+
+.practice-result-page .pr-sky-particles,
+.practice-result-page .pr-shell::before,
+.practice-result-page .pr-shell::after {
+  display: none;
+}
+
+.exam-topbar,
+.spp-header,
+.practice-result-page .pr-topbar,
+.prd-objective-body .prd-boundary-header,
+.prd-writing-body .prd-boundary-header,
+.prd-speaking-body .prd-boundary-header {
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(
+    100deg,
+    var(--ksh-workspace-header-start) 0%,
+    var(--ksh-workspace-header-mid) 58%,
+    var(--ksh-workspace-header-end) 100%
+  );
+}
+
+.exam-topbar .exam-identity span,
+.exam-topbar .exam-progress,
+.spp-header .spp-heading span {
+  color: #fff;
+}
+
+.prd-objective-body .prd-boundary-header > strong,
+.prd-objective-body .prd-back-btn,
+.prd-objective-body .prd-back-btn:hover,
+.prd-writing-body .prd-back-btn,
+.prd-speaking-body .prd-back-btn,
+.prd-writing-body .prd-back-btn:hover,
+.prd-speaking-body .prd-back-btn:hover {
+  color: #fff;
+}
+
+.prd-objective-body .prd-complete-btn,
+.prd-writing-body .prd-complete-btn,
+.prd-speaking-body .prd-complete-btn,
+.prd-writing-body .prd-speaking-result-info > summary,
+.prd-speaking-body .prd-speaking-result-info > summary {
+  border-color: rgba(255, 255, 255, 0.38);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.prd-objective-explanation {
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exam-player,
+  .spp-player,
+  .practice-result-page .pr-summary,
+  .practice-result-page .pr-section,
+  .prd-objective-body .prd-objective-sources,
+  .prd-objective-body .prd-objective-review,
+  .prd-writing-shell,
+  .prd-speaking-shell {
+    scroll-behavior: auto;
+  }
+}
