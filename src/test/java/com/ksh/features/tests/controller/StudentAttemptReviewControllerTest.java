@@ -1,5 +1,6 @@
 package com.ksh.features.tests.controller;
 
+import com.ksh.features.tests.dto.TestDtos.StudentTestDetail;
 import com.ksh.features.tests.service.TestAttemptService;
 import com.ksh.features.tests.service.TestAttemptUnavailableException;
 import com.ksh.features.tests.service.TestCatalogService;
@@ -79,11 +80,42 @@ class StudentAttemptReviewControllerTest {
         verifyNoInteractions(catalogService);
     }
 
+    @Test
+    void completed_global_detail_redirects_directly_to_result() {
+        when(catalogService.detailForStudent(TEST_ID, USER_ID))
+                .thenReturn(completedDetail(null));
+        ExtendedModelMap model = new ExtendedModelMap();
+
+        String view = studentController.detail(TEST_ID, user, model);
+
+        assertThat(view).isEqualTo("redirect:/my/tests/21/result/101");
+        assertThat(model).doesNotContainKey("detail");
+    }
+
+    @Test
+    void completed_class_detail_redirects_directly_to_scoped_result() {
+        when(catalogService.detailForStudent(TEST_ID, USER_ID))
+                .thenReturn(completedDetail(CLASS_ID));
+        ExtendedModelMap model = new ExtendedModelMap();
+
+        String view = classController.detail(CLASS_ID, TEST_ID, user, model);
+
+        assertThat(view).isEqualTo("redirect:/my/classes/7/tests/21/result/101");
+        assertThat(model).doesNotContainKeys("detail", "classScopeId");
+    }
+
     private void rejectStudentResultAndReview() {
         when(attemptService.result(TEST_ID, ATTEMPT_ID, USER_ID))
                 .thenThrow(new TestAttemptUnavailableException(UNAVAILABLE_MESSAGE));
         when(attemptService.review(TEST_ID, ATTEMPT_ID, USER_ID))
                 .thenThrow(new TestAttemptUnavailableException(UNAVAILABLE_MESSAGE));
+    }
+
+    private static StudentTestDetail completedDetail(Long classId) {
+        return new StudentTestDetail(TEST_ID, "Bài kiểm tra", null,
+                classId, classId == null ? null : "KOR311", "MODULE", "INDIVIDUAL",
+                20, null, null, 4, "COMPLETED", ATTEMPT_ID,
+                "SUBMITTED", 75, false, false, true);
     }
 
     private static void assertRejectedRoute(String actualView, String takeUrl,

@@ -80,6 +80,10 @@ public class StudentClassTestsController {
                          @AuthenticationPrincipal KshUserDetails user, Model model) {
         StudentTestDetail detail = catalogService.detailForStudent(testId, user.getId());
         requireClassScope(classId, detail.classId());
+        if (detail.completed() && detail.attemptId() != null) {
+            return "redirect:/my/classes/" + classId + "/tests/" + testId
+                    + "/result/" + detail.attemptId();
+        }
         model.addAttribute(ATTR_DETAIL, detail);
         model.addAttribute("classScopeId", classId);
         return VIEW_TEST_DETAIL;

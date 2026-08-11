@@ -47,7 +47,9 @@ class ExamMonitorServiceTest {
         ReflectionTestUtils.setField(openAttempt, "id", ATTEMPT_ID);
         ReviewView expected = new ReviewView(
                 TEST_ID, null, ATTEMPT_ID, "Bài test",
-                0, 1, BigDecimal.ZERO, true, "?", List.of());
+                0, 1, BigDecimal.ZERO, BigDecimal.ZERO,
+                0, 0, 0, 1, 0, "0 giây", TestAttempt.STATUS_IN_PROGRESS,
+                true, "?", List.of());
 
         when(accessResolver.requireManageable(TEST_ID, LECTURER_ID)).thenReturn(exam);
         when(accessResolver.requireAttemptForManageable(TEST_ID, ATTEMPT_ID, LECTURER_ID))

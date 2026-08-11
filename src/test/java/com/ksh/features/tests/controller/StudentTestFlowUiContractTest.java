@@ -76,6 +76,37 @@ class StudentTestFlowUiContractTest {
                 .doesNotContain("<div th:if=\"${!review.lecturerView() and view != null}\"\n       th:replace=");
     }
 
+    @Test
+    void result_and_review_present_a_responsive_accessible_analysis() throws IOException {
+        String result = read("src/main/resources/templates/tests/result.html");
+        String review = read("src/main/resources/templates/tests/review.html");
+        String styles = read("src/main/resources/static/css/test-result.css");
+
+        assertThat(result)
+                .contains("class=\"rs-score-ring\"")
+                .contains("result.scorePercent()")
+                .contains("class=\"rs-metrics\"")
+                .contains("class=\"rs-next\"")
+                .contains("role=\"progressbar\"")
+                .doesNotContain("experience-polish.css");
+        assertThat(review)
+                .contains("class=\"rv-summary\"")
+                .contains("!q.answered()")
+                .contains("class=\"rv-option-tags\"")
+                .contains("Giải thích đáp án")
+                .contains("Quay lại kết quả")
+                .contains("th:utext=\"${q.explanation()}\"")
+                .doesNotContain("experience-polish.css");
+        assertThat(styles)
+                .contains(".rv-question.is-unanswered")
+                .contains(".rv-option.is-wrong-selection")
+                .contains("overflow-wrap: anywhere")
+                .contains(":focus-visible")
+                .contains("@media (max-width: 900px)")
+                .contains("@media (max-width: 540px)")
+                .contains("@media (prefers-reduced-motion: reduce)");
+    }
+
     private static String read(String path) throws IOException {
         return Files.readString(Path.of(path), StandardCharsets.UTF_8);
     }

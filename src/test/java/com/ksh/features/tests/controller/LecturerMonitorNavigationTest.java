@@ -31,7 +31,9 @@ class LecturerMonitorNavigationTest {
                 monitorService, classesService, classDetailSupport);
         ReviewView review = new ReviewView(
                 1L, 2L, 9L, "Bài test",
-                1, 1, BigDecimal.TEN, true, "Học viên", List.of());
+                1, 1, BigDecimal.TEN, BigDecimal.TEN,
+                100, 100, 0, 0, 1, "1 giây", "SUBMITTED",
+                true, "Học viên", List.of());
         when(user.getId()).thenReturn(41L);
         when(user.getRole()).thenReturn(Role.LECTURER);
         when(monitorService.lecturerReview(1L, 9L, 41L)).thenReturn(review);

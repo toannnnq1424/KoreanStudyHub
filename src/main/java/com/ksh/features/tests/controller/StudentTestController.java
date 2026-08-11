@@ -68,6 +68,10 @@ public class StudentTestController {
     public String detail(@PathVariable Long id,
                          @AuthenticationPrincipal KshUserDetails user, Model model) {
         StudentTestDetail detail = catalogService.detailForStudent(id, user.getId());
+        if (detail.completed() && detail.attemptId() != null) {
+            return "redirect:" + BASE_MY_TESTS + "/" + id
+                    + "/result/" + detail.attemptId();
+        }
         model.addAttribute(ATTR_DETAIL, detail);
         return VIEW_TEST_DETAIL;
     }

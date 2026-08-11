@@ -5,74 +5,128 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-result.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
 </head>
-<body class="ux-polish ux-test-review">
+<body class="test-review-body">
 <header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
 
-<!-- Lecturer view mirrors the class-detail layout: class sidebar on the left,
-     review body on the right. Student view has no class context, so the layout
-     collapses to a single centred column (rv-no-sidebar). -->
-<div class="class-detail-layout"
+<div class="class-detail-layout rv-shell"
      th:classappend="${(review.lecturerView() and clazz == null) or (!review.lecturerView() and view == null)} ? 'rv-no-sidebar'">
   <th:block th:if="${!review.lecturerView() and view != null}">
     <div th:replace="~{fragments/student-class-sidebar :: classSidebar('tests', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
   </th:block>
-  <!-- th:if must live on an OUTER element, not the same tag as th:replace:
-       th:replace has higher precedence and would resolve the fragment even
-       when the condition is false, calling classSidebar(null) on the student
-       view (no clazz in model) and crashing. The th:block gate prevents that. -->
   <th:block th:if="${review.lecturerView() and clazz != null}">
     <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'tests')}"></aside>
   </th:block>
 
   <main class="col rv-page">
-  <div class="rv-back">
-    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Quay lại</a>
-    <a class="tst-btn" th:if="${review.lecturerView()}"
-       th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">Quay lại</a>
-  </div>
+    <nav class="rv-breadcrumb" aria-label="Điều hướng xem lại bài làm">
+      <a th:if="${!review.lecturerView()}"
+         th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + review.testId() + '/result/' + review.attemptId() : '/my/tests/' + review.testId() + '/result/' + review.attemptId()}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Quay lại kết quả
+      </a>
+      <a th:if="${review.lecturerView()}" th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Danh sách bài nộp
+      </a>
+    </nav>
 
-  <div class="rv-bar">
-    <div>
-      <h1 class="rv-title" th:text="${review.title()}">Bài test</h1>
-      <p class="rv-sub" th:if="${review.lecturerView()}"
-         th:text="'Sinh viên: ' + ${review.studentName()}">Sinh viên</p>
-    </div>
-    <span class="rv-score"
-          th:text="${review.correctCount()} + '/' + ${review.totalQuestions()} + ' câu đúng'">0/0</span>
-  </div>
-
-  <ol class="rv-questions">
-    <li class="rv-question" th:each="q, qi : ${review.questions()}"
-        th:classappend="${q.correct()} ? 'rv-correct' : 'rv-incorrect'">
-      <div class="rv-q-head">
-        <span class="rv-q-index" th:text="'Câu ' + ${qi.count}">Câu 1</span>
-        <span class="rv-q-flag" th:text="${q.correct()} ? 'Đúng' : 'Sai'">Đúng</span>
+    <header class="rv-hero">
+      <div class="rv-hero-copy">
+        <p class="rv-eyebrow" th:text="${review.lecturerView() ? 'Chi tiết bài làm sinh viên' : 'Xem lại bài làm'}">Xem lại bài làm</p>
+        <h1 class="rv-title" th:text="${review.title()}">Bài test</h1>
+        <p class="rv-student" th:if="${review.lecturerView()}">
+          Sinh viên: <strong th:text="${review.studentName()}">Học viên</strong>
+        </p>
+        <p class="rv-timeout" th:if="${review.status() == 'TIMED_OUT'}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          Bài được nộp tự động khi hết giờ
+        </p>
       </div>
-      <div class="rv-q-content" th:utext="${q.content()}">Nội dung câu hỏi</div>
-      <ul class="rv-options">
-        <li class="rv-option" th:each="opt : ${q.options()}"
-            th:classappend="(${opt.correct()} ? ' is-correct' : '') + (${opt.selected()} ? ' is-selected' : '')">
-          <span class="rv-option-mark" th:if="${opt.correct()}">✓</span>
-          <span class="rv-option-mark rv-option-wrong"
-                th:if="${opt.selected() and !opt.correct()}">✗</span>
-          <span class="rv-option-text" th:utext="${opt.content()}">Đáp án</span>
-          <span class="rv-option-tag" th:if="${opt.selected()}">Bạn chọn</span>
+      <div class="rv-score-card">
+        <span>Độ chính xác</span>
+        <strong th:text="${review.correctPercent() + '%'}">0%</strong>
+        <small th:text="${review.correctCount() + ' / ' + review.totalQuestions() + ' câu đúng'}">0 / 0 câu đúng</small>
+      </div>
+    </header>
+
+    <section class="rv-summary" aria-label="Tóm tắt bài làm">
+      <div><span>Điểm số</span><strong th:text="${review.score() + ' / ' + review.totalPoints()}">0 / 0</strong></div>
+      <div class="is-correct"><span>Đúng</span><strong th:text="${review.correctCount()}">0</strong></div>
+      <div class="is-incorrect"><span>Sai</span><strong th:text="${review.incorrectCount()}">0</strong></div>
+      <div class="is-unanswered"><span>Chưa trả lời</span><strong th:text="${review.unansweredCount()}">0</strong></div>
+      <div><span>Thời gian</span><strong th:text="${review.timeSpentLabel()}">0 giây</strong></div>
+    </section>
+
+    <section class="rv-review-section" aria-labelledby="review-detail-title">
+      <div class="rv-section-head">
+        <div>
+          <p class="rv-section-kicker">Phân tích từng câu</p>
+          <h2 id="review-detail-title">Chi tiết câu trả lời</h2>
+        </div>
+        <div class="rv-legend" aria-label="Chú giải trạng thái">
+          <span><i class="is-correct"></i>Đúng</span>
+          <span><i class="is-incorrect"></i>Sai</span>
+          <span><i class="is-unanswered"></i>Chưa trả lời</span>
+        </div>
+      </div>
+
+      <ol class="rv-questions">
+        <li class="rv-question" th:each="q, qi : ${review.questions()}"
+            th:classappend="${q.correct()} ? 'is-correct' : (${!q.answered()} ? 'is-unanswered' : 'is-incorrect')">
+          <div class="rv-q-head">
+            <div class="rv-q-identity">
+              <span class="rv-q-number" th:text="${qi.count}">1</span>
+              <div>
+                <span class="rv-q-index" th:text="${'Câu ' + qi.count}">Câu 1</span>
+                <span class="rv-q-type" th:text="${q.type() == 'MR' ? 'Chọn nhiều đáp án' : 'Chọn một đáp án'}">Chọn một đáp án</span>
+              </div>
+            </div>
+            <span class="rv-q-flag">
+              <svg viewBox="0 0 24 24" aria-hidden="true" th:if="${q.correct()}"><path d="m5 12 4 4L19 6"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" th:if="${q.answered() and !q.correct()}"><path d="m7 7 10 10M17 7 7 17"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" th:if="${!q.answered()}"><path d="M8 12h8"/><circle cx="12" cy="12" r="9"/></svg>
+              <span th:text="${q.correct()} ? 'Đúng' : (${q.answered()} ? 'Sai' : 'Chưa trả lời')">Đúng</span>
+            </span>
+          </div>
+
+          <div class="rv-q-content" th:utext="${q.content()}">Nội dung câu hỏi</div>
+
+          <ul class="rv-options">
+            <li class="rv-option" th:each="opt, oi : ${q.options()}"
+                th:classappend="(${opt.correct()} ? ' is-correct' : '') + (${opt.selected()} ? ' is-selected' : '') + (${opt.selected() and !opt.correct()} ? ' is-wrong-selection' : '')">
+              <span class="rv-option-marker" aria-hidden="true">
+                <svg viewBox="0 0 24 24" th:if="${opt.correct()}"><path d="m5 12 4 4L19 6"/></svg>
+                <svg viewBox="0 0 24 24" th:if="${opt.selected() and !opt.correct()}"><path d="m7 7 10 10M17 7 7 17"/></svg>
+                <span th:if="${!opt.correct() and !opt.selected()}" th:text="${oi.count}">1</span>
+              </span>
+              <div class="rv-option-text" th:utext="${opt.content()}">Đáp án</div>
+              <div class="rv-option-tags" th:if="${opt.correct() or opt.selected()}">
+                <span class="rv-option-tag is-answer" th:if="${opt.correct()}">Đáp án đúng</span>
+                <span class="rv-option-tag is-choice" th:if="${opt.selected()}">Bạn đã chọn</span>
+              </div>
+            </li>
+          </ul>
+
+          <aside class="rv-explanation" th:if="${q.explanation() != null}">
+            <span class="rv-explanation-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M8.5 14.5A7 7 0 1 1 15.5 14.5C14.5 15.3 14 16 14 17h-4c0-1-.5-1.7-1.5-2.5Z"/></svg>
+            </span>
+            <div>
+              <strong>Giải thích đáp án</strong>
+              <div class="rv-explanation-content" th:utext="${q.explanation()}">Giải thích</div>
+            </div>
+          </aside>
         </li>
-      </ul>
-      <div class="rv-explanation" th:if="${q.explanation() != null}">
-        <strong>Giải thích:</strong>
-        <div class="rv-explanation-content" th:utext="${q.explanation()}">Giải thích</div>
-      </div>
-    </li>
-  </ol>
+      </ol>
+    </section>
 
-  <div class="rv-actions">
-    <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Về danh sách</a>
-    <a class="tst-btn" th:if="${review.lecturerView()}"
-       th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">Về danh sách bài nộp</a>
-  </div>
+    <footer class="rv-actions">
+      <a class="tst-btn" th:if="${!review.lecturerView()}" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Về danh sách bài test</a>
+      <a class="tst-btn tst-btn-primary" th:if="${!review.lecturerView()}"
+         th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + review.testId() + '/result/' + review.attemptId() : '/my/tests/' + review.testId() + '/result/' + review.attemptId()}">Xem lại kết quả</a>
+      <a class="tst-btn tst-btn-primary" th:if="${review.lecturerView()}" th:href="@{|/lecturer/tests/${review.testId()}/submissions|}">Về danh sách bài nộp</a>
+    </footer>
   </main>
 </div>
 
