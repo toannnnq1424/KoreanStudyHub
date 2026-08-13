@@ -67,7 +67,7 @@ public class TestAttemptService {
     /** Owner-only result summary for a submitted attempt. */
     @Transactional(readOnly = true)
     public ResultView result(Long testId, Long attemptId, Long userId) {
-        TestAttempt attempt = requireAttemptOfTest(testId, attemptId, userId);
+        TestAttempt attempt = requireCompletedAttemptOfTest(testId, attemptId, userId);
         Test test = loadTest(attempt.getTestId());
         return resultBuilder.buildResult(test, attempt);
     }
@@ -75,9 +75,18 @@ public class TestAttemptService {
     /** Owner-only per-question review for a submitted attempt. */
     @Transactional(readOnly = true)
     public ReviewView review(Long testId, Long attemptId, Long userId) {
-        TestAttempt attempt = requireAttemptOfTest(testId, attemptId, userId);
+        TestAttempt attempt = requireCompletedAttemptOfTest(testId, attemptId, userId);
         Test test = loadTest(attempt.getTestId());
         return resultBuilder.buildReview(test, attempt, false, null);
+    }
+
+    private TestAttempt requireCompletedAttemptOfTest(Long testId, Long attemptId, Long userId) {
+        TestAttempt attempt = requireAttemptOfTest(testId, attemptId, userId);
+        if (attempt.isInProgress()) {
+            throw new TestAttemptUnavailableException(
+                    "Chưa thể xem kết quả trước khi bài làm được nộp hoặc hết giờ.");
+        }
+        return attempt;
     }
 
     private TestAttempt requireAttemptOfTest(Long testId, Long attemptId, Long userId) {
@@ -122,7 +131,16 @@ public class TestAttemptService {
         TestAttempt open = attempts.stream().filter(TestAttempt::isInProgress)
                 .findFirst().orElse(null);
         if (open != null) {
-            return takeViewBuilder.build(test, open);
+            open = lockAndFinalizeExpiredAttempt(test, open.getId(), userId);
+            if (TestAttempt.STATUS_TIMED_OUT.equals(open.getStatus())) {
+                throw expiredAttemptException();
+            }
+            if (open.isInProgress()) {
+                return takeViewBuilder.build(test, open);
+            }
+            if (!test.isPractice()) {
+                throw completedAttemptException();
+            }
         }
         ensureStartable(test, LocalDateTime.now());
         TestAttempt attempt = attemptRepository.save(new TestAttempt(testId, userId));
@@ -150,7 +168,16 @@ public class TestAttemptService {
         TestAttempt open = attempts.stream().filter(TestAttempt::isInProgress)
                 .findFirst().orElse(null);
         if (open != null) {
-            return takeViewBuilder.build(test, open);
+            open = lockAndFinalizeExpiredAttempt(test, open.getId(), userId);
+            if (TestAttempt.STATUS_TIMED_OUT.equals(open.getStatus())) {
+                throw expiredAttemptException();
+            }
+            if (open.isInProgress()) {
+                return takeViewBuilder.build(test, open);
+            }
+            if (!test.isPractice()) {
+                throw completedAttemptException();
+            }
         }
         if (test.isPractice()) {
             TestAttempt practiceAttempt = attemptRepository.save(new TestAttempt(testId, userId));
@@ -165,14 +192,58 @@ public class TestAttemptService {
                 "Bạn đã hoàn thành bài test này. Mỗi học sinh chỉ được làm một lần.");
     }
 
+    private TestAttemptUnavailableException expiredAttemptException() {
+        return new TestAttemptUnavailableException(
+                "Thời gian làm bài đã kết thúc. Lượt làm đã được chốt là hết giờ.");
+    }
+
     /** Updates {@code last_activity_at} for a live attempt; owner-only. No-op when closed. */
     @Transactional
     public void heartbeat(Long attemptId, Long userId) {
         TestAttempt attempt = accessResolver.requireOwnAttemptForUpdate(attemptId, userId);
         if (attempt.isInProgress()) {
+            Test test = testRepository.findById(attempt.getTestId())
+                    .orElseThrow(() -> new EntityNotFoundException(TestAccessResolver.NF_MSG));
+            if (finalizeExpiredAttemptLocked(test, attempt)) {
+                return;
+            }
             attempt.touchActivity();
             attemptRepository.save(attempt);
         }
+    }
+
+    /**
+     * Closes an open attempt once its authoritative deadline has passed. This
+     * check runs before any taking view is assembled so a bookmarked URL cannot
+     * keep revealing exam content after the allowed window.
+     */
+    @Transactional
+    public TestAttempt lockAndFinalizeExpiredAttempt(Test test, Long attemptId, Long userId) {
+        TestAttempt attempt = accessResolver.requireOwnAttemptForUpdate(attemptId, userId);
+        if (!attempt.getTestId().equals(test.getId())) {
+            throw new EntityNotFoundException(TestAccessResolver.ATTEMPT_NF_MSG);
+        }
+        finalizeExpiredAttemptLocked(test, attempt);
+        return attempt;
+    }
+
+    private boolean finalizeExpiredAttemptLocked(Test test, TestAttempt attempt) {
+        LocalDateTime now = LocalDateTime.now();
+        if (!attempt.isInProgress() || !ExamDeadline.isPastDeadline(test, attempt, now)) {
+            return false;
+        }
+
+        List<Question> questions = questionRepository
+                .findByTestIdOrderBySortOrderAscIdAsc(test.getId());
+        BigDecimal totalPoints = questions.stream()
+                .map(Question::getPoints)
+                .map(TestAttemptService::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        attempt.finalizeGrade(BigDecimal.ZERO, totalPoints, 0, questions.size(),
+                ExamDeadline.elapsedSeconds(test, attempt, now),
+                TestAttempt.STATUS_TIMED_OUT);
+        attemptRepository.save(attempt);
+        return true;
     }
 
     /**
@@ -189,10 +260,14 @@ public class TestAttemptService {
         Test test = testRepository.findById(attempt.getTestId())
                 .orElseThrow(() -> new EntityNotFoundException(TestAccessResolver.NF_MSG));
 
+        LocalDateTime submittedAt = LocalDateTime.now();
+        boolean timedOut = ExamDeadline.isPastDeadline(test, attempt, submittedAt);
         List<Question> questions = questionRepository
                 .findByTestIdOrderBySortOrderAscIdAsc(test.getId());
         Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(questions);
-        Map<Long, List<Long>> answers = indexAnswers(request);
+        // A payload received after the authoritative deadline cannot earn points.
+        // Persist empty responses so the review remains complete and auditable.
+        Map<Long, List<Long>> answers = timedOut ? Map.of() : indexAnswers(request);
 
         BigDecimal earnedSum = BigDecimal.ZERO;
         BigDecimal totalPointsSum = BigDecimal.ZERO;
@@ -207,9 +282,9 @@ public class TestAttemptService {
             persistResponse(attempt.getId(), q.getId(), selected, outcome);
         }
 
-        String finalStatus = ExamDeadline.isPastDeadline(test, attempt, LocalDateTime.now())
+        String finalStatus = timedOut
                 ? TestAttempt.STATUS_TIMED_OUT : TestAttempt.STATUS_SUBMITTED;
-        int timeSpent = ExamDeadline.elapsedSeconds(test, attempt, LocalDateTime.now());
+        int timeSpent = ExamDeadline.elapsedSeconds(test, attempt, submittedAt);
         attempt.finalizeGrade(earnedSum, totalPointsSum, correctCount, questions.size(),
                 timeSpent, finalStatus);
         attemptRepository.save(attempt);

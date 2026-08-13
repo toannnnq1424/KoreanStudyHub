@@ -13,6 +13,7 @@ import com.ksh.features.tests.dto.TestDtos.SubmitRequest;
 import com.ksh.features.tests.dto.TestDtos.TakeView;
 import com.ksh.features.tests.entity.Question;
 import com.ksh.features.tests.entity.QuestionOption;
+import com.ksh.features.tests.entity.TestAttempt;
 import com.ksh.features.tests.repository.QuestionOptionRepository;
 import com.ksh.features.tests.repository.QuestionRepository;
 import com.ksh.features.tests.repository.TestAttemptRepository;
@@ -73,6 +74,7 @@ class StudentTestFlowIntegrationTest {
 
     private Long lecturerId;
     private Long studentId;
+    private Long subjectId;
     private Long examId;
     private Long lateExamId;
 
@@ -82,6 +84,7 @@ class StudentTestFlowIntegrationTest {
         User student = userRepository.findByEmailIgnoreCase(STUDENT).orElseThrow();
         lecturerId = lecturer.getId();
         studentId = student.getId();
+        subjectId = lecturer.getSubjectId();
         ClassEntity clazz = saveClass(lecturer);
         enroll(student, clazz);
 
@@ -154,7 +157,7 @@ class StudentTestFlowIntegrationTest {
 
     @Test
     @WithUserDetails(STUDENT)
-    void late_submit_is_timed_out_but_graded() throws Exception {
+    void late_submit_is_timed_out_and_payload_cannot_earn_points() throws Exception {
         Long attemptId = openAttempt(lateExamId);
         com.ksh.features.tests.entity.Test exam =
                 testRepository.findById(lateExamId).orElseThrow();
@@ -167,6 +170,10 @@ class StudentTestFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ok").value(true))
                 .andExpect(jsonPath("$.data.status").value("TIMED_OUT"));
+
+        TestAttempt timedOut = attemptRepository.findById(attemptId).orElseThrow();
+        assertEquals(0, timedOut.getScore().compareTo(java.math.BigDecimal.ZERO));
+        assertEquals(0, timedOut.getCorrectCount());
     }
 
     @Test
@@ -236,7 +243,7 @@ class StudentTestFlowIntegrationTest {
         List<QuestionForm> questions = List.of(
                 new QuestionForm(null, "MCQ", "1+1=2?", null, new BigDecimal("2.00"), mcq),
                 new QuestionForm(null, "MR", "Chọn A và B", null, new BigDecimal("3.00"), mr));
-        return new ExamForm(null, "Đề kiểm tra JUnit", "mô tả", classId, "MOCK", "PUBLISHED",
+        return new ExamForm(null, "Đề kiểm tra JUnit", "mô tả", subjectId, classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1), endAt,
                 new BigDecimal("1.00"), false, false, null, null, questions, false);
     }
@@ -249,6 +256,7 @@ class StudentTestFlowIntegrationTest {
     private ClassEntity saveClass(User lecturer) {
         ClassEntity entity = new ClassEntity("Test flow class", lecturer.getId(),
                 lecturer.getId(), null, null, null, 100);
+        entity.setSubjectId(lecturer.getSubjectId());
         entity.setCode("TSTFLW");
         try {
             return classRepository.saveAndFlush(entity);

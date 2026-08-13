@@ -17,13 +17,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -89,6 +92,67 @@ class TestAttemptServiceTest {
                 .hasMessageContaining("chỉ được làm một lần");
 
         verify(takeViewBuilder, never()).build(any(Test.class), any(TestAttempt.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void direct_take_finalizes_an_expired_open_attempt_before_rendering_questions() {
+        ReflectionTestUtils.setField(legacyOpen, "id", 101L);
+        ReflectionTestUtils.setField(legacyOpen, "startedAt", LocalDateTime.now().minusMinutes(45));
+        when(accessResolver.requireAttemptableForUpdate(TEST_ID, USER_ID))
+                .thenReturn(classExam);
+        when(attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(TEST_ID, USER_ID))
+                .thenReturn(List.of(legacyOpen));
+        when(accessResolver.requireOwnAttemptForUpdate(101L, USER_ID)).thenReturn(legacyOpen);
+        when(questionRepository.findByTestIdOrderBySortOrderAscIdAsc(TEST_ID))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.resumeForTake(TEST_ID, USER_ID))
+                .isInstanceOf(TestAttemptUnavailableException.class)
+                .hasMessageContaining("hết giờ");
+
+        assertThat(legacyOpen.getStatus()).isEqualTo(TestAttempt.STATUS_TIMED_OUT);
+        assertThat(legacyOpen.getScore()).isEqualByComparingTo(BigDecimal.ZERO);
+        verify(attemptRepository).save(legacyOpen);
+        verify(takeViewBuilder, never()).build(any(Test.class), any(TestAttempt.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void direct_take_uses_locked_attempt_state_when_submit_closed_the_candidate() {
+        TestAttempt staleOpen = new TestAttempt(TEST_ID, USER_ID);
+        ReflectionTestUtils.setField(staleOpen, "id", 101L);
+        TestAttempt concurrentlySubmitted = new TestAttempt(TEST_ID, USER_ID);
+        ReflectionTestUtils.setField(concurrentlySubmitted, "id", 101L);
+        concurrentlySubmitted.finalizeGrade(BigDecimal.ONE, BigDecimal.TEN,
+                1, 10, 120, TestAttempt.STATUS_SUBMITTED);
+        when(accessResolver.requireAttemptableForUpdate(TEST_ID, USER_ID))
+                .thenReturn(classExam);
+        when(attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(TEST_ID, USER_ID))
+                .thenReturn(List.of(staleOpen));
+        when(accessResolver.requireOwnAttemptForUpdate(101L, USER_ID))
+                .thenReturn(concurrentlySubmitted);
+
+        assertThatThrownBy(() -> service.resumeForTake(TEST_ID, USER_ID))
+                .isInstanceOf(TestAttemptUnavailableException.class)
+                .hasMessageContaining("chỉ được làm một lần");
+
+        verify(attemptRepository, never()).save(staleOpen);
+        verify(takeViewBuilder, never()).build(any(Test.class), any(TestAttempt.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void open_attempt_cannot_render_result_or_answer_key_review() {
+        ReflectionTestUtils.setField(legacyOpen, "id", 101L);
+        when(accessResolver.requireOwnAttempt(101L, USER_ID)).thenReturn(legacyOpen);
+
+        assertThatThrownBy(() -> service.result(TEST_ID, 101L, USER_ID))
+                .isInstanceOf(TestAttemptUnavailableException.class)
+                .hasMessageContaining("trước khi bài làm được nộp");
+        assertThatThrownBy(() -> service.review(TEST_ID, 101L, USER_ID))
+                .isInstanceOf(TestAttemptUnavailableException.class)
+                .hasMessageContaining("trước khi bài làm được nộp");
+
+        verifyNoInteractions(resultBuilder);
+        verify(testRepository, never()).findById(TEST_ID);
     }
 
     @org.junit.jupiter.api.Test

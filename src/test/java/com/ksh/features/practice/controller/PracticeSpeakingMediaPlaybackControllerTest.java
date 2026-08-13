@@ -4,9 +4,11 @@ import com.ksh.entities.User;
 import com.ksh.features.practice.service.PracticeSpeakingMediaPlaybackNotFoundException;
 import com.ksh.features.practice.service.PracticeSpeakingMediaPlaybackService;
 import com.ksh.security.AuthenticatedUserIdResolver;
+import com.ksh.security.AuthenticatedAccessVersionService;
 import com.ksh.security.CustomOidcUserPrincipal;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Role;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -75,6 +78,14 @@ class PracticeSpeakingMediaPlaybackControllerTest {
 
     @MockitoBean
     private PracticeSpeakingMediaPlaybackService playbackService;
+
+    @MockitoBean
+    private AuthenticatedAccessVersionService accessVersions;
+
+    @BeforeEach
+    void acceptSyntheticPrincipalSecurityVersions() {
+        when(accessVersions.isCurrent(anyLong(), anyLong())).thenReturn(true);
+    }
 
     @Test
     void formLoginStudentOwnerReceivesFullStreamWithSafeHeaders() throws Exception {

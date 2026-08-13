@@ -3,11 +3,14 @@ package com.ksh.features.auth.service;
 import com.ksh.security.Role;
 import com.ksh.security.CustomOidcUserService;
 import com.ksh.security.CustomOidcUserPrincipal;
+import com.ksh.security.KshUserDetails;
 import com.ksh.entities.User;
 import com.ksh.entities.UserFactory;
 import com.ksh.entities.UserOAuthProvider;
 import com.ksh.features.auth.repository.UserOAuthProviderRepository;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.permissions.service.PermissionResolver;
+import com.ksh.entities.Permission;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,6 +52,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *       ({@code unknown})</li>
  *   <li>Locked account is rejected with {@code "oauth_unregistered"}
  *       ({@code locked})</li>
+ *   <li>Inactive account is rejected before any Google identity is linked</li>
  *   <li>Soft-deleted account is rejected via the entity's {@code @SQLRestriction}
  *       filter — surfaces as the same {@code "oauth_unregistered"} error</li>
  * </ul>
@@ -77,6 +81,7 @@ class OAuthLoginIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private UserOAuthProviderRepository oauthProviderRepo;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private PermissionResolver permissionResolver;
 
     // ────────────────────────────────────────────────────────────────────
     //  Scenario 1+2 — registered user signs in: succeeds, links google_id,
@@ -92,10 +97,18 @@ class OAuthLoginIntegrationTest {
 
         // Returns a CustomOidcUserPrincipal exposing the local user's identity
         assertThat(principal).isInstanceOf(CustomOidcUserPrincipal.class);
+        assertThat(principal)
+                .as("OIDC principal must be injectable into existing KshUserDetails controllers")
+                .isInstanceOf(KshUserDetails.class);
         assertThat(principal.getName()).isEqualTo(SEED_REGISTERED_EMAIL);
         assertThat(authorityStrings(principal))
                 .as("ROLE_<role> derived from the local users table, not Google scopes")
                 .contains("ROLE_STUDENT");
+        assertThat(authorityStrings(principal))
+                .containsAll(permissionResolver.resolvePermissions(
+                                userRepository.findByEmailIgnoreCase(SEED_REGISTERED_EMAIL)
+                                        .orElseThrow().getId())
+                        .stream().map(Permission::authorityOf).toList());
 
         // google_id is linked on the local row
         User reloaded = userRepository.findByEmailIgnoreCase(SEED_REGISTERED_EMAIL).orElseThrow();
@@ -177,6 +190,74 @@ class OAuthLoginIntegrationTest {
         assertThat(reloaded.getGoogleId()).isNull();
     }
 
+    @Test
+    void inactiveUser_isRejectedWithOauthUnregistered_andCreatesNoProviderRow() {
+        String email = "test-oauth-inactive-" + UUID.randomUUID() + "@example.com";
+        seedUser(email, false, false, false);
+        String sub = uniqueSub("inactive");
+
+        assertThatThrownBy(() ->
+                customOidcUserService.loadUser(buildRequest(email, sub)))
+                .isInstanceOf(OAuth2AuthenticationException.class)
+                .satisfies(ex -> assertThat(
+                        ((OAuth2AuthenticationException) ex).getError().getErrorCode())
+                        .isEqualTo("oauth_unregistered"));
+
+        assertThat(countGoogleRowsForSub(sub)).isZero();
+        User reloaded = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+        assertThat(reloaded.getGoogleId()).isNull();
+    }
+
+    @Test
+    void unverifiedProviderEmail_isRejectedBeforeIdentityLinking() {
+        String email = "test-oauth-unverified-" + UUID.randomUUID() + "@example.com";
+        seedUser(email, false, false);
+        String sub = uniqueSub("unverified");
+
+        assertThatThrownBy(() -> customOidcUserService.loadUser(buildRequest(email, sub, false)))
+                .isInstanceOf(OAuth2AuthenticationException.class);
+
+        assertThat(userRepository.findByEmailIgnoreCase(email).orElseThrow().getGoogleId()).isNull();
+        assertThat(countGoogleRowsForSub(sub)).isZero();
+    }
+
+    @Test
+    void reassignedEmail_cannotReplaceAnExistingGoogleSubjectBinding() {
+        String email = "test-oauth-reassigned-" + UUID.randomUUID() + "@example.com";
+        seedUser(email, false, false);
+        User user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
+        user.setGoogleId("google-sub-original");
+        userRepository.saveAndFlush(user);
+        String attackerSub = uniqueSub("reassigned");
+
+        assertThatThrownBy(() -> customOidcUserService.loadUser(buildRequest(email, attackerSub)))
+                .isInstanceOf(OAuth2AuthenticationException.class);
+
+        assertThat(userRepository.findByEmailIgnoreCase(email).orElseThrow().getGoogleId())
+                .isEqualTo("google-sub-original");
+        assertThat(countGoogleRowsForSub(attackerSub)).isZero();
+    }
+
+    @Test
+    void providerSubjectAlreadyOwnedByAnotherAccount_resolvesOwnerWithoutRebindingEmailAccount() {
+        String ownerEmail = "test-oauth-owner-" + UUID.randomUUID() + "@example.com";
+        String targetEmail = "test-oauth-target-" + UUID.randomUUID() + "@example.com";
+        seedUser(ownerEmail, false, false);
+        seedUser(targetEmail, false, false);
+        User owner = userRepository.findByEmailIgnoreCase(ownerEmail).orElseThrow();
+        String sharedSub = uniqueSub("collision");
+        oauthProviderRepo.saveAndFlush(new UserOAuthProvider(owner, "google", sharedSub));
+
+        OidcUser principal = customOidcUserService.loadUser(buildRequest(targetEmail, sharedSub));
+
+        assertThat(principal.getName()).isEqualTo(ownerEmail);
+        assertThat(((CustomOidcUserPrincipal) principal).getId()).isEqualTo(owner.getId());
+        assertThat(userRepository.findByEmailIgnoreCase(ownerEmail).orElseThrow().getGoogleId())
+                .isEqualTo(sharedSub);
+        assertThat(userRepository.findByEmailIgnoreCase(targetEmail).orElseThrow().getGoogleId())
+                .isNull();
+    }
+
     // ────────────────────────────────────────────────────────────────────
     //  Scenario 6 — soft-deleted account: rejected (entity SQLRestriction
     //  hides it, surfaces as the same "oauth_unregistered" error)
@@ -185,7 +266,7 @@ class OAuthLoginIntegrationTest {
     @Test
     void softDeletedUser_isRejectedWithOauthUnregistered() {
         String email = "test-oauth-deleted-" + UUID.randomUUID() + "@example.com";
-        seedUser(email, /* locked */ false, /* deleted */ true);
+        seedUser(email, /* active */ true, /* locked */ false, /* deleted */ true);
         String sub = uniqueSub("deleted");
 
         assertThatThrownBy(() ->
@@ -209,6 +290,11 @@ class OAuthLoginIntegrationTest {
      * builds the OidcUser from id-token claims alone — no network call.
      */
     private static OidcUserRequest buildRequest(String email, String sub) {
+        return buildRequest(email, sub, true);
+    }
+
+    private static OidcUserRequest buildRequest(String email, String sub,
+                                                boolean emailVerified) {
         ClientRegistration registration = ClientRegistration.withRegistrationId("google")
                 .clientId("test-client-id")
                 .clientSecret("test-client-secret")
@@ -237,7 +323,7 @@ class OAuthLoginIntegrationTest {
         claims.put(IdTokenClaimNames.IAT, now);
         claims.put(IdTokenClaimNames.EXP, now.plusSeconds(3600));
         claims.put("email", email);
-        claims.put("email_verified", true);
+        claims.put("email_verified", emailVerified);
         claims.put("name", "Test User");
         OidcIdToken idToken = new OidcIdToken(
                 "fake-id-token",
@@ -255,6 +341,10 @@ class OAuthLoginIntegrationTest {
 
     /** Inserts a fresh user that does not collide with seed data. */
     private void seedUser(String email, boolean locked, boolean deleted) {
+        seedUser(email, true, locked, deleted);
+    }
+
+    private void seedUser(String email, boolean active, boolean locked, boolean deleted) {
         User user = UserFactory.newAdminCreated(
                 email,
                 passwordEncoder.encode("123456"),
@@ -263,6 +353,7 @@ class OAuthLoginIntegrationTest {
                 /* emailVerified */ true,
                 /* phone */ null,
                 /* bio */ null);
+        user.setActive(active);
         if (locked) {
             user.lock("test-lock-reason");
         }

@@ -135,6 +135,16 @@
         <input type="hidden" name="subjectId" th:value="${selectedSubjectId}">
         <label class="sr-only" for="qbLecturerQuery">Tìm câu hỏi</label>
         <input type="hidden" name="size" th:value="${itemPage.size}">
+        <label class="sr-only" for="qbLecturerStatus">Lọc theo trạng thái</label>
+        <select class="qb-input qb-workspace-status" id="qbLecturerStatus" name="status"
+                data-ksh-select aria-label="Lọc theo trạng thái">
+          <option value="ALL" th:selected="${selectedStatus == 'ALL'}">Mọi trạng thái</option>
+          <option value="DRAFT" th:selected="${selectedStatus == 'DRAFT'}">Nháp</option>
+          <option value="REVIEW" th:selected="${selectedStatus == 'REVIEW'}">Chờ duyệt</option>
+          <option value="APPROVED" th:selected="${selectedStatus == 'APPROVED'}">Đã duyệt</option>
+          <option value="REJECTED" th:selected="${selectedStatus == 'REJECTED'}">Từ chối</option>
+          <option value="ARCHIVED" th:selected="${selectedStatus == 'ARCHIVED'}">Lưu trữ</option>
+        </select>
         <input class="qb-input" id="qbLecturerQuery" type="search" name="q" th:value="${query}"
                placeholder="Tìm nội dung câu hỏi…">
         <button type="submit" class="btn-primary btn-sm">Tìm</button>

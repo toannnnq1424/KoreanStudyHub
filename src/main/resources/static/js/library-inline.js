@@ -4,6 +4,8 @@
   const dialog = document.querySelector('[data-library-editor-dialog]');
   const editorContent = dialog?.querySelector('[data-library-editor-content]');
   const dropSurface = dialog?.querySelector('[data-library-drop-surface]');
+  let editorRequestSequence = 0;
+  let editorRequestController = null;
 
   const distributionForm = document.querySelector('.library-subject-distribution-form');
   if (distributionForm) {
@@ -174,6 +176,9 @@
   }
 
   function initializeEditorForm(form) {
+    if (!form || form.dataset.libraryEditorReady === 'true') return;
+    form.dataset.libraryEditorReady = 'true';
+    const inlineDialogForm = Boolean(dialog && dialog.contains(form));
     if (window.KshLibraryLessonForm) window.KshLibraryLessonForm.init(form);
     const richValue = form.querySelector('[data-library-richtext-value]');
     const richHost = form.querySelector('[data-library-richtext-editor]');
@@ -192,7 +197,14 @@
       richHost.addEventListener('input', () => { if (richValue) richValue.value = richHost.innerHTML; });
     }
 
-    form.querySelector('[data-library-cancel]')?.addEventListener('click', () => dialog.close());
+    form.querySelector('[data-library-cancel]')?.addEventListener('click', event => {
+      if (inlineDialogForm && dialog?.open) {
+        dialog.close();
+        return;
+      }
+      const cancelUrl = event.currentTarget.dataset.libraryCancelUrl;
+      window.location.assign(cancelUrl || '/lecturer/library/templates');
+    });
     const input = form.querySelector('[name="materialUploads"]');
     const zone = form.querySelector('[data-library-file-dropzone]');
     let selectedFiles = input ? [...input.files] : [];
@@ -228,6 +240,21 @@
     zone?.addEventListener('click', event => {
       if (!event.target.closest('button')) input?.click();
     });
+    zone?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      input?.click();
+    });
+    zone?.addEventListener('dragover', event => {
+      if (!Array.from(event.dataTransfer?.types || []).includes('Files')) return;
+      event.preventDefault();
+    });
+    zone?.addEventListener('drop', event => {
+      if (!event.dataTransfer?.files?.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      acceptFiles(form, event.dataTransfer.files);
+    });
     input?.addEventListener('change', () => {
       const merged = new Map([...selectedFiles, ...input.files]
         .map(file => [fileKey(file), file]));
@@ -240,6 +267,13 @@
     });
     renderSelectedFiles();
 
+    if (!inlineDialogForm) {
+      form.addEventListener('submit', () => {
+        if (editor && richValue) richValue.value = editor.root.innerHTML;
+      });
+      return;
+    }
+
     form.addEventListener('submit', async event => {
       event.preventDefault();
       if (editor && richValue) richValue.value = editor.root.innerHTML;
@@ -250,7 +284,7 @@
       try {
         await uploadForm(form, submit, selectedFiles.length);
         if (submit) submit.textContent = 'Đã lưu';
-        dialog.close();
+        if (dialog?.open) dialog.close();
         window.location.replace(window.location.href);
       } catch (error) {
         window.alert(error.message);
@@ -262,27 +296,53 @@
 
   async function openEditor(url) {
     if (!dialog || !editorContent) return;
+    const requestId = ++editorRequestSequence;
+    editorRequestController?.abort();
+    editorRequestController = typeof window.AbortController === 'function'
+      ? new window.AbortController()
+      : null;
     editorContent.innerHTML = '<div class="library-editor-loading">Đang tải biểu mẫu…</div>';
     document.documentElement.classList.add('library-dialog-open');
-    dialog.showModal();
+    if (!dialog.open) dialog.showModal();
     try {
-      const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const options = { headers: { 'X-Requested-With': 'XMLHttpRequest' } };
+      if (editorRequestController) options.signal = editorRequestController.signal;
+      const response = await fetch(url, options);
       if (!response.ok) throw new Error('Không thể mở biểu mẫu');
       const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
+      if (requestId !== editorRequestSequence || !dialog.open) return;
       const form = parsed.querySelector('[data-library-lesson-form]');
       if (!form) throw new Error('Biểu mẫu không hợp lệ');
       editorContent.replaceChildren(document.importNode(form, true));
       initializeEditorForm(editorContent.querySelector('[data-library-lesson-form]'));
     } catch (error) {
-      editorContent.innerHTML = `<p class="library-editor-error">${error.message}</p>`;
+      if (requestId !== editorRequestSequence || error.name === 'AbortError' || !dialog.open) return;
+      const message = document.createElement('p');
+      message.className = 'library-editor-error';
+      message.textContent = error.message;
+      editorContent.replaceChildren(message);
+    } finally {
+      if (requestId === editorRequestSequence) editorRequestController = null;
     }
   }
 
+  function cancelEditorRequest() {
+    editorRequestSequence += 1;
+    editorRequestController?.abort();
+    editorRequestController = null;
+  }
+
+  document.querySelectorAll('[data-library-lesson-form]').forEach(form => {
+    if (!dialog || !dialog.contains(form)) initializeEditorForm(form);
+  });
   document.querySelectorAll('.js-library-editor').forEach(button => {
     button.addEventListener('click', () => openEditor(button.dataset.formUrl));
   });
   dialog?.querySelector('[data-library-editor-close]')?.addEventListener('click', () => dialog.close());
-  dialog?.addEventListener('close', () => document.documentElement.classList.remove('library-dialog-open'));
+  dialog?.addEventListener('close', () => {
+    cancelEditorRequest();
+    document.documentElement.classList.remove('library-dialog-open');
+  });
   dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   const shareButton = document.querySelector('[data-library-share]');
   const distribution = document.querySelector('#libraryDistribution');

@@ -159,7 +159,8 @@ class Sprint2ClassesIntegrationTest {
         ClassEntity saved = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lecturer.getId())
                 .stream().filter(c -> "Java cơ bản".equals(c.getName())).findFirst().orElseThrow();
         assertThat(saved.getSubjectId()).isEqualTo(lecturer.getSubjectId());
-        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_PENDING);
+        assertThat(saved.getStartDate()).isEqualTo(java.time.LocalDate.of(2026, 7, 1));
 
     }
 
@@ -220,9 +221,13 @@ class Sprint2ClassesIntegrationTest {
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "New")
                         .param("description", "Updated")
+                        .param("startDate", "2026-08-01")
                         .param("subjectId", String.valueOf(entity.getSubjectId())))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/lecturer/classes"));
+
+        ClassEntity updated = classRepository.findById(entity.getId()).orElseThrow();
+        assertThat(updated.getStartDate()).isEqualTo(java.time.LocalDate.of(2026, 8, 1));
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
         assertThat(reloaded.getName()).isEqualTo("New");

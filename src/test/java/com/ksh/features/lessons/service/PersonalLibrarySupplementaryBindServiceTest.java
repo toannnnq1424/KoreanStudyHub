@@ -4,6 +4,7 @@ import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Lesson;
 import com.ksh.entities.LessonAttachment;
 import com.ksh.entities.LibraryAsset;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.classes.service.ClassesService;
 import com.ksh.features.lessons.repository.LessonAttachmentRepository;
@@ -47,6 +48,7 @@ class PersonalLibrarySupplementaryBindServiceTest {
     @Mock private ClassesService classesService;
     @Mock private LessonsReorderService reorderService;
     @Mock private EnrollmentRepository enrollmentRepository;
+    @Mock private ClassRepository classRepository;
     @Mock private LessonActivityWriter activityWriter;
     @Mock private LessonContentTypeSwitcher contentTypeSwitcher;
     @Mock private ClassEntity clazz;
@@ -60,7 +62,8 @@ class PersonalLibrarySupplementaryBindServiceTest {
         service = new LessonAttachmentsService(
                 attachmentRepository, lessonRepository, sectionRepository,
                 attachmentStorage, objectStorage, libraryService, classesService,
-                reorderService, enrollmentRepository, activityWriter, contentTypeSwitcher);
+                reorderService, enrollmentRepository, classRepository,
+                activityWriter, contentTypeSwitcher);
     }
 
     @Test

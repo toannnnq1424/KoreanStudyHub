@@ -142,6 +142,29 @@ class ImportStudentsServiceIntegrationTest {
         assertThat(reloaded.get().getJoinedVia()).isEqualTo(ImportStudentsService.JOINED_VIA_IMPORT);
     }
 
+    @Test
+    void confirm_never_imports_beyond_the_locked_class_capacity() throws IOException {
+        clazz.updateDetails(clazz.getName(), clazz.getDescription(),
+                clazz.getStartDate(), clazz.getEndDate(), 1);
+        classRepository.saveAndFlush(clazz);
+        MultipartFile file = build(new String[]{"Email", "MSSV"}, new String[][]{
+                {"sv01@ksh.edu.vn", "SV0001"},
+                {"sv02@ksh.edu.vn", "SV0002"}
+        });
+        ImportSession session = importStudentsService.previewUpload(
+                file, clazz.getId(), lecturer.getId(), Role.LECTURER);
+
+        ImportResult result = importStudentsService.confirmImport(
+                session.getId(), clazz.getId(), lecturer.getId(), Role.LECTURER,
+                new ImportStudentsService.ImportOptions(false));
+
+        assertThat(result.imported()).isEqualTo(1);
+        assertThat(result.failed()).isEqualTo(1);
+        assertThat(result.rows()).extracting(row -> row.getStatus())
+                .containsExactly(ImportRowStatus.OK, ImportRowStatus.CLASS_FULL);
+        assertThat(enrollmentRepository.countActiveByClassId(clazz.getId())).isEqualTo(1);
+    }
+
     // ─────────── Helpers ───────────
 
     private ClassEntity saveClass(String name, Long lecturerId, String code) {

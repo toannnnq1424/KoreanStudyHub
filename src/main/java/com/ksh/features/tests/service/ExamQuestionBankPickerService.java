@@ -88,7 +88,7 @@ public class ExamQuestionBankPickerService {
             byId.put(snapshot.id(), snapshot);
         }
         List<BankItemSnapshot> ordered = new ArrayList<>();
-        for (Long id : itemIds) {
+        for (Long id : wanted) {
             if (byId.containsKey(id)) ordered.add(byId.get(id));
         }
         return ordered;
@@ -117,8 +117,12 @@ public class ExamQuestionBankPickerService {
 
     private Long requireTestSubject(User actor, Long testId) {
         Test test = testAccessResolver.requireManageable(testId, actor.getId(), actor.getRole());
-        ClassEntity clazz = classRepository.findById(test.getClassId()).orElseThrow(this::forbidden);
-        Long subjectId = clazz.getSubjectId();
+        Long storedSubjectId = test.getSubjectId();
+        if (storedSubjectId == null && test.getClassId() != null) {
+            ClassEntity clazz = classRepository.findById(test.getClassId()).orElseThrow(this::forbidden);
+            storedSubjectId = clazz.getSubjectId();
+        }
+        final Long subjectId = storedSubjectId;
         if (subjectId == null) throw forbidden();
         if (actor.getRole() != Role.ADMIN && !accessPolicy.canAccessSubject(actor, subjectId)) {
             throw forbidden();

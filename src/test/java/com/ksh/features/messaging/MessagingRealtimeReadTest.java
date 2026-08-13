@@ -53,6 +53,7 @@ class MessagingRealtimeReadTest {
         when(f.messages.countUnreadForUser(20L)).thenReturn(4L);
         when(f.users.findById(20L)).thenReturn(Optional.of(peer));
         when(f.users.findById(10L)).thenReturn(Optional.of(sender));
+        when(peer.isActive()).thenReturn(true);
         when(peer.getEmail()).thenReturn("peer@example.test");
         when(sender.getFullName()).thenReturn("Sender");
 
@@ -74,6 +75,37 @@ class MessagingRealtimeReadTest {
         assertEquals(body, payload.getValue().fullBody());
         assertTrue(payload.getValue().snippet().length() < body.length());
         assertTrue(payload.getValue().snippet().endsWith("…"));
+    }
+
+    @Test
+    void lockedRecipientNeverReceivesAfterCommitFullBodyPush() {
+        Fixture f = fixture();
+        Conversation conversation = Conversation.between(10L, 20L);
+        Message saved = mock(Message.class);
+        User lockedPeer = mock(User.class);
+        when(f.conversations.findById(7L)).thenReturn(Optional.of(conversation));
+        when(f.messages.saveAndFlush(any(Message.class))).thenReturn(saved);
+        when(saved.getId()).thenReturn(92L);
+        when(saved.getBody()).thenReturn("private body");
+        when(saved.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 8, 11, 12, 0));
+        when(f.messages.countUnreadForUser(20L)).thenReturn(1L);
+        when(f.users.findById(10L)).thenReturn(Optional.empty());
+        when(f.users.findById(20L)).thenReturn(Optional.of(lockedPeer));
+        when(lockedPeer.isActive()).thenReturn(true);
+        when(lockedPeer.isLocked()).thenReturn(true);
+
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            f.service.send(10L, 7L, "private body");
+            TransactionSynchronizationManager.getSynchronizations().forEach(
+                    TransactionSynchronization::afterCommit);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+
+        verify(f.template, never()).convertAndSendToUser(any(), any(), any());
     }
 
     @Test

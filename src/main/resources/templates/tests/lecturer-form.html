@@ -8,6 +8,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-monitor.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-submissions.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
   <link class="page-css" rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
   <link class="page-css" rel="stylesheet"
@@ -15,17 +16,17 @@
         integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
         crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
-<body>
+<body class="ux-polish ux-test-authoring">
 <header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
 
 <div class="class-detail-layout"
-     th:classappend="${mode == 'create' or clazz == null} ? 'lf-no-sidebar'">
+     th:classappend="${clazz == null} ? 'lf-no-sidebar'">
   <!-- Left sidebar (edit mode only): the class this exam belongs to — share
        box + class nav. No class nav item maps to the tests screen, so no
        entry is highlighted (empty activeTab). Create mode has no class yet,
        so the layout collapses to a single full-width column. -->
-  <th:block th:if="${mode == 'edit' and clazz != null}">
-    <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, '')}"></aside>
+  <th:block th:if="${clazz != null}">
+    <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'tests')}"></aside>
   </th:block>
 
   <main class="col detail-page lf-page">
@@ -42,7 +43,7 @@
       <a class="toolbar-secondary"
          th:href="@{'/lecturer/tests/' + ${test.id()} + '/preview'}">Xem trước</a>
       <button type="submit" form="lfForm" id="lfSave" class="toolbar-save"
-              th:disabled="${activeDetailTab != 'info'}">Lưu bài test</button>
+              th:disabled="${activeDetailTab != 'info' or (examForm != null and examForm.questionBankLocked)}">Lưu bài test</button>
     </div>
 
     <h1 class="detail-page-title" th:text="${test.title()}">Bài test</h1>
@@ -100,6 +101,12 @@
       <button type="submit" class="tst-btn tst-btn-primary" id="lfSave">Lưu bài test</button>
     </div>
 
+    <div class="lf-immutable-notice" role="status"
+         th:if="${mode == 'edit' and examForm != null and examForm.questionBankLocked}">
+      <strong>Bài test đã có lượt làm nên được khóa.</strong>
+      <span>Không thể đổi lớp, lịch thi, nội dung hoặc đáp án; dữ liệu cũ được giữ nguyên để bảo toàn bài làm và kết quả của học viên.</span>
+    </div>
+
     <section class="lf-panel">
       <div class="lf-panel-head">
         <h2 class="lf-panel-title">Thông tin chung</h2>
@@ -135,14 +142,33 @@
           <small class="lf-err" id="lfTitleErr"></small>
         </div>
         <div class="lf-field">
-          <label class="lf-label" for="lfClass">Lớp</label>
-          <select class="lf-input" id="lfClass" data-ksh-select>
-            <option value="">— Chọn lớp —</option>
+          <label class="lf-label" for="lfSubject">Môn học</label>
+          <select class="lf-input" id="lfSubject" data-ksh-select
+                  th:disabled="${mode == 'edit' or (selectedClassId != null and mode == 'create')}">
+            <option value="">— Chọn môn học —</option>
+            <option th:each="subject : ${testSubjects}"
+                    th:value="${subject.id()}"
+                    th:text="${subject.code()} + ' · ' + ${subject.name()}"
+                    th:selected="${selectedSubjectId != null and selectedSubjectId == subject.id()}">Môn học</option>
+          </select>
+          <small class="lf-hint">Phạm vi ổn định của đề độc lập và các bản phân phối sau này.</small>
+          <small class="lf-err" id="lfSubjectErr"></small>
+        </div>
+        <div class="lf-field">
+          <label class="lf-label" for="lfClass">Lớp khởi tạo <span class="lf-optional">(tuỳ chọn)</span></label>
+          <select class="lf-input" id="lfClass" data-ksh-select
+                  th:disabled="${mode == 'edit' or (selectedClassId != null and mode == 'create')}">
+            <option value="">— Không gắn lớp; lưu trong Test Bank —</option>
             <option th:each="c : ${ledClasses}"
                     th:value="${c.id()}"
+                    th:attr="data-subject-id=${c.subjectId()}"
                     th:text="${c.name()}"
                     th:selected="${selectedClassId != null and selectedClassId == c.id()}">Lớp</option>
           </select>
+          <small class="lf-hint" th:if="${mode == 'create' and selectedClassId == null}">Chỉ chọn khi muốn tạo ngay một bài test cục bộ cho lớp; nếu để trống, đề không thuộc lớp nào.</small>
+          <small class="lf-hint" th:if="${mode == 'create' and selectedClassId != null}">Đang tạo từ lớp này; đề vẫn xuất hiện trong kho “Quản lý bài test”.</small>
+          <small class="lf-hint" th:if="${mode == 'edit' and selectedClassId == null}">Đề Test Bank độc lập không thuộc lớp nào; việc phân phối sẽ tạo các bản sao riêng cho từng lớp.</small>
+          <small class="lf-hint" th:if="${mode == 'edit' and selectedClassId != null}">Đây là bài test cục bộ của lớp; phạm vi lớp không đổi khi chỉnh sửa.</small>
           <small class="lf-err" id="lfClassErr"></small>
         </div>
         <div class="lf-field">

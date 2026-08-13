@@ -52,8 +52,6 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/resources/static/css/practice-result.css");
     private static final Path PRACTICE_RESULT_PREP_CSS =
             Path.of("src/main/resources/static/css/practice-result-prep.css");
-    private static final Path PRACTICE_WORKSPACE_POLISH_CSS =
-            Path.of("src/main/resources/static/css/practice/practice-workspace-polish.css");
     private static final String PRACTICE_WORKSPACE_POLISH_HREF =
             "@{/css/practice/practice-workspace-polish.css}";
     private static final List<String> PRACTICE_WORKSPACE_TEMPLATES = List.of(
@@ -76,62 +74,16 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/java/com/ksh/features/practice/repository/PracticeAttemptRepository.java");
 
     @Test
-    void sharedWorkspacePolishLoadsLastOnExactlySevenCanonicalPracticeScreens()
+    void canonicalPracticeScreensKeepThePr83VisualLayerWithoutWorkspaceOverride()
             throws IOException {
         for (String templateName : PRACTICE_WORKSPACE_TEMPLATES) {
-            Element head = Jsoup.parse(
-                            Files.readString(PRACTICE_TEMPLATES.resolve(templateName)))
-                    .head();
-            List<Element> pageStyles = head.select("link.page-css");
-
-            assertThat(pageStyles)
-                    .as("page styles in %s", templateName)
-                    .isNotEmpty();
-            assertThat(pageStyles.get(pageStyles.size() - 1).attr("th:href"))
-                    .as("last page stylesheet in %s", templateName)
-                    .isEqualTo(PRACTICE_WORKSPACE_POLISH_HREF);
+            String template = Files.readString(PRACTICE_TEMPLATES.resolve(templateName));
+            assertThat(template)
+                    .as("no post-PR83 workspace style override in %s", templateName)
+                    .doesNotContain(PRACTICE_WORKSPACE_POLISH_HREF);
         }
-
-        long templateCount;
-        try (var templates = Files.walk(PRACTICE_TEMPLATES)) {
-            templateCount = templates
-                    .filter(path -> path.toString().endsWith(".html"))
-                    .filter(path -> {
-                        try {
-                            return Files.readString(path)
-                                    .contains(PRACTICE_WORKSPACE_POLISH_HREF);
-                        } catch (IOException exception) {
-                            throw new IllegalStateException(exception);
-                        }
-                    })
-                    .count();
-        }
-        assertThat(templateCount)
-                .as("canonical Practice templates loading the shared workspace polish")
-                .isEqualTo(PRACTICE_WORKSPACE_TEMPLATES.size());
-
-        String workspaceCss = Files.readString(PRACTICE_WORKSPACE_POLISH_CSS);
-        assertThat(workspaceCss).contains(
-                ":root",
-                "--ksh-workspace-canvas",
-                "@media (min-width: 901px)",
-                "body.exam-shell",
-                ".exam-player",
-                ".exam-workspace",
-                ".writing-workspace",
-                "body.spp-body",
-                ".spp-player",
-                ".spp-stage",
-                ".practice-result-page .pr-main",
-                ".prd-objective-layout",
-                ".prd-writing-shell",
-                ".prd-speaking-shell");
-        assertThat(workspaceCss).contains(
-                ".exam-topbar .exam-identity span,\n"
-                        + ".exam-topbar .exam-progress,\n"
-                        + ".spp-header .spp-heading span {\n"
-                        + "  color: #fff;\n"
-                        + "}");
+        assertThat(Path.of("src/main/resources/static/css/practice/practice-workspace-polish.css"))
+                .doesNotExist();
     }
 
     @Test

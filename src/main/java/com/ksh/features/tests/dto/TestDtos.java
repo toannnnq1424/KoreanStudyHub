@@ -114,7 +114,8 @@ public final class TestDtos {
                              BigDecimal score, BigDecimal totalPoints,
                              boolean hasThreshold, boolean passed, BigDecimal passingScore,
                              int correctCount, int totalQuestions,
-                             int timeSpentSeconds, String status) {
+                             int scorePercent, int correctPercent,
+                             int timeSpentSeconds, String timeSpentLabel, String status) {
     }
 
     // ── Per-question review ──────────────────────────────────────────
@@ -125,12 +126,16 @@ public final class TestDtos {
 
     /** A question in the review. */
     public record ReviewQuestionView(Long id, String type, String content, String explanation,
-                                     boolean correct, List<ReviewOptionView> options) {
+                                     boolean correct, boolean answered,
+                                     List<ReviewOptionView> options) {
     }
 
     /** The full review view. */
     public record ReviewView(Long testId, Long classId, Long attemptId, String title,
                              int correctCount, int totalQuestions, BigDecimal score,
+                             BigDecimal totalPoints, int scorePercent, int correctPercent,
+                             int incorrectCount, int unansweredCount,
+                             int timeSpentSeconds, String timeSpentLabel, String status,
                              boolean lecturerView, String studentName,
                              List<ReviewQuestionView> questions) {
     }

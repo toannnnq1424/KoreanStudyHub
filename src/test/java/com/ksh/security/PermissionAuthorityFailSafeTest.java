@@ -4,9 +4,9 @@ import com.ksh.entities.User;
 import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.permissions.service.PermissionResolver;
 import com.ksh.features.auth.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.GrantedAuthority;
@@ -43,9 +43,15 @@ class PermissionAuthorityFailSafeTest {
 
     @Mock private UserRepository userRepository;
     @Mock private PermissionResolver permissionResolver;
-    @InjectMocks private CustomUserDetailsService service;
+    private CustomUserDetailsService service;
 
     private static final String EMAIL = "lecturer@ksh.edu.vn";
+
+    @BeforeEach
+    void setUp() {
+        service = new CustomUserDetailsService(
+                userRepository, new LoginPermissionResolver(permissionResolver));
+    }
 
     /** Builds a User entity without touching the database. */
     private static User user(Role role) {

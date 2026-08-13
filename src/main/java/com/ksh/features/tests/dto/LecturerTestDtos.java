@@ -20,7 +20,11 @@ public final class LecturerTestDtos {
     // ── Authoring form ───────────────────────────────────────────────
 
     /** A class the lecturer may attach an exam to. */
-    public record ClassOption(Long id, String name) {
+    public record ClassOption(Long id, String name, Long subjectId) {
+    }
+
+    /** One subject available when an independent Test Bank item is authored. */
+    public record SubjectOption(Long id, String code, String name) {
     }
 
     /** An option row inside the question builder. */
@@ -33,7 +37,7 @@ public final class LecturerTestDtos {
     }
 
     /** The full create/edit exam form payload (JSON-bound from the builder). */
-    public record ExamForm(Long id, String title, String description, Long classId,
+    public record ExamForm(Long id, String title, String description, Long subjectId, Long classId,
                            String type, String status, String timeMode,
                            Integer durationMinutes, LocalDateTime startAt, LocalDateTime endAt,
                            BigDecimal passingScore, boolean shuffleQuestions, boolean shuffleOptions,

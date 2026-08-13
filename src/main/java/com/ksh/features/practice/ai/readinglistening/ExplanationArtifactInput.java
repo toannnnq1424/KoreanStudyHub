@@ -44,12 +44,24 @@ public record ExplanationArtifactInput(
         explanationLanguage = explanationLanguage == null || explanationLanguage.isBlank()
                 ? "vi"
                 : explanationLanguage;
-        ObjectiveExplanationStrategyRegistry.requireAllowed(
-                questionType,
-                explanationStrategy,
-                stimulus,
-                questionContent,
-                answerSpec);
+        if (readinessIssue == null || readinessIssue.isBlank()) {
+            ObjectiveExplanationStrategyRegistry.requireAllowed(
+                    questionType,
+                    explanationStrategy,
+                    stimulus,
+                    questionContent,
+                    answerSpec);
+        } else {
+            // A terminal readiness artifact still needs canonical question and
+            // answer authority for a stable fingerprint. Missing approved
+            // evidence is precisely what this state records, so do not reject
+            // it again at the runtime-evidence boundary.
+            ObjectiveExplanationStrategyRegistry.requireAllowed(
+                    questionType,
+                    explanationStrategy,
+                    questionContent,
+                    answerSpec);
+        }
         media = media == null ? List.of() : List.copyOf(media);
     }
 

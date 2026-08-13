@@ -36,12 +36,22 @@ class PermissionMutationConcurrencyContractTest {
 
     @Test
     void permissionCacheEvictionsAreRegisteredAfterCommit() throws Exception {
-        assertTrue(read("admin/users/service/UserPermissionToggleService.java")
-                .contains("TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser"));
-        assertTrue(read("admin/permissions/service/PermissionOverrideService.java")
-                .contains("TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser"));
+        assertInsideAfterCommit(
+                read("admin/users/service/UserPermissionToggleService.java"),
+                "permissionResolver.evictUser(userId)");
+        assertInsideAfterCommit(
+                read("admin/permissions/service/PermissionOverrideService.java"),
+                "permissionResolver.evictUser(form.userId())");
         assertTrue(read("admin/permissions/service/PermissionMatrixService.java")
                 .contains("TransactionLifecycle.afterCommit(() -> permissionResolver.evictRole"));
+    }
+
+    private static void assertInsideAfterCommit(String source, String call) {
+        int callback = source.indexOf("TransactionLifecycle.afterCommit(() -> {");
+        int invocation = source.indexOf(call, callback);
+        int callbackEnd = source.indexOf("});", callback);
+        assertTrue(callback >= 0 && invocation > callback && callbackEnd > invocation,
+                () -> call + " must remain inside the after-commit callback");
     }
 
     @Test

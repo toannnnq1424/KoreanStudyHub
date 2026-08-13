@@ -1,10 +1,13 @@
 package com.ksh.features.admin.users.service;
 
+import com.ksh.common.TransactionLifecycle;
 import com.ksh.entities.User;
 import com.ksh.entities.UserActivity;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.auth.service.CredentialRotationService;
+import com.ksh.features.profile.service.SessionRevocationService;
+import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,22 +35,26 @@ import java.util.Map;
 public class AdminUsersLifecycleService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final CredentialRotationService credentialRotationService;
     private final AdminUsersGuard guard;
     private final AdminUsersAuditWriter auditWriter;
+    private final SessionRevocationService sessionRevocationService;
 
     public AdminUsersLifecycleService(UserRepository userRepository,
-                                      PasswordEncoder passwordEncoder,
+                                      CredentialRotationService credentialRotationService,
                                       AdminUsersGuard guard,
-                                      AdminUsersAuditWriter auditWriter) {
+                                      AdminUsersAuditWriter auditWriter,
+                                      SessionRevocationService sessionRevocationService) {
         this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.credentialRotationService = credentialRotationService;
         this.guard = guard;
         this.auditWriter = auditWriter;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     @Transactional
     public void deactivate(Long id, Long actingUserId) {
+        lockAdminLifecycleMutex();
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "vô hiệu hoá");
         guard.requireNotLastActiveAdmin(target, "vô hiệu hoá");
@@ -56,6 +63,7 @@ public class AdminUsersLifecycleService {
         User saved = userRepository.save(target);
         auditWriter.write(saved.getId(), UserActivity.TYPE_DEACTIVATED,
                 "Vô hiệu hoá " + saved.getEmail(), null, actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
@@ -70,6 +78,7 @@ public class AdminUsersLifecycleService {
 
     @Transactional
     public void lock(Long id, String reason, Long actingUserId) {
+        lockAdminLifecycleMutex();
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "khoá");
         guard.requireNotLastActiveAdmin(target, "khoá");
@@ -93,6 +102,7 @@ public class AdminUsersLifecycleService {
         auditWriter.write(saved.getId(), UserActivity.TYPE_LOCKED,
                 "Khoá " + saved.getEmail(),
                 auditWriter.serialize(payload), actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
@@ -109,20 +119,19 @@ public class AdminUsersLifecycleService {
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "đặt lại mật khẩu");
 
-        if (newPassword == null || newPassword.isBlank()) {
-            throw new IllegalArgumentException("Mật khẩu mới không được để trống");
-        }
+        requireValidPassword(newPassword);
 
-        target.setPasswordHash(passwordEncoder.encode(newPassword));
-        User saved = userRepository.save(target);
+        User saved = credentialRotationService.replacePassword(target, newPassword);
         // Intentionally null metadata — the plaintext password must not appear
         // in the audit log.
         auditWriter.write(saved.getId(), UserActivity.TYPE_PASSWORD_RESET,
                 "Đặt lại mật khẩu " + saved.getEmail(), null, actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
     public void softDelete(Long id, Long actingUserId) {
+        lockAdminLifecycleMutex();
         User target = lockForLifecycle(id);
         guard.requireNotSelf(actingUserId, target.getId(), "xoá");
         guard.requireNotLastActiveAdmin(target, "xoá");
@@ -131,6 +140,7 @@ public class AdminUsersLifecycleService {
         User saved = userRepository.save(target);
         auditWriter.write(saved.getId(), UserActivity.TYPE_DELETED,
                 "Xoá " + saved.getEmail(), null, actingUserId);
+        revokeAfterCommit(saved.getEmail());
     }
 
     @Transactional
@@ -149,8 +159,27 @@ public class AdminUsersLifecycleService {
 
     // ── Internals ─────────────────────────────────────────────────
 
+    private void lockAdminLifecycleMutex() {
+        userRepository.findAdminLifecycleMutexForUpdate(Role.ADMIN.name())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Không tìm thấy tài khoản quản trị làm khoá vòng đời"));
+    }
+
     private User lockForLifecycle(Long id) {
         return userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new EntityNotFoundException("Người dùng không tồn tại"));
+    }
+
+    private static void requireValidPassword(String password) {
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Mật khẩu mới không được để trống");
+        }
+        if (password.length() < 6 || password.length() > 64) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có từ 6 đến 64 ký tự");
+        }
+    }
+
+    private void revokeAfterCommit(String email) {
+        TransactionLifecycle.afterCommit(() -> sessionRevocationService.revokeAllSessions(email));
     }
 }

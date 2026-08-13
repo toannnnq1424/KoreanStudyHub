@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.TestExecutionEvent;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,7 +67,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void dashboard_ok_for_leader() throws Exception {
         mockMvc.perform(get("/leader"))
                 .andExpect(status().isOk())
@@ -75,14 +76,14 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("student@ksh.edu.vn")
+    @WithUserDetails(value = "student@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void dashboard_403_for_student() throws Exception {
         mockMvc.perform(get("/leader"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void dashboard_lists_only_department_classes() throws Exception {
         ClassEntity inDept = new ClassEntity(
                 "Lớp CNTT Leader", leader.getId(), leader.getId(),
@@ -108,7 +109,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void assign_page_lists_department_classes() throws Exception {
         ClassEntity inDept = new ClassEntity(
                 "Lớp Assign", leader.getId(), leader.getId(),
@@ -124,7 +125,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void assign_page_and_submit_allow_an_active_lecturer_from_another_subject() throws Exception {
         Department other = departmentRepository.findAll().stream()
                 .filter(d -> "KT".equals(d.getCode()))
@@ -155,7 +156,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void add_co_lecturer_same_subject_preserves_owner() throws Exception {
         ClassEntity inDept = new ClassEntity(
                 "Lớp Reassign", leader.getId(), leader.getId(),
@@ -178,7 +179,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void add_co_lecturer_cross_subject_class_denied() throws Exception {
         Department other = departmentRepository.findAll().stream()
                 .filter(d -> "KT".equals(d.getCode()))
@@ -196,7 +197,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void report_ok_and_scoped() throws Exception {
         ClassEntity inDept = new ClassEntity(
                 "Lớp Report", leader.getId(), leader.getId(),
@@ -212,7 +213,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void approvals_page_renders_pending_class() throws Exception {
         ClassEntity pending = new ClassEntity(
                 "Lớp chờ duyệt", lecturer.getId(), lecturer.getId(),
@@ -230,7 +231,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void approve_class_moves_it_out_of_draft() throws Exception {
         ClassEntity pending = new ClassEntity(
                 "Lớp được duyệt", lecturer.getId(), lecturer.getId(),
@@ -251,7 +252,7 @@ class LeaderDepartmentIntegrationTest {
     }
 
     @Test
-    @WithUserDetails("leader@ksh.edu.vn")
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
     void empty_state_when_no_department() throws Exception {
         // Clear leader assignment and subject_id so resolver returns empty.
         for (Department d : departmentRepository.findAll()) {

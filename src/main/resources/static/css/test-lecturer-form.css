@@ -21,7 +21,7 @@
 .class-detail-layout:not(.lf-no-sidebar) .lf-page {
     max-width: none;
     margin: 0;
-    padding: 0;
+    padding: 30px clamp(24px, 3vw, 48px) 64px;
 }
 
 /* The shared .detail-toolbar is sticky by default (used by lesson/section/user
@@ -37,6 +37,24 @@
 .lf-panel-head-stack { align-items: flex-start; gap: 12px; }
 .lf-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .lf-panel-title { font-size: 16px; font-weight: 700; margin: 0; }
+.lf-immutable-notice {
+    display: grid;
+    gap: 4px;
+    margin: 0 0 18px;
+    padding: 13px 16px;
+    border-left: 4px solid #d97706;
+    background: #fffbeb;
+    color: #78350f;
+    line-height: 1.45;
+}
+.lf-immutable-notice span { color: #92400e; }
+.lf-form.is-immutable .lf-panel-actions,
+.lf-form.is-immutable .lf-add-option,
+.lf-form.is-immutable .lf-q-remove,
+.lf-form.is-immutable .lf-o-remove { display: none; }
+.lf-form.is-immutable .ql-toolbar { opacity: .55; pointer-events: none; }
+.lf-form.is-immutable .lf-input,
+.lf-form.is-immutable .ql-container { background: #f8fafc; }
 
 .lf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .lf-col-2 { grid-column: 1 / -1; }

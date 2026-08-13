@@ -126,7 +126,7 @@ public class LessonTemplateService {
         for (ClassRow row : owned.getContent()) {
             classRepository.findById(row.id())
                     .filter(clazz -> subjectId.equals(clazz.getSubjectId()))
-                    .filter(clazz -> !ClassEntity.STATUS_ARCHIVED.equals(clazz.getStatus()))
+                    .filter(clazz -> ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus()))
                     .ifPresent(clazz -> options.add(new AttachTargetClassRow(
                             row.id(), row.name(), row.code(),
                             hasDistributedSubjectSnapshot(row.id(), subjectId))));
@@ -583,22 +583,31 @@ public class LessonTemplateService {
         if (classIds == null || classIds.isEmpty()) {
             throw new IllegalArgumentException("Vui lòng chọn ít nhất một lớp");
         }
-        LessonTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new EntityNotFoundException(MSG_TEMPLATE_NOT_FOUND));
-        Department subject = subjectResolver.require(userId, role, template.getSubjectId());
-        List<LessonCloneResult> results = new ArrayList<>();
         List<Long> distinctClassIds = classIds.stream()
                 .filter(java.util.Objects::nonNull)
                 .distinct()
                 .sorted()
                 .toList();
+
+        // Under MySQL REPEATABLE READ, any ordinary select performed before
+        // waiting on the class mutex would pin a stale transaction snapshot.
+        // Lock every target class first (in deterministic id order), then read
+        // the template/sections/lessons. A concurrent distribution that waited
+        // here will therefore observe the snapshot committed by the winner.
+        Map<Long, ClassEntity> lockedClasses = new LinkedHashMap<>();
         for (Long classId : distinctClassIds) {
-            // Serialize a missing chapter's creation as well as subsequent
-            // section selection. Sorting ids above prevents multi-class calls
-            // from acquiring class mutexes in opposite orders.
-            ClassEntity clazz = classesService.getEditableForUpdate(classId, userId, role);
+            lockedClasses.put(classId,
+                    classesService.getEditableForUpdate(classId, userId, role));
+        }
+
+        LessonTemplate template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_TEMPLATE_NOT_FOUND));
+        Department subject = subjectResolver.require(userId, role, template.getSubjectId());
+        List<LessonCloneResult> results = new ArrayList<>();
+        for (Long classId : distinctClassIds) {
+            ClassEntity clazz = lockedClasses.get(classId);
             if (!subject.getId().equals(clazz.getSubjectId())
-                    || ClassEntity.STATUS_ARCHIVED.equals(clazz.getStatus())) {
+                    || !ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus())) {
                 throw new IllegalArgumentException("Chỉ được phân phối tới lớp cùng mã môn đang sử dụng");
             }
             Section section = sectionRepository.findByClassIdOrderByDisplayOrderAsc(classId).stream()

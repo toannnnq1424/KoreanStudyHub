@@ -16,6 +16,29 @@
 - `[x]` Đã sửa và xác minh lại.
 - Khi tick `[x]`, ghi commit/PR và bằng chứng QA vào mục tương ứng.
 
+## Attribution backfill
+
+> Bổ sung ngày 2026-08-11 từ lịch sử Git; không thay đổi nội dung hoặc trạng thái của các
+> incident gốc bên dưới.
+
+- **USER FIX**: commit của chủ repository qua các alias `toannqhe180972`, `toannq1424`
+  hoặc `toannnnq1424`.
+- **CONTRIBUTOR FIX**: commit của cộng tác viên khác.
+- File test xuất hiện trong diff không tự chứng minh test đã chạy; execution evidence phải
+  được ghi riêng. Báo cáo ngày này là dated browser record có sẵn.
+- Chính sách schema hiện tại: **không tạo bảng mới; chỉ được thêm cột vào bảng có sẵn**.
+  Các migration lịch sử, nếu có, không phải tiền lệ cho thay đổi schema mới.
+
+| Nguồn sửa | Commit | Phạm vi incident đã ghi trong báo cáo |
+| --- | --- | --- |
+| **USER FIX** — toannqhe180972 | `952c00df` | Browser QA regressions: test navigation, Question Bank combobox/gutter/responsive và home LEADER |
+| **USER FIX** — toannqhe180972 | `8648b458` | Assignment grading UI và messaging recipient roster |
+| **USER FIX** — toannqhe180972 | `fe67907d` | Test management và exam-image/storage lifecycle |
+| **USER FIX** — toannqhe180972 | `015c0fa7` | Question Bank department taxonomy, import sample và detail UI |
+| **USER FIX** — toannqhe180972 | `00a3728f` | Student class-list layout |
+| **USER FIX** — toannqhe180972 | `da166181` | Practice catalogue độc lập với classes |
+| **USER FIX** — toannqhe180972 | `bd4a127e` | Commit tài liệu hóa audit/browser QA |
+
 ## Lỗi đã xử lý trong đợt này
 
 ### TEST-AUTH-UI-001 — Hành động test hiển thị nhưng bị từ chối
@@ -229,32 +252,6 @@
   - Mobile: shell rộng 375px trong viewport 390px, không tràn ngang; empty state
     và các control vẫn render bình thường.
 - Commit: `00a3728f`.
-
-### CLASS-STUDENT-AUTH-001 — Route lớp học viên chỉ kiểm tra đăng nhập
-
-- [x] Đã siết toàn bộ controller lớp học viên về đúng vai trò `STUDENT`.
-- [x] Đã thêm contract test cho sáu controller và Browser QA cả luồng hợp lệ lẫn
-  truy cập sai vai trò.
-- Mức độ: High.
-- Nguyên nhân gốc:
-  - Năm controller lớp học viên còn dùng `isAuthenticated()`, trong khi
-    `StudentClassTestsController` đã dùng ranh giới vai trò chính xác.
-  - Vì vậy LECTURER/LEADER/ADMIN có thể đi vào `/my/classes...` rồi mới bị chặn
-    muộn hoặc render nhầm không gian học viên.
-- Bản sửa:
-  - Dùng `Roles.PREAUTH_STUDENT` cho `StudentClassesController`,
-    `StudentLessonsController`, `StudentClassMessagesController`,
-    `LearningProgressController` và `InviteLinkController`.
-  - Contract test khóa cả năm controller trên cùng với
-    `StudentClassTestsController`, tránh tái phát về `isAuthenticated()`.
-- Bằng chứng:
-  - 11/11 test role/navigation đạt và 39/39 focused audit test non-Practice đạt.
-  - STUDENT mở danh sách lớp và dashboard lớp rỗng bình thường, vẫn thấy sidebar
-    đầy đủ.
-  - LECTURER đăng nhập từ saved request `/my/classes` được đưa về
-    `/lecturer/classes`; truy cập trực tiếp danh sách, bài giảng, test, tin nhắn
-    và link mời của học viên đều bị chặn bằng trang 403 có đường hồi phục đúng
-    vai trò.
 
 ### PRACTICE-CATALOG-CLASS-001 — Catalog `/practice` lẫn bộ lọc lớp học
 

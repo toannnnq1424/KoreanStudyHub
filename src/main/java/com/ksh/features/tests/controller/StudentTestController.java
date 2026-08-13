@@ -68,6 +68,10 @@ public class StudentTestController {
     public String detail(@PathVariable Long id,
                          @AuthenticationPrincipal KshUserDetails user, Model model) {
         StudentTestDetail detail = catalogService.detailForStudent(id, user.getId());
+        if (detail.completed() && detail.attemptId() != null) {
+            return "redirect:" + BASE_MY_TESTS + "/" + id
+                    + "/result/" + detail.attemptId();
+        }
         model.addAttribute(ATTR_DETAIL, detail);
         return VIEW_TEST_DETAIL;
     }
@@ -101,21 +105,33 @@ public class StudentTestController {
         }
     }
 
-    /** Owner-only result summary for a submitted attempt (else 404). */
+    /** Owner-only result summary after the attempt has closed. */
     @GetMapping("/{id}/result/{attemptId}")
     public String result(@PathVariable Long id, @PathVariable Long attemptId,
-                         @AuthenticationPrincipal KshUserDetails user, Model model) {
-        ResultView result = attemptService.result(id, attemptId, user.getId());
-        model.addAttribute(ATTR_RESULT, result);
-        return VIEW_TEST_RESULT;
+                         @AuthenticationPrincipal KshUserDetails user, Model model,
+                         RedirectAttributes ra) {
+        try {
+            ResultView result = attemptService.result(id, attemptId, user.getId());
+            model.addAttribute(ATTR_RESULT, result);
+            return VIEW_TEST_RESULT;
+        } catch (TestAttemptUnavailableException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:" + BASE_MY_TESTS + "/" + id + "/take";
+        }
     }
 
-    /** Owner-only per-question review for a submitted attempt (else 404). */
+    /** Owner-only per-question review after the attempt has closed. */
     @GetMapping("/{id}/review/{attemptId}")
     public String review(@PathVariable Long id, @PathVariable Long attemptId,
-                         @AuthenticationPrincipal KshUserDetails user, Model model) {
-        ReviewView review = attemptService.review(id, attemptId, user.getId());
-        model.addAttribute(ATTR_REVIEW, review);
-        return VIEW_TEST_REVIEW;
+                         @AuthenticationPrincipal KshUserDetails user, Model model,
+                         RedirectAttributes ra) {
+        try {
+            ReviewView review = attemptService.review(id, attemptId, user.getId());
+            model.addAttribute(ATTR_REVIEW, review);
+            return VIEW_TEST_REVIEW;
+        } catch (TestAttemptUnavailableException ex) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, ex.getMessage());
+            return "redirect:" + BASE_MY_TESTS + "/" + id + "/take";
+        }
     }
 }

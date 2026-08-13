@@ -44,6 +44,8 @@ class QuestionBankFrontendContractTest {
 
         assertThat(list)
                 .contains("for=\"qbLecturerQuery\"", "id=\"qbLecturerQuery\"")
+                .contains("for=\"qbLecturerStatus\"", "id=\"qbLecturerStatus\"", "name=\"status\"")
+                .contains("value=\"ALL\"", "value=\"DRAFT\"", "value=\"APPROVED\"")
                 .contains("class=\"qb-subject-catalog\"")
                 .contains("class=\"qb-catalog-row\"")
                 .contains("data-qb-question-row", "class=\"qb-pagination\"", "data-qb-detail-drawer")

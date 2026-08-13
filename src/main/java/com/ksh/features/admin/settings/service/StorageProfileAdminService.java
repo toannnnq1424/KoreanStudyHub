@@ -2,9 +2,12 @@ package com.ksh.features.admin.settings.service;
 
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileForm;
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileRow;
+import com.ksh.features.admin.settings.dto.StorageProfileDtos.ConnectionTestResult;
+import com.ksh.features.admin.settings.dto.StorageProfileDtos.ConnectionTestStatus;
 import com.ksh.features.storage.profile.StorageBackend;
 import com.ksh.features.storage.profile.StorageProfile;
 import com.ksh.features.storage.profile.StorageProfileCode;
+import com.ksh.features.storage.profile.StorageProfileException;
 import com.ksh.features.storage.profile.StorageProfileR2Clients;
 import com.ksh.features.storage.profile.StorageProfileRepository;
 import com.ksh.features.storage.profile.StorageProfileResolver;
@@ -13,7 +16,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -134,6 +140,60 @@ public class StorageProfileAdminService {
         return repository.findById(code)
                 .map(StorageProfile::getSecretAccessKey)
                 .filter(secret -> secret != null && !secret.isBlank());
+    }
+
+    /**
+     * Tests one saved profile without holding a database transaction open while
+     * waiting for R2. The response deliberately contains no raw SDK error text.
+     */
+    public ConnectionTestResult testConnection(StorageProfileCode code) {
+        Optional<StorageProfile> saved = repository.findById(code);
+        if (saved.isEmpty()) {
+            return failed("Không tìm thấy cấu hình lưu trữ đã lưu.");
+        }
+
+        StorageProfile profile = saved.get();
+        if (profile.getBackend() == StorageBackend.LOCAL) {
+            return new ConnectionTestResult(ConnectionTestStatus.NOT_APPLICABLE,
+                    "Profile đang dùng lưu trữ Local, không có kết nối R2 để kiểm tra.");
+        }
+
+        try {
+            var resolved = resolver.validate(profile);
+            var request = HeadBucketRequest.builder()
+                    .bucket(resolved.bucket())
+                    .overrideConfiguration(options -> options
+                            .apiCallAttemptTimeout(Duration.ofSeconds(5))
+                            .apiCallTimeout(Duration.ofSeconds(8)))
+                    .build();
+            r2Clients.client(resolved).headBucket(request);
+            return new ConnectionTestResult(ConnectionTestStatus.SUCCESS,
+                    "Kết nối R2 thành công; bucket có thể truy cập.");
+        } catch (StorageProfileException exception) {
+            log.warn("R2 connection test rejected invalid profile {} ({})",
+                    code, exception.errorCode());
+            return failed("Cấu hình R2 đã lưu chưa đầy đủ hoặc không hợp lệ.");
+        } catch (S3Exception exception) {
+            log.warn("R2 HeadBucket test failed for profile {} with HTTP {}",
+                    code, exception.statusCode());
+            log.debug("R2 HeadBucket response for profile {}", code, exception);
+            if (exception.statusCode() == 401 || exception.statusCode() == 403) {
+                return failed("R2 từ chối thông tin xác thực hoặc quyền truy cập bucket.");
+            }
+            if (exception.statusCode() == 404) {
+                return failed("Không tìm thấy bucket R2 đã cấu hình.");
+            }
+            return failed("Không thể kết nối R2. Hãy kiểm tra endpoint, bucket và mạng.");
+        } catch (RuntimeException exception) {
+            log.warn("R2 connection test failed for profile {} ({})",
+                    code, exception.getClass().getSimpleName());
+            log.debug("R2 connection failure for profile {}", code, exception);
+            return failed("Không thể kết nối R2. Hãy kiểm tra endpoint, bucket và mạng.");
+        }
+    }
+
+    private static ConnectionTestResult failed(String message) {
+        return new ConnectionTestResult(ConnectionTestStatus.FAILED, message);
     }
 
     private long referenceCount(StorageProfileCode code) {

@@ -522,7 +522,8 @@ public class QuestionBankItemService {
                                 Map<Long, String> names,
                                 Map<Long, List<OptionView>> options) {
         return new ItemDetail(item.getId(), item.getQuestionType(), item.getWorkflowStatus(),
-                item.getContent(), preview(item.getContent()), item.getExplanation(),
+                HtmlSanitizer.sanitize(item.getContent()), preview(item.getContent()),
+                sanitizeOptional(item.getExplanation()),
                 item.getReviewNote(), subjectCode,
                 item.getContributorId(), names.getOrDefault(item.getContributorId(), "—"),
                 names.get(item.getReviewedBy()),
@@ -537,7 +538,8 @@ public class QuestionBankItemService {
         for (QuestionBankOption option : optionRepository.findByItemIdInOrderBySortOrderAscIdAsc(
                 items.stream().map(QuestionBankItem::getId).toList())) {
             result.computeIfAbsent(option.getItemId(), ignored -> new ArrayList<>())
-                    .add(new OptionView(option.getContent(), option.isCorrect()));
+                    .add(new OptionView(
+                            HtmlSanitizer.sanitize(option.getContent()), option.isCorrect()));
         }
         return result;
     }

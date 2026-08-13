@@ -208,6 +208,20 @@ public class ClassesController {
         return "redirect:" + URL_CLASSES_LIST;
     }
 
+    /** Returns a corrected REJECTED class to the leader approval queue. */
+    @PostMapping("/classes/{id}/resubmit")
+    public String resubmitForReview(@PathVariable Long id,
+                                    @AuthenticationPrincipal KshUserDetails user,
+                                    RedirectAttributes ra) {
+        try {
+            classesService.resubmitForReview(id, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, "Đã gửi lại lớp để chờ duyệt");
+        } catch (IllegalStateException exception) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, exception.getMessage());
+        }
+        return "redirect:" + URL_CLASSES_LIST;
+    }
+
     /** Soft-deletes a class after the user confirms the action via the confirm modal. */
     @PostMapping("/classes/{id}/delete")
     public String delete(@PathVariable Long id,

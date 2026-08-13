@@ -127,6 +127,7 @@ class MessagingIntegrationTest {
     void student_compose_lists_students_and_teachers_but_not_admins() throws Exception {
         mockMvc.perform(get("/my/messages/new"))
                 .andExpect(status().isOk())
+                .andExpect(content().string(containsString("msg-grid has-open")))
                 .andExpect(content().string(containsString(OUTSIDER)))
                 .andExpect(content().string(containsString(LECTURER)))
                 .andExpect(content().string(not(containsString(ADMIN))));

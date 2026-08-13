@@ -6,6 +6,7 @@ import com.ksh.entities.LessonActivity;
 import com.ksh.entities.LessonAttachment;
 import com.ksh.entities.LibraryAsset;
 import com.ksh.entities.Section;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.classes.service.ClassesService;
 import com.ksh.features.lessons.dto.LessonDtos.LessonAttachmentRow;
@@ -75,6 +76,7 @@ public class LessonAttachmentsService {
     private final ClassesService classesService;
     private final LessonsReorderService reorderService;
     private final EnrollmentRepository enrollmentRepository;
+    private final ClassRepository classRepository;
     private final LessonActivityWriter activityWriter;
     private final LessonContentTypeSwitcher contentTypeSwitcher;
 
@@ -87,6 +89,7 @@ public class LessonAttachmentsService {
                                     ClassesService classesService,
                                     LessonsReorderService reorderService,
                                     EnrollmentRepository enrollmentRepository,
+                                    ClassRepository classRepository,
                                     LessonActivityWriter activityWriter,
                                     LessonContentTypeSwitcher contentTypeSwitcher) {
         this.attachmentRepository = attachmentRepository;
@@ -98,6 +101,7 @@ public class LessonAttachmentsService {
         this.classesService = classesService;
         this.reorderService = reorderService;
         this.enrollmentRepository = enrollmentRepository;
+        this.classRepository = classRepository;
         this.activityWriter = activityWriter;
         this.contentTypeSwitcher = contentTypeSwitcher;
     }
@@ -399,6 +403,10 @@ public class LessonAttachmentsService {
 
     private boolean isEnrolledStudentForPublishedLesson(Long classId, Long userId, Lesson lesson) {
         if (!LESSON_STATUS_PUBLISHED.equals(lesson.getStatus())) return false;
+        boolean liveClass = classRepository.findById(classId)
+                .filter(clazz -> !clazz.isDeleted())
+                .isPresent();
+        if (!liveClass) return false;
         Optional<Enrollment> enrollment = enrollmentRepository.findByUserIdAndClassId(userId, classId);
         return enrollment.filter(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus())).isPresent();
     }

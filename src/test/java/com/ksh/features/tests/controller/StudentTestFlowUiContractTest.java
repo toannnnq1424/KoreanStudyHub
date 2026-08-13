@@ -49,7 +49,56 @@ class StudentTestFlowUiContractTest {
         assertThat(script)
                 .contains("deadline - Date.now()")
                 .contains("if (submitting) return;")
+                .contains("function countUnanswered(form)")
+                .contains("Bạn còn ' + unanswered + ' câu chưa trả lời")
+                .contains("if (unanswered > 0 && !window.confirm(")
+                .contains("Deadline submission is authoritative")
                 .contains("Hết giờ — bài của bạn đang được nộp tự động.");
+        assertThat(script.indexOf("if (unanswered > 0 && !window.confirm("))
+                .isLessThan(script.indexOf("// Recompute from the absolute server deadline"));
+        String deadlineFlow = script.substring(
+                script.indexOf("// Recompute from the absolute server deadline"));
+        assertThat(deadlineFlow)
+                .contains("if (!submitting)", "doSubmit();")
+                .doesNotContain("window.confirm");
+    }
+
+    @Test
+    void pr83_result_stays_centered_and_lecturer_review_gates_sidebar_fragment() throws IOException {
+        String result = read("src/main/resources/templates/tests/result.html");
+        String review = read("src/main/resources/templates/tests/review.html");
+
+        assertThat(result)
+                .contains("<main class=\"rs-page\">")
+                .doesNotContain("student-class-sidebar");
+        assertThat(review)
+                .contains("<th:block th:if=\"${review.lecturerView() and clazz != null}\">")
+                .doesNotContain("<aside th:if=\"${review.lecturerView() and clazz != null}\"\n         th:replace=");
+    }
+
+    @Test
+    void result_and_review_keep_the_pr83_compact_visual_contract() throws IOException {
+        String result = read("src/main/resources/templates/tests/result.html");
+        String review = read("src/main/resources/templates/tests/review.html");
+        String styles = read("src/main/resources/static/css/test-result.css");
+
+        assertThat(result)
+                .contains("class=\"rs-card\"")
+                .contains("class=\"rs-stats\"")
+                .contains("class=\"rs-verdict\"")
+                .contains("experience-polish.css")
+                .doesNotContain("class=\"rs-score-ring\"", "class=\"rs-hero\"");
+        assertThat(review)
+                .contains("class=\"rv-bar\"")
+                .contains("class=\"rv-question\"")
+                .contains("class=\"rv-option-mark\"")
+                .contains("Giải thích:")
+                .contains("th:utext=\"${q.explanation()}\"")
+                .contains("experience-polish.css")
+                .doesNotContain("class=\"rv-hero\"", "class=\"rv-summary\"");
+        assertThat(styles)
+                .contains(".rs-card", ".rs-stats", ".rv-question", ".rv-option.is-correct")
+                .doesNotContain("--exam-primary", ".rs-score-ring", ".rv-score-card");
     }
 
     private static String read(String path) throws IOException {

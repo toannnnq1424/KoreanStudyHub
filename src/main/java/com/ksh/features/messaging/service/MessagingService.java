@@ -355,15 +355,18 @@ public class MessagingService {
 
     /** Pushes a real-time notification to the peer after a message is stored. */
     private void pushToPeer(Long peerId, Long convId, Long senderId, String body, long peerUnread) {
-        Optional<User> peer = userRepository.findById(peerId);
         Optional<User> sender = userRepository.findById(senderId);
-        if (peer.isEmpty()) return;
         String senderName = sender.map(User::getFullName).orElse("");
         PushPayload payload = new PushPayload(
                 convId, senderName, snippet(body), body, peerUnread);
-        // Route by the peer's email — matches the Spring Security principal name.
-        Runnable push = () -> messagingTemplate.convertAndSendToUser(
-                peer.get().getEmail(), "/queue/messages", payload);
+        // Resolve the recipient after commit, not from a stale entity captured by
+        // the sender transaction. A concurrent admin lock/deactivation must stop
+        // full message bodies from being pushed to an already-revoked account.
+        Runnable push = () -> userRepository.findById(peerId)
+                .filter(User::isActive)
+                .filter(user -> !user.isLocked() && !user.isDeleted())
+                .ifPresent(peer -> messagingTemplate.convertAndSendToUser(
+                        peer.getEmail(), "/queue/messages", payload));
         // The browser marks an active thread read as soon as this frame arrives.
         // Publish only after commit so that request can see and update this row.
         if (TransactionSynchronizationManager.isActualTransactionActive()

@@ -67,7 +67,7 @@ class LecturerExamDistributionIntegrationTest {
         assertThat(lecturer.getSubjectId()).isNotNull();
         sourceClass = activeClass("Lớp nguồn", lecturer.getSubjectId());
         title = "Đề phân phối " + UUID.randomUUID().toString().substring(0, 8);
-        sourceTestId = examService.save(lecturer.getId(), examForm(sourceClass.getId(), title,
+        sourceTestId = examService.save(lecturer.getId(), examForm(lecturer.getSubjectId(), sourceClass.getId(), title,
                 com.ksh.features.tests.entity.Test.STATUS_PUBLISHED));
     }
 
@@ -136,13 +136,35 @@ class LecturerExamDistributionIntegrationTest {
     @Test
     void draftTestCannotEnterFinishedDistributionFlow() {
         Long draftId = examService.save(lecturer.getId(), examForm(
-                sourceClass.getId(), title + " nháp",
+                lecturer.getSubjectId(), sourceClass.getId(), title + " nháp",
                 com.ksh.features.tests.entity.Test.STATUS_DRAFT));
 
         assertThatThrownBy(() -> examService.distributionView(
                 lecturer.getId(), Role.LECTURER, draftId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("đã hoàn tất và xuất bản");
+    }
+
+    @Test
+    void independentTestBankItemCanBeCreatedWithoutClassThenDistributedLater() {
+        String independentTitle = "Đề độc lập " + UUID.randomUUID().toString().substring(0, 8);
+        Long independentId = examService.save(lecturer.getId(), examForm(
+                lecturer.getSubjectId(), null, independentTitle,
+                com.ksh.features.tests.entity.Test.STATUS_PUBLISHED));
+
+        com.ksh.features.tests.entity.Test source = testRepository.findById(independentId).orElseThrow();
+        assertThat(source.getClassId()).isNull();
+        assertThat(source.getSubjectId()).isEqualTo(lecturer.getSubjectId());
+
+        ClassEntity target = activeClass("KOR independent target", lecturer.getSubjectId());
+        var view = examService.distributionView(lecturer.getId(), Role.LECTURER, independentId);
+        assertThat(view.targetClasses()).extracting("id").contains(target.getId());
+
+        var result = examService.distributePublished(
+                lecturer.getId(), Role.LECTURER, independentId, List.of(target.getId()));
+        assertThat(result.distributedCount()).isEqualTo(1);
+        assertThat(testRepository.findById(result.testIds().get(0)).orElseThrow().getClassId())
+                .isEqualTo(target.getId());
     }
 
     private ClassEntity activeClass(String name, Long subjectId) {
@@ -153,13 +175,13 @@ class LecturerExamDistributionIntegrationTest {
         return classRepository.saveAndFlush(clazz);
     }
 
-    private static ExamForm examForm(Long classId, String title, String status) {
+    private static ExamForm examForm(Long subjectId, Long classId, String title, String status) {
         List<QuestionForm> questions = List.of(
                 new QuestionForm(null, "MCQ", "1 + 1 = 2?", "Giải thích",
                         new BigDecimal("2.00"), List.of(
                         new OptionForm(null, "Đúng", true),
                         new OptionForm(null, "Sai", false))));
-        return new ExamForm(null, title, "Nội dung đề", classId, "MOCK", status,
+        return new ExamForm(null, title, "Nội dung đề", subjectId, classId, "MOCK", status,
                 "FIXED_WINDOW", 30, LocalDateTime.now().minusMinutes(5),
                 LocalDateTime.now().plusDays(3), new BigDecimal("1.00"),
                 false, false, null, null, questions, false);

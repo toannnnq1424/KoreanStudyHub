@@ -153,7 +153,13 @@ public class RowValidator {
                     result.add(row);
                     continue;
                 }
-                // REMOVED or COMPLETED → re-activate on confirm.
+                if (Enrollment.STATUS_COMPLETED.equals(e.getStatus())) {
+                    row.attachUser(user);
+                    row.mark(ImportRowStatus.ENROLLMENT_COMPLETED);
+                    result.add(row);
+                    continue;
+                }
+                // REMOVED/PENDING/REJECTED → lecturer import activates on confirm.
                 row.attachUser(user);
                 row.mark(ImportRowStatus.RE_ENROLL);
                 result.add(row);
