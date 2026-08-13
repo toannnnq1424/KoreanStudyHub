@@ -59,7 +59,9 @@ class NonPracticeLearningUiContractTest {
                 "select.getAttribute('aria-label')",
                 "labelCopy.querySelectorAll('select, input, textarea, button, .ksh-select')",
                 "select.dispatchEvent(new Event('change'",
-                "select.setAttribute('aria-hidden', 'true')");
+                "select.setAttribute('aria-hidden', 'true')",
+                "authoringForm.addEventListener('click', markAuthoringInteraction",
+                "if (!authoringInteracted && document.documentElement.contains(authoringForm))");
         assertThat(script).doesNotContain("<dropdown", "<select-wrapper");
         assertThat(script).contains(
                 "input[data-link-filter]",

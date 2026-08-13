@@ -152,7 +152,11 @@ class DetailTabsContractTest {
                 .contains("window.KshDirtyFormGuard.create(panel)")
                 .contains("navigationSequence")
                 .contains("window.AbortController")
-                .contains("requestId !== navigationSequence");
+                .contains("requestId !== navigationSequence")
+                .contains("ksh:detail-tab-loaded")
+                .contains("detail: { panel: panel, tab: tab, url: url }")
+                .contains("saveBtn.dataset.examImmutable === 'true'")
+                .contains("saveBtn.disabled = tab !== 'info' || immutable");
 
         assertThat(tabs).containsOnlyOnce("navigate(href, true);");
         assertThat(tabs)
@@ -183,11 +187,14 @@ class DetailTabsContractTest {
         assertThat(template)
                 .contains("id=\"lfBankPicker\"")
                 .contains("id=\"lfAiGenPanel\"")
+                .contains("id=\"lfForm\"")
+                .contains("class=\"lf-form\"")
+                .contains("data-exam-immutable=${examForm != null and examForm.questionBankLocked}")
                 .contains("data-dirty-guard=\"ignore\"")
-                .contains("${mode == 'create' or clazz == null} ? 'lf-no-sidebar'")
-                .contains("<th:block th:if=\"${mode == 'edit' and clazz != null}\">")
-                .contains("classSidebar(${clazz}, '')")
-                .doesNotContain("<aside th:if=\"${mode == 'edit' and clazz != null}\"");
+                .contains("${clazz == null} ? 'lf-no-sidebar'")
+                .contains("<th:block th:if=\"${clazz != null}\">")
+                .contains("classSidebar(${clazz}, 'tests')")
+                .doesNotContain("<aside th:if=\"${clazz != null}\"");
 
         assertThat(read("static/js/test-lecturer-form.js"))
                 .contains("window.KshDirtyFormGuard.markClean()")
