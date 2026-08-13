@@ -43,6 +43,44 @@ public interface LessonAttachmentRepository extends JpaRepository<LessonAttachme
     Optional<LessonAttachment> findByIdForUpdate(@Param("id") Long id);
 
     /**
+     * Loads an attachment only while its anonymous-view authorization chain is
+     * still live. Every soft-delete predicate is explicit so an issued bearer
+     * URL is revoked when its lesson, section, or class is withdrawn.
+     */
+    @Query(value = """
+            SELECT a.*
+            FROM lesson_attachments a
+            JOIN lessons l ON l.id = a.lesson_id AND l.is_deleted = 0
+            JOIN sections s ON s.id = l.section_id AND s.is_deleted = 0
+            JOIN classes c ON c.id = s.class_id AND c.is_deleted = 0
+            WHERE a.id = :id
+              AND l.status = 'PUBLISHED'
+            """, nativeQuery = true)
+    Optional<LessonAttachment> findPubliclyViewableById(@Param("id") Long id);
+
+    /**
+     * Resolve-time variant that also prevents an old URL from becoming valid
+     * again after an unpublish/re-publish cycle. A new publication timestamp
+     * requires a newly issued token.
+     */
+    @Query(value = """
+            SELECT a.*
+            FROM lesson_attachments a
+            JOIN lessons l ON l.id = a.lesson_id AND l.is_deleted = 0
+            JOIN sections s ON s.id = l.section_id AND s.is_deleted = 0
+            JOIN classes c ON c.id = s.class_id AND c.is_deleted = 0
+            JOIN public_view_tokens t
+              ON t.id = :tokenId AND t.attachment_id = a.id
+            WHERE a.id = :id
+              AND l.status = 'PUBLISHED'
+              AND l.published_at IS NOT NULL
+              AND l.published_at <= t.created_at
+            """, nativeQuery = true)
+    Optional<LessonAttachment> findPubliclyViewableByIdAtIssue(
+            @Param("id") Long id,
+            @Param("tokenId") Long tokenId);
+
+    /**
      * Bulk-deletes every attachment row for the given lesson. The on-disk
      * files must be removed separately by the caller — see
      * {@code LessonAttachmentsService.deleteAllByLesson}.

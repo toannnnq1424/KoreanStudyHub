@@ -55,6 +55,8 @@ public class PublicViewTokenService {
     public String createPublicViewUrl(Long attachmentId) {
         attachmentRepository.findByIdForUpdate(attachmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
+        attachmentRepository.findPubliclyViewableById(attachmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Attachment not publicly available"));
         List<PublicViewToken> live =
                 tokenRepository.findLiveTokensByAttachmentId(attachmentId, LocalDateTime.now());
         if (!live.isEmpty()) {
@@ -91,8 +93,12 @@ public class PublicViewTokenService {
             tokenRepository.delete(tok);
             throw new EntityNotFoundException("Token expired");
         }
-        LessonAttachment att = attachmentRepository.findById(tok.getAttachmentId())
-                .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
+        if (tok.getCreatedAt() == null) {
+            throw new EntityNotFoundException("Invalid token");
+        }
+        LessonAttachment att = attachmentRepository
+                .findPubliclyViewableByIdAtIssue(tok.getAttachmentId(), tok.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Attachment not publicly available"));
         String key = StorageKeys.requireSafeKey(att.getStoredPath());
         return new AttachmentHandle(key, att.getOriginalFilename(),
                 att.getMimeType(), att.getSizeBytes());
