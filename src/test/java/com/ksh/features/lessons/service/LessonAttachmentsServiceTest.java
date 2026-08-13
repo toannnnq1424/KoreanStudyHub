@@ -32,9 +32,17 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -60,6 +68,7 @@ class LessonAttachmentsServiceTest {
     @Autowired private LibraryAssetRepository libraryAssetRepository;
     @Autowired private ObjectStorage objectStorage;
     @Autowired private EntityManager entityManager;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     private User lecturer;
     private User otherLecturer;
@@ -263,6 +272,61 @@ class LessonAttachmentsServiceTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void concurrent_main_pdf_uploads_keep_only_the_last_serialized_binding() throws Exception {
+        ExecutorService workers = Executors.newFixedThreadPool(3);
+        CountDownLatch blockerHasLessonLock = new CountDownLatch(1);
+        CountDownLatch releaseBlocker = new CountDownLatch(1);
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+        Future<?> blocker = workers.submit(() -> transaction.executeWithoutResult(ignored -> {
+            lessonRepository.findByIdAndSectionIdForUpdate(lessonId, section.getId())
+                    .orElseThrow();
+            blockerHasLessonLock.countDown();
+            awaitLatch(releaseBlocker);
+        }));
+
+        try {
+            assertThat(blockerHasLessonLock.await(5, TimeUnit.SECONDS)).isTrue();
+            Future<LessonAttachmentRow> first = workers.submit(() ->
+                    attachmentsService.uploadMainPdf(
+                            clazz.getId(), section.getId(), lessonId,
+                            new MockMultipartFile("file", "first.pdf", "application/pdf", pdfBytes()),
+                            lecturer.getId(), Role.LECTURER));
+            Future<LessonAttachmentRow> second = workers.submit(() ->
+                    attachmentsService.uploadMainPdf(
+                            clazz.getId(), section.getId(), lessonId,
+                            new MockMultipartFile("file", "second.pdf", "application/pdf", pdfBytes()),
+                            lecturer.getId(), Role.LECTURER));
+
+            assertBlocked(first);
+            assertBlocked(second);
+            releaseBlocker.countDown();
+
+            first.get(10, TimeUnit.SECONDS);
+            second.get(10, TimeUnit.SECONDS);
+            blocker.get(10, TimeUnit.SECONDS);
+
+            List<LessonAttachment> remaining =
+                    attachmentRepository.findByLessonIdOrderByUploadedAtAsc(lessonId);
+            assertThat(remaining).hasSize(1);
+            Long mainPdfId = lessonRepository.findById(lessonId).orElseThrow()
+                    .getPdfAttachmentId();
+            assertThat(mainPdfId).isEqualTo(remaining.get(0).getId());
+            String lessonObjectPrefix = "lessons/" + lessonId + "/";
+            assertThat(objectStorage.listKeys("lessons").stream()
+                    .filter(key -> key.startsWith(lessonObjectPrefix))
+                    .toList())
+                    .as("the replaced upload must not remain as an orphan object")
+                    .hasSize(1);
+        } finally {
+            releaseBlocker.countDown();
+            workers.shutdownNow();
+            workers.awaitTermination(5, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
     void delete_library_backed_attachment_preserves_disk_file() throws Exception {
         LibraryAssetRow asset = libraryService.upload(
                 lecturer.getId(),
@@ -292,6 +356,22 @@ class LessonAttachmentsServiceTest {
         Enrollment e = Enrollment.createFor(student, clazz.getId(),
                 Enrollment.JoinedVia.REQUEST, null);
         enrollmentRepository.saveAndFlush(e);
+    }
+
+    private static void assertBlocked(Future<?> future) {
+        assertThatThrownBy(() -> future.get(300, TimeUnit.MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+    }
+
+    private static void awaitLatch(CountDownLatch latch) {
+        try {
+            if (!latch.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Timed out waiting for test latch");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for test latch", interrupted);
+        }
     }
 
     private ClassEntity saveClass(String name, Long lecturerId, String code) {

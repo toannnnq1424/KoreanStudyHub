@@ -1,9 +1,11 @@
 package com.ksh.features.lessons.repository;
 
 import com.ksh.entities.Lesson;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -75,6 +77,18 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     /** Loads a lesson scoped by section to harden the URL hierarchy. */
     Optional<Lesson> findByIdAndSectionId(Long id, Long sectionId);
+
+    /**
+     * Serializes mutations of the lesson's single main-content binding.
+     * Upload/bind callers use this row as their shared mutex so a later
+     * request observes and cleans up the attachment installed by an earlier
+     * request instead of leaving an orphan behind.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM Lesson l WHERE l.id = :id AND l.sectionId = :sectionId")
+    Optional<Lesson> findByIdAndSectionIdForUpdate(
+            @Param("id") Long id,
+            @Param("sectionId") Long sectionId);
 
     Optional<Lesson> findFirstBySectionIdAndTitleIgnoreCase(Long sectionId, String title);
 
