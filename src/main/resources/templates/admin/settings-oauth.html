@@ -61,17 +61,16 @@
 
           <div class="form-row">
             <label for="googleClientSecret">Client Secret</label>
-            <!-- type="text" so Thymeleaf-Spring's password tag processor
-                 doesn't strip the value attribute. The page is admin-only,
-                 so showing the stored secret in clear is acceptable for our
-                 MVP. -->
-            <input type="text" id="googleClientSecret" name="googleClientSecret"
-                   th:value="*{googleClientSecret}"
-                   autocomplete="off" maxlength="255"
-                   placeholder="GOCSPX-..."
+            <!-- Deliberately not th:field-bound: a rejected POST must never
+                 echo the submitted credential back into the HTML response. -->
+            <input type="password" id="googleClientSecret" name="googleClientSecret"
+                   autocomplete="new-password" maxlength="255"
+                   placeholder="Nhập Client Secret mới"
                    th:attr="aria-invalid=${#fields.hasErrors('googleClientSecret')} ? 'true' : 'false', aria-describedby=${#fields.hasErrors('googleClientSecret')} ? 'googleClientSecret-error' : 'googleClientSecret-hint'">
-            <p id="googleClientSecret-hint" class="field-hint">Để trống nếu
-              muốn giữ nguyên giá trị hiện tại.</p>
+            <p id="googleClientSecret-hint" class="field-hint"
+               th:text="${googleClientSecretConfigured} ? 'Đã cấu hình Client Secret. Để trống để giữ nguyên giá trị hiện tại.' : 'Chưa cấu hình Client Secret.'">
+              Để trống để giữ nguyên giá trị hiện tại.
+            </p>
             <span id="googleClientSecret-error" class="field-error" role="alert"
                   th:if="${#fields.hasErrors('googleClientSecret')}" th:errors="*{googleClientSecret}">Lỗi Client Secret</span>
           </div>

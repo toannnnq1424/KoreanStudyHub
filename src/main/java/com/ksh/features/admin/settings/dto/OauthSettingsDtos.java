@@ -12,11 +12,14 @@ import jakarta.validation.constraints.Size;
  * cross-field check (when {@code googleClientId} is non-blank the matching
  * {@code googleClientSecret} must also be present).
  *
- * <p>The {@code googleClientSecret} field is loaded and rendered in plain
- * form so admins can review what is currently stored. On save, a blank
- * value means "keep the existing secret unchanged".
+ * <p>The {@code googleClientSecret} field is write-only. Loads always leave it
+ * blank, and a blank value or the exact masked sentinel means "keep the
+ * existing secret unchanged".
  */
 public class OauthSettingsDtos {
+
+    /** Backward-compatible submitted placeholder meaning "keep the stored secret". */
+    public static final String MASKED = "********";
 
     /**
      * Form-binding record for {@code /admin/settings/oauth}.
@@ -29,7 +32,7 @@ public class OauthSettingsDtos {
             @Size(max = 255, message = "Client ID quá dài")
             String googleClientId,
 
-            /** Not validated — a blank value means "keep the existing secret". */
+            /** Not validated — blank or {@link #MASKED} keeps the existing secret. */
             @Size(max = 255, message = "Client Secret quá dài")
             String googleClientSecret,
 
