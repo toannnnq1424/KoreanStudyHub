@@ -4,11 +4,8 @@ import com.ksh.entities.PasswordResetToken;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.mail.MailService;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.common.TransactionLifecycle;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +25,14 @@ import java.util.Objects;
  * <p>Enumeration-safe: always returns a neutral result regardless of whether the
  * requested email address exists in the system.
  *
- * <p>Mail sending is best-effort: {@link MailService#send} returns {@code false}
- * when SMTP is not configured (i.e. {@code smtp.host} is empty in
- * {@code system_settings}) or when delivery fails. In both cases a warning is
- * logged without the recipient or reset link. Raw tokens are sent only through
- * the requested email and only their SHA-256 digests are persisted. Typical
- * application logs therefore contain no reusable password-reset credential.
+ * <p>Mail delivery is handed to a bounded executor after the token transaction
+ * commits, so SMTP latency never extends the HTTP response. Raw tokens are sent
+ * only through the requested email and only their SHA-256 digests are persisted.
+ * Delivery failures are logged without recipient, reset link, or provider detail.
  */
 @Service
 public class PasswordRecoveryService {
 
-    private static final Logger log = LoggerFactory.getLogger(PasswordRecoveryService.class);
     private static final SecureRandom RNG = new SecureRandom();
     /** 96 random bytes â†’ ~128 URL-safe Base64 characters; sufficient entropy for a password-reset token. */
     private static final int TOKEN_BYTES = 96;
@@ -47,7 +41,7 @@ public class PasswordRecoveryService {
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final CredentialRotationService credentialRotationService;
-    private final MailService mailService;
+    private final PasswordResetMailDispatcher mailDispatcher;
     private final PasswordResetRequestThrottle requestThrottle;
     private final SessionRevocationService sessionRevocationService;
     private final String baseUrl;
@@ -55,14 +49,14 @@ public class PasswordRecoveryService {
     public PasswordRecoveryService(UserRepository userRepository,
                                    PasswordResetTokenRepository tokenRepository,
                                    CredentialRotationService credentialRotationService,
-                                   MailService mailService,
+                                   PasswordResetMailDispatcher mailDispatcher,
                                    PasswordResetRequestThrottle requestThrottle,
                                    SessionRevocationService sessionRevocationService,
                                    @Value("${app.base-url:http://localhost:8080}") String baseUrl) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.credentialRotationService = credentialRotationService;
-        this.mailService = mailService;
+        this.mailDispatcher = mailDispatcher;
         this.requestThrottle = requestThrottle;
         this.sessionRevocationService = sessionRevocationService;
         this.baseUrl = baseUrl;
@@ -105,7 +99,7 @@ public class PasswordRecoveryService {
                 + "— KSH Team";
 
         String recipient = user.getEmail();
-        TransactionLifecycle.afterCommit(() -> sendResetEmail(recipient, body));
+        TransactionLifecycle.afterCommit(() -> mailDispatcher.dispatch(recipient, body));
     }
 
     /**
@@ -202,14 +196,6 @@ public class PasswordRecoveryService {
             return java.util.Optional.empty();
         }
         return tokenRepository.findUserIdByToken(digestToken(rawToken));
-    }
-
-    private void sendResetEmail(String recipient, String body) {
-        boolean sent = mailService.send(recipient, "KSH Password Reset", body);
-        if (!sent) {
-            // Keep both the recipient and bearer-token reset link out of logs.
-            log.warn("Password-reset email was not sent (SMTP unavailable or delivery failed)");
-        }
     }
 
     static String digestToken(String rawToken) {

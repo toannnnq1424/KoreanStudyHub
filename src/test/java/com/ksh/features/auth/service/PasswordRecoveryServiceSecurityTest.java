@@ -4,7 +4,6 @@ import com.ksh.entities.PasswordResetToken;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
 import com.ksh.features.auth.repository.UserRepository;
-import com.ksh.features.mail.MailService;
 import com.ksh.features.profile.service.SessionRevocationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,11 +23,12 @@ class PasswordRecoveryServiceSecurityTest {
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordResetTokenRepository tokens = mock(PasswordResetTokenRepository.class);
     private final CredentialRotationService credentials = mock(CredentialRotationService.class);
-    private final MailService mail = mock(MailService.class);
+    private final PasswordResetMailDispatcher mailDispatcher =
+            mock(PasswordResetMailDispatcher.class);
     private final PasswordResetRequestThrottle throttle = mock(PasswordResetRequestThrottle.class);
     private final SessionRevocationService sessions = mock(SessionRevocationService.class);
     private final PasswordRecoveryService service =
-            new PasswordRecoveryService(users, tokens, credentials, mail, throttle,
+            new PasswordRecoveryService(users, tokens, credentials, mailDispatcher, throttle,
                     sessions, "https://ksh.test");
 
     PasswordRecoveryServiceSecurityTest() {
@@ -42,8 +42,6 @@ class PasswordRecoveryServiceSecurityTest {
         when(user.getFullName()).thenReturn("Student");
         when(users.findByEmailIgnoreCaseForUpdate("student@example.test"))
                 .thenReturn(Optional.of(user));
-        when(mail.send(anyString(), anyString(), anyString())).thenReturn(true);
-
         when(user.getId()).thenReturn(7L);
         service.requestReset("student@example.test", "192.0.2.1");
 
@@ -52,7 +50,7 @@ class PasswordRecoveryServiceSecurityTest {
         verify(tokens).save(entity.capture());
         verify(tokens).invalidateUnusedForUser(eq(7L), any());
         verify(users, never()).findByEmailIgnoreCase("student@example.test");
-        verify(mail).send(eq("student@example.test"), eq("KSH Password Reset"), body.capture());
+        verify(mailDispatcher).dispatch(eq("student@example.test"), body.capture());
 
         String marker = "token=";
         String raw = body.getValue().substring(body.getValue().indexOf(marker) + marker.length())
@@ -188,22 +186,20 @@ class PasswordRecoveryServiceSecurityTest {
 
         service.requestReset("missing@example.test", "192.0.2.2");
 
-        verifyNoInteractions(tokens, mail);
+        verifyNoInteractions(tokens, mailDispatcher);
     }
 
     @Test
-    void failedDeliveryDoesNotLogRecipientOrBearerToken(CapturedOutput output) {
+    void resetRequestDoesNotLogRecipientOrBearerToken(CapturedOutput output) {
         User user = mock(User.class);
         when(user.getEmail()).thenReturn("private@example.test");
         when(user.getFullName()).thenReturn("Private");
         when(users.findByEmailIgnoreCaseForUpdate("private@example.test"))
                 .thenReturn(Optional.of(user));
-        when(mail.send(anyString(), anyString(), anyString())).thenReturn(false);
-
         service.requestReset("private@example.test", "192.0.2.3");
 
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
-        verify(mail).send(anyString(), anyString(), body.capture());
+        verify(mailDispatcher).dispatch(eq("private@example.test"), body.capture());
         String raw = body.getValue().substring(body.getValue().indexOf("token=") + 6)
                 .split("\\s", 2)[0];
         assertThat(output.getAll()).doesNotContain("private@example.test", raw);
@@ -215,6 +211,6 @@ class PasswordRecoveryServiceSecurityTest {
 
         service.requestReset("student@example.test", "192.0.2.4");
 
-        verifyNoInteractions(users, tokens, mail);
+        verifyNoInteractions(users, tokens, mailDispatcher);
     }
 }
