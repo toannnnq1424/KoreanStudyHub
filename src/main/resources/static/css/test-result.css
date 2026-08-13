@@ -482,9 +482,9 @@
 }
 
 .class-detail-layout.rv-shell > main.rv-page {
-  width: 100%;
-  max-width: none;
-  margin: 0;
+  width: min(100%, 1240px);
+  max-width: 100%;
+  margin: 0 auto;
   padding: 28px clamp(24px, 4vw, 58px) 72px;
   background: var(--exam-bg);
 }
@@ -537,6 +537,14 @@
 
 .rv-student strong {
   color: #334155;
+}
+
+.rv-lead {
+  max-width: 650px;
+  margin: 14px 0 0;
+  color: #526177;
+  font-size: 14px;
+  line-height: 1.65;
 }
 
 .rv-timeout {
@@ -791,6 +799,8 @@
 .rv-q-content,
 .rv-option-text,
 .rv-explanation-content {
+  min-width: 0;
+  max-width: 100%;
   overflow-wrap: anywhere;
   word-break: normal;
 }
@@ -839,6 +849,33 @@
   height: auto;
   margin: 12px 0;
   border-radius: 10px;
+}
+
+.rv-q-content :is(video, iframe),
+.rv-option-text :is(video, iframe),
+.rv-explanation-content :is(video, iframe) {
+  display: block;
+  max-width: 100%;
+  margin: 12px 0;
+  border: 0;
+  border-radius: 10px;
+}
+
+.rv-q-content :is(pre, table),
+.rv-option-text :is(pre, table),
+.rv-explanation-content :is(pre, table) {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.rv-q-content pre,
+.rv-option-text pre,
+.rv-explanation-content pre {
+  padding: 12px;
+  border-radius: 9px;
+  background: #eef2f7;
+  white-space: pre-wrap;
 }
 
 .rv-q-content a,
@@ -1110,6 +1147,10 @@
   .rv-summary > div:nth-child(-n + 2) {
     border-top: 0;
   }
+
+  .rv-summary > div:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 540px) {
@@ -1136,6 +1177,7 @@
 
   .rs-score-ring {
     width: 152px;
+    justify-self: center;
   }
 
   .rs-score-ring strong {
