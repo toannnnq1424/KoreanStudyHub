@@ -5,8 +5,10 @@ import com.ksh.features.leader.dto.LeaderDtos.DepartmentSummary;
 import com.ksh.features.leader.service.LeaderDepartmentResolver;
 import com.ksh.features.questionbank.service.QuestionBankItemService;
 import com.ksh.features.questionbank.service.QuestionBankReviewService;
+import com.ksh.features.questionbank.service.QuestionBankValidationException;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Roles;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -27,6 +29,8 @@ import static com.ksh.common.IConstant.*;
 public class LeaderQuestionBankController {
 
     private static final String TAB_QUESTION_BANK = "question-bank";
+    private static final String MSG_REVIEW_CONFLICT =
+            "Câu hỏi vừa được người khác cập nhật. Danh sách đã được tải lại; vui lòng kiểm tra trạng thái mới.";
 
     private final QuestionBankItemService itemService;
     private final QuestionBankReviewService reviewService;
@@ -73,9 +77,8 @@ public class LeaderQuestionBankController {
     public String approve(@PathVariable Long id, ReviewFilters filters,
                           @AuthenticationPrincipal KshUserDetails user,
                           RedirectAttributes redirect) {
-        reviewService.approve(user.getId(), id);
-        redirect.addFlashAttribute("flashSuccess", MSG_QB_APPROVED);
-        return redirectReview(filters, redirect);
+        return executeReviewAction(filters, redirect,
+                () -> reviewService.approve(user.getId(), id), MSG_QB_APPROVED);
     }
 
     @PostMapping("/{id}/reject")
@@ -84,9 +87,8 @@ public class LeaderQuestionBankController {
                          ReviewFilters filters,
                          @AuthenticationPrincipal KshUserDetails user,
                          RedirectAttributes redirect) {
-        reviewService.reject(user.getId(), id, note);
-        redirect.addFlashAttribute("flashSuccess", MSG_QB_REJECTED);
-        return redirectReview(filters, redirect);
+        return executeReviewAction(filters, redirect,
+                () -> reviewService.reject(user.getId(), id, note), MSG_QB_REJECTED);
     }
 
     @PostMapping("/{id}/archive")
@@ -95,17 +97,33 @@ public class LeaderQuestionBankController {
                           ReviewFilters filters,
                           @AuthenticationPrincipal KshUserDetails user,
                           RedirectAttributes redirect) {
-        reviewService.archive(user.getId(), id, note);
-        redirect.addFlashAttribute("flashSuccess", MSG_QB_ARCHIVED);
-        return redirectReview(filters, redirect);
+        return executeReviewAction(filters, redirect,
+                () -> reviewService.archive(user.getId(), id, note), MSG_QB_ARCHIVED);
     }
 
     @PostMapping("/{id}/unarchive")
     public String unarchive(@PathVariable Long id, ReviewFilters filters,
                             @AuthenticationPrincipal KshUserDetails user,
                             RedirectAttributes redirect) {
-        reviewService.unarchive(user.getId(), id);
-        redirect.addFlashAttribute("flashSuccess", MSG_QB_UNARCHIVED);
+        return executeReviewAction(filters, redirect,
+                () -> reviewService.unarchive(user.getId(), id), MSG_QB_UNARCHIVED);
+    }
+
+    private static String executeReviewAction(ReviewFilters filters,
+                                              RedirectAttributes redirect,
+                                              Runnable action,
+                                              String successMessage) {
+        try {
+            action.run();
+            redirect.addFlashAttribute("flashSuccess", successMessage);
+        } catch (QuestionBankValidationException ex) {
+            // A decision submitted from a stale review screen is a normal UX
+            // conflict, not an internal-server error. Reload the filtered inbox.
+            redirect.addFlashAttribute("flashError", ex.getMessage());
+        } catch (OptimisticLockingFailureException ex) {
+            // Covers the narrower race where two transactions overlap at flush.
+            redirect.addFlashAttribute("flashError", MSG_REVIEW_CONFLICT);
+        }
         return redirectReview(filters, redirect);
     }
 

@@ -4,6 +4,7 @@ import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.questionbank.entity.QuestionBankItem;
 import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -106,7 +107,8 @@ public class QuestionBankReviewService {
             try {
                 approve(userId, id);
                 ok++;
-            } catch (RuntimeException ex) {
+            } catch (QuestionBankValidationException | AccessDeniedException
+                     | OptimisticLockingFailureException ex) {
                 skip++;
             }
         }
@@ -121,7 +123,8 @@ public class QuestionBankReviewService {
             try {
                 reject(userId, id, note);
                 ok++;
-            } catch (RuntimeException ex) {
+            } catch (QuestionBankValidationException | AccessDeniedException
+                     | OptimisticLockingFailureException ex) {
                 skip++;
             }
         }
@@ -136,7 +139,8 @@ public class QuestionBankReviewService {
             try {
                 archive(userId, id, note);
                 ok++;
-            } catch (RuntimeException ex) {
+            } catch (QuestionBankValidationException | AccessDeniedException
+                     | OptimisticLockingFailureException ex) {
                 skip++;
             }
         }
@@ -151,7 +155,8 @@ public class QuestionBankReviewService {
             try {
                 unarchive(userId, id);
                 ok++;
-            } catch (RuntimeException ex) {
+            } catch (QuestionBankValidationException | AccessDeniedException
+                     | OptimisticLockingFailureException ex) {
                 skip++;
             }
         }

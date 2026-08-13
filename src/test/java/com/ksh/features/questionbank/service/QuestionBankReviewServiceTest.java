@@ -9,6 +9,7 @@ import com.ksh.features.questionbank.repository.QuestionBankItemRepository;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -17,6 +18,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -145,5 +147,24 @@ class QuestionBankReviewServiceTest {
 
         assertThat(unarchived).isEqualTo(new QuestionBankReviewService.BulkResult(1, 1));
         assertThat(item.getWorkflowStatus()).isEqualTo(QuestionBankItem.STATUS_REVIEW);
+    }
+
+    @Test
+    void bulk_action_skips_an_optimistic_lock_conflict() {
+        doThrow(new OptimisticLockingFailureException("stale review"))
+                .when(itemRepository).save(item);
+
+        assertThat(service.approveAll(30L, List.of(10L)))
+                .isEqualTo(new QuestionBankReviewService.BulkResult(0, 1));
+    }
+
+    @Test
+    void bulk_action_does_not_swallow_unexpected_repository_failures() {
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(itemRepository).save(item);
+
+        assertThatThrownBy(() -> service.approveAll(30L, List.of(10L)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("database unavailable");
     }
 }
