@@ -22,20 +22,35 @@
     <input type="hidden" th:field="*{chapterTitle}">
     <input type="hidden" th:field="*{lessonNumber}">
     <input type="hidden" th:field="*{title}">
-    <input type="hidden" th:field="*{contentType}" value="RICHTEXT">
+    <input type="hidden" th:field="*{contentType}">
+    <input type="hidden" th:field="*{pdfLibraryAssetId}">
+    <input type="hidden" th:field="*{videoProvider}">
+    <input type="hidden" th:field="*{videoLibraryAssetId}">
     <input type="hidden" th:each="assetId : ${form.materialAssetIds}"
            name="materialAssetIds" th:value="${assetId}">
 
-    <section class="library-form-section library-editor-main" aria-labelledby="lessonContentTitle">
+    <section class="library-form-section library-editor-main" aria-labelledby="lessonContentTitle"
+             th:if="${form.contentType == 'RICHTEXT'}">
       <h2 id="lessonContentTitle">Nội dung bài học</h2>
       <p>Soạn trực tiếp như văn bản thông thường; hệ thống tự lưu định dạng an toàn.</p>
       <input type="hidden" th:field="*{contentRichtext}" data-library-richtext-value>
       <div class="library-richtext-editor" data-library-richtext-editor aria-label="Trình soạn thảo nội dung"></div>
     </section>
 
+    <section class="library-form-section library-editor-main" aria-labelledby="lessonContentTitle"
+             th:unless="${form.contentType == 'RICHTEXT'}">
+      <h2 id="lessonContentTitle">Nội dung chính hiện tại</h2>
+      <p th:text="${form.contentType == 'PDF'
+          ? 'PDF chính sẽ được giữ nguyên khi lưu các thay đổi tài nguyên.'
+          : 'Video chính sẽ được giữ nguyên khi lưu các thay đổi tài nguyên.'}">
+        Nội dung chính sẽ được giữ nguyên khi lưu.
+      </p>
+    </section>
+
     <section class="library-form-section library-optional-resources" aria-labelledby="lessonResourcesTitle">
       <h2 id="lessonResourcesTitle">Tài nguyên tuỳ chọn</h2>
-      <label class="library-video-url">
+      <label class="library-video-url"
+             th:if="${form.contentType == 'RICHTEXT' or form.videoProvider == 'YOUTUBE' or form.videoProvider == 'VIMEO'}">
         <span>Link video YouTube/Vimeo</span>
         <input type="url" th:field="*{videoUrl}" maxlength="500"
                placeholder="Dán link video nếu có…">
