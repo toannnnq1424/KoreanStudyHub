@@ -267,6 +267,8 @@ public interface IConstant {
     // ───────── Learning-progress flash messages (KSH-4.5) ────────────
     String MSG_PROGRESS_MARKED_COMPLETE   = "Đã đánh dấu hoàn thành bài giảng";
     String MSG_PROGRESS_MARKED_INCOMPLETE = "Đã bỏ đánh dấu hoàn thành";
+    String MSG_PROGRESS_CHECKLIST_REQUIRED =
+            "Hãy hoàn thành đủ thời gian ở các mục nội dung, video và tài liệu đang có";
 
     // ───────── Lecturer progress dashboard (Vietnamese UI text) ───────
     String MSG_STUDENT_NOT_IN_CLASS = "Sinh viên không thuộc lớp này";

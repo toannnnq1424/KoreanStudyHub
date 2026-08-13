@@ -88,6 +88,9 @@
         <a th:href="@{/lecturer/library/list}" class="menu-item" role="menuitem">
           Kho bài giảng
         </a>
+        <a th:href="@{/lecturer/library/assets}" class="menu-item" role="menuitem">
+          Kho tài liệu cá nhân
+        </a>
       </div>
     </div>
     <!-- Lecturer contribution entry to the department-scoped shared question bank. -->
@@ -143,7 +146,8 @@
           <a th:href="@{/lecturer/dashboard}" class="menu-item" role="menuitem">Tổng quan</a>
           <a th:href="@{/lecturer/classes}" class="menu-item" role="menuitem">Lớp học</a>
           <a th:href="@{/lecturer/tests}" class="menu-item" role="menuitem">Kho bài test</a>
-          <a th:href="@{/lecturer/library/list}" class="menu-item" role="menuitem">Kho học liệu</a>
+          <a th:href="@{/lecturer/library/list}" class="menu-item" role="menuitem">Kho bài giảng</a>
+          <a th:href="@{/lecturer/library/assets}" class="menu-item" role="menuitem">Kho tài liệu cá nhân</a>
           <a th:href="@{/lecturer/question-bank}" class="menu-item" role="menuitem">Ngân hàng câu hỏi</a>
         </th:block>
         <a sec:authorize="hasRole('LEADER')"

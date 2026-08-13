@@ -4,6 +4,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/library.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/library-assets.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
   <link class="page-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
 </head>
@@ -22,33 +23,117 @@
     <input type="hidden" th:field="*{chapterTitle}">
     <input type="hidden" th:field="*{lessonNumber}">
     <input type="hidden" th:field="*{title}">
-    <input type="hidden" th:field="*{contentType}" value="RICHTEXT">
-    <input type="hidden" th:each="assetId : ${form.materialAssetIds}"
-           name="materialAssetIds" th:value="${assetId}">
+    <input type="hidden" th:field="*{contentType}" data-library-content-type>
+    <!-- Preserve a legacy/canonical PDF primary body while editing hierarchy,
+         video summary or supplementary resources. The personal video picker
+         must never silently replace the PDF identity. -->
+    <input type="hidden" th:field="*{pdfLibraryAssetId}">
 
-    <section class="library-form-section library-editor-main" aria-labelledby="lessonContentTitle">
+    <nav class="library-authoring-tabs" role="tablist" aria-label="Nội dung bài giảng">
+      <button type="button" role="tab" id="libraryFormTabContent"
+              aria-controls="libraryFormPanelContent" data-library-form-tab="CONTENT"
+              th:classappend="${form.contentType != 'VIDEO'} ? ' is-active'"
+              th:attr="aria-selected=${form.contentType != 'VIDEO'},tabindex=${form.contentType != 'VIDEO'} ? '0' : '-1'">Nội dung bài học</button>
+      <button type="button" role="tab" id="libraryFormTabVideo"
+              aria-controls="libraryFormPanelVideo" data-library-form-tab="VIDEO"
+              th:classappend="${form.contentType == 'VIDEO'} ? ' is-active'"
+              th:attr="aria-selected=${form.contentType == 'VIDEO'},tabindex=${form.contentType == 'VIDEO'} ? '0' : '-1'">Video</button>
+      <button type="button" role="tab" id="libraryFormTabAttachments"
+              aria-controls="libraryFormPanelAttachments" data-library-form-tab="ATTACHMENTS"
+              aria-selected="false" tabindex="-1">Tài liệu đính kèm</button>
+    </nav>
+
+    <section class="library-form-section library-editor-main" id="libraryFormPanelContent"
+             aria-labelledby="libraryFormTabContent"
+             role="tabpanel" data-library-form-panel="CONTENT"
+             th:hidden="${form.contentType == 'VIDEO'}">
       <h2 id="lessonContentTitle">Nội dung bài học</h2>
       <p>Soạn trực tiếp như văn bản thông thường; hệ thống tự lưu định dạng an toàn.</p>
       <input type="hidden" th:field="*{contentRichtext}" data-library-richtext-value>
       <div class="library-richtext-editor" data-library-richtext-editor aria-label="Trình soạn thảo nội dung"></div>
     </section>
 
-    <section class="library-form-section library-optional-resources" aria-labelledby="lessonResourcesTitle">
-      <h2 id="lessonResourcesTitle">Tài nguyên tuỳ chọn</h2>
+    <section class="library-form-section library-primary-video" id="libraryFormPanelVideo"
+             aria-labelledby="libraryFormTabVideo"
+             role="tabpanel" data-library-form-panel="VIDEO"
+             th:hidden="${form.contentType != 'VIDEO'}">
+      <h2 id="lessonVideoTitle">Video bài giảng</h2>
+      <p>Chọn video MP4 đã upload trong kho cá nhân hoặc dùng một liên kết YouTube/Vimeo.</p>
+      <input type="hidden" th:field="*{videoProvider}" data-library-video-provider>
+      <input type="hidden" th:field="*{videoLibraryAssetId}" data-primary-video-id>
+
+      <div class="library-primary-video-picker">
+        <div data-primary-video-selection
+             th:classappend="${form.videoLibraryAssetId == null} ? ' is-empty'"
+             th:attr="data-video-id=${form.videoLibraryAssetId}">
+          <strong data-primary-video-name
+                  th:text="${form.videoLibraryAssetId == null}
+                    ? 'Chưa chọn video từ kho cá nhân'
+                    : ('Video từ kho cá nhân · ID ' + form.videoLibraryAssetId)">
+            Chưa chọn video từ kho cá nhân
+          </strong>
+          <span>Video chính được tham chiếu theo ID; không sao chép hoặc upload lại tệp.</span>
+        </div>
+        <button type="button" class="btn-ghost btn-sm" data-open-primary-video-picker>
+          Chọn video từ kho cá nhân
+        </button>
+        <button type="button" class="btn-ghost btn-sm" data-clear-primary-video
+                th:hidden="${form.videoLibraryAssetId == null}">Gỡ video đã chọn</button>
+      </div>
+
       <label class="library-video-url">
-        <span>Link video YouTube/Vimeo</span>
-        <input type="url" th:field="*{videoUrl}" maxlength="500"
+        <span>Hoặc link video YouTube/Vimeo</span>
+        <input type="url" th:field="*{videoUrl}" maxlength="500" data-library-video-url
                placeholder="Dán link video nếu có…">
       </label>
+      <label class="library-video-summary">
+        <span>Tóm tắt nội dung video <small>(không bắt buộc)</small></span>
+        <textarea th:field="*{videoSummary}" maxlength="1000" rows="4"
+                  placeholder="Nêu ngắn gọn nội dung chính, điểm cần ghi nhớ hoặc mục tiêu của video…"></textarea>
+        <small>Tối đa 1.000 ký tự. Tóm tắt chỉ hiển thị khi bài học có video.</small>
+      </label>
+    </section>
 
+    <section class="library-form-section library-optional-resources" id="libraryFormPanelAttachments"
+             aria-labelledby="libraryFormTabAttachments"
+             role="tabpanel" data-library-form-panel="ATTACHMENTS" hidden>
+      <h2 id="lessonResourcesTitle">Tài liệu đính kèm</h2>
       <div class="library-file-dropzone" data-library-file-dropzone tabindex="0">
-        <strong>Kéo thả file vào đây hoặc chọn nhiều file</strong>
-        <span>Cho phép chọn nhiều lần; PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP và video MP4 sẽ được cộng vào danh sách.</span>
-        <button type="button" class="btn-ghost btn-sm" data-library-choose-files>Chọn file</button>
+        <strong>Tải tệp mới cho bài giảng</strong>
+        <span>Kéo thả file vào đây hoặc chọn nhiều PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP và video MP4. Tệp mới cũng được lưu vào kho cá nhân để dùng lại.</span>
+        <button type="button" class="btn-ghost btn-sm" data-library-choose-files>Chọn tệp mới</button>
         <input type="file" th:field="*{materialUploads}" multiple hidden
                accept="application/pdf,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,video/mp4,.mp4">
         <div class="library-selected-files" data-library-file-list aria-live="polite"></div>
       </div>
+
+      <section class="library-existing-assets" aria-labelledby="existingAssetsTitle">
+        <div class="library-existing-assets-head">
+          <div>
+            <strong id="existingAssetsTitle">Tài liệu đã có trong kho cá nhân</strong>
+            <p>Chọn lại tệp đã upload; hệ thống chỉ lưu liên kết, không nhân bản dữ liệu.</p>
+          </div>
+          <button type="button" class="btn-ghost btn-sm" data-open-personal-library-picker>
+            Chọn từ kho cá nhân
+          </button>
+        </div>
+        <div class="library-selected-assets" data-selected-library-assets aria-live="polite">
+          <div class="library-selected-asset"
+               th:each="material : ${materialOptions}"
+               th:if="${#lists.contains(form.materialAssetIds, material.id())}"
+               th:attr="data-library-asset-id=${material.id()},data-library-asset-title=${material.title()},data-library-asset-kind=${material.kind()}">
+            <span th:text="${material.title()}">Tai-lieu-bai-1.pdf</span>
+            <input type="hidden" name="materialAssetIds" th:value="${material.id()}">
+            <button type="button" data-remove-library-asset
+                    th:attr="aria-label=${'Gỡ ' + material.title()}">Gỡ</button>
+          </div>
+        </div>
+        <p class="library-selected-assets-empty" data-selected-library-assets-empty
+           th:hidden="${!#lists.isEmpty(form.materialAssetIds)}">Chưa chọn tài liệu nào từ kho cá nhân.</p>
+        <a class="library-personal-assets-link" th:href="@{/lecturer/library/assets}" target="_blank" rel="noopener">
+          Quản lý Kho tài liệu cá nhân trong thẻ mới
+        </a>
+      </section>
     </section>
 
     <div class="form-actions">
@@ -60,6 +145,8 @@
 </main>
 <script th:src="@{/js/app.js}"></script>
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
-<script th:src="@{/js/library-inline.js}"></script>
+<script th:src="@{/js/library-picker.js}" defer></script>
+<script th:src="@{/js/library-lesson-form.js}" defer></script>
+<script th:src="@{/js/library-inline.js}" defer></script>
 </body>
 </html>

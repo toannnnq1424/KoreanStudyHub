@@ -221,7 +221,7 @@
       </div>
       <div class="qb-question-table-wrap">
         <table class="qb-question-table">
-          <thead><tr><th>Loại</th><th>Nội dung</th><th>Chương · Bài</th><th>Trạng thái</th><th>Người tạo</th><th>Cập nhật</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
+          <thead><tr><th>Loại</th><th>Nội dung</th><th>Chương · Bài</th><th>Trạng thái</th><th>Người tải lên</th><th>Cập nhật</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
           <tbody data-qb-question-rows>
           <tr th:each="item : ${items}" data-qb-question-row
               th:attr="data-detail-url=@{'/lecturer/question-bank/' + ${item.id()}},
@@ -235,7 +235,7 @@
             </td>
             <td><span class="status-pill" th:classappend="' qb-status-' + ${#strings.toLowerCase(item.workflowStatus())}"
                       th:text="${item.workflowStatus()}">DRAFT</span></td>
-            <td th:text="${item.contributorName()}">Giảng viên</td>
+            <td th:text="${item.contributorName() + ' · ID ' + item.contributorId()}">Giảng viên · ID 1</td>
             <td th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'dd/MM/yyyy') : '—'}">—</td>
             <td class="qb-table-actions">
               <button type="button" data-qb-open-detail aria-label="Xem câu hỏi" title="Xem câu hỏi">

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,6 +52,16 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/resources/static/css/practice-result.css");
     private static final Path PRACTICE_RESULT_PREP_CSS =
             Path.of("src/main/resources/static/css/practice-result-prep.css");
+    private static final String PRACTICE_WORKSPACE_POLISH_HREF =
+            "@{/css/practice/practice-workspace-polish.css}";
+    private static final List<String> PRACTICE_WORKSPACE_TEMPLATES = List.of(
+            "player.html",
+            "player-writing.html",
+            "player-speaking.html",
+            "result.html",
+            "result-detail-objective.html",
+            "result-detail-writing.html",
+            "result-detail-speaking.html");
     private static final Path PRACTICE_RESULT_JS =
             Path.of("src/main/resources/static/js/practice-result.js");
     private static final Path WRITING_RESULT_PRESENTER =
@@ -61,6 +72,19 @@ class PracticeFunctionalUiContractTest {
             Path.of("src/main/java/com/ksh/features/practice/service/PracticeService.java");
     private static final Path PRACTICE_ATTEMPT_REPOSITORY =
             Path.of("src/main/java/com/ksh/features/practice/repository/PracticeAttemptRepository.java");
+
+    @Test
+    void canonicalPracticeScreensKeepThePr83VisualLayerWithoutWorkspaceOverride()
+            throws IOException {
+        for (String templateName : PRACTICE_WORKSPACE_TEMPLATES) {
+            String template = Files.readString(PRACTICE_TEMPLATES.resolve(templateName));
+            assertThat(template)
+                    .as("no post-PR83 workspace style override in %s", templateName)
+                    .doesNotContain(PRACTICE_WORKSPACE_POLISH_HREF);
+        }
+        assertThat(Path.of("src/main/resources/static/css/practice/practice-workspace-polish.css"))
+                .doesNotExist();
+    }
 
     @Test
     void typedObjectivePlayerAndAttemptScopedPinsAreFunctional() throws IOException {
@@ -1527,7 +1551,10 @@ class PracticeFunctionalUiContractTest {
                 "maxAutosaveRetries",
                 "autosaveRetryExhausted",
                 "autosaveSubmitDrain",
+                "autosaveSubmitDrain = true",
+                "autosaveSubmitDrain = false",
                 "drainLatestAnswers",
+                "awaitInFlightAutosaveBeforeSubmit",
                 "submissionPending",
                 "exitPending",
                 "flushLatestAnswers",

@@ -64,47 +64,41 @@ class StudentTestFlowUiContractTest {
     }
 
     @Test
-    void result_and_review_gate_optional_sidebar_before_fragment_evaluation() throws IOException {
+    void pr83_result_stays_centered_and_lecturer_review_gates_sidebar_fragment() throws IOException {
         String result = read("src/main/resources/templates/tests/result.html");
         String review = read("src/main/resources/templates/tests/review.html");
 
         assertThat(result)
-                .contains("<th:block th:if=\"${view != null}\">")
-                .doesNotContain("<div th:if=\"${view != null}\"\n       th:replace=");
+                .contains("<main class=\"rs-page\">")
+                .doesNotContain("student-class-sidebar");
         assertThat(review)
-                .contains("<th:block th:if=\"${!review.lecturerView() and view != null}\">")
-                .doesNotContain("<div th:if=\"${!review.lecturerView() and view != null}\"\n       th:replace=");
+                .contains("<th:block th:if=\"${review.lecturerView() and clazz != null}\">")
+                .doesNotContain("<aside th:if=\"${review.lecturerView() and clazz != null}\"\n         th:replace=");
     }
 
     @Test
-    void result_and_review_present_a_responsive_accessible_analysis() throws IOException {
+    void result_and_review_keep_the_pr83_compact_visual_contract() throws IOException {
         String result = read("src/main/resources/templates/tests/result.html");
         String review = read("src/main/resources/templates/tests/review.html");
         String styles = read("src/main/resources/static/css/test-result.css");
 
         assertThat(result)
-                .contains("class=\"rs-score-ring\"")
-                .contains("result.scorePercent()")
-                .contains("class=\"rs-metrics\"")
-                .contains("class=\"rs-next\"")
-                .contains("role=\"progressbar\"")
-                .doesNotContain("experience-polish.css");
+                .contains("class=\"rs-card\"")
+                .contains("class=\"rs-stats\"")
+                .contains("class=\"rs-verdict\"")
+                .contains("experience-polish.css")
+                .doesNotContain("class=\"rs-score-ring\"", "class=\"rs-hero\"");
         assertThat(review)
-                .contains("class=\"rv-summary\"")
-                .contains("!q.answered()")
-                .contains("class=\"rv-option-tags\"")
-                .contains("Giải thích đáp án")
-                .contains("Quay lại kết quả")
+                .contains("class=\"rv-bar\"")
+                .contains("class=\"rv-question\"")
+                .contains("class=\"rv-option-mark\"")
+                .contains("Giải thích:")
                 .contains("th:utext=\"${q.explanation()}\"")
-                .doesNotContain("experience-polish.css");
+                .contains("experience-polish.css")
+                .doesNotContain("class=\"rv-hero\"", "class=\"rv-summary\"");
         assertThat(styles)
-                .contains(".rv-question.is-unanswered")
-                .contains(".rv-option.is-wrong-selection")
-                .contains("overflow-wrap: anywhere")
-                .contains(":focus-visible")
-                .contains("@media (max-width: 900px)")
-                .contains("@media (max-width: 540px)")
-                .contains("@media (prefers-reduced-motion: reduce)");
+                .contains(".rs-card", ".rs-stats", ".rv-question", ".rv-option.is-correct")
+                .doesNotContain("--exam-primary", ".rs-score-ring", ".rv-score-card");
     }
 
     private static String read(String path) throws IOException {

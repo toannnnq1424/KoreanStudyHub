@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * MockMvc integration tests for lecturer exam management: owner list/edit, JSON save
- * (create + validation rejects), class-ownership 403 on monitor data, and the
+ * (create + validation rejects), same-subject leader access, and the
  * submissions overview with search.
  */
 @SpringBootTest
@@ -56,7 +56,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class LecturerExamManagementIntegrationTest {
 
     private static final String LECTURER = "lecturer@ksh.edu.vn";
-    private static final String OTHER_LECTURER = "leader@ksh.edu.vn"; // LECTURER+ but non-owner
+    private static final String SAME_SUBJECT_LEADER = "leader@ksh.edu.vn";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -104,10 +104,12 @@ class LecturerExamManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(OTHER_LECTURER)
-    void non_owner_preview_is_forbidden() throws Exception {
+    @WithUserDetails(SAME_SUBJECT_LEADER)
+    void same_subject_leader_can_preview() throws Exception {
         mockMvc.perform(get("/lecturer/tests/" + examId + "/preview"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Chế độ xem trước")))
+                .andExpect(content().string(containsString("Đề GV JUnit")));
     }
 
     @Test
@@ -158,10 +160,11 @@ class LecturerExamManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(OTHER_LECTURER)
-    void non_owner_monitor_data_is_forbidden() throws Exception {
+    @WithUserDetails(SAME_SUBJECT_LEADER)
+    void same_subject_leader_can_read_monitor_data() throws Exception {
         mockMvc.perform(get("/lecturer/tests/" + examId + "/monitor/data"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.examStatus").value("PUBLISHED"));
     }
 
     @Test

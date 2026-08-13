@@ -83,4 +83,17 @@ class QuestionBankFrontendContractTest {
                 .doesNotContain("Bạn chưa được gán mã môn")
                 .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
     }
+
+    @Test
+    void question_bank_listings_show_stable_uploader_name_and_id() throws IOException {
+        String list = Files.readString(LIST_TEMPLATE);
+        String review = Files.readString(SUBJECT_REVIEW_TEMPLATE);
+
+        assertThat(list).contains(
+                "Người tải lên",
+                "item.contributorName() + ' · ID ' + item.contributorId()");
+        assertThat(review).contains(
+                "item.contributorName() + ' · ID ' + item.contributorId()",
+                "th:data-contributor");
+    }
 }

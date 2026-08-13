@@ -159,6 +159,7 @@ public class StudentLessonDetailService {
                 pdfDownloadUrl,
                 pdfViewerUrl,
                 videoUrl,
+                lesson.getVideoSummary(),
                 lesson.getVideoProvider());
     }
 

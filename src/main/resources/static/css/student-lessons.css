@@ -698,9 +698,8 @@ a.student-lessons-nav-item:hover {
   color: var(--shub-primary);
 }
 
-/* Completion toggle on a rail lesson card. Always visible: empty outline
-   circle = not done (click to complete); filled green ✓ = done (click to
-   un-complete). The backend /progress/toggle flips either direction. */
+/* Completion toggle on a rail lesson card. Always visible: a neutral outline
+   circle means not done; a restrained primary-blue ✓ means done. */
 .student-lessons-lesson-check-form {
   position: absolute;
   top: 50%;
@@ -718,7 +717,7 @@ a.student-lessons-nav-item:hover {
   height: 20px;
   padding: 0;
   border-radius: 999px;
-  border: 2px solid #2e9e5b;
+  border: 2px solid #94a3b8;
   background: transparent;
   color: #fff;
   font-size: 12px;
@@ -729,14 +728,1287 @@ a.student-lessons-nav-item:hover {
 }
 
 .student-lessons-lesson-check:not(.is-done):hover {
-  background: rgba(46, 158, 91, 0.12);
+  border-color: #60a5fa;
+  background: #eff6ff;
 }
 
 .student-lessons-lesson-check.is-done {
-  border-color: #2e9e5b;
-  background: #2e9e5b;
+  border-color: #2563eb;
+  background: #2563eb;
 }
 
 .student-lessons-lesson-check.is-done:hover {
   filter: brightness(0.9);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lesson workspace v2
+   ----------------------------------------------------------------------------
+   The lesson screen is a two-column desktop workspace: course navigation stays
+   in the class sidebar and the selected lesson owns the remaining viewport.
+   These rules deliberately come after the legacy rail styles so older class
+   pages can keep loading this shared stylesheet without inheriting a new
+   global sidebar contract.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.student-lessons-shell {
+  background: #f3f7fd;
+  min-height: calc(100dvh - var(--header-height, 64px));
+}
+
+.student-lessons-grid,
+.student-lessons-grid.is-empty {
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: calc(100dvh - var(--header-height, 64px));
+  background: var(--shub-surface);
+  border-top: 1px solid var(--shub-border);
+}
+
+.student-lessons-grid.is-teaching,
+.student-lessons-grid.is-teaching.is-empty {
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: calc(100dvh - var(--header-height, 64px));
+}
+
+.student-lessons-grid > .student-lessons-rail {
+  display: none;
+}
+
+.student-lessons-sidebar,
+.lecturer-lessons-sidebar {
+  min-width: 0;
+  background: #fbfdff;
+  border-right: 1px solid #dfe6ef;
+}
+
+@media (min-width: 768px) {
+  .student-lessons-sidebar {
+    position: sticky;
+    top: var(--header-height, 64px);
+    align-self: start;
+    height: calc(100dvh - var(--header-height, 64px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .lecturer-lessons-sidebar {
+    position: sticky;
+    top: var(--header-height, 64px);
+    align-self: start;
+    height: calc(100dvh - var(--header-height, 64px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .lecturer-lessons-sidebar .side {
+    position: static;
+    min-height: auto;
+  }
+}
+
+/* The category keeps its stable "Danh mục" label on every class page. The
+   lessons script folds it only for long course outlines; short courses keep
+   the navigation visible. Native details preserves keyboard and screen-reader
+   behaviour and still lets the learner override the automatic choice. */
+.student-class-menu {
+  margin: 0;
+  border: 0;
+}
+
+.student-class-menu > summary,
+.student-class-menu-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 10px;
+  list-style: none;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.student-class-menu > summary::-webkit-details-marker,
+.student-class-menu-summary::-webkit-details-marker {
+  display: none;
+}
+
+.student-class-menu > summary:hover,
+.student-class-menu-summary:hover {
+  color: #1d4ed8;
+  background: #eef5ff;
+}
+
+.student-class-menu > summary:focus-visible,
+.student-class-menu-summary:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.student-class-menu-chevron,
+.student-class-menu > summary > svg:last-child {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  transition: transform 0.18s ease;
+}
+
+.student-class-menu[open] .student-class-menu-chevron,
+.student-class-menu[open] > summary > svg:last-child {
+  transform: rotate(180deg);
+}
+
+.student-class-menu > .student-lessons-nav,
+.student-class-menu > nav,
+.student-class-menu > ul {
+  margin-top: 6px;
+}
+
+/* Course outline lives under the compact category menu in both student and
+   teaching/read-only views. Descendant selectors intentionally support the
+   semantic details/summary/list markup as well as existing lesson card class
+   names, keeping the template implementation straightforward. */
+.student-lessons-outline {
+  min-width: 0;
+  min-height: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e5eaf1;
+}
+
+.student-lessons-outline-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.student-lessons-outline-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.student-lessons-outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 10px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.student-lessons-outline-count,
+.student-lessons-outline .student-lessons-rail-count {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #edf2f8;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.student-lessons-outline details,
+.student-lessons-outline .student-lessons-acc {
+  border: 0;
+  border-top: 1px solid #edf0f4;
+}
+
+.student-lessons-outline details:last-child,
+.student-lessons-outline .student-lessons-acc:last-child {
+  border-bottom: 1px solid #edf0f4;
+}
+
+.student-lessons-outline summary,
+.student-lessons-outline .student-lessons-acc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 8px;
+  list-style: none;
+  color: #27364a;
+  cursor: pointer;
+  user-select: none;
+}
+
+.student-lessons-outline summary::-webkit-details-marker {
+  display: none;
+}
+
+.student-lessons-outline summary:hover,
+.student-lessons-outline .student-lessons-acc-head:hover {
+  background: #f4f7fb;
+}
+
+.student-lessons-outline summary:focus-visible,
+.student-lessons-outline .student-lessons-acc-head:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.student-lessons-outline summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-right: 1.5px solid #64748b;
+  border-bottom: 1.5px solid #64748b;
+  transform: rotate(-45deg);
+  transition: transform 0.16s ease;
+}
+
+.student-lessons-outline details[open] > summary::before {
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.student-lessons-outline summary .student-lessons-acc-chevron {
+  display: none;
+}
+
+.student-lessons-outline ul,
+.student-lessons-outline .student-lessons-lesson-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 7px;
+}
+
+.student-lessons-outline li,
+.student-lessons-outline .student-lessons-lesson-card {
+  position: relative;
+  border: 0;
+}
+
+.student-lessons-outline li > a,
+.student-lessons-outline .student-lessons-lesson-link,
+.student-lessons-outline-link {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 52px;
+  margin: 1px 0;
+  padding: 7px 8px 7px 12px;
+  border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
+  color: #334155;
+  text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.student-lessons-outline li > a:hover,
+.student-lessons-outline .student-lessons-lesson-link:hover,
+.student-lessons-outline-link:hover {
+  color: #1d4ed8;
+  background: #f0f6ff;
+}
+
+.student-lessons-outline li.active > a,
+.student-lessons-outline .student-lessons-lesson-card.active .student-lessons-lesson-link,
+.student-lessons-outline-link.is-active {
+  border-left-color: #2563eb;
+  background: #eaf3ff;
+  color: #1d4ed8;
+}
+
+.student-lessons-outline .student-lessons-lesson-thumb,
+.student-lessons-outline-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 36px;
+  border-radius: 6px;
+  background: #e9f2ff;
+  color: #2563eb;
+}
+
+.student-lessons-outline .student-lessons-lesson-thumb svg,
+.student-lessons-outline-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.student-lessons-outline li.active .student-lessons-lesson-thumb,
+.student-lessons-outline .student-lessons-lesson-card.active .student-lessons-lesson-thumb,
+.student-lessons-outline-link.is-active .student-lessons-outline-icon {
+  background: #2563eb;
+  color: #fff;
+}
+
+.student-lessons-outline .student-lessons-lesson-body,
+.student-lessons-outline-body {
+  min-width: 0;
+}
+
+.student-lessons-outline .student-lessons-lesson-title,
+.student-lessons-outline-title {
+  display: block;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.student-lessons-outline .student-lessons-lesson-meta,
+.student-lessons-outline-meta {
+  display: block;
+  margin-top: 2px;
+  color: #7b8798;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.student-lessons-outline-status,
+.student-lessons-outline .student-lessons-lesson-check {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1.5px solid #94a3b8;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+}
+
+.student-lessons-outline-status.is-complete,
+.student-lessons-outline .student-lessons-lesson-check.is-done {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+.student-lessons-outline .student-lessons-lesson-check-form {
+  position: static;
+  transform: none;
+  margin: 0;
+}
+
+/* Selected lesson header and primary progress action. */
+.student-lessons-main {
+  min-width: 0;
+  padding: clamp(22px, 3vw, 44px) clamp(22px, 4vw, 64px) 48px;
+  background: #fff;
+}
+
+.student-lesson-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 18px;
+}
+
+.student-lesson-heading > :first-child {
+  min-width: 0;
+}
+
+.student-lesson-heading .student-lessons-main-title,
+.student-lesson-heading .student-lesson-detail-title {
+  margin-bottom: 7px;
+  color: #172033;
+  font-size: clamp(22px, 2.2vw, 30px);
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+}
+
+.student-lesson-completion-form {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.student-lesson-completion-form button,
+.student-lesson-completion-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 16px;
+  border: 1px solid #2563eb;
+  border-radius: 7px;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.15);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.student-lesson-completion-form button:hover,
+.student-lesson-completion-button:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+}
+
+.student-lesson-completion-form button:focus-visible,
+.student-lesson-completion-button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 2px;
+}
+
+.student-lesson-completion-form button.is-complete,
+.student-lesson-completion-button.is-complete {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: none;
+}
+
+.student-lesson-completion-form button svg,
+.student-lesson-completion-button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+/* Three content modes share one clean, document-like surface. */
+.student-lesson-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(18px, 3vw, 34px);
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid #dfe5ed;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.student-lesson-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.student-lesson-tab,
+.student-lesson-tabs [role='tab'] {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 0 1px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.student-lesson-tab::after,
+.student-lesson-tabs [role='tab']::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: #2563eb;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.16s ease;
+}
+
+.student-lesson-tab:hover,
+.student-lesson-tabs [role='tab']:hover {
+  color: #1d4ed8;
+}
+
+.student-lesson-tab[aria-selected='true'],
+.student-lesson-tabs [role='tab'][aria-selected='true'] {
+  color: #1d4ed8;
+}
+
+.student-lesson-tab[aria-selected='true']::after,
+.student-lesson-tabs [role='tab'][aria-selected='true']::after {
+  transform: scaleX(1);
+}
+
+.student-lesson-tab:focus-visible,
+.student-lesson-tabs [role='tab']:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -4px;
+  border-radius: 3px;
+}
+
+.student-lesson-panel {
+  min-width: 0;
+  padding: clamp(22px, 3vw, 36px) 0 0;
+}
+
+.student-lesson-panel[hidden] {
+  display: none !important;
+}
+
+.student-lesson-video-summary {
+  margin: 22px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px solid #e5eaf1;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.student-lesson-video-summary h2,
+.student-lesson-video-summary h3 {
+  margin: 0 0 8px;
+  color: #1e293b;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+@media (max-width: 1023px) {
+  .student-lessons-grid,
+  .student-lessons-grid.is-empty,
+  .student-lessons-grid.is-teaching,
+  .student-lessons-grid.is-teaching.is-empty {
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
+
+  .student-lessons-main {
+    padding-right: 28px;
+    padding-left: 28px;
+  }
+}
+
+@media (max-width: 767px) {
+  .student-lessons-grid,
+  .student-lessons-grid.is-empty,
+  .student-lessons-grid.is-teaching,
+  .student-lessons-grid.is-teaching.is-empty {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-lessons-sidebar,
+  .lecturer-lessons-sidebar {
+    position: static;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid #dfe6ef;
+  }
+
+  .student-lessons-outline-scroll {
+    max-height: min(48dvh, 420px);
+  }
+
+  .student-lessons-main {
+    min-height: auto;
+    padding: 24px 20px 36px;
+  }
+
+  .student-lesson-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .student-lesson-completion-form button,
+  .student-lesson-completion-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .student-lessons-sidebar {
+    padding: 16px 12px;
+  }
+
+  .student-lessons-main {
+    padding: 20px 16px 32px;
+  }
+
+  .student-lesson-tabs {
+    gap: 18px;
+  }
+
+  .student-lesson-tab,
+  .student-lesson-tabs [role='tab'] {
+    font-size: 13px;
+  }
+
+  .student-lesson-panel {
+    padding-top: 20px;
+  }
+}
+
+/* ── Lesson context rail ────────────────────────────────────────────────
+   A third, compact column gives the selected lesson a stable desktop
+   workspace without squeezing video/content. Below 1100px the cards flow
+   beneath the lesson so the reading column keeps a useful line length. */
+@media (min-width: 1100px) {
+  .student-lessons-grid.has-lesson-context {
+    grid-template-columns: 260px minmax(0, 1fr) 292px;
+  }
+
+  .student-lessons-grid.is-teaching.has-lesson-context {
+    grid-template-columns: 280px minmax(0, 1fr) 292px;
+  }
+}
+
+.student-lesson-context {
+  min-width: 0;
+  padding: 20px 18px 32px;
+  border-left: 1px solid #dfe6ef;
+  background: #f7faff;
+}
+
+@media (min-width: 1100px) {
+  .student-lesson-context {
+    position: sticky;
+    top: var(--header-height, 64px);
+    align-self: start;
+    height: calc(100dvh - var(--header-height, 64px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
+
+.student-lesson-context-card {
+  margin: 0 0 14px;
+  padding: 17px;
+  border: 1px solid #dfe7f1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+}
+
+.student-lesson-context-card > h3,
+.student-lesson-context-title-row h3 {
+  margin: 0;
+  color: #27364a;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: -0.005em;
+}
+
+.student-lesson-context-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.student-lesson-progress-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.student-lesson-progress-state.is-paused {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.student-lesson-progress-state.is-synced {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.student-lesson-progress-state.is-error {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.student-lesson-progress-overview {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.student-lesson-progress-overview > div:last-child > strong {
+  display: block;
+  color: #1e293b;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.student-lesson-progress-overview p {
+  margin: 4px 0 0;
+  color: #7b8798;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.student-lesson-progress-ring {
+  position: relative;
+  display: grid;
+  width: 62px;
+  height: 62px;
+  place-items: center;
+}
+
+.student-lesson-progress-ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.student-lesson-progress-ring circle {
+  fill: none;
+  stroke-width: 4;
+}
+
+.student-lesson-progress-ring-track {
+  stroke: #e7edf5;
+}
+
+.student-lesson-progress-ring-value {
+  stroke: #2563eb;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--lesson-progress, 0));
+  transition: stroke-dashoffset 0.3s ease, stroke 0.2s ease;
+}
+
+.student-lesson-progress-ring.is-complete .student-lesson-progress-ring-value {
+  stroke: #2563eb;
+}
+
+.student-lesson-progress-ring strong {
+  position: relative;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.student-lesson-progress-ring.is-complete strong {
+  color: #1d4ed8;
+}
+
+.student-lesson-checklist {
+  display: grid;
+  gap: 10px;
+  margin: 15px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.student-lesson-checklist li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  color: #526175;
+}
+
+.student-lesson-checklist li > span:last-child {
+  min-width: 0;
+}
+
+.student-lesson-checklist strong,
+.student-lesson-checklist small {
+  display: block;
+}
+
+.student-lesson-checklist strong {
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.student-lesson-checklist small {
+  margin-top: 2px;
+  color: #8491a3;
+  font-size: 10.5px;
+  line-height: 1.25;
+}
+
+.student-lesson-checklist-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: transparent;
+  font-size: 11px;
+  font-weight: 800;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+              box-shadow 0.18s ease;
+}
+
+.student-lesson-checklist li.is-complete .student-lesson-checklist-mark {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.11);
+}
+
+.student-lesson-checklist li.is-complete strong {
+  color: #1d4ed8;
+}
+
+.student-lesson-checklist li.is-not-applicable {
+  color: #94a3b8;
+}
+
+.student-lesson-checklist li.is-not-applicable .student-lesson-checklist-mark {
+  border-color: #dbe3ec;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.student-lesson-checklist li.is-not-applicable .student-lesson-checklist-mark::before {
+  content: '\2013';
+}
+
+.student-lesson-checklist li.is-not-applicable .student-lesson-checklist-mark {
+  font-size: 0;
+}
+
+.student-lesson-checklist li.is-not-applicable .student-lesson-checklist-mark::before {
+  font-size: 12px;
+}
+
+.student-lesson-checklist li.is-not-applicable strong,
+.student-lesson-checklist li.is-not-applicable small {
+  color: #94a3b8;
+}
+
+.student-lesson-quick-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.student-lesson-quick-actions button {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px;
+  border: 1px solid #e1e8f1;
+  border-radius: 7px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.student-lesson-quick-actions button:hover,
+.student-lesson-quick-actions button:focus-visible {
+  border-color: #93b7f6;
+  background: #f2f7ff;
+  color: #1d4ed8;
+}
+
+.student-lesson-quick-actions button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.student-lesson-quick-actions button > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: #eaf2ff;
+  color: #2563eb;
+  font-size: 12px;
+}
+
+.student-lesson-quick-actions strong,
+.student-lesson-quick-actions small {
+  display: block;
+}
+
+.student-lesson-quick-actions strong {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.student-lesson-quick-actions small {
+  margin-top: 2px;
+  color: #8491a3;
+  font-size: 10.5px;
+}
+
+.student-lesson-quick-actions button.is-empty {
+  color: #64748b;
+}
+
+.student-lesson-quick-downloads {
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid #edf1f6;
+}
+
+.student-lesson-quick-downloads > p {
+  margin: 0 0 7px;
+  color: #7b8798;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.student-lesson-quick-download-list {
+  display: grid;
+  gap: 3px;
+  max-height: 176px;
+  margin: 0;
+  padding: 0 3px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+  list-style: none;
+}
+
+.student-lesson-quick-download {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 5px;
+  border-radius: 6px;
+  color: #334155;
+  text-decoration: none;
+}
+
+.student-lesson-quick-download:hover,
+.student-lesson-quick-download:focus-visible {
+  background: #f0f6ff;
+  color: #1d4ed8;
+}
+
+.student-lesson-quick-download:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}
+
+.student-lesson-quick-download-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 26px;
+  padding: 3px;
+  border-radius: 5px;
+  background: #eaf2ff;
+  color: #2563eb;
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.student-lesson-quick-download-copy {
+  min-width: 0;
+}
+
+.student-lesson-quick-download-copy strong,
+.student-lesson-quick-download-copy small {
+  display: block;
+}
+
+.student-lesson-quick-download-copy strong {
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-lesson-quick-download-copy small {
+  margin-top: 2px;
+  color: #8a96a7;
+  font-size: 9.5px;
+}
+
+.student-lesson-quick-download-icon {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.student-lesson-neighbours {
+  display: grid;
+  gap: 8px;
+}
+
+.student-lesson-neighbours h3 {
+  margin-bottom: 4px;
+}
+
+.student-lesson-neighbours a {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 9px 7px;
+  border-radius: 6px;
+  color: #334155;
+  text-decoration: none;
+}
+
+.student-lesson-neighbours a:hover,
+.student-lesson-neighbours a:focus-visible {
+  background: #f0f6ff;
+  color: #1d4ed8;
+}
+
+.student-lesson-neighbours a:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.student-lesson-neighbours a > span:first-child {
+  color: #2563eb;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.student-lesson-neighbours small,
+.student-lesson-neighbours strong {
+  display: block;
+}
+
+.student-lesson-neighbours small {
+  color: #8491a3;
+  font-size: 10px;
+}
+
+.student-lesson-neighbours strong {
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: 11.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-lesson-neighbours-empty {
+  margin: 4px 0 0;
+  color: #8491a3;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* Richer completion state: the control reads as an intentional status chip,
+   not a generic primary button, and a completed lesson is no longer exposed
+   as a misleading "toggle off" action. */
+.student-lesson-completion-form button,
+.student-lesson-completion-button {
+  min-height: 48px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.student-lesson-completion-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.student-lesson-completion-copy,
+.student-lesson-completion-copy strong,
+.student-lesson-completion-copy small {
+  display: block;
+}
+
+.student-lesson-completion-copy strong {
+  font-size: 12.5px;
+  line-height: 1.25;
+}
+
+.student-lesson-completion-copy small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 9.5px;
+  font-weight: 550;
+  line-height: 1.2;
+}
+
+.student-lesson-completion-button.is-complete .student-lesson-completion-icon {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.student-lesson-completion-button.is-complete .student-lesson-completion-copy small {
+  color: #5b78a6;
+}
+
+.student-lesson-completion-button:disabled {
+  cursor: not-allowed;
+}
+
+.student-lesson-completion-button.is-locked:disabled,
+.student-lesson-completion-button.is-locked:disabled:hover {
+  border-color: #d7e0eb;
+  background: #eef2f7;
+  color: #64748b;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.student-lesson-completion-button.is-locked .student-lesson-completion-icon {
+  background: #dfe6ef;
+  color: #94a3b8;
+}
+
+.student-lesson-completion-button.is-locked .student-lesson-completion-copy small {
+  color: #7b8798;
+}
+
+.student-lesson-completion-button.is-complete:disabled,
+.student-lesson-completion-button.is-complete:disabled:hover {
+  opacity: 1;
+  cursor: default;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: none;
+}
+
+.student-lessons-outline-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.student-lessons-outline-status.is-complete {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+@media (min-width: 768px) {
+  .student-lessons-sidebar,
+  .lecturer-lessons-sidebar {
+    /* Scroll the complete sidebar instead of squeezing the course outline
+       into whatever few pixels remain below the class menu. This keeps every
+       chapter row at its natural height while retaining a viewport-bound
+       workspace. */
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .student-lessons-sidebar::-webkit-scrollbar,
+  .lecturer-lessons-sidebar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  .student-lessons-sidebar > .student-lessons-class-card,
+  .student-lessons-sidebar > .student-class-menu,
+  .student-lessons-sidebar > .student-lessons-outline,
+  .student-lessons-sidebar > .student-lessons-sidebar-foot {
+    flex: 0 0 auto;
+  }
+
+  .student-lessons-sidebar > .student-lessons-outline,
+  .lecturer-lessons-sidebar > .student-lessons-outline {
+    display: block;
+  }
+
+  .student-lessons-sidebar > .student-lessons-outline > .student-lessons-outline-scroll,
+  .lecturer-lessons-sidebar > .student-lessons-outline > .student-lessons-outline-scroll {
+    overflow: visible;
+  }
+}
+
+@media (max-width: 1099px) {
+  .student-lessons-grid.has-lesson-context,
+  .student-lessons-grid.is-teaching.has-lesson-context {
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
+
+  .student-lesson-context {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    align-items: start;
+    gap: 12px;
+    padding: 18px 28px 30px;
+    border-top: 1px solid #dfe6ef;
+    border-left: 0;
+  }
+
+  .student-lesson-context-card {
+    height: 100%;
+    margin: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .student-lessons-grid.has-lesson-context,
+  .student-lessons-grid.is-teaching.has-lesson-context {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-lesson-context {
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px 16px 28px;
+  }
+
+  .lecturer-lessons-sidebar .side {
+    position: static;
+    min-height: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-lesson-progress-ring-value,
+  .student-lesson-checklist-mark,
+  .student-lesson-quick-actions button {
+    transition: none;
+  }
 }

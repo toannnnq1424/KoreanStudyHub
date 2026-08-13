@@ -31,7 +31,8 @@ public interface LessonTemplateRepository extends JpaRepository<LessonTemplate, 
               AND t.subjectId = :subjectId
               AND (:q IS NULL OR :q = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(t.chapterTitle) LIKE LOWER(CONCAT('%', :q, '%')))
+                   OR LOWER(t.chapterTitle) LIKE LOWER(CONCAT('%', :q, '%'))
+                   OR LOWER(t.videoSummary) LIKE LOWER(CONCAT('%', :q, '%')))
             ORDER BY t.chapterOrder ASC, t.displayOrder ASC, t.updatedAt DESC
             """)
     Page<LessonTemplate> searchOwnedSubject(@Param("ownerId") Long ownerId,
@@ -44,7 +45,8 @@ public interface LessonTemplateRepository extends JpaRepository<LessonTemplate, 
             WHERE t.subjectId = :subjectId
               AND (:q IS NULL OR :q = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))
-                   OR LOWER(t.chapterTitle) LIKE LOWER(CONCAT('%', :q, '%')))
+                   OR LOWER(t.chapterTitle) LIKE LOWER(CONCAT('%', :q, '%'))
+                   OR LOWER(t.videoSummary) LIKE LOWER(CONCAT('%', :q, '%')))
             ORDER BY t.chapterOrder ASC, t.displayOrder ASC, t.updatedAt DESC
             """)
     Page<LessonTemplate> searchSubject(@Param("subjectId") Long subjectId,

@@ -1125,6 +1125,30 @@ class PracticeIntegrationTest {
 
     @Test
     @WithUserDetails("student@ksh.edu.vn")
+    void submitGetRedirectsBackToCanonicalPlayerInsteadOfReturning500()
+            throws Exception {
+        mockMvc.perform(post("/practice/sets/" + practiceSet.getId()
+                        + "/tests/" + defaultTest.getId() + "/attempts")
+                        .with(csrf())
+                        .param("sectionId", String.valueOf(
+                                defaultSection.getId()))
+                        .param("mode", "exam"))
+                .andExpect(status().is3xxRedirection());
+
+        PracticeAttempt attempt = attemptRepository.findAll().get(0);
+        mockMvc.perform(get("/practice/attempts/" + attempt.getId()
+                        + "/submit")
+                        .param("mode", "exam"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/practice/attempts/"
+                        + attempt.getId() + "?mode=exam"))
+                .andExpect(flash().attribute(
+                        "warning",
+                        "Hãy dùng nút Nộp bài trong phòng làm bài để gửi đáp án."));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
     void testPlayerView() throws Exception {
         // Start attempt
         mockMvc.perform(post("/practice/sets/" + practiceSet.getId() + "/tests/" + defaultTest.getId() + "/attempts")
@@ -5032,6 +5056,17 @@ class PracticeIntegrationTest {
             mockMvc.perform(get(
                             "/practice/attempts/"
                                     + fixture.attemptId()))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl(
+                            com.ksh.features.practice.web
+                                    .PracticeRoutes.testDetailPath(
+                                            fixture.setId(),
+                                            fixture.testId())));
+
+            mockMvc.perform(get(
+                            "/practice/attempts/"
+                                    + fixture.attemptId()
+                                    + "/submit"))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl(
                             com.ksh.features.practice.web

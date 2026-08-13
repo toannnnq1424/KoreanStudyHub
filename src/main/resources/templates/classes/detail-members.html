@@ -57,7 +57,6 @@
             <th class="col-school">Email</th>
             <th class="col-phone">SĐT</th>
             <th class="col-joined center">Vai trò</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -75,7 +74,6 @@
             <td class="col-school" th:text="${classTeachingTeam.owner().email()}">email</td>
             <td class="col-phone">—</td>
             <td class="col-joined td-center"><span class="pill teaching-role">GV chủ lớp</span></td>
-            <td></td>
           </tr>
           <tr class="teaching-member-row" th:each="teacher : ${classTeachingTeam.coLecturers()}"
               th:attr="data-member-name=${teacher.name()},data-member-email=${teacher.email()}">
@@ -91,7 +89,6 @@
             <td class="col-school" th:text="${teacher.email()}">email</td>
             <td class="col-phone">—</td>
             <td class="col-joined td-center"><span class="pill teaching-role">Giảng viên đồng giảng</span></td>
-            <td></td>
           </tr>
           <tr th:each="m : ${members}" th:attr="data-member-name=${m.fullName},data-member-email=${m.email}">
             <td>
@@ -108,10 +105,6 @@
             <td class="col-phone" th:text="${m.displayPhone()}">—</td>
             <td class="col-joined td-center">
               <span class="pill">Sinh viên</span>
-            </td>
-            <td>
-              <div class="row-actions">
-              </div>
             </td>
           </tr>
         </tbody>

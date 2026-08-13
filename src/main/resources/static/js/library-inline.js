@@ -179,6 +179,7 @@
     if (!form || form.dataset.libraryEditorReady === 'true') return;
     form.dataset.libraryEditorReady = 'true';
     const inlineDialogForm = Boolean(dialog && dialog.contains(form));
+    if (window.KshLibraryLessonForm) window.KshLibraryLessonForm.init(form);
     const richValue = form.querySelector('[data-library-richtext-value]');
     const richHost = form.querySelector('[data-library-richtext-editor]');
     let editor = null;
@@ -343,21 +344,43 @@
     document.documentElement.classList.remove('library-dialog-open');
   });
   dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
-  const distribution = document.querySelector('#libraryDistribution');
   const shareButton = document.querySelector('[data-library-share]');
-  const setDistributionOpen = open => {
+  const distribution = document.querySelector('#libraryDistribution');
+  const distributionClose = distribution?.querySelector('[data-library-share-close]');
+  let distributionOpener = null;
+  let distributionFocusTimer = null;
+
+  function closeDistribution() {
+    if (!distribution || distribution.hidden) return;
+    if (distributionFocusTimer !== null) {
+      window.clearTimeout(distributionFocusTimer);
+      distributionFocusTimer = null;
+    }
+    distribution.hidden = true;
+    shareButton?.setAttribute('aria-expanded', 'false');
+    const focusTarget = distributionOpener?.isConnected ? distributionOpener : shareButton;
+    distributionOpener = null;
+    focusTarget?.focus();
+  }
+
+  shareButton?.addEventListener('click', event => {
     if (!distribution) return;
-    distribution.classList.toggle('is-hidden', !open);
-    shareButton?.setAttribute('aria-expanded', String(open));
-  };
-  shareButton?.addEventListener('click', () => {
-    setDistributionOpen(true);
-    distribution?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.setTimeout(() => distribution?.querySelector('input[type="search"]')?.focus(), 350);
+    distributionOpener = event.currentTarget;
+    distribution.hidden = false;
+    shareButton.setAttribute('aria-expanded', 'true');
+    distribution.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (distributionFocusTimer !== null) window.clearTimeout(distributionFocusTimer);
+    distributionFocusTimer = window.setTimeout(() => {
+      distributionFocusTimer = null;
+      if (!distribution.hidden) distribution.querySelector('input[type="search"]')?.focus();
+    }, 350);
   });
-  distribution?.querySelector('.library-distribution-close')?.addEventListener('click', () => {
-    setDistributionOpen(false);
-    shareButton?.focus();
+  distributionClose?.addEventListener('click', closeDistribution);
+  distribution?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeDistribution();
+    }
   });
 
   if (dropSurface) {

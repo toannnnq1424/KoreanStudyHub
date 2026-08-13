@@ -1,110 +1,47 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Kết quả bài kiểm tra', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Kết quả', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
-  <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/test-result.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/experience-polish.css}">
 </head>
-<body class="test-result-body">
+<body class="ux-polish ux-test-result">
 <header th:replace="~{fragments/app-header :: appHeader('tests')}"></header>
 
-<main class="rs-shell" th:classappend="${view != null} ? 'has-class-sidebar'">
-  <th:block th:if="${view != null}">
-    <div th:replace="~{fragments/student-class-sidebar :: classSidebar('tests', ${view.classId()}, ${view.className()}, ${view.classCode()}, ${view.lecturerName()}, ~{}, ~{})}"></div>
-  </th:block>
+<main class="rs-page">
+  <div class="rs-card">
+    <h1 class="rs-title" th:text="${result.title()}">Bài test</h1>
 
-  <section class="rs-page" aria-labelledby="result-title">
-    <nav class="rs-breadcrumb" aria-label="Điều hướng kết quả">
-      <a th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-        <span th:text="${view != null ? 'Bài test của lớp' : 'Danh sách bài test'}">Danh sách bài test</span>
-      </a>
-      <span aria-hidden="true">/</span>
-      <span aria-current="page">Kết quả</span>
-    </nav>
+    <div class="rs-verdict" th:if="${result.hasThreshold()}"
+         th:classappend="${result.passed()} ? 'rs-pass' : 'rs-fail'"
+         th:text="${result.passed()} ? 'Đạt' : 'Chưa đạt'">Đạt</div>
+    <div class="rs-verdict rs-none" th:unless="${result.hasThreshold()}">Không có ngưỡng đạt</div>
 
-    <article class="rs-hero"
-             th:classappend="${result.hasThreshold()} ? (${result.passed()} ? ' is-pass' : ' is-fail') : ' is-neutral'">
-      <div class="rs-hero-copy">
-        <p class="rs-eyebrow">Kết quả bài kiểm tra</p>
-        <h1 id="result-title" class="rs-title" th:text="${result.title()}">Bài test</h1>
+    <div class="rs-badge rs-timeout" th:if="${result.status() == 'TIMED_OUT'}">
+      Bài được nộp khi hết giờ
+    </div>
 
-        <div class="rs-status-row">
-          <span class="rs-verdict">
-            <svg viewBox="0 0 24 24" aria-hidden="true" th:if="${!result.hasThreshold() or result.passed()}"><path d="m5 12 4 4L19 6"/></svg>
-            <svg viewBox="0 0 24 24" aria-hidden="true" th:if="${result.hasThreshold() and !result.passed()}"><path d="M12 8v5m0 3h.01"/><circle cx="12" cy="12" r="9"/></svg>
-            <span th:text="${result.hasThreshold()} ? (${result.passed()} ? 'Đạt yêu cầu' : 'Chưa đạt yêu cầu') : 'Đã hoàn thành'">Đã hoàn thành</span>
-          </span>
-          <span class="rs-timeout" th:if="${result.status() == 'TIMED_OUT'}">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            Nộp tự động khi hết giờ
-          </span>
-        </div>
-
-        <p class="rs-lead" th:if="${result.hasThreshold() and result.passed()}">Bạn đã hoàn thành tốt bài kiểm tra này. Xem lại từng câu để củng cố phần kiến thức vừa làm.</p>
-        <p class="rs-lead" th:if="${result.hasThreshold() and !result.passed()}">Bạn chưa đạt ngưỡng điểm yêu cầu. Phần xem lại sẽ chỉ rõ đáp án đúng và lời giải cho từng câu.</p>
-        <p class="rs-lead" th:unless="${result.hasThreshold()}">Bài kiểm tra không đặt ngưỡng đạt. Bạn có thể xem lại chi tiết từng câu trả lời bên dưới.</p>
+    <div class="rs-stats">
+      <div class="rs-stat">
+        <span class="rs-stat-value" th:text="${result.score()} + ' / ' + ${result.totalPoints()}">0 / 0</span>
+        <span class="rs-stat-label">Điểm</span>
       </div>
+      <div class="rs-stat">
+        <span class="rs-stat-value" th:text="${result.correctCount()} + ' / ' + ${result.totalQuestions()}">0 / 0</span>
+        <span class="rs-stat-label">Câu đúng</span>
+      </div>
+      <div class="rs-stat">
+        <span class="rs-stat-value" th:text="${result.timeSpentSeconds()} + ' giây'">0 giây</span>
+        <span class="rs-stat-label">Thời gian làm</span>
+      </div>
+    </div>
 
-      <div class="rs-score-ring"
-           role="img"
-           th:attr="style=${'--score-percent:' + result.scorePercent() + '%'},aria-label=${'Đạt ' + result.scorePercent() + ' phần trăm tổng điểm'}">
-        <div class="rs-score-ring-inner">
-          <strong th:text="${result.score()}">0</strong>
-          <span th:text="${'/ ' + result.totalPoints() + ' điểm'}">/ 0 điểm</span>
-        </div>
-      </div>
-    </article>
-
-    <section class="rs-metrics" aria-label="Tóm tắt kết quả">
-      <article class="rs-metric">
-        <span class="rs-metric-icon is-correct" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>
-        <div><span>Câu trả lời đúng</span><strong th:text="${result.correctCount() + ' / ' + result.totalQuestions()}">0 / 0</strong></div>
-      </article>
-      <article class="rs-metric">
-        <span class="rs-metric-icon is-accuracy" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l5 3"/></svg></span>
-        <div><span>Độ chính xác</span><strong th:text="${result.correctPercent() + '%'}">0%</strong></div>
-      </article>
-      <article class="rs-metric">
-        <span class="rs-metric-icon is-time" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-        <div><span>Thời gian làm bài</span><strong th:text="${result.timeSpentLabel()}">0 giây</strong></div>
-      </article>
-    </section>
-
-    <section class="rs-threshold" th:if="${result.hasThreshold()}" aria-labelledby="threshold-title">
-      <div class="rs-threshold-head">
-        <div>
-          <p class="rs-section-kicker">Mức hoàn thành</p>
-          <h2 id="threshold-title">Tiến độ theo tổng điểm</h2>
-        </div>
-        <strong th:text="${result.scorePercent() + '%'}">0%</strong>
-      </div>
-      <div class="rs-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-           th:attr="aria-valuenow=${result.scorePercent()}">
-        <span th:style="${'width:' + result.scorePercent() + '%'}"></span>
-      </div>
-      <div class="rs-threshold-note">
-        <span th:text="${'Điểm của bạn: ' + result.score() + ' / ' + result.totalPoints()}">Điểm của bạn</span>
-        <span th:text="${'Ngưỡng đạt: ' + result.passingScore() + ' điểm'}">Ngưỡng đạt</span>
-      </div>
-    </section>
-
-    <section class="rs-next" aria-labelledby="next-step-title">
-      <div>
-        <p class="rs-section-kicker">Bước tiếp theo</p>
-        <h2 id="next-step-title">Xem lại câu trả lời của bạn</h2>
-        <p>Đối chiếu lựa chọn, đáp án đúng và phần giải thích cho từng câu.</p>
-      </div>
-      <div class="rs-actions">
-        <a class="tst-btn" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Về danh sách</a>
-        <a class="tst-btn tst-btn-primary"
-           th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + result.testId() + '/review/' + result.attemptId() : '/my/tests/' + result.testId() + '/review/' + result.attemptId()}">
-          Xem chi tiết bài làm
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-        </a>
-      </div>
-    </section>
-  </section>
+    <div class="rs-actions">
+      <a class="tst-btn" th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests' : '/my/tests'}">Về danh sách</a>
+      <a class="tst-btn tst-btn-primary"
+         th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + result.testId() + '/review/' + result.attemptId() : '/my/tests/' + result.testId() + '/review/' + result.attemptId()}">Xem lại bài làm</a>
+    </div>
+  </div>
 </main>
 
 <script th:src="@{/js/app.js}"></script>

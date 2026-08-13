@@ -25,6 +25,9 @@ import java.time.LocalDateTime;
 @Table(name = "lesson_attachments")
 public class LessonAttachment {
 
+    public static final String ORIGIN_CLASS_PRIVATE = "CLASS_PRIVATE";
+    public static final String ORIGIN_CANONICAL_TEMPLATE = "CANONICAL_TEMPLATE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -57,6 +60,14 @@ public class LessonAttachment {
     @Column(name = "library_asset_id")
     private Long libraryAssetId;
 
+    /**
+     * Provenance boundary used when a canonical lesson snapshot is refreshed.
+     * Class-private rows survive that refresh; canonical rows are replaced from
+     * the source template.
+     */
+    @Column(name = "origin_scope", nullable = false, length = 24)
+    private String originScope = ORIGIN_CLASS_PRIVATE;
+
     /** JPA-only constructor; do not call from application code. */
     protected LessonAttachment() {
     }
@@ -84,6 +95,15 @@ public class LessonAttachment {
     public LessonAttachment(Long lessonId, String originalFilename, String storedPath,
                             String mimeType, long sizeBytes, Long uploadedBy,
                             Long libraryAssetId) {
+        this(lessonId, originalFilename, storedPath, mimeType, sizeBytes,
+                uploadedBy, libraryAssetId, ORIGIN_CLASS_PRIVATE);
+    }
+
+    /** Creates an attachment with explicit canonical/class-private provenance. */
+    public LessonAttachment(Long lessonId, String originalFilename, String storedPath,
+                            String mimeType, long sizeBytes, Long uploadedBy,
+                            Long libraryAssetId, String originScope) {
+        validateOriginScope(originScope, libraryAssetId);
         this.lessonId = lessonId;
         this.originalFilename = originalFilename;
         this.storedPath = storedPath;
@@ -91,11 +111,24 @@ public class LessonAttachment {
         this.sizeBytes = sizeBytes;
         this.uploadedBy = uploadedBy;
         this.libraryAssetId = libraryAssetId;
+        this.originScope = originScope;
     }
 
     @PrePersist
     void onPersist() {
+        validateOriginScope(originScope, libraryAssetId);
         if (uploadedAt == null) uploadedAt = LocalDateTime.now();
+    }
+
+    private static void validateOriginScope(String originScope, Long libraryAssetId) {
+        if (!ORIGIN_CLASS_PRIVATE.equals(originScope)
+                && !ORIGIN_CANONICAL_TEMPLATE.equals(originScope)) {
+            throw new IllegalArgumentException("Unknown lesson attachment origin: " + originScope);
+        }
+        if (ORIGIN_CANONICAL_TEMPLATE.equals(originScope) && libraryAssetId == null) {
+            throw new IllegalArgumentException(
+                    "Canonical lesson attachments must reference a library asset");
+        }
     }
 
     // ── Getters ────────────────────────────────────────────────────────
@@ -134,6 +167,18 @@ public class LessonAttachment {
 
     public Long getLibraryAssetId() {
         return libraryAssetId;
+    }
+
+    public String getOriginScope() {
+        return originScope;
+    }
+
+    public boolean isClassPrivate() {
+        return ORIGIN_CLASS_PRIVATE.equals(originScope);
+    }
+
+    public boolean isCanonicalTemplate() {
+        return ORIGIN_CANONICAL_TEMPLATE.equals(originScope);
     }
 
     /** True when this row references a personal library asset (no owned blob). */

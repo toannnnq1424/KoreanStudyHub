@@ -33,9 +33,14 @@ class PracticeAuthoringCandidateMigrationTest {
         int current = counts.keySet().stream().mapToInt(Integer::intValue)
                 .max().orElseThrow();
         assertThat(current).isGreaterThanOrEqualTo(83);
-        assertThat(counts).hasSize(current);
+        var expectedVersions = java.util.stream.Stream.concat(
+                        java.util.stream.IntStream.rangeClosed(1, 119).boxed(),
+                        java.util.stream.IntStream.rangeClosed(123, current).boxed())
+                .toList();
+        assertThat(counts).hasSize(expectedVersions.size());
         assertThat(counts.keySet()).containsExactlyInAnyOrderElementsOf(
-                java.util.stream.IntStream.rangeClosed(1, current).boxed().toList());
+                expectedVersions);
+        assertThat(counts.keySet()).doesNotContain(120, 121, 122);
         assertThat(counts.values()).containsOnly(1);
     }
 

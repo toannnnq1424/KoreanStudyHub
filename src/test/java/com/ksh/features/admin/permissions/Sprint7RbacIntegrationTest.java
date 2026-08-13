@@ -2,6 +2,7 @@ package com.ksh.features.admin.permissions;
 
 import com.ksh.config.CacheConfig;
 import com.ksh.entities.Permission;
+import com.ksh.entities.RolePermission;
 import com.ksh.entities.User;
 import com.ksh.entities.UserPermissionOverride;
 import com.ksh.features.admin.permissions.repository.PermissionRepository;
@@ -181,11 +182,14 @@ class Sprint7RbacIntegrationTest {
     @WithUserDetails("admin@ksh.edu.vn")
     void detaching_a_non_core_permission_removes_the_role_grant() throws Exception {
         Permission target = permission(TOGGLEABLE_KEY);
-        // Attach first so there is something to remove.
-        mockMvc.perform(post(URL_ADMIN_PERMISSIONS).with(csrf())
-                .param("roleCode", Role.STUDENT.name())
-                .param("featureKey", TOGGLEABLE_KEY)
-                .param("granted", "true"));
+        // Seed the precondition directly. Performing an attach request first would
+        // intentionally rotate the affected users' security versions and make this
+        // test's already-authenticated principal stale before the detach request.
+        if (!rolePermissionRepository.existsByIdRoleCodeAndIdPermissionId(
+                Role.STUDENT.name(), target.getId())) {
+            rolePermissionRepository.saveAndFlush(
+                    new RolePermission(Role.STUDENT.name(), target.getId()));
+        }
 
         mockMvc.perform(post(URL_ADMIN_PERMISSIONS).with(csrf())
                         .param("roleCode", Role.STUDENT.name())

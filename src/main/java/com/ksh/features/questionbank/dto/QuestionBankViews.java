@@ -38,7 +38,7 @@ public final class QuestionBankViews {
                           String workflowStatus, String subjectCode,
                           Long lessonTemplateId, int chapterOrder, int lessonOrder,
                           String chapterTitle, String lessonTitle,
-                          String contributorName, LocalDateTime updatedAt,
+                          Long contributorId, String contributorName, LocalDateTime updatedAt,
                           boolean editable, boolean reviewable,
                           boolean librarySourceAvailable) {
     }
@@ -64,7 +64,7 @@ public final class QuestionBankViews {
 
     public record ItemDetail(Long id, String questionType, String workflowStatus,
                              String content, String contentPreview, String explanation, String reviewNote,
-                             String subjectCode, String contributorName,
+                             String subjectCode, Long contributorId, String contributorName,
                              String reviewerName, LocalDateTime reviewedAt,
                              LocalDateTime approvedAt, LocalDateTime updatedAt,
                              List<OptionView> options, boolean editable,

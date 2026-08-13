@@ -43,6 +43,7 @@ public class LibraryStorageService {
      */
     public StoredLibraryFile store(MultipartFile file, Long ownerId, String kind)
             throws IOException {
+        String ownerPrefix = ownerPrefix(ownerId);
         String originalName = UploadFileHelper.requireOriginalFilename(file);
         String ext = UploadFileHelper.extractLowercaseExtension(originalName);
         String resolvedKind = resolveKind(kind, ext);
@@ -54,7 +55,7 @@ public class LibraryStorageService {
         }
 
         String filename = UploadFileHelper.newUuidFilename(ext);
-        String key = LIBRARY_PATH_PREFIX + ownerId + "/" + filename;
+        String key = ownerPrefix + filename;
         StorageKeys.requireSafeKey(key);
 
         try (InputStream in = file.getInputStream()) {
@@ -76,6 +77,7 @@ public class LibraryStorageService {
     public StoredLibraryFile copyFromKey(String sourceKey, Long ownerId,
                                          String originalFilename, String kind)
             throws IOException {
+        String ownerPrefix = ownerPrefix(ownerId);
         if (sourceKey == null || sourceKey.isBlank()) {
             throw new IllegalArgumentException(MSG_ATTACHMENT_INVALID);
         }
@@ -91,7 +93,7 @@ public class LibraryStorageService {
         String resolvedKind = resolveKind(kind, ext);
 
         String filename = UploadFileHelper.newUuidFilename(ext);
-        String destKey = LIBRARY_PATH_PREFIX + ownerId + "/" + filename;
+        String destKey = ownerPrefix + filename;
         StorageKeys.requireSafeKey(destKey);
 
         objectStorage.copy(safeSource, destKey);
@@ -122,6 +124,27 @@ public class LibraryStorageService {
     /** Validates a stored relative key (rejects traversal). */
     public String requireSafeKey(String storedRelativePath) {
         return StorageKeys.requireSafeKey(storedRelativePath);
+    }
+
+    /**
+     * Validates that a persisted key belongs to the expected lecturer prefix.
+     * This prevents a malformed/tampered row from turning an owner-authorized
+     * asset lookup into access to another upload family or lecturer's object.
+     */
+    public String requireOwnedKey(Long ownerId, String storedRelativePath) {
+        String key = requireSafeKey(storedRelativePath);
+        if (!key.startsWith(ownerPrefix(ownerId))) {
+            throw new IllegalArgumentException(MSG_ATTACHMENT_INVALID);
+        }
+        return key;
+    }
+
+    /** Deterministic bucket prefix for one lecturer's private objects. */
+    public static String ownerPrefix(Long ownerId) {
+        if (ownerId == null || ownerId <= 0) {
+            throw new IllegalArgumentException(MSG_ATTACHMENT_INVALID);
+        }
+        return LIBRARY_PATH_PREFIX + ownerId + "/";
     }
 
     private static String resolveKind(String kind, String ext) {

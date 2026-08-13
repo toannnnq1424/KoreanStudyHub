@@ -156,14 +156,14 @@
                   <span class="qb-type-badge" th:text="${item.questionType()}">MCQ</span>
                   <span class="qb-row-preview" th:text="${item.contentPreview()}">Nội dung</span>
                   <span class="qb-row-sub">
-                    <span th:text="${item.contributorName()}">GV</span> ·
+                    <span th:text="${item.contributorName() + ' · ID ' + item.contributorId()}">GV · ID 1</span> ·
                     <span th:text="${item.updatedAt() != null ? #temporals.format(item.updatedAt(), 'HH:mm dd/MM') : '—'}">—</span>
                   </span>
                   <!-- Hidden per-row detail source for the modal. -->
                   <template th:attr="data-detail-for=${item.id()}"
                             th:data-type="${item.questionType()}"
                             th:data-status="${item.workflowStatus()}"
-                            th:data-contributor="${item.contributorName()}">
+                            th:data-contributor="${item.contributorName() + ' · ID ' + item.contributorId()}">
                     <div data-detail-content th:utext="${item.content()}"></div>
                     <div data-detail-options>
                       <div class="qb-option-row" th:each="option, stat : ${item.options()}"
@@ -256,7 +256,7 @@
     <div class="detail-page-meta qb-meta-wrap">
       <span class="status-pill" id="qbModalType">MCQ</span>
       <span class="status-pill" id="qbModalStatus">REVIEW</span>
-      <span>Người tạo: <strong id="qbModalContributor">GV</strong></span>
+      <span>Người tải lên: <strong id="qbModalContributor">GV · ID 1</strong></span>
     </div>
     <h2 class="qb-modal-title" id="qbModalTitle">Chi tiết câu hỏi</h2>
     <div class="qb-rich" id="qbModalContent"></div>

@@ -6,9 +6,11 @@ import com.ksh.features.practice.service.SpeakingAudioUploadService;
 import com.ksh.features.practice.service.audio.SpeakingAudioValidationCategory;
 import com.ksh.features.practice.service.audio.SpeakingAudioValidationException;
 import com.ksh.security.CustomOidcUserPrincipal;
+import com.ksh.security.AuthenticatedAccessVersionService;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,6 +41,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -74,6 +77,14 @@ class PracticeSpeakingMediaControllerTest {
 
     @MockitoBean
     private SpeakingAudioUploadService uploadService;
+
+    @MockitoBean
+    private AuthenticatedAccessVersionService accessVersions;
+
+    @BeforeEach
+    void acceptSyntheticPrincipalSecurityVersions() {
+        when(accessVersions.isCurrent(anyLong(), anyLong())).thenReturn(true);
+    }
 
     @Test
     void postWithFormPrincipalUploadsSingleFileAndReturnsSafeDtoWithNoStore() throws Exception {
