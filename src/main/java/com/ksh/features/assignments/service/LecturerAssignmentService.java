@@ -105,7 +105,10 @@ public class LecturerAssignmentService {
     public void update(Long classId, Long assignmentId, AssignmentForm form, Long userId, Role role) {
         access.requireEditableClass(classId, userId, role);
         access.validateForm(form);
-        Assignment a = access.requireAssignment(classId, assignmentId);
+        // Reload the lifecycle row under a write lock. Without this lock, a
+        // draft edit that was opened before a concurrent publish can flush its
+        // stale DRAFT state after the publish transaction commits.
+        Assignment a = requireAssignmentForLifecycleMutation(classId, assignmentId);
         requireDraftForEdit(a);
         access.applyForm(a, form);
         a.setUpdatedAt(LocalDateTime.now());
@@ -121,7 +124,7 @@ public class LecturerAssignmentService {
     @Transactional
     public void publish(Long classId, Long assignmentId, Long userId, Role role) {
         access.requireEditableClass(classId, userId, role);
-        Assignment a = access.requireAssignment(classId, assignmentId);
+        Assignment a = requireAssignmentForLifecycleMutation(classId, assignmentId);
         if (!AssignmentStatus.DRAFT.equals(a.getStatus())) {
             throw new IllegalStateException(MSG_ASSIGNMENT_INVALID_TRANSITION);
         }
@@ -139,7 +142,7 @@ public class LecturerAssignmentService {
     @Transactional
     public void close(Long classId, Long assignmentId, Long userId, Role role) {
         access.requireEditableClass(classId, userId, role);
-        Assignment a = access.requireAssignment(classId, assignmentId);
+        Assignment a = requireAssignmentForLifecycleMutation(classId, assignmentId);
         if (!AssignmentStatus.PUBLISHED.equals(a.getStatus())) {
             throw new IllegalStateException(MSG_ASSIGNMENT_INVALID_TRANSITION);
         }
@@ -255,6 +258,12 @@ public class LecturerAssignmentService {
         if (!AssignmentStatus.DRAFT.equals(assignment.getStatus())) {
             throw new IllegalStateException(MSG_ASSIGNMENT_INVALID_TRANSITION);
         }
+    }
+
+    private Assignment requireAssignmentForLifecycleMutation(Long classId, Long assignmentId) {
+        return assignmentRepository
+                .findByIdAndClassIdNotDeletedForUpdate(assignmentId, classId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
     }
 
     /**
