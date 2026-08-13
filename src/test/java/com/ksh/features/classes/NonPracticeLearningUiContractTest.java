@@ -138,12 +138,14 @@ class NonPracticeLearningUiContractTest {
                 "th:field=\"*{chapterNumber}\"",
                 "th:field=\"*{lessonNumber}\"",
                 "th:field=\"*{title}\"",
-                "th:field=\"*{contentType}\" value=\"RICHTEXT\"",
+                "th:field=\"*{contentType}\"",
                 "data-library-richtext-value",
                 "data-library-richtext-editor",
                 "th:field=\"*{videoUrl}\"",
                 "data-library-file-dropzone",
                 "th:field=\"*{materialUploads}\" multiple");
+        assertThat(template).doesNotContain(
+                "th:field=\"*{contentType}\" value=\"RICHTEXT\"");
         assertThat(template).doesNotContain(
                 "library-subject-banner",
                 "library-fixed-subject",
