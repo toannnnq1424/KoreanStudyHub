@@ -11,6 +11,7 @@ import com.ksh.features.tests.entity.Test;
 import com.ksh.features.tests.repository.TestAttemptRepository;
 import com.ksh.features.tests.repository.TestRepository;
 import com.ksh.security.Role;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.security.access.AccessDeniedException;
@@ -49,7 +50,8 @@ class TestAccessResolverLeaderScopeTest {
                 enrollmentRepository,
                 classRepository,
                 userRepository,
-                classAccessPolicy);
+                classAccessPolicy,
+                mock(EntityManager.class));
         when(testRepository.findById(TEST_ID)).thenReturn(Optional.of(exam));
         when(exam.isDeleted()).thenReturn(false);
         when(exam.isPractice()).thenReturn(false);

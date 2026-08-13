@@ -1,5 +1,6 @@
 package com.ksh.features.tests.service;
 
+import com.ksh.common.HtmlSanitizer;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Department;
 import com.ksh.entities.User;
@@ -102,10 +103,18 @@ public class ExamQuestionBankPickerService {
             options.computeIfAbsent(option.getItemId(), ignored -> new ArrayList<>()).add(option);
         }
         return items.stream().map(item -> new BankItemSnapshot(
-                item.getId(), subjectCode, item.getQuestionType(), item.getContent(),
-                item.getExplanation(), options.getOrDefault(item.getId(), List.of()).stream()
-                .map(option -> new BankOptionSnapshot(option.getContent(), option.isCorrect()))
+                item.getId(), subjectCode, item.getQuestionType(),
+                sanitizeLegacyHtml(item.getContent()),
+                sanitizeLegacyHtml(item.getExplanation()),
+                options.getOrDefault(item.getId(), List.of()).stream()
+                .map(option -> new BankOptionSnapshot(
+                        sanitizeLegacyHtml(option.getContent()), option.isCorrect()))
                 .toList())).toList();
+    }
+
+    /** Cleans legacy rows before they enter picker JSON and detached client DOM. */
+    private static String sanitizeLegacyHtml(String value) {
+        return value == null ? null : HtmlSanitizer.sanitize(value);
     }
 
     private User requireActor(Long userId, Role role) {

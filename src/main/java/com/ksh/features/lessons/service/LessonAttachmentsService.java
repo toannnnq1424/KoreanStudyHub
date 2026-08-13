@@ -145,19 +145,20 @@ public class LessonAttachmentsService {
             throws IOException {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
-        Lesson lesson = loadLesson(sectionId, lessonId);
-
         if (file == null || !"application/pdf".equalsIgnoreCase(file.getContentType())) {
             throw new IllegalArgumentException("Chỉ chấp nhận tệp PDF cho bài giảng dạng PDF");
         }
-
-        Long previousMainId = lesson.getPdfAttachmentId();
 
         // Save new PDF first so the CHECK constraint (content_type=PDF
         // requires pdf_attachment_id NOT NULL) is never violated.
         StoredAttachment stored = storage.store(file, lessonId);
         StorageTransactionLifecycle.deleteOnRollback(
                 () -> storage.delete(stored.storedPath()));
+        // Acquire the lesson mutex only after the potentially slow object-store
+        // write. A waiting request then reloads the latest main-PDF id; if the
+        // lock/transaction fails, the rollback hook removes the uploaded blob.
+        Lesson lesson = loadLessonForUpdate(sectionId, lessonId);
+        Long previousMainId = lesson.getPdfAttachmentId();
         LessonAttachment row = new LessonAttachment(lessonId, stored.originalFilename(),
                 stored.storedPath(), stored.mimeType(), stored.sizeBytes(), userId);
         LessonAttachment saved = attachmentRepository.saveAndFlush(row);
@@ -166,7 +167,11 @@ public class LessonAttachmentsService {
 
         // Clean up old main PDF now that the new one is in place.
         if (previousMainId != null && !previousMainId.equals(saved.getId())) {
-            attachmentRepository.findById(previousMainId).ifPresent(this::removeAttachmentRow);
+            // Locking/current read is required under MySQL REPEATABLE READ:
+            // this transaction may have started before the preceding uploader
+            // committed, even though the lesson mutex exposed its new FK.
+            attachmentRepository.findByIdForUpdate(previousMainId)
+                    .ifPresent(this::removeAttachmentRow);
         }
         activityWriter.write(lessonId, LessonActivity.TYPE_PDF_UPLOADED,
                 "Tải lên PDF chính: " + saved.getOriginalFilename(), userId);
@@ -183,7 +188,7 @@ public class LessonAttachmentsService {
                                                    Long assetId, Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
-        Lesson lesson = loadLesson(sectionId, lessonId);
+        Lesson lesson = loadLessonForUpdate(sectionId, lessonId);
         LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_DOCUMENT.equals(asset.getKind())
                 || !"application/pdf".equalsIgnoreCase(asset.getMimeType())) {
@@ -200,7 +205,8 @@ public class LessonAttachmentsService {
         lessonRepository.saveAndFlush(lesson);
 
         if (previousMainId != null && !previousMainId.equals(saved.getId())) {
-            attachmentRepository.findById(previousMainId).ifPresent(this::removeAttachmentRow);
+            attachmentRepository.findByIdForUpdate(previousMainId)
+                    .ifPresent(this::removeAttachmentRow);
         }
         // Standalone bind (wizard) never hits lesson-form save — flip type here.
         contentTypeSwitcher.applyTo(lesson, typeSwitchForm(lesson, CONTENT_TYPE_PDF));
@@ -224,7 +230,11 @@ public class LessonAttachmentsService {
                                                           Long assetId, Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
-        loadLesson(sectionId, lessonId);
+        // Keep the same lesson -> library-asset lock order as main-PDF bind.
+        // The subsequent attachment INSERT takes a parent FK lock on lessons;
+        // locking the asset first here would deadlock with bindPdfFromLibrary
+        // when both requests reference the same document.
+        loadLessonForUpdate(sectionId, lessonId);
         LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_DOCUMENT.equals(asset.getKind())) {
             throw new IllegalArgumentException(MSG_LIBRARY_BIND_INVALID_KIND);
@@ -244,7 +254,7 @@ public class LessonAttachmentsService {
                        Long userId, Role role) {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
-        Lesson lesson = loadLesson(sectionId, lessonId);
+        Lesson lesson = loadLessonForUpdate(sectionId, lessonId);
         LessonAttachment att = attachmentRepository.findByIdAndLessonId(attachmentId, lessonId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ATTACHMENT_NOT_FOUND));
         // If this is the main PDF, switch the lesson to RICHTEXT first
@@ -330,6 +340,11 @@ public class LessonAttachmentsService {
 
     private Lesson loadLesson(Long sectionId, Long lessonId) {
         return lessonRepository.findByIdAndSectionId(lessonId, sectionId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_LESSON_NOT_FOUND));
+    }
+
+    private Lesson loadLessonForUpdate(Long sectionId, Long lessonId) {
+        return lessonRepository.findByIdAndSectionIdForUpdate(lessonId, sectionId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_LESSON_NOT_FOUND));
     }
 

@@ -15,14 +15,15 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static com.ksh.features.admin.settings.dto.OauthSettingsDtos.MASKED;
+
 /**
  * Service for managing OAuth provider settings (Google client id / secret /
  * scope) in the admin panel: loading the current configuration, persisting
  * changes, and reporting whether Google sign-in is currently enabled.
  *
- * <p>Secrets are stored and returned in plain form so the admin can review
- * them in the UI. The page is protected by {@code @PreAuthorize("hasRole('ADMIN')")},
- * which is the only access control around the credential.
+ * <p>The stored client secret is write-only: it is used server-side to build
+ * the OAuth client registration but is never returned to the settings form.
  *
  * <p>{@link #save} is {@code @Transactional} — every upsert runs inside a
  * single transaction and is rolled back atomically on failure.
@@ -55,9 +56,9 @@ public class OauthSettingsService {
     /**
      * Loads the current OAuth settings from the database.
      *
-     * <p>The Google client secret is returned as-is (no masking) so the
-     * admin can see exactly what is currently stored. Treat the rendered
-     * page as confidential — only ADMIN-role users can access it.
+     * <p>The Google client secret is deliberately returned as an empty string.
+     * The controller exposes only a separate configured/not-configured flag,
+     * so neither the real credential nor a reusable stand-in enters the DOM.
      *
      * @return an {@link OauthSettingsForm} populated with the current settings
      */
@@ -66,7 +67,7 @@ public class OauthSettingsService {
         Map<String, String> cfg = repository.loadGroupAsMap(GROUP);
         return new OauthSettingsForm(
                 cfg.getOrDefault(KEY_GOOGLE_CLIENT_ID, ""),
-                cfg.getOrDefault(KEY_GOOGLE_CLIENT_SECRET, ""),
+                "",
                 cfg.getOrDefault(KEY_GOOGLE_SCOPE, DEFAULT_SCOPE)
         );
     }
@@ -78,8 +79,9 @@ public class OauthSettingsService {
      * fails, all writes in this call are rolled back.
      *
      * <p>Secret handling: when {@code form.googleClientSecret()} is
-     * {@code null} or blank, the {@code oauth.google.client_secret} row is
-     * skipped — the stored value and {@code updated_by} are left unchanged.
+     * {@code null}, blank, or the exact masked sentinel, the
+     * {@code oauth.google.client_secret} row is skipped — the stored value and
+     * {@code updated_by} are left unchanged.
      * This preserves the existing secret when the admin clears the field on
      * the form intentionally; to overwrite with an empty secret the row must
      * be edited directly in the database.
@@ -98,9 +100,11 @@ public class OauthSettingsService {
         incoming.put(KEY_GOOGLE_CLIENT_ID, nullSafeTrim(form.googleClientId()));
         incoming.put(KEY_GOOGLE_SCOPE, nullSafeTrim(form.googleScope()));
 
-        // Secret: only update when the user submits a non-blank value
-        if (form.googleClientSecret() != null && !form.googleClientSecret().isBlank()) {
-            incoming.put(KEY_GOOGLE_CLIENT_SECRET, form.googleClientSecret().trim());
+        // Secret is write-only. Blank and the legacy masked sentinel both mean
+        // "keep existing"; only an actual replacement is persisted.
+        String submittedSecret = nullSafeTrim(form.googleClientSecret());
+        if (!submittedSecret.isBlank() && !MASKED.equals(submittedSecret)) {
+            incoming.put(KEY_GOOGLE_CLIENT_SECRET, submittedSecret);
         }
 
         upsertAll(incoming, currentUserId);

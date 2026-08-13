@@ -18,7 +18,7 @@
     <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'tests')}"></aside>
   </th:block>
 
-  <main class="col rv-page">
+  <main class="col rv-page" aria-labelledby="review-title">
     <nav class="rv-breadcrumb" aria-label="Điều hướng xem lại bài làm">
       <a th:if="${!review.lecturerView()}"
          th:href="${classScopeId != null ? '/my/classes/' + classScopeId + '/tests/' + review.testId() + '/result/' + review.attemptId() : '/my/tests/' + review.testId() + '/result/' + review.attemptId()}">
@@ -34,9 +34,13 @@
     <header class="rv-hero">
       <div class="rv-hero-copy">
         <p class="rv-eyebrow" th:text="${review.lecturerView() ? 'Chi tiết bài làm sinh viên' : 'Xem lại bài làm'}">Xem lại bài làm</p>
-        <h1 class="rv-title" th:text="${review.title()}">Bài test</h1>
+        <h1 id="review-title" class="rv-title" th:text="${review.title()}">Bài test</h1>
         <p class="rv-student" th:if="${review.lecturerView()}">
           Sinh viên: <strong th:text="${review.studentName()}">Học viên</strong>
+        </p>
+        <p class="rv-lead"
+           th:text="${review.lecturerView()} ? 'Đối chiếu từng lựa chọn, đáp án đúng và lời giải trong bài nộp này.' : 'Đối chiếu lựa chọn của bạn với đáp án đúng và lời giải cho từng câu.'">
+          Đối chiếu lựa chọn của bạn với đáp án đúng và lời giải cho từng câu.
         </p>
         <p class="rv-timeout" th:if="${review.status() == 'TIMED_OUT'}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>

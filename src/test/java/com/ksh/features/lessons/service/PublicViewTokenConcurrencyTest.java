@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -32,6 +33,7 @@ class PublicViewTokenConcurrencyTest {
         PublicViewToken duplicate = new PublicViewToken(
                 9L, "duplicate", LocalDateTime.now().plusHours(1));
         when(attachments.findByIdForUpdate(9L)).thenReturn(Optional.of(attachment));
+        when(attachments.findPubliclyViewableById(9L)).thenReturn(Optional.of(attachment));
         when(tokens.findLiveTokensByAttachmentId(eq(9L), any(LocalDateTime.class)))
                 .thenReturn(List.of(newest, duplicate));
 
@@ -45,8 +47,9 @@ class PublicViewTokenConcurrencyTest {
 
     @Test
     void createsOnlyAfterAttachmentLockWhenNoTokenIsLive() {
-        when(attachments.findByIdForUpdate(9L))
-                .thenReturn(Optional.of(mock(LessonAttachment.class)));
+        LessonAttachment attachment = mock(LessonAttachment.class);
+        when(attachments.findByIdForUpdate(9L)).thenReturn(Optional.of(attachment));
+        when(attachments.findPubliclyViewableById(9L)).thenReturn(Optional.of(attachment));
         when(tokens.findLiveTokensByAttachmentId(eq(9L), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
@@ -54,5 +57,38 @@ class PublicViewTokenConcurrencyTest {
 
         verify(attachments).findByIdForUpdate(9L);
         verify(tokens).save(any(PublicViewToken.class));
+    }
+
+    @Test
+    void refusesToMintTokenWhenLessonIsNotPubliclyViewable() {
+        when(attachments.findByIdForUpdate(9L))
+                .thenReturn(Optional.of(mock(LessonAttachment.class)));
+        when(attachments.findPubliclyViewableById(9L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.createPublicViewUrl(9L))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Attachment not publicly available");
+
+        verify(tokens, org.mockito.Mockito.never()).save(any(PublicViewToken.class));
+    }
+
+    @Test
+    void resolveRechecksPublishedLessonAndLiveOwnershipChain() {
+        String raw = "abcdef0123456789abcdef0123456789";
+        PublicViewToken token = mock(PublicViewToken.class);
+        when(token.getId()).thenReturn(14L);
+        when(token.getAttachmentId()).thenReturn(9L);
+        when(token.getCreatedAt()).thenReturn(LocalDateTime.now().minusMinutes(1));
+        when(token.isExpired()).thenReturn(false);
+        when(tokens.findByToken(PublicViewTokenService.hashToken(raw)))
+                .thenReturn(Optional.of(token));
+        when(attachments.findPubliclyViewableByIdAtIssue(9L, 14L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.resolve(raw))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class)
+                .hasMessage("Attachment not publicly available");
+
+        verify(attachments).findPubliclyViewableByIdAtIssue(9L, 14L);
     }
 }

@@ -247,11 +247,21 @@ public class LessonTemplateService {
         form.setChapterTitle(stripChapterPrefix(template.getChapterTitle()));
         form.setLessonNumber(template.getDisplayOrder());
         form.setTitle(stripLessonPrefix(template.getTitle()));
-        form.setContentType(CONTENT_TYPE_RICHTEXT);
+        // The compact editor no longer exposes a content-type picker, so an
+        // existing PDF/VIDEO template must carry its persisted type back to
+        // the save endpoint. Forcing RICHTEXT here makes updateAuthoring()
+        // clear the primary media fields on an otherwise metadata-only edit.
+        form.setContentType(template.getContentType());
         form.setContentRichtext(template.getContentRichtext() == null ? "" : template.getContentRichtext());
         form.setPdfLibraryAssetId(template.getPdfLibraryAssetId());
         form.setVideoProvider(template.getVideoProvider());
-        form.setVideoUrl(template.getVideoUrl());
+        // UPLOAD stores a private object key in videoUrl. Keep that key out of
+        // the external YouTube/Vimeo field; provider + asset id are sufficient
+        // for applyFormBody() to restore the canonical stored path on save.
+        if (VIDEO_PROVIDER_YOUTUBE.equals(template.getVideoProvider())
+                || VIDEO_PROVIDER_VIMEO.equals(template.getVideoProvider())) {
+            form.setVideoUrl(template.getVideoUrl());
+        }
         form.setVideoLibraryAssetId(template.getVideoLibraryAssetId());
         LinkedHashSet<Long> retainedAssets = templateAttachmentRepository
                 .findByTemplateIdOrderByDisplayOrderAsc(templateId).stream()

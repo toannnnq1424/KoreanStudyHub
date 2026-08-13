@@ -1,5 +1,7 @@
 package com.ksh.features.profile.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.AuthenticatedAccessVersionService;
 import org.slf4j.Logger;
@@ -14,6 +16,7 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 
 import java.io.IOException;
 import java.security.Principal;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -26,8 +29,20 @@ public class AuthenticatedWebSocketSessionRegistry {
             LoggerFactory.getLogger(AuthenticatedWebSocketSessionRegistry.class);
     private static final CloseStatus ACCESS_REVOKED =
             CloseStatus.POLICY_VIOLATION.withReason("Authentication revoked");
+    private static final Duration DESTROYED_HTTP_SESSION_TTL = Duration.ofMinutes(10);
+    private static final long MAX_DESTROYED_HTTP_SESSIONS = 100_000L;
 
     private final Map<String, SessionBinding> sessions = new ConcurrentHashMap<>();
+    /**
+     * Bridges the narrow race where logout destroys the HTTP session before
+     * the corresponding WebSocket transport reaches {@link #register}.
+     * Session ids are unique credentials; a short, bounded tombstone is enough
+     * to reject that late registration without retaining logout history.
+     */
+    private final Cache<String, Boolean> destroyedHttpSessions = Caffeine.newBuilder()
+            .expireAfterWrite(DESTROYED_HTTP_SESSION_TTL)
+            .maximumSize(MAX_DESTROYED_HTTP_SESSIONS)
+            .build();
     private final AuthenticatedAccessVersionService accessVersions;
 
     public AuthenticatedWebSocketSessionRegistry(
@@ -48,11 +63,24 @@ public class AuthenticatedWebSocketSessionRegistry {
                 identity.userId(),
                 identity.username(),
                 httpSessionId instanceof String value ? value : null);
+        if (binding.httpSessionId() == null
+                || destroyedHttpSessions.getIfPresent(binding.httpSessionId()) != null) {
+            closeUnregistered(session);
+            return false;
+        }
         sessions.put(session.getId(), binding);
         try {
-            if (identity.userId() == null
+            if (destroyedHttpSessions.getIfPresent(binding.httpSessionId()) != null
+                    || identity.userId() == null
                     || !accessVersions.isCurrent(
                     identity.userId(), identity.securityVersion())) {
+                closeBinding(session.getId(), binding);
+                return false;
+            }
+            // Recheck after the durable-version lookup. A logout can arrive
+            // while that lookup is in flight and remove this binding.
+            if (destroyedHttpSessions.getIfPresent(binding.httpSessionId()) != null
+                    || sessions.get(session.getId()) != binding) {
                 closeBinding(session.getId(), binding);
                 return false;
             }
@@ -97,6 +125,7 @@ public class AuthenticatedWebSocketSessionRegistry {
     @EventListener
     public void onHttpSessionDestroyed(HttpSessionDestroyedEvent event) {
         if (event != null) {
+            destroyedHttpSessions.put(event.getId(), Boolean.TRUE);
             closeMatching(binding -> event.getId().equals(binding.httpSessionId()), null);
         }
     }
@@ -129,6 +158,17 @@ public class AuthenticatedWebSocketSessionRegistry {
             log.debug("Could not close revoked WebSocket session {}", sessionId, ex);
         }
         return 0;
+    }
+
+    private void closeUnregistered(WebSocketSession session) {
+        try {
+            if (session.isOpen()) {
+                session.close(ACCESS_REVOKED);
+            }
+        } catch (IOException ex) {
+            log.debug("Could not close unregistered revoked WebSocket session {}",
+                    session.getId(), ex);
+        }
     }
 
     private static Identity identityOf(Principal connectionPrincipal) {

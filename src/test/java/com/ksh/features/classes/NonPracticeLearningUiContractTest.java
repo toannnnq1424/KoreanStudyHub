@@ -59,7 +59,9 @@ class NonPracticeLearningUiContractTest {
                 "select.getAttribute('aria-label')",
                 "labelCopy.querySelectorAll('select, input, textarea, button, .ksh-select')",
                 "select.dispatchEvent(new Event('change'",
-                "select.setAttribute('aria-hidden', 'true')");
+                "select.setAttribute('aria-hidden', 'true')",
+                "authoringForm.addEventListener('click', markAuthoringInteraction",
+                "if (!authoringInteracted && document.documentElement.contains(authoringForm))");
         assertThat(script).doesNotContain("<dropdown", "<select-wrapper");
         assertThat(script).contains(
                 "input[data-link-filter]",
@@ -136,12 +138,14 @@ class NonPracticeLearningUiContractTest {
                 "th:field=\"*{chapterNumber}\"",
                 "th:field=\"*{lessonNumber}\"",
                 "th:field=\"*{title}\"",
-                "th:field=\"*{contentType}\" value=\"RICHTEXT\"",
+                "th:field=\"*{contentType}\"",
                 "data-library-richtext-value",
                 "data-library-richtext-editor",
                 "th:field=\"*{videoUrl}\"",
                 "data-library-file-dropzone",
                 "th:field=\"*{materialUploads}\" multiple");
+        assertThat(template).doesNotContain(
+                "th:field=\"*{contentType}\" value=\"RICHTEXT\"");
         assertThat(template).doesNotContain(
                 "library-subject-banner",
                 "library-fixed-subject",

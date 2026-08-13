@@ -60,6 +60,7 @@ class PublicViewTokenServiceTest {
     private LessonAttachment attachment;
     private ClassEntity clazz;
     private Section section;
+    private Lesson lesson;
 
     @BeforeEach
     void setUp() {
@@ -67,8 +68,9 @@ class PublicViewTokenServiceTest {
         clazz = saveClass("Token test class", "PVTCLS");
         section = sectionRepository.saveAndFlush(
                 new Section(clazz.getId(), "Chương 1", (short) 0, lecturer.getId()));
-        Lesson lesson = new Lesson(section.getId(), "Bài có tệp", (short) 0, lecturer.getId());
+        lesson = new Lesson(section.getId(), "Bài có tệp", (short) 0, lecturer.getId());
         lesson.updateContent("");
+        lesson.publish();
         lesson = lessonRepository.saveAndFlush(lesson);
         attachment = lessonAttachmentRepository.saveAndFlush(new LessonAttachment(
                 lesson.getId(), "slides.pptx", "stored/slides.pptx",
@@ -111,6 +113,46 @@ class PublicViewTokenServiceTest {
         assertThat(handle.sizeBytes()).isEqualTo(4096L);
         assertThat(handle.storageKey()).isNotNull();
         assertThat(handle.storageKey()).endsWith("slides.pptx");
+    }
+
+    @Test
+    void resolve_rejects_token_after_lesson_is_unpublished() {
+        String url = tokenService.createPublicViewUrl(attachment.getId());
+        String token = url.substring(url.lastIndexOf('/') + 1);
+        lesson.unpublish();
+        lessonRepository.saveAndFlush(lesson);
+        entityManager.clear();
+
+        assertThatThrownBy(() -> tokenService.resolve(token))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage("Attachment not publicly available");
+    }
+
+    @Test
+    void resolve_rejects_token_issued_before_lesson_is_republished() {
+        String url = tokenService.createPublicViewUrl(attachment.getId());
+        String token = url.substring(url.lastIndexOf('/') + 1);
+        lesson.unpublish();
+        lesson.publish();
+        lessonRepository.saveAndFlush(lesson);
+        entityManager.clear();
+
+        assertThatThrownBy(() -> tokenService.resolve(token))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage("Attachment not publicly available");
+    }
+
+    @Test
+    void resolve_rejects_token_after_class_is_softDeleted() {
+        String url = tokenService.createPublicViewUrl(attachment.getId());
+        String token = url.substring(url.lastIndexOf('/') + 1);
+        clazz.softDelete();
+        classRepository.saveAndFlush(clazz);
+        entityManager.clear();
+
+        assertThatThrownBy(() -> tokenService.resolve(token))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage("Attachment not publicly available");
     }
 
     @Test
@@ -196,7 +238,7 @@ class PublicViewTokenServiceTest {
                 new MockMultipartFile("file", "lib-slides.pdf", "application/pdf", pdfBytes()),
                 "DOCUMENT");
         LessonRow lesson = lessonsService.create(
-                clazz.getId(), section.getId(), "Bài library view", "DRAFT", "",
+                clazz.getId(), section.getId(), "Bài library view", "PUBLISHED", "",
                 lecturer.getId(), Role.LECTURER);
         LessonAttachmentRow bound = attachmentsService.bindAttachmentFromLibrary(
                 clazz.getId(), section.getId(), lesson.id(), asset.id(),

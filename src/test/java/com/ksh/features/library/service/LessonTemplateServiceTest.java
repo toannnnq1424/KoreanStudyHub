@@ -3,6 +3,7 @@ package com.ksh.features.library.service;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.Lesson;
 import com.ksh.entities.LessonTemplate;
+import com.ksh.entities.LibraryAsset;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
@@ -11,9 +12,13 @@ import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.features.library.dto.LibraryDtos.LessonTemplateRow;
 import com.ksh.features.library.dto.LessonTemplateForm;
 import com.ksh.features.library.repository.LessonTemplateRepository;
+import com.ksh.features.library.repository.LibraryAssetRepository;
 import com.ksh.security.Role;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +37,12 @@ class LessonTemplateServiceTest {
 
     @Autowired private LessonTemplateService templateService;
     @Autowired private LessonTemplateRepository templateRepository;
+    @Autowired private LibraryAssetRepository assetRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private ClassRepository classRepository;
     @Autowired private SectionRepository sectionRepository;
     @Autowired private LessonRepository lessonRepository;
+    @Autowired private EntityManager entityManager;
 
     private User lecturer;
 
@@ -149,6 +156,106 @@ class LessonTemplateServiceTest {
                 .containsExactly(beforeInsert - 2, beforeInsert - 1, beforeInsert, beforeInsert + 1);
         assertThat(third.getTitle()).startsWith("Bài " + beforeInsert + " ·");
         assertThat(shifted.getTitle()).startsWith("Bài " + (beforeInsert + 1) + " ·");
+    }
+
+    @Test
+    void edit_round_trip_preserves_uploaded_video_main_content_without_exposing_object_key() {
+        String suffix = UUID.randomUUID().toString();
+        String storedPath = "library/video/" + suffix + ".mp4";
+        LibraryAsset video = assetRepository.saveAndFlush(new LibraryAsset(
+                lecturer.getId(), "Video " + suffix, "lesson.mp4", storedPath,
+                "video/mp4", 128L, LibraryAsset.KIND_VIDEO));
+        LessonTemplate template = new LessonTemplate(
+                lecturer.getId(), lecturer.getSubjectId(), 97,
+                "Chương 97 · Video", 997, "Bài 997 · Video " + suffix,
+                Lesson.CONTENT_TYPE_VIDEO);
+        template.setVideoProvider("UPLOAD");
+        template.setVideoLibraryAssetId(video.getId());
+        template.setVideoUrl(storedPath);
+        LessonTemplate saved = templateRepository.saveAndFlush(template);
+
+        LessonTemplateForm form = templateService.loadForm(
+                lecturer.getId(), Role.LECTURER, saved.getId(), lecturer.getSubjectId());
+
+        assertThat(form.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_VIDEO);
+        assertThat(form.getVideoProvider()).isEqualTo("UPLOAD");
+        assertThat(form.getVideoLibraryAssetId()).isEqualTo(video.getId());
+        assertThat(form.getVideoUrl()).as("private object key is not an external URL").isNull();
+
+        templateService.saveForm(lecturer.getId(), Role.LECTURER, form);
+        entityManager.flush();
+        entityManager.clear();
+
+        LessonTemplate reloaded = templateRepository.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_VIDEO);
+        assertThat(reloaded.getVideoProvider()).isEqualTo("UPLOAD");
+        assertThat(reloaded.getVideoLibraryAssetId()).isEqualTo(video.getId());
+        assertThat(reloaded.getVideoUrl()).isEqualTo(storedPath);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "YOUTUBE, https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "VIMEO, https://vimeo.com/123456789"
+    })
+    void edit_round_trip_preserves_external_video_main_content(String provider, String url) {
+        String suffix = UUID.randomUUID().toString();
+        LessonTemplate template = new LessonTemplate(
+                lecturer.getId(), lecturer.getSubjectId(), 98,
+                "Chương 98 · Video ngoài", 998, "Bài 998 · Video " + suffix,
+                Lesson.CONTENT_TYPE_VIDEO);
+        template.setVideoProvider(provider);
+        template.setVideoUrl(url);
+        LessonTemplate saved = templateRepository.saveAndFlush(template);
+
+        LessonTemplateForm form = templateService.loadForm(
+                lecturer.getId(), Role.LECTURER, saved.getId(), lecturer.getSubjectId());
+
+        assertThat(form.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_VIDEO);
+        assertThat(form.getVideoProvider()).isEqualTo(provider);
+        assertThat(form.getVideoUrl()).isEqualTo(url);
+
+        templateService.saveForm(lecturer.getId(), Role.LECTURER, form);
+        entityManager.flush();
+        entityManager.clear();
+
+        LessonTemplate reloaded = templateRepository.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_VIDEO);
+        assertThat(reloaded.getVideoProvider()).isEqualTo(provider);
+        assertThat(reloaded.getVideoUrl()).isEqualTo(url);
+        assertThat(reloaded.getVideoLibraryAssetId()).isNull();
+    }
+
+    @Test
+    void edit_round_trip_preserves_primary_pdf() {
+        String suffix = UUID.randomUUID().toString();
+        LibraryAsset pdf = assetRepository.saveAndFlush(new LibraryAsset(
+                lecturer.getId(), "PDF " + suffix, "lesson.pdf",
+                "library/documents/" + suffix + ".pdf", "application/pdf",
+                128L, LibraryAsset.KIND_DOCUMENT));
+        LessonTemplate template = new LessonTemplate(
+                lecturer.getId(), lecturer.getSubjectId(), 99,
+                "Chương 99 · PDF", 999, "Bài 999 · PDF " + suffix,
+                Lesson.CONTENT_TYPE_PDF);
+        template.setPdfLibraryAssetId(pdf.getId());
+        LessonTemplate saved = templateRepository.saveAndFlush(template);
+
+        LessonTemplateForm form = templateService.loadForm(
+                lecturer.getId(), Role.LECTURER, saved.getId(), lecturer.getSubjectId());
+
+        assertThat(form.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_PDF);
+        assertThat(form.getPdfLibraryAssetId()).isEqualTo(pdf.getId());
+
+        templateService.saveForm(lecturer.getId(), Role.LECTURER, form);
+        entityManager.flush();
+        entityManager.clear();
+
+        LessonTemplate reloaded = templateRepository.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getContentType()).isEqualTo(Lesson.CONTENT_TYPE_PDF);
+        assertThat(reloaded.getPdfLibraryAssetId()).isEqualTo(pdf.getId());
+        assertThat(reloaded.getVideoProvider()).isNull();
+        assertThat(reloaded.getVideoUrl()).isNull();
+        assertThat(reloaded.getVideoLibraryAssetId()).isNull();
     }
 
     private LessonTemplateForm richtextForm(String chapter, String title) {

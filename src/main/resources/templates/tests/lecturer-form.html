@@ -43,6 +43,7 @@
       <a class="toolbar-secondary"
          th:href="@{'/lecturer/tests/' + ${test.id()} + '/preview'}">Xem trước</a>
       <button type="submit" form="lfForm" id="lfSave" class="toolbar-save"
+              th:attr="data-exam-immutable=${examForm != null and examForm.questionBankLocked}"
               th:disabled="${activeDetailTab != 'info' or (examForm != null and examForm.questionBankLocked)}">Lưu bài test</button>
     </div>
 
@@ -83,6 +84,7 @@
        form JS (test-lecturer-form.js) no-ops when #lfForm is absent. -->
 <form th:if="${mode == 'create' or activeDetailTab == 'info'}"
           id="lfForm"
+          class="lf-form"
           th:attr="data-save-url=@{/lecturer/tests/save},
                    data-list-url=${testReturnUrl},
                    data-image-url=@{/lecturer/tests/images},

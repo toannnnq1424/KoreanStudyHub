@@ -163,22 +163,30 @@ public class LecturerExamService {
         List<QuestionForm> qForms = new ArrayList<>();
         for (Question q : questions) {
             List<OptionForm> optForms = optionsByQuestion.getOrDefault(q.getId(), List.of())
-                    .stream().map(o -> new OptionForm(o.getId(), o.getContent(), o.isCorrect()))
+                    .stream().map(o -> new OptionForm(o.getId(),
+                            sanitizeLegacyHtml(o.getContent()), o.isCorrect()))
                     .toList();
-            qForms.add(new QuestionForm(q.getId(), q.getQuestionType(), q.getContent(),
-                    q.getExplanation(), q.getPoints(), optForms));
+            qForms.add(new QuestionForm(q.getId(), q.getQuestionType(),
+                    sanitizeLegacyHtml(q.getContent()),
+                    sanitizeLegacyHtml(q.getExplanation()), q.getPoints(), optForms));
         }
         Long subjectId = test.getSubjectId();
         if (subjectId == null && test.getClassId() != null) {
             subjectId = classRepository.findById(test.getClassId())
                     .map(ClassEntity::getSubjectId).orElse(null);
         }
-        return new ExamForm(test.getId(), test.getTitle(), test.getDescription(),
+        return new ExamForm(test.getId(), test.getTitle(),
+                sanitizeLegacyHtml(test.getDescription()),
                 subjectId, test.getClassId(), test.getType(), test.getStatus(), test.getTimeMode(),
                 test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getPassingScore(), test.isShuffleQuestions(), test.isShuffleOptions(),
                 test.getMediaType(), test.getMediaUrl(), qForms,
                 questionBankWriter.hasStudentActivity(testId));
+    }
+
+    /** Cleans legacy rows at the authoring read boundary without mutating storage. */
+    private static String sanitizeLegacyHtml(String value) {
+        return value == null ? null : HtmlSanitizer.sanitize(value);
     }
 
     /**

@@ -72,7 +72,12 @@
             });
             // Save is form-associated with #lfForm, which only exists on the
             // info tab; disable it elsewhere so it never posts an absent form.
-            if (saveBtn) saveBtn.disabled = tab !== 'info';
+            // The immutable bit is rendered outside #tabPanel and survives an
+            // AJAX swap, so returning to info must not re-enable a locked exam.
+            if (saveBtn) {
+                var immutable = saveBtn.dataset.examImmutable === 'true';
+                saveBtn.disabled = tab !== 'info' || immutable;
+            }
         }
 
         function showLoading() {
@@ -144,6 +149,9 @@
                     monitorTeardown = window.MnMonitor
                         ? window.MnMonitor.mount(panel)
                         : function () {};
+                    document.dispatchEvent(new CustomEvent('ksh:detail-tab-loaded', {
+                        detail: { panel: panel, tab: tab, url: url }
+                    }));
                     dirtyGuard.reset();
                     navigationController = null;
                     navigationActive = false;

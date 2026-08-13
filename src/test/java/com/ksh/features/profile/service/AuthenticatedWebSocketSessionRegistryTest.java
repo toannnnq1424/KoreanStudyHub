@@ -4,6 +4,7 @@ import com.ksh.security.KshUserDetails;
 import com.ksh.security.AuthenticatedAccessVersionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.web.session.HttpSessionDestroyedEvent;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
@@ -11,6 +12,11 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -80,6 +86,67 @@ class AuthenticatedWebSocketSessionRegistryTest {
 
         verify(stale).close(revokedCloseStatus());
         assertThat(registry.closeAll(42L)).isZero();
+    }
+
+    @Test
+    void destroyedHttpSessionRejectsTransportThatRegistersAfterLogoutSweep() throws Exception {
+        HttpSessionDestroyedEvent logout = mock(HttpSessionDestroyedEvent.class);
+        when(logout.getId()).thenReturn("http-late");
+        registry.onHttpSessionDestroyed(logout);
+
+        WebSocketSession late = socket("ws-late", 42L,
+                "member@example.test", "http-late");
+        when(accessVersions.isCurrent(42L, 7L)).thenReturn(true);
+
+        assertThat(registry.register(late)).isFalse();
+
+        verify(late).close(revokedCloseStatus());
+        verify(accessVersions, never()).isCurrent(42L, 7L);
+        assertThat(registry.closeAll(42L)).isZero();
+    }
+
+    @Test
+    void missingHttpSessionIdentityIsRejectedFailClosed() throws Exception {
+        WebSocketSession uncorrelated = socket("ws-uncorrelated", 42L,
+                "member@example.test", null);
+
+        assertThat(registry.register(uncorrelated)).isFalse();
+
+        verify(uncorrelated).close(revokedCloseStatus());
+        verify(accessVersions, never()).isCurrent(42L, 7L);
+        assertThat(registry.closeAll(42L)).isZero();
+    }
+
+    @Test
+    void logoutDuringRegistrationClosesTransportAndRegistrationFails() throws Exception {
+        WebSocketSession racing = socket("ws-racing", 42L,
+                "member@example.test", "http-racing");
+        CountDownLatch versionCheckStarted = new CountDownLatch(1);
+        CountDownLatch releaseVersionCheck = new CountDownLatch(1);
+        when(accessVersions.isCurrent(42L, 7L)).thenAnswer(ignored -> {
+            versionCheckStarted.countDown();
+            assertThat(releaseVersionCheck.await(5, TimeUnit.SECONDS)).isTrue();
+            return true;
+        });
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+
+        try {
+            Future<Boolean> registration = worker.submit(() -> registry.register(racing));
+            assertThat(versionCheckStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+            HttpSessionDestroyedEvent logout = mock(HttpSessionDestroyedEvent.class);
+            when(logout.getId()).thenReturn("http-racing");
+            registry.onHttpSessionDestroyed(logout);
+            releaseVersionCheck.countDown();
+
+            assertThat(registration.get(5, TimeUnit.SECONDS)).isFalse();
+            verify(racing).close(revokedCloseStatus());
+            assertThat(registry.closeAll(42L)).isZero();
+        } finally {
+            releaseVersionCheck.countDown();
+            worker.shutdownNow();
+            worker.awaitTermination(5, TimeUnit.SECONDS);
+        }
     }
 
     private static WebSocketSession socket(String socketId, Long userId,

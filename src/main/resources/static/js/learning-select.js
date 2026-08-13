@@ -277,6 +277,11 @@
     const markAuthoringInteraction = function () { authoringInteracted = true; };
     authoringForm.addEventListener('input', markAuthoringInteraction, { once: true });
     authoringForm.addEventListener('change', markAuthoringInteraction, { once: true });
+    // Question/option add-remove controls mutate the form structure from a
+    // click without necessarily emitting input/change. Treat any form click as
+    // user interaction so a late window.load enhancement cannot erase it from
+    // the dirty baseline.
+    authoringForm.addEventListener('click', markAuthoringInteraction, { once: true });
     window.addEventListener('load', function () {
       window.setTimeout(function () {
         if (!authoringInteracted && document.documentElement.contains(authoringForm)) {

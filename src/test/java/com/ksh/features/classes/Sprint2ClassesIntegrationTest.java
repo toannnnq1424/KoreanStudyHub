@@ -5,9 +5,13 @@ import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.entities.ClassActivity;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.ClassCoLecturer;
+import com.ksh.entities.Enrollment;
+import com.ksh.entities.UserFactory;
 import com.ksh.features.classes.repository.ClassActivityRepository;
 import com.ksh.features.classes.repository.ClassCoLecturerRepository;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.security.Role;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +53,7 @@ class Sprint2ClassesIntegrationTest {
     @Autowired private ClassRepository classRepository;
     @Autowired private ClassActivityRepository activityRepository;
     @Autowired private ClassCoLecturerRepository coLecturerRepository;
+    @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private UserRepository userRepository;
     @PersistenceContext private EntityManager em;
 
@@ -237,6 +242,33 @@ class Sprint2ClassesIntegrationTest {
         ClassActivity latest = all.get(all.size() - 1);
         assertThat(latest.getType()).isEqualTo(ClassActivity.TYPE_UPDATED);
         assertThat(latest.getMetadata()).contains("Old").contains("New");
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void edit_rejects_max_students_below_current_active_enrollment_count() throws Exception {
+        ClassEntity entity = saveClass("Capacity guarded", lecturer.getId(), "CAPGD");
+        User firstStudent = userRepository.findByEmailIgnoreCase("student@ksh.edu.vn").orElseThrow();
+        User secondStudent = userRepository.findByEmailIgnoreCase("capacity-guard@ksh.edu.vn")
+                .orElseGet(() -> userRepository.saveAndFlush(UserFactory.newAdminCreated(
+                        "capacity-guard@ksh.edu.vn",
+                        "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+                        "Capacity Guard Student", Role.STUDENT, true, null, null)));
+        enrollmentRepository.saveAllAndFlush(List.of(
+                Enrollment.createFor(firstStudent, entity.getId(), Enrollment.JoinedVia.MANUAL, null),
+                Enrollment.createFor(secondStudent, entity.getId(), Enrollment.JoinedVia.MANUAL, null)));
+
+        mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
+                        .param("name", "Must stay unchanged")
+                        .param("subjectId", String.valueOf(entity.getSubjectId()))
+                        .param("maxStudents", "1"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(
+                        "Sĩ số tối đa không thể nhỏ hơn số học viên đang hoạt động (2)")));
+
+        ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
+        assertThat(reloaded.getName()).isEqualTo("Capacity guarded");
+        assertThat(reloaded.getMaxStudents()).isEqualTo(100);
     }
 
     @Test
