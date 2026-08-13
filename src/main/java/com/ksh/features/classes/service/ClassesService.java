@@ -197,7 +197,15 @@ public class ClassesService {
     /** Updates an existing class. Authorization is enforced; writes an UPDATED activity row with a before/after diff. */
     @Transactional
     public ClassEntity update(Long id, ClassForm form, Long userId, Role role) {
-        ClassEntity entity = loadOwnerManaged(id, userId, role);
+        ClassEntity entity = loadOwnerManagedForUpdate(id, userId, role);
+
+        Integer requestedCapacity = form.maxStudents();
+        if (requestedCapacity != null) {
+            long activeStudents = enrollmentRepository.countActiveByClassIdForUpdate(id);
+            if (requestedCapacity < activeStudents) {
+                throw new ClassCapacityException(activeStudents);
+            }
+        }
 
         Map<String, Object> oldState = ClassRowMapper.snapshot(entity);
         entity.updateDetails(form.name(), form.description(),
@@ -279,6 +287,20 @@ public class ClassesService {
     /** Loads the class and preserves its immutable owner boundary. */
     private ClassEntity loadOwnerManaged(Long id, Long userId, Role role) {
         ClassEntity entity = classRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
+        if (!accessPolicy.canManageClass(entity, userId, role)) {
+            throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được quản trị lớp này");
+        }
+        return entity;
+    }
+
+    /**
+     * Locks the class row before a capacity edit. Admission paths use the same
+     * row as their transaction mutex, so no approval/import can slip between
+     * the ACTIVE-enrollment count and the new capacity write.
+     */
+    private ClassEntity loadOwnerManagedForUpdate(Long id, Long userId, Role role) {
+        ClassEntity entity = classRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new EntityNotFoundException("Lớp không tồn tại"));
         if (!accessPolicy.canManageClass(entity, userId, role)) {
             throw new AccessDeniedException("Chỉ giảng viên chủ lớp mới được quản trị lớp này");

@@ -16,6 +16,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -251,7 +253,7 @@ class ClassesServiceTest {
     @Test
     void update_by_owning_lecturer_succeeds_and_writes_updated_activity() {
         ClassEntity entity = buildClass(9L, "Old name", LECTURER_ID);
-        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+        when(classRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClassForm form = new ClassForm("New name", "desc", null, null, 50, 12L);
@@ -273,12 +275,53 @@ class ClassesServiceTest {
         Map<String, Object> newState = (Map<String, Object>) diff.get("new");
         assertThat(oldState).containsEntry("name", "Old name");
         assertThat(newState).containsEntry("name", "New name");
+
+        InOrder capacityGuard = inOrder(classRepository, enrollmentRepository);
+        capacityGuard.verify(classRepository).findByIdForUpdate(9L);
+        capacityGuard.verify(enrollmentRepository).countActiveByClassIdForUpdate(9L);
+    }
+
+    @Test
+    void update_rejects_capacity_below_active_students_without_mutating_class() {
+        ClassEntity entity = buildClass(9L, "Unchanged", LECTURER_ID);
+        when(classRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(entity));
+        when(enrollmentRepository.countActiveByClassIdForUpdate(9L)).thenReturn(31L);
+
+        ClassForm form = new ClassForm("Should not persist", "desc", null, null, 30, 12L);
+
+        assertThatThrownBy(() -> service.update(9L, form, LECTURER_ID, Role.LECTURER))
+                .isInstanceOf(ClassCapacityException.class)
+                .hasMessageContaining("31");
+
+        assertThat(entity.getName()).isEqualTo("Unchanged");
+        assertThat(entity.getMaxStudents()).isEqualTo(100);
+        verify(classRepository, never()).save(any(ClassEntity.class));
+        verify(activityWriter, never()).write(any(), any(), any(), any(), any());
+
+        InOrder capacityGuard = inOrder(classRepository, enrollmentRepository);
+        capacityGuard.verify(classRepository).findByIdForUpdate(9L);
+        capacityGuard.verify(enrollmentRepository).countActiveByClassIdForUpdate(9L);
+    }
+
+    @Test
+    void update_allows_capacity_equal_to_active_students() {
+        ClassEntity entity = buildClass(9L, "Exact capacity", LECTURER_ID);
+        when(classRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(entity));
+        when(enrollmentRepository.countActiveByClassIdForUpdate(9L)).thenReturn(31L);
+        when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(9L,
+                new ClassForm("Exact capacity", "desc", null, null, 31, 12L),
+                LECTURER_ID, Role.LECTURER);
+
+        assertThat(entity.getMaxStudents()).isEqualTo(31);
+        verify(classRepository).save(entity);
     }
 
     @Test
     void update_by_non_owning_lecturer_throws_403() {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID); // owned by lecturer id=42
-        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+        when(classRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(entity));
 
         ClassForm form = new ClassForm("Y", "", null, null, 50, 12L);
 
@@ -293,7 +336,7 @@ class ClassesServiceTest {
     @Test
     void update_by_leader_is_rejected_without_ownership_transfer() {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID);
-        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+        when(classRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(entity));
 
         ClassForm form = new ClassForm("Y", "", null, null, 50, 12L);
 
@@ -306,7 +349,7 @@ class ClassesServiceTest {
     @Test
     void update_by_admin_succeeds_for_any_class() {
         ClassEntity entity = buildClass(9L, "X", LECTURER_ID);
-        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+        when(classRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(entity));
         when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClassForm form = new ClassForm("Y", "", null, null, 50, 12L);
@@ -317,7 +360,7 @@ class ClassesServiceTest {
 
     @Test
     void update_throws_entity_not_found_when_missing() {
-        when(classRepository.findById(999L)).thenReturn(Optional.empty());
+        when(classRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
         ClassForm form = new ClassForm("X", "", null, null, 50, 12L);
         assertThatThrownBy(() -> service.update(999L, form, LECTURER_ID, Role.LECTURER))

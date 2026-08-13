@@ -5,6 +5,7 @@ import com.ksh.features.classes.controller.support.ClassDetailModelSupport;
 import com.ksh.features.classes.dto.ClassesDtos.ClassForm;
 import com.ksh.features.classes.dto.ClassesDtos.ClassRow;
 import com.ksh.features.classes.service.ClassesService;
+import com.ksh.features.classes.service.ClassCapacityException;
 import com.ksh.features.classes.service.ClassJoinRequestQuickViewService;
 import com.ksh.features.classes.service.JoinClassService;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
@@ -203,7 +204,17 @@ public class ClassesController {
             addSubjectOptions(model);
             return VIEW_CLASS_FORM;
         }
-        classesService.update(id, form, user.getId(), user.getRole());
+        try {
+            classesService.update(id, form, user.getId(), user.getRole());
+        } catch (ClassCapacityException exception) {
+            result.rejectValue("maxStudents", "class.capacity.below-active",
+                    exception.getMessage());
+            model.addAttribute(ATTR_MODE, MODE_EDIT);
+            model.addAttribute(ATTR_FORM_ACTION, classUrl(id));
+            model.addAttribute(ATTR_CLASS_ID, id);
+            addSubjectOptions(model);
+            return VIEW_CLASS_FORM;
+        }
         ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_CLASS_UPDATED);
         return "redirect:" + URL_CLASSES_LIST;
     }
