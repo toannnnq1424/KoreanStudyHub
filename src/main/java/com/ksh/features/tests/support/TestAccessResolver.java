@@ -11,7 +11,9 @@ import com.ksh.features.tests.entity.TestAttempt;
 import com.ksh.features.tests.repository.TestAttemptRepository;
 import com.ksh.features.tests.repository.TestRepository;
 import com.ksh.security.Role;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.LockModeType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
@@ -47,19 +49,22 @@ public class TestAccessResolver {
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
     private final ClassRoleAccessPolicy classAccessPolicy;
+    private final EntityManager entityManager;
 
     public TestAccessResolver(TestRepository testRepository,
                               TestAttemptRepository attemptRepository,
                               EnrollmentRepository enrollmentRepository,
                               ClassRepository classRepository,
                               UserRepository userRepository,
-                              ClassRoleAccessPolicy classAccessPolicy) {
+                              ClassRoleAccessPolicy classAccessPolicy,
+                              EntityManager entityManager) {
         this.testRepository = testRepository;
         this.attemptRepository = attemptRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.classRepository = classRepository;
         this.userRepository = userRepository;
         this.classAccessPolicy = classAccessPolicy;
+        this.entityManager = entityManager;
     }
 
     /**
@@ -238,8 +243,17 @@ public class TestAccessResolver {
      * {@code IN_PROGRESS}, and prevents a heartbeat from racing finalization.
      */
     public TestAttempt requireOwnAttemptForUpdate(Long attemptId, Long userId) {
-        return attemptRepository.findByIdAndUserIdForUpdate(attemptId, userId)
+        TestAttempt attempt = attemptRepository.findByIdAndUserIdForUpdate(attemptId, userId)
                 .orElseThrow(() -> new EntityNotFoundException(ATTEMPT_NF_MSG));
+        /*
+         * A catalog/detail transaction may have loaded this entity before the
+         * locking query. JPA is then allowed to return that same managed object
+         * after waiting for a concurrent submit, without replacing its stale
+         * field values. Refresh with the lock still held so every lifecycle
+         * caller re-checks the latest committed status before mutating it.
+         */
+        entityManager.refresh(attempt, LockModeType.PESSIMISTIC_WRITE);
+        return attempt;
     }
 
     /** Loads an attempt for a lecturer who owns the given exam (submissions review). */

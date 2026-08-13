@@ -102,6 +102,29 @@ class TestCatalogServiceTest {
     }
 
     @org.junit.jupiter.api.Test
+    void concurrent_on_time_submit_wins_over_detail_expiry_candidate() {
+        TestAttempt staleOpen = new TestAttempt(TEST_ID, USER_ID);
+        ReflectionTestUtils.setField(staleOpen, "id", 101L);
+        TestAttempt submitted = new TestAttempt(TEST_ID, USER_ID);
+        ReflectionTestUtils.setField(submitted, "id", 101L);
+        submitted.finalizeGrade(BigDecimal.valueOf(8), BigDecimal.TEN,
+                8, 10, 120, TestAttempt.STATUS_SUBMITTED);
+
+        when(accessResolver.requireViewable(TEST_ID, USER_ID)).thenReturn(classExam);
+        when(attemptRepository.findByTestIdAndUserIdOrderByStartedAtDesc(TEST_ID, USER_ID))
+                .thenReturn(List.of(staleOpen));
+        when(attemptLifecycle.lockAndFinalizeExpiredAttempt(classExam, 101L, USER_ID))
+                .thenReturn(submitted);
+
+        StudentTestDetail detail = service.detailForStudent(TEST_ID, USER_ID);
+
+        assertThat(detail.availability()).isEqualTo("COMPLETED");
+        assertThat(detail.attemptStatus()).isEqualTo(TestAttempt.STATUS_SUBMITTED);
+        assertThat(detail.scorePercent()).isEqualTo(80);
+        assertThat(staleOpen.getStatus()).isEqualTo(TestAttempt.STATUS_IN_PROGRESS);
+    }
+
+    @org.junit.jupiter.api.Test
     void student_detail_sanitizes_legacy_description_before_utext_rendering() {
         classExam.setDescription("<p onclick=\"alert(1)\">Nội dung</p><script>alert(2)</script>");
         when(accessResolver.requireViewable(TEST_ID, USER_ID)).thenReturn(classExam);
