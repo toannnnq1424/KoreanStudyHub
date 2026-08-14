@@ -49,4 +49,14 @@ public final class UserFactory {
                 bio
         );
     }
+
+    /** Creates an account that cannot authenticate until its owner activates it. */
+    public static User newPendingActivation(String normalizedEmail,
+                                            String passwordHash,
+                                            String fullName,
+                                            Role role,
+                                            String phone) {
+        return new User(normalizedEmail, passwordHash, fullName, role,
+                false, false, false, false, phone, null);
+    }
 }

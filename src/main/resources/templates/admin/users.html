@@ -7,6 +7,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/import-excel.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -81,9 +82,25 @@
             </svg>
             Tạo tài khoản
           </a>
+          <button type="button" class="btn-ghost" onclick="document.getElementById('user-import').showModal()">Import Excel</button>
         </div>
       </form>
     </section>
+
+    <dialog id="user-import-legacy" hidden>
+      <form id="import-form"><input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"><h2>Import tài khoản từ Excel</h2><p><a href="/admin/users/import/template">Tải file mẫu</a></p><input type="file" name="file" accept=".xlsx,.xls" required><button>Tải lên và xem trước</button><button type="button" onclick="document.getElementById('user-import').close()">Đóng</button></form>
+      <div id="import-preview" hidden><h3>Xem trước</h3><pre id="import-rows"></pre><button id="import-confirm">Xác nhận tạo tài khoản</button></div>
+    </dialog>
+
+    <dialog id="user-import" aria-labelledby="accountImportTitle">
+      <div class="iex-header"><h2 id="accountImportTitle">Import tài khoản từ Excel</h2><button type="button" class="iex-close" aria-label="Đóng" data-account-import-close>×</button></div>
+      <div class="iex-body">
+        <section data-account-step="step1"><p style="color:#475569;margin-top:0">Hỗ trợ <strong>.xlsx</strong> và <strong>.xls</strong>, tối đa <strong>2 MB</strong> và <strong>500</strong> dòng. Email là cột bắt buộc.</p><div id="accountImportDropArea" class="iex-drop" tabindex="0" role="button"><p><strong>Kéo &amp; thả</strong> file vào đây, hoặc bấm để chọn.</p><p id="accountImportFileLabel" class="iex-filename">Chưa chọn file</p><input id="accountImportFile" type="file" accept=".xlsx,.xls" style="display:none"></div><input id="accountImportCsrf" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"></section>
+        <section data-account-step="step2" style="display:none"><div class="iex-stats"><div class="iex-stat"><span class="iex-stat-label">Tổng số dòng</span><span id="accountImportTotal" class="iex-stat-value">0</span></div><div class="iex-stat iex-stat-ok"><span class="iex-stat-label">Sẽ tạo</span><span id="accountImportCreate" class="iex-stat-value">0</span></div><div class="iex-stat iex-stat-warn"><span class="iex-stat-label">Đã tồn tại</span><span id="accountImportExisting" class="iex-stat-value">0</span></div><div class="iex-stat iex-stat-error"><span class="iex-stat-label">Lỗi</span><span id="accountImportErrors" class="iex-stat-value">0</span></div></div><div class="iex-table-wrap"><table class="iex-table"><thead><tr><th>STT</th><th>Trạng thái</th><th>Email</th><th>Họ tên</th><th>Vai trò</th><th>Ghi chú</th></tr></thead><tbody id="accountImportRows"></tbody></table></div></section>
+        <section data-account-step="step3" style="display:none"><div class="iex-success-banner">Import hoàn tất.</div><div class="iex-summary"><div class="iex-stat iex-stat-ok"><span class="iex-stat-label">Đã tạo</span><span id="accountImportCreated" class="iex-stat-value">0</span></div><div class="iex-stat"><span class="iex-stat-label">Bỏ qua</span><span id="accountImportSkipped" class="iex-stat-value">0</span></div></div></section>
+      </div>
+      <div class="iex-footer"><div data-account-step="step1"><button id="accountImportCancel" type="button" class="iex-btn">Hủy</button><a href="/admin/users/import/template" class="iex-btn">Tải file mẫu</a><button id="accountImportUpload" type="button" class="add-student-btn" disabled>Tải lên &amp; xem trước</button></div><div data-account-step="step2" style="display:none"><button id="accountImportBack" type="button" class="iex-btn">Chọn file khác</button><button id="accountImportConfirm" type="button" class="add-student-btn">Xác nhận import</button></div><div data-account-step="step3" style="display:none"><button id="accountImportDone" type="button" class="add-student-btn">Hoàn tất</button></div></div>
+    </dialog>
 
     <!-- User table -->
     <section class="admin-list-panel">
@@ -313,6 +330,7 @@
 
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/admin-users.js}"></script>
+<script th:src="@{/js/admin-users-import.js}"></script>
 <script th:src="@{/js/learning-select.js}"></script>
 </body>
 </html>

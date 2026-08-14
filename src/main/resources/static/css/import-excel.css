@@ -28,6 +28,45 @@
 
 #importExcelModal::backdrop { background: rgba(15, 23, 42, .45); }
 
+/* Account roster import on the Admin Users page. Kept separate from the
+   class-members import markup while using the same visual language. */
+#user-import { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); margin:0; width:min(760px,92vw); border:0; border-radius:12px; padding:0; overflow:hidden; background:#fff; color:#1f2937; box-shadow:0 24px 60px rgba(15,23,42,.25); }
+#user-import::backdrop { background:rgba(15,23,42,.45); }
+#user-import #import-form { padding:24px; display:grid; gap:14px; }
+#user-import h2 { margin:0; font-size:20px; }
+#user-import p { margin:0; color:#475569; }
+#user-import input[type=file] { border:2px dashed #cbd5e1; border-radius:10px; padding:24px 16px; background:#f8fafc; width:100%; cursor:pointer; }
+#user-import button, #user-import a { font:inherit; }
+#user-import #import-form button, #user-import #import-confirm { border:0; border-radius:8px; padding:10px 14px; background:#2563eb; color:#fff; cursor:pointer; justify-self:start; }
+#user-import #import-form button[type=button] { background:#f1f5f9; color:#334155; }
+#user-import #import-preview { padding:0 24px 24px; }
+#user-import #import-preview h3 { margin:0 0 12px; font-size:16px; }
+#user-import #import-rows { margin:0; max-height:320px; overflow:auto; padding:14px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; white-space:pre-wrap; }
+#user-import #import-confirm { margin-top:14px; }
+
+/* Account-import modal: mirrors the student-import dialog while preserving its
+   own endpoints and payload. */
+#user-import { max-height:90vh; }
+#user-import #import-form > p { padding:12px 14px; border:1px solid #dbeafe; border-radius:8px; background:#f0f7ff; }
+#user-import #import-form > p a { color:#1d4ed8; font-weight:600; }
+#user-import #import-form input[type=file]::file-selector-button { border:0; border-radius:6px; background:#e0ecff; color:#1d4ed8; padding:8px 12px; margin-right:12px; font-weight:600; cursor:pointer; }
+#user-import #import-preview { max-height:430px; overflow:auto; }
+#user-import #import-rows { display:block; }
+#user-import .import-row { display:grid; grid-template-columns:58px minmax(190px,1.4fr) minmax(130px,1fr) minmax(100px,.7fr); gap:12px; align-items:center; padding:10px 12px; border-bottom:1px solid #edf2f7; background:#fff; font-family:inherit; white-space:normal; }
+#user-import .import-row:first-child { border-radius:9px 9px 0 0; background:#f8fafc; color:#475569; font-size:12px; font-weight:700; text-transform:uppercase; }
+#user-import .import-row:last-child { border-bottom:0; border-radius:0 0 9px 9px; }
+#user-import .import-row.is-create { background:#f0fdf4; }
+#user-import .import-row.is-exists { background:#fffbeb; }
+#user-import .import-row.is-error { background:#fef2f2; }
+#user-import .import-status { display:inline-flex; width:max-content; align-items:center; border-radius:999px; padding:3px 8px; font-size:12px; font-weight:700; }
+#user-import .import-status.create { color:#166534; background:#dcfce7; }
+#user-import .import-status.exists { color:#92400e; background:#fef3c7; }
+#user-import .import-status.error { color:#991b1b; background:#fee2e2; }
+#user-import .import-summary { display:flex; gap:12px; margin:0 24px 20px; }
+#user-import .import-summary > div { flex:1; border:1px solid #e2e8f0; border-radius:9px; padding:10px 12px; background:#f8fafc; }
+#user-import .import-summary span { display:block; font-size:12px; color:#64748b; }
+#user-import .import-summary strong { display:block; margin-top:2px; font-size:22px; color:#0f172a; }
+
 #importExcelModal .iex-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 24px; border-bottom: 1px solid #e5e7eb;

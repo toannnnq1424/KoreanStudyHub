@@ -1,62 +1,24 @@
 package com.ksh.security;
 
 import com.ksh.entities.User;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
 /**
- * OidcUser decorator that maps the KSH user's role into Spring Security authorities.
- * Delegates attribute/id-token/user-info calls to the underlying Google OidcUser.
+ * OIDC principal which also is a {@link KshUserDetails}, so controllers that
+ * accept the local form-login principal work for Google-authenticated users too.
+ * Delegates OIDC attribute/id-token/user-info calls to the underlying Google user.
  */
-public class CustomOidcUserPrincipal implements OidcUser {
+public class CustomOidcUserPrincipal extends KshUserDetails implements OidcUser {
 
     private final OidcUser delegate;
-    private final Long id;
-    private final String fullName;
-    private final String username;
-    private final String avatarUrl;
-    private final Collection<GrantedAuthority> authorities;
 
     public CustomOidcUserPrincipal(OidcUser delegate, User user) {
+        super(user);
         this.delegate = delegate;
-        this.id = user.getId();
-        this.fullName = user.getFullName();
-        this.username = user.getEmail();
-        this.avatarUrl = user.getAvatarUrl();
-        this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().authority()));
-    }
-
-    /** Returns the local KSH user id resolved during OIDC authentication. */
-    public Long getId() {
-        return id;
-    }
-
-    /** Exposed to Thymeleaf via {@code sec:authentication="principal.fullName"}. */
-    public String getFullName() {
-        return fullName;
-    }
-
-    /**
-     * Returns the user's email address, which serves as the username in KSH.
-     * <p>Exposes a uniform {@code principal.username} accessor so Thymeleaf
-     * templates work identically for both form-login and OAuth2/OIDC sessions.</p>
-     *
-     * @return the user's email address
-     */
-    public String getUsername() {
-        return username;
-    }
-
-    /** Exposes the persisted KSH avatar rather than the provider profile image. */
-    public String getAvatarUrl() {
-        return avatarUrl;
     }
 
     // â”€â”€ OidcUser delegation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -65,7 +27,6 @@ public class CustomOidcUserPrincipal implements OidcUser {
     @Override public OidcUserInfo getUserInfo() { return delegate.getUserInfo(); }
     @Override public OidcIdToken getIdToken() { return delegate.getIdToken(); }
     @Override public Map<String, Object> getAttributes() { return delegate.getAttributes(); }
-    @Override public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }
 
     /**
      * Returns the user's email address rather than the Google subject id.
@@ -79,5 +40,5 @@ public class CustomOidcUserPrincipal implements OidcUser {
      *
      * @return the user's email address
      */
-    @Override public String getName() { return username; }
+    @Override public String getName() { return getUsername(); }
 }

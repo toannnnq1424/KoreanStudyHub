@@ -31,6 +31,7 @@ class AuthenticatedUserIdResolverTest {
         Authentication authentication = new TestingAuthenticationToken(principal, "credentials");
         authentication.setAuthenticated(true);
 
+        assertThat(principal).isInstanceOf(KshUserDetails.class);
         assertThat(resolver.resolve(authentication)).isEqualTo(42L);
     }
 

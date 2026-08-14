@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
@@ -82,11 +83,16 @@ public class CustomOidcUserService extends OidcUserService {
         }
         // is_deleted already filtered by @SQLRestriction
 
-        // Link google_id if not yet set
+        // A first Google sign-in activates a pending imported account. A user
+        // who was linked before and then deactivated remains blocked.
         String googleSub = oidcUser.getSubject();
-        if (user.getGoogleId() == null || user.getGoogleId().isBlank()) {
+        boolean firstGoogleLink = user.getGoogleId() == null || user.getGoogleId().isBlank();
+        if (firstGoogleLink) {
             user.setGoogleId(googleSub);
+            user.markActivated(LocalDateTime.now());
             userRepository.save(user);
+        } else if (!user.isActive()) {
+            throw new OAuth2AuthenticationException("oauth_unregistered");
         }
 
         // Upsert oauth provider row (no duplicate)

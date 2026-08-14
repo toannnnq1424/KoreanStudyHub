@@ -58,6 +58,10 @@ public class User {
     @Column(name = "is_active")
     private boolean active = true;
 
+    /** Set only when the account owner completes activation. */
+    @Column(name = "activated_at")
+    private LocalDateTime activatedAt;
+
     @Column(name = "is_locked")
     private boolean locked = false;
 
@@ -140,6 +144,14 @@ public class User {
      */
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    /** Activates an imported account without moving an existing activation time. */
+    public void markActivated(LocalDateTime when) {
+        this.active = true;
+        if (this.activatedAt == null) {
+            this.activatedAt = when;
+        }
     }
 
     /**

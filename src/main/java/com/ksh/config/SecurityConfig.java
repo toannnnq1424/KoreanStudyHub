@@ -226,7 +226,7 @@ public class SecurityConfig {
                                 "/uploads/flashcards/**"
                         ).permitAll()
                         .requestMatchers("/uploads/**").denyAll()
-                        .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
+                        .requestMatchers("/login", "/forgot-password", "/reset-password", "/activate").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/s/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)

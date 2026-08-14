@@ -42,6 +42,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     Optional<User> findByEmailIgnoreCase(String email);
 
+    /** Includes soft-deleted rows so roster import never reuses an email. */
+    @Query(value = "SELECT * FROM users WHERE LOWER(email) = LOWER(:email) LIMIT 1", nativeQuery = true)
+    Optional<User> findAnyByEmailIgnoreCase(@Param("email") String email);
+
     /**
      * Returns the first non-deleted user whose email equals the argument
      * case-insensitively. Used by Create-form uniqueness checks.
