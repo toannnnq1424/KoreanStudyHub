@@ -1,15 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   KSH — Import Students from Excel (KSH-3.4)
-   Vanilla JS for the 3-step modal on /lecturer/classes/{id}/members.
-   Exports a single global: window.openImportExcelModal(opts).
-   Markup lives in templates/classes/detail-members.html.
+   KSH — Import User Accounts from Excel (Admin › Users)
+   Vanilla JS for the 3-step modal on /admin/users.
+   Markup lives in templates/admin/users.html (dialog#user-import).
+   Mirrors the visual language of import-excel.js (lecturer roster import)
+   but targets its own ids and its own API contract:
+     POST /admin/users/import/upload  -> { sessionId, rows, creatableCount, errors }
+     POST /admin/users/import/confirm -> { created, skipped }
+   Row shape: { row, email, name, role, status: CREATE|EXISTS|ERROR, message }
    ══════════════════════════════════════════════════════════════════════════ */
 (function () {
     'use strict';
 
+    var UPLOAD_URL = '/admin/users/import/upload';
+    var CONFIRM_URL = '/admin/users/import/confirm';
+
     var state = {
-        classId: null, uploadUrl: null, templateUrl: null,
-        sessionId: null, rows: [], filter: 'ALL',
+        sessionId: null, rows: [],
         uploadGeneration: 0, uploadController: null
     };
 
@@ -26,8 +32,8 @@
     }
 
     function showStep(stepName) {
-        document.querySelectorAll('#importExcelModal [data-step]').forEach(function (s) {
-            s.style.display = s.getAttribute('data-step') === stepName ? '' : 'none';
+        document.querySelectorAll('#user-import [data-account-step]').forEach(function (s) {
+            s.style.display = s.getAttribute('data-account-step') === stepName ? '' : 'none';
         });
     }
 
@@ -40,55 +46,46 @@
     }
 
     function openModal() {
-        var modal = el('importExcelModal');
+        var modal = el('user-import');
         if (!modal) return;
         invalidateUpload();
+        resetForm();
+        showStep('step1');
         if (typeof modal.showModal === 'function') modal.showModal();
         else modal.setAttribute('open', '');
-        showStep('step1');
-        resetForm();
     }
 
     function closeModal() {
         invalidateUpload();
-        var modal = el('importExcelModal');
+        var modal = el('user-import');
         if (!modal) return;
         if (typeof modal.close === 'function' && modal.open) modal.close();
         else modal.removeAttribute('open');
     }
 
     function resetForm() {
-        state.sessionId = null; state.rows = []; state.filter = 'ALL';
-        var input = el('importExcelFile'); if (input) input.value = '';
-        var fileLabel = el('importExcelFileLabel');
+        state.sessionId = null; state.rows = [];
+        var input = el('accountImportFile'); if (input) input.value = '';
+        var fileLabel = el('accountImportFileLabel');
         if (fileLabel) fileLabel.textContent = 'Chưa chọn file';
-        var skip = el('importExcelSkipErrors'); if (skip) skip.checked = false;
-        var btn = el('importExcelUploadBtn'); if (btn) btn.disabled = true;
+        var btn = el('accountImportUpload'); if (btn) btn.disabled = true;
     }
 
     // ── Click handlers per button id ────────────────────────────────────
     function onUploadClick() {
-        var input = el('importExcelFile');
+        var input = el('accountImportFile');
         var f = input && input.files && input.files[0];
         if (f) doUpload(f);
-    }
-    function onTemplateClick() {
-        if (state.templateUrl) window.location.href = state.templateUrl;
     }
     function onBackClick() { resetForm(); showStep('step1'); }
     function onDoneClick() { closeModal(); window.location.reload(); }
 
-    /**
-     * Map of element id → click handler. Building wiring from a single table
-     * avoids the per-step boilerplate of the previous bindStep1/2/3 functions.
-     */
     var CLICK_HANDLERS = {
-        'importExcelUploadBtn':   onUploadClick,
-        'importExcelCancelBtn':   closeModal,
-        'importExcelTemplateBtn': onTemplateClick,
-        'importExcelBackBtn':     onBackClick,
-        'importExcelConfirmBtn':  doConfirm,
-        'importExcelDoneBtn':     onDoneClick
+        'accountImportUpload':  onUploadClick,
+        'accountImportCancel':  closeModal,
+        'accountImportBack':    onBackClick,
+        'accountImportConfirm': doConfirm,
+        'accountImportDone':    onDoneClick
     };
     function bindAllClicks() {
         Object.keys(CLICK_HANDLERS).forEach(function (id) {
@@ -98,22 +95,25 @@
     }
 
     function bindModalLifecycle() {
-        var modal = el('importExcelModal');
+        var modal = el('user-import');
         if (!modal) return;
 
-        // Capture the header close before its inline dialog.close() handler runs.
-        var closeButton = modal.querySelector('.iex-close');
-        if (closeButton) closeButton.addEventListener('click', invalidateUpload, true);
+        // Capture the header close before its native dialog behaviour runs.
+        var closeButton = modal.querySelector('[data-account-import-close]');
+        if (closeButton) closeButton.addEventListener('click', function () {
+            invalidateUpload();
+            closeModal();
+        });
         modal.addEventListener('cancel', invalidateUpload);
         modal.addEventListener('close', invalidateUpload);
     }
 
     // ── Step 1: file input + drag-and-drop ──────────────────────────────
     function bindFileInputAndDropZone() {
-        var input = el('importExcelFile');
-        var fileLabel = el('importExcelFileLabel');
-        var uploadBtn = el('importExcelUploadBtn');
-        var dropArea = el('importExcelDropArea');
+        var input = el('accountImportFile');
+        var fileLabel = el('accountImportFileLabel');
+        var uploadBtn = el('accountImportUpload');
+        var dropArea = el('accountImportDropArea');
         if (input) input.addEventListener('change', function () {
             var f = input.files && input.files[0];
             if (fileLabel) fileLabel.textContent = f ? f.name : 'Chưa chọn file';
@@ -139,23 +139,9 @@
         dropArea.addEventListener('click', function () { input.click(); });
     }
 
-    // ── Step 2: filter pills (data-filter attribute) ────────────────────
-    function bindFilterButtons() {
-        var filters = document.querySelectorAll('#importExcelModal [data-filter]');
-        filters.forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                state.filter = btn.getAttribute('data-filter');
-                filters.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
-                renderRows();
-            });
-        });
-    }
-
     /**
      * Shared HTTP wrapper. Posts the request, parses JSON, then routes the
-     * result through onOk/onFail with consistent toast + button-reset handling.
-     * `init` is forwarded directly to fetch() — caller is responsible for
-     * headers and body.
+     * result through onOk with consistent toast + button-reset handling.
      */
     function postAndHandle(url, init, btn, defaultErrorMsg, onOk, isCurrent) {
         return fetch(url, init)
@@ -194,7 +180,7 @@
                 && (!controller || state.uploadController === controller);
         }
 
-        var uploadBtn = el('importExcelUploadBtn');
+        var uploadBtn = el('accountImportUpload');
         if (uploadBtn) uploadBtn.disabled = true;
         var formData = new FormData(); formData.append('file', file);
         var requestInit = {
@@ -203,83 +189,72 @@
         };
         if (controller) requestInit.signal = controller.signal;
 
-        postAndHandle(state.uploadUrl, requestInit,
+        postAndHandle(UPLOAD_URL, requestInit,
             uploadBtn, 'Tải lên thất bại.', function (body) {
                 state.sessionId = body.sessionId;
                 state.rows = body.rows || [];
-                renderPreview(body);
+                renderPreview();
                 showStep('step2');
             }, isCurrentUpload).then(function () {
             if (isCurrentUpload()) state.uploadController = null;
         });
     }
 
-    function renderPreview(payload) {
-        setText('importExcelStatTotal', payload.totalRows);
-        setText('importExcelStatOk',    payload.okCount);
-        setText('importExcelStatWarn',  payload.warningCount);
-        setText('importExcelStatErr',   payload.errorCount);
+    // ── Preview (step 2) ────────────────────────────────────────────────
+    var STATUS_LABEL = { CREATE: 'Sẽ tạo', EXISTS: 'Đã tồn tại', ERROR: 'Lỗi' };
+    var STATUS_BADGE_CLASS = { CREATE: 'iex-badge-ok', EXISTS: 'iex-badge-warn', ERROR: 'iex-badge-error' };
+    var STATUS_ROW_CLASS = { CREATE: 'iex-row-ok', EXISTS: 'iex-row-warn', ERROR: 'iex-row-error' };
 
-        var skip = el('importExcelSkipErrors');
-        var confirmBtn = el('importExcelConfirmBtn');
-        var errorCount = payload.errorCount || 0;
+    function renderPreview() {
+        var rows = state.rows;
+        var createCount = rows.filter(function (r) { return r.status === 'CREATE'; }).length;
+        var existingCount = rows.filter(function (r) { return r.status === 'EXISTS'; }).length;
+        var errorCount = rows.filter(function (r) { return r.status === 'ERROR'; }).length;
 
-        function refreshConfirmState() {
-            if (!confirmBtn) return;
-            // Confirm is enabled when either there are no errors, or the user
-            // explicitly ticked "skip errors".
-            var importable = (payload.okCount || 0) > 0;
-            confirmBtn.disabled = (errorCount > 0 && (!skip || !skip.checked))
-                ? true
-                : !importable;
-        }
-        if (skip) skip.addEventListener('change', refreshConfirmState);
-        refreshConfirmState();
+        setText('accountImportTotal', rows.length);
+        setText('accountImportCreate', createCount);
+        setText('accountImportExisting', existingCount);
+        setText('accountImportErrors', errorCount);
 
-        state.filter = 'ALL';
-        document.querySelectorAll('#importExcelModal [data-filter]').forEach(function (b) {
-            b.classList.toggle('is-active', b.getAttribute('data-filter') === 'ALL');
-        });
+        var confirmBtn = el('accountImportConfirm');
+        // Rows that already exist or have errors are skipped automatically by
+        // the server on confirm — the only thing that blocks confirming is
+        // having nothing left to create.
+        if (confirmBtn) confirmBtn.disabled = createCount === 0;
+
         renderRows();
     }
 
     function renderRows() {
-        var tbody = el('importExcelTableBody');
+        var tbody = el('accountImportRows');
         if (!tbody) return;
         tbody.innerHTML = '';
-        var rows = state.rows.filter(function (r) {
-            if (state.filter === 'ALL') return true;
-            if (state.filter === 'ERROR') return r.isError;
-            if (state.filter === 'WARNING') return r.isWarning;
-            if (state.filter === 'OK') return r.status === 'OK';
-            return true;
-        });
 
-        if (rows.length === 0) {
+        if (state.rows.length === 0) {
             var emptyTr = document.createElement('tr');
             var emptyTd = document.createElement('td');
             emptyTd.colSpan = 6; emptyTd.className = 'iex-empty';
-            emptyTd.textContent = 'Không có dòng nào khớp với bộ lọc hiện tại.';
+            emptyTd.textContent = 'Không có dòng dữ liệu nào trong file.';
             emptyTr.appendChild(emptyTd); tbody.appendChild(emptyTr);
             return;
         }
-        rows.forEach(function (r) {
+
+        state.rows.forEach(function (r) {
             var tr = document.createElement('tr');
-            tr.className = r.isError ? 'iex-row-error'
-                : (r.isWarning ? 'iex-row-warn' : 'iex-row-ok');
-            tr.appendChild(td(String(r.rowNumber)));
+            tr.className = STATUS_ROW_CLASS[r.status] || 'iex-row-ok';
+            tr.appendChild(td(String(r.row)));
+
             var badge = document.createElement('span');
-            badge.className = 'iex-badge ' + (r.isError ? 'iex-badge-error'
-                : (r.isWarning ? 'iex-badge-warn' : 'iex-badge-ok'));
-            badge.textContent = r.statusMessage || r.status || '';
+            badge.className = 'iex-badge ' + (STATUS_BADGE_CLASS[r.status] || 'iex-badge-ok');
+            badge.textContent = STATUS_LABEL[r.status] || r.status || '';
             var statusTd = document.createElement('td'); statusTd.appendChild(badge);
             tr.appendChild(statusTd);
-            tr.appendChild(td(r.studentId || '—'));
+
             tr.appendChild(td(r.email || '—'));
-            tr.appendChild(td(r.fullName || '—'));
-            var note = r.detail || '';
-            var noteTd = td(note);
-            if (note) noteTd.setAttribute('title', note);
+            tr.appendChild(td(r.name || '—'));
+            tr.appendChild(td(r.role || '—'));
+            var noteTd = td(r.message || '');
+            if (r.message) noteTd.setAttribute('title', r.message);
             tr.appendChild(noteTd);
             tbody.appendChild(tr);
         });
@@ -294,36 +269,19 @@
     // ── Confirm (step 2 → step 3) ───────────────────────────────────────
     function doConfirm() {
         if (!state.sessionId) return;
-        var skip = el('importExcelSkipErrors');
-        var skipErrors = skip ? !!skip.checked : false;
-        var confirmBtn = el('importExcelConfirmBtn');
+        var confirmBtn = el('accountImportConfirm');
         if (confirmBtn) confirmBtn.disabled = true;
 
-        var url = '/lecturer/classes/' + state.classId
-            + '/import-students/' + encodeURIComponent(state.sessionId) + '/confirm';
         var headers = Object.assign({ 'Content-Type': 'application/json' }, csrfHeaders());
 
-        postAndHandle(url, {
+        postAndHandle(CONFIRM_URL, {
             method: 'POST', headers: headers, credentials: 'same-origin',
-            body: JSON.stringify({ skipErrors: skipErrors })
+            body: JSON.stringify({ sessionId: state.sessionId })
         }, confirmBtn, 'Import thất bại.', function (body) {
-            // Refresh row table first — the server may have mutated row status
-            // (e.g. USER_NOT_FOUND when a user vanished between preview and
-            // confirm). Re-render before switching step so the back-nav view is
-            // correct if the user inspects step 2 later.
-            state.rows = (body && body.rows) || state.rows;
-            renderRows();
-            renderSummary(body);
+            setText('accountImportCreated', body.created);
+            setText('accountImportSkipped', body.skipped);
             showStep('step3');
         });
-    }
-
-    function renderSummary(payload) {
-        setText('importExcelSumImported', payload.imported);
-        setText('importExcelSumReactivated', payload.reactivated);
-        setText('importExcelSumSkipped',
-            (payload.skippedDuplicate || 0) + (payload.skippedError || 0));
-        setText('importExcelSumFailed', payload.failed);
     }
 
     function setText(id, value) {
@@ -332,32 +290,24 @@
     }
 
     // ── Public API ──────────────────────────────────────────────────────
-    window.openImportExcelModal = function (opts) {
-        opts = opts || {};
-        state.classId = opts.classId;
-        state.uploadUrl = '/lecturer/classes/' + opts.classId + '/import-students/upload';
-        state.templateUrl = '/lecturer/classes/' + opts.classId + '/import-students/template';
-        openModal();
-    };
+    window.openAccountImportModal = openModal;
 
     document.addEventListener('DOMContentLoaded', function () {
-        if (!el('importExcelModal')) return;
+        if (!el('user-import')) return;
         bindAllClicks();
         bindModalLifecycle();
         bindFileInputAndDropZone();
-        bindFilterButtons();
 
-        // Event delegation so any element with data-action="open-import-excel"
+        // Event delegation so any element with data-action="open-account-import"
         // (including SVG children) opens the modal — Element.closest walks the
         // DOM tree.
         document.addEventListener('click', function (event) {
             var trigger = event.target && event.target.closest
-                ? event.target.closest('[data-action="open-import-excel"]')
+                ? event.target.closest('[data-action="open-account-import"]')
                 : null;
             if (!trigger) return;
             event.preventDefault();
-            var classId = trigger.getAttribute('data-class-id');
-            if (classId) window.openImportExcelModal({ classId: classId });
+            openModal();
         });
     });
 })();
