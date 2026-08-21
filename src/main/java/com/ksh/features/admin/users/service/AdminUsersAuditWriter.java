@@ -24,9 +24,16 @@ import java.util.Map;
  *
  * <p>Failure to serialise the metadata map degrades to a {@code null}
  * payload + a warning log, mirroring the original semantics.
+ *
+ * <p>Public rather than package-private because the account-lifecycle events
+ * introduced by the roster import — {@code IMPORTED}, {@code ACTIVATION_SENT},
+ * {@code SELF_ACTIVATED} — originate in {@code admin.users.imports} and
+ * {@code auth.service}. They audit the same {@code user_activities} table and
+ * surface on the same admin history screen, so they route through this single
+ * insertion point instead of each package growing its own writer.
  */
 @Component
-class AdminUsersAuditWriter {
+public class AdminUsersAuditWriter {
 
     private static final Logger log = LoggerFactory.getLogger(AdminUsersAuditWriter.class);
 
@@ -39,14 +46,27 @@ class AdminUsersAuditWriter {
         this.objectMapper = objectMapper;
     }
 
-    /** Writes a single activity row with the supplied (already serialised) metadata payload. */
-    void write(Long targetUserId, String type, String message,
-               String metadata, Long actorId) {
+    /**
+     * Writes a single activity row with the supplied (already serialised)
+     * metadata payload.
+     *
+     * <p>Callers must not pass plaintext passwords or activation tokens in
+     * {@code metadata} — the audit log is readable by every administrator, and
+     * a leaked activation token is equivalent to account takeover.
+     *
+     * @param targetUserId the account the entry is about
+     * @param type         one of the {@code UserActivity.TYPE_*} constants
+     * @param message      human-readable Vietnamese summary
+     * @param metadata     JSON payload, or {@code null} when there is nothing safe to record
+     * @param actorId      who performed it, or {@code null} for owner-driven events
+     */
+    public void write(Long targetUserId, String type, String message,
+                      String metadata, Long actorId) {
         activityRepository.save(new UserActivity(targetUserId, type, message, metadata, actorId));
     }
 
     /** Serialises an arbitrary payload to JSON; returns {@code null} when serialisation fails. */
-    String serialize(Map<String, Object> payload) {
+    public String serialize(Map<String, Object> payload) {
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException ex) {

@@ -38,6 +38,9 @@ public class ClassEntity {
     public static final String STATUS_REJECTED = "REJECTED";
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_ARCHIVED = "ARCHIVED";
+    public static final String STATUS_UPCOMING = "UPCOMING";
+    public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_CANCELLED = "CANCELLED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

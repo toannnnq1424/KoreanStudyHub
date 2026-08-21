@@ -46,6 +46,12 @@ public class UserActivity {
     public static final String TYPE_DELETED         = "DELETED";
     public static final String TYPE_RESTORED        = "RESTORED";
     public static final String TYPE_PERMISSION_CHANGED = "PERMISSION_CHANGED";
+    /** Account created in bulk by the admin roster import. */
+    public static final String TYPE_IMPORTED        = "IMPORTED";
+    /** Activation email queued — by the import or by an admin re-send. */
+    public static final String TYPE_ACTIVATION_SENT = "ACTIVATION_SENT";
+    /** Owner completed activation themselves through the emailed link. */
+    public static final String TYPE_SELF_ACTIVATED  = "SELF_ACTIVATED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

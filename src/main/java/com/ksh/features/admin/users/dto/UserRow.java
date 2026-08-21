@@ -24,6 +24,7 @@ public interface UserRow {
     Long getSubjectId();
     LocalDateTime getLastLoginAt();
     LocalDateTime getCreatedAt();
+    LocalDateTime getActivatedAt();
     String getAvatarUrl();
 
     /**

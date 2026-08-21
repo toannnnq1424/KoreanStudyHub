@@ -31,8 +31,10 @@
     deactivate: { confirm: 'Vô hiệu hoá tài khoản này? Người dùng sẽ không đăng nhập được.', form: 'form-deactivate-', danger: true },
     unlock:     { confirm: 'Mở khoá tài khoản này?',       form: 'form-unlock-',     danger: false },
     delete:     { confirm: 'Xoá tài khoản này? Có thể khôi phục từ bộ lọc Đã xoá.', form: 'form-delete-',  danger: true  },
-    restore:    { confirm: 'Khôi phục tài khoản đã xoá?',  form: 'form-restore-',    danger: false }
-  };
+      restore:    { confirm: 'Khôi phục tài khoản đã xoá?',  form: 'form-restore-',    danger: false },
+      // Issuing a fresh token invalidates the link from the previous email,
+      // so say that explicitly before the admin commits.
+      'resend-activation': { confirm: 'Gửi lại email kích hoạt? Liên kết trong email cũ sẽ hết hiệu lực.', form: 'form-resend-activation-', danger: false }  };
 
   // ── Focus management helpers ────────────────────────────────────
   var FOCUSABLE_SELECTOR = [

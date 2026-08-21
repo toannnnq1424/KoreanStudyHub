@@ -53,7 +53,8 @@ import java.io.IOException;
  *       {@code system_settings}. Spring Security then responds with HTTP 404
  *       to {@code /oauth2/authorization/google} and the login button is
  *       hidden in the UI via {@code @oauthSettingsService.isGoogleEnabled()}.</li>
- *   <li>Public endpoints: static assets, login, forgot/reset-password, and uploaded files.</li>
+ *   <li>Public endpoints: static assets, login, forgot/reset-password, activation,
+ *       and uploaded files.</li>
  *   <li>Passwords hashed with BCrypt.</li>
  *   <li>CSRF protection is enabled by default — Thymeleaf forms inject the token automatically.</li>
  * </ul>
@@ -190,7 +191,8 @@ public class SecurityConfig {
      * <p>Authorization rules:</p>
      * <ul>
      *   <li>Static resources plus the controller-backed avatar/exam upload namespaces are public.</li>
-     *   <li>{@code /login}, {@code /forgot-password}, and {@code /reset-password} are public.</li>
+     *   <li>{@code /login}, {@code /forgot-password}, {@code /reset-password}, and
+     *       {@code /activate} are public.</li>
      *   <li>{@code /lecturer/**} requires {@code LECTURER}, {@code LEADER}, or {@code ADMIN} role.</li>
      *   <li>{@code /admin/**} requires the {@code ADMIN} role.</li>
      *   <li>All other requests require an authenticated user.</li>
@@ -234,7 +236,9 @@ public class SecurityConfig {
                                 "/uploads/flashcards/**"
                         ).permitAll()
                         .requestMatchers("/uploads/**").denyAll()
-                        .requestMatchers("/login", "/forgot-password", "/reset-password").permitAll()
+                        // /activate is public because an account that has not yet
+                        // activated cannot authenticate; the token is the authorization.
+                        .requestMatchers("/login", "/forgot-password", "/reset-password", "/activate").permitAll()
                         .requestMatchers("/public/view/**").permitAll()
                         .requestMatchers("/s/**").permitAll()
                         .requestMatchers("/practice/manage/**").hasRole(Roles.LECTURER)

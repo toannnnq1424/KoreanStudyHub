@@ -7,6 +7,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/admin-users.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/learning-ui.css}">
+    <link class="page-css" rel="stylesheet" th:href="@{/css/import-excel.css}">
 </head>
 <body>
 <header th:replace="~{fragments/app-header :: appHeader('admin')}"></header>
@@ -74,6 +75,8 @@
                     th:selected="${filter.sort() == 'rolePriority,desc'}">Vai trò (STUDENT trước)</option>
           </select>
           <button type="submit" class="btn-ghost">Áp dụng</button>
+            <button type="button" class="btn-ghost users-import-link"
+                    data-action="open-user-import">Import Excel</button>
           <a th:href="@{/admin/users/new}" class="create-btn">
             <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -156,6 +159,20 @@
                     </svg>
                     Đặt lại mật khẩu
                   </button>
+                    <!-- Mirrors User#hasNoUsablePassword so the item never shows
+                       on an account the service would refuse. UX only — the
+                       refusal in the service is what actually enforces it. -->
+                    <button class="menu-item"
+                            type="button"
+                            data-action="resend-activation"
+                            th:attr="data-user-id=${row.id}"
+                            th:if="${row.activatedAt == null and !row.active and !row.deleted}">
+                        <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16v16H4z"/><path d="m4 6 8 6 8-6"/>
+                        </svg>
+                        Gửi lại email kích hoạt
+                    </button>
                   <div class="menu-sep"></div>
                   <button class="menu-item"
                           type="button"
@@ -209,6 +226,11 @@
                     method="post" style="display:none;">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
               </form>
+                <form th:id="'form-resend-activation-' + ${row.id}"
+                      th:action="@{'/admin/users/' + ${row.id} + '/resend-activation'}"
+                      method="post" style="display:none;">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                </form>
               <form th:id="'form-deactivate-' + ${row.id}"
                     th:action="@{'/admin/users/' + ${row.id} + '/deactivate'}"
                     method="post" style="display:none;">
@@ -311,8 +333,176 @@
   </main>
 </div>
 
+<!-- ─────────────── Import tài khoản từ Excel — 3-step modal ─────────────── -->
+<dialog id="importExcelModal" aria-labelledby="userImportTitle">
+    <div class="iex-header">
+        <h2 id="userImportTitle">Import tài khoản từ Excel</h2>
+        <button type="button" class="iex-close" aria-label="Đóng"
+                data-action="close-user-import">&times;</button>
+    </div>
+
+    <div class="iex-body">
+        <!-- ───────── Step 1: chọn file ───────── -->
+        <section data-step="step1">
+            <table class="iex-table" style="margin-top:0;">
+                <thead>
+                <tr>
+                    <th style="width:150px;">Cột</th>
+                    <th style="width:110px;">Bắt buộc?</th>
+                    <th>Ghi chú</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><strong>Email</strong></td>
+                    <td>Bắt buộc</td>
+                    <td>Thiếu email thì dòng bị bỏ qua.</td>
+                </tr>
+                <tr>
+                    <td>Vai trò</td>
+                    <td>Không</td>
+                    <td>Để trống sẽ mặc định là <strong>STUDENT</strong>. Giá trị hợp lệ:
+                        STUDENT, LECTURER, HEAD, ADMIN.</td>
+                </tr>
+                <tr>
+                    <td>Họ và tên</td>
+                    <td>Không</td>
+                    <td>Để trống sẽ dùng email làm tên hiển thị.</td>
+                </tr>
+                <tr>
+                    <td>Khoa/Bộ môn</td>
+                    <td>Không</td>
+                    <td>Nếu điền thì phải khớp tên hoặc mã khoa đã có.</td>
+                </tr>
+                <tr>
+                    <td>Số điện thoại</td>
+                    <td>Không</td>
+                    <td>—</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <p style="color:#475569;">
+                Hệ thống chỉ tạo tài khoản sau khi bạn xác nhận bản xem trước; email đã có
+                tài khoản sẽ được bỏ qua và <strong>không</strong> bị ghi đè. Mỗi tài khoản
+                mới nhận email kích hoạt để tự đặt mật khẩu.
+            </p>
+
+            <div id="userImportDropArea" class="iex-drop" tabindex="0" role="button"
+                 aria-label="Kéo thả file Excel vào đây hoặc bấm để chọn">
+                <p><strong>Kéo &amp; thả</strong> file vào đây, hoặc bấm để chọn từ máy.</p>
+                <p id="userImportFileLabel" class="iex-filename">Chưa chọn file</p>
+                <input id="userImportFile" type="file" accept=".xlsx,.xls" style="display:none;">
+            </div>
+
+            <div style="margin-top:14px; display:flex; gap:8px;">
+                <button id="userImportTemplateBtn" type="button" class="iex-btn">Tải file mẫu</button>
+            </div>
+        </section>
+
+        <!-- ───────── Step 2: xem trước ───────── -->
+        <section data-step="step2" style="display:none;">
+            <div class="iex-stats">
+                <div class="iex-stat">
+                    <span class="iex-stat-label">Tổng số dòng</span>
+                    <span id="userImportStatTotal" class="iex-stat-value">0</span>
+                </div>
+                <div class="iex-stat iex-stat-ok">
+                    <span class="iex-stat-label">Sẽ tạo mới</span>
+                    <span id="userImportStatCreatable" class="iex-stat-value">0</span>
+                </div>
+                <div class="iex-stat iex-stat-warn">
+                    <span class="iex-stat-label">Vai trò mặc định</span>
+                    <span id="userImportStatRoleDefaulted" class="iex-stat-value">0</span>
+                </div>
+                <div class="iex-stat iex-stat-warn">
+                    <span class="iex-stat-label">Đã có tài khoản</span>
+                    <span id="userImportStatExisting" class="iex-stat-value">0</span>
+                </div>
+                <div class="iex-stat iex-stat-error">
+                    <span class="iex-stat-label">Lỗi</span>
+                    <span id="userImportStatError" class="iex-stat-value">0</span>
+                </div>
+            </div>
+
+            <div class="iex-filters">
+                <button type="button" data-filter="ALL" class="is-active">Tất cả</button>
+                <button type="button" data-filter="CREATABLE">Sẽ tạo mới</button>
+                <button type="button" data-filter="ROLE_DEFAULTED">Vai trò mặc định</button>
+                <button type="button" data-filter="EXISTING">Đã có tài khoản</button>
+                <button type="button" data-filter="ERROR">Lỗi</button>
+            </div>
+
+            <div class="iex-table-wrap">
+                <table class="iex-table">
+                    <thead>
+                    <tr>
+                        <th style="width:60px;">Dòng</th>
+                        <th style="width:180px;">Trạng thái</th>
+                        <th>Email</th>
+                        <th>Họ tên</th>
+                        <th style="width:110px;">Vai trò</th>
+                        <th style="width:140px;">Khoa/Bộ môn</th>
+                        <th style="width:220px;">Ghi chú</th>
+                    </tr>
+                    </thead>
+                    <tbody id="userImportTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ───────── Step 3: kết quả ───────── -->
+        <section data-step="step3" style="display:none;">
+            <div class="iex-success-banner">Import hoàn tất.</div>
+            <div class="iex-summary">
+                <div class="iex-stat">
+                    <span class="iex-stat-label">Đã xử lý</span>
+                    <span id="userImportSumProcessed" class="iex-stat-value">0</span>
+                </div>
+                <div class="iex-stat iex-stat-ok">
+                    <span class="iex-stat-label">Đã tạo mới</span>
+                    <span id="userImportSumCreated" class="iex-stat-value">0</span>
+                </div>
+                <!-- Hidden by renderSummary() when nothing defaulted. -->
+                <div id="userImportSumRoleDefaultedTile" class="iex-stat iex-stat-warn" style="display:none;">
+                    <span class="iex-stat-label">Tạo với vai trò mặc định</span>
+                    <span id="userImportSumRoleDefaulted" class="iex-stat-value">0</span>
+                </div>
+                <div class="iex-stat iex-stat-warn">
+                    <span class="iex-stat-label">Đã có tài khoản</span>
+                    <span id="userImportSumExisting" class="iex-stat-value">0</span>
+                </div>
+                <div class="iex-stat iex-stat-error">
+                    <span class="iex-stat-label">Lỗi</span>
+                    <span id="userImportSumErrors" class="iex-stat-value">0</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="iex-footer">
+        <div data-step="step1" style="display:flex; gap:8px;">
+            <button id="userImportCancelBtn" type="button" class="iex-btn">Huỷ</button>
+            <button id="userImportUploadBtn" type="button" class="btn-primary" disabled>
+                Tải lên &amp; xem trước
+            </button>
+        </div>
+        <div data-step="step2" style="display:none; gap:8px;">
+            <button id="userImportBackBtn" type="button" class="iex-btn">Chọn file khác</button>
+            <button id="userImportConfirmBtn" type="button" class="btn-primary" disabled>
+                Xác nhận tạo tài khoản
+            </button>
+        </div>
+        <div data-step="step3" style="display:none;">
+            <button id="userImportDoneBtn" type="button" class="btn-primary">Hoàn tất</button>
+        </div>
+    </div>
+</dialog>
+
 <script th:src="@{/js/app.js}"></script>
 <script th:src="@{/js/admin-users.js}"></script>
 <script th:src="@{/js/learning-select.js}"></script>
+<script th:src="@{/js/admin-users-import.js(v='3')}"></script>
+
 </body>
 </html>

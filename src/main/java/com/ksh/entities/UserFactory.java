@@ -2,6 +2,8 @@ package com.ksh.entities;
 
 import com.ksh.security.Role;
 
+import java.time.LocalDateTime;
+
 /**
  * Package-private factory for constructing new {@link User} instances.
  *
@@ -36,7 +38,7 @@ public final class UserFactory {
                                        boolean emailVerified,
                                        String phone,
                                        String bio) {
-        return new User(
+        User u = new User(
                 normalizedEmail,
                 passwordHash,
                 fullName,
@@ -48,5 +50,30 @@ public final class UserFactory {
                 phone,
                 bio
         );
+        u.markActivated(LocalDateTime.now());
+        return u;
+    }
+
+    /**
+     * Builds an account whose owner has not yet activated it: {@code is_active}
+     * is {@code 0} and {@code activated_at} is {@code NULL}. Used by the admin
+     * roster import, where nobody — including the importing admin — knows a
+     * password that authenticates the account until the owner sets one.
+     *
+     * @param normalizedEmail email already trimmed and lower-cased by the caller
+     * @param passwordHash    BCrypt hash of an undisclosed random secret
+     * @param fullName        display name
+     * @param role            role to assign on creation
+     * @param phone           optional phone (already null-coerced when blank)
+     * @param departmentId    optional department ownership; {@code null} when none
+     * @return a {@link User} entity ready for {@code repository.save(...)}
+     */
+    public static User newPendingActivation(String normalizedEmail,
+                                            String passwordHash,
+                                            String fullName,
+                                            Role role,
+                                            String phone,
+                                            Long subjectId) {
+        return new User(normalizedEmail, passwordHash, fullName, role, phone, subjectId);
     }
 }

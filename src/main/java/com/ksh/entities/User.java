@@ -74,6 +74,8 @@ public class User {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "activated_at")
+    private LocalDateTime activatedAt;
     // â”€â”€ Sprint 1 additions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Column(name = "bio")
@@ -117,6 +119,21 @@ public class User {
         this.bio = bio;
     }
 
+    User(String email, String passwordHash, String fullName, Role role,
+         String phone, Long subjectId) {
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.fullName = fullName;
+        this.role = role;
+        this.emailVerified = false;
+        this.active = false;
+        this.locked = false;
+        this.deleted = false;
+        this.phone = phone;
+        this.subjectId = subjectId;
+    }
+
+
     // â”€â”€ Business helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
@@ -146,6 +163,57 @@ public class User {
             invalidateAuthenticatedAccess();
         }
         this.active = active;
+    }
+
+    /**
+     * Marks this account as activated by its owner, enabling it and stamping
+     * the activation time. Idempotent with respect to {@code activated_at}:
+     * an already-activated account keeps its original timestamp, so a second
+     * activation path (e.g. an emailed link opened after Google sign-in)
+     * never moves the recorded moment forward.
+     *
+     * @param activatedAt the activation instant; ignored when already set
+     */
+    public void markActivated(LocalDateTime activatedAt) {
+        this.active = true;
+        if (this.activatedAt == null) {
+            this.activatedAt = activatedAt;
+        }
+    }
+
+    /**
+     * Stores a password that somebody now knows, and stamps {@code activated_at}
+     * in the same call.
+     *
+     * <p>The two are inseparable on purpose. {@link #hasNoUsablePassword()}
+     * infers "nobody can sign in" from {@code activated_at} being NULL, so a
+     * path that set a hash without stamping would silently hand that account an
+     * activation link its holder could redeem. Making the stamp unskippable is
+     * the same reasoning as {@link #lock(String)} setting {@code locked_reason}
+     * in one breath: the invalid intermediate state has no way to be expressed.
+     *
+     * <p>Stamping is idempotent through {@link #markActivated}, so a password
+     * change on an already-activated account keeps its original moment. The
+     * account is <em>not</em> re-enabled beyond that: an admin who reset the
+     * password of a disabled account still has a disabled account.
+     *
+     * @param passwordHash BCrypt hash; callers MUST encode before passing
+     * @param at           the moment to record when no activation time is set yet
+     */
+    public void setKnownPassword(String passwordHash, LocalDateTime at) {
+        this.passwordHash = passwordHash;
+        if (this.activatedAt == null) {
+            this.activatedAt = at;
+        }
+    }
+
+    /** True when the owner has not yet completed activation. */
+    public boolean isPendingActivation() {
+        return this.activatedAt == null;
+    }
+
+    public boolean hasNoUsablePassword() {
+        return this.activatedAt == null && !this.active;
     }
 
     /**

@@ -37,12 +37,14 @@ public class PasswordRecoveryController {
     private static final String REDIRECT_FORGOT = "redirect:/forgot-password";
     private static final String REDIRECT_LOGIN  = "redirect:/login";
 
-    // ── Local model attribute keys ────────────────────────────────
-    private static final String ATTR_RESET_SUCCESS = "resetSuccess";
+
 
     // ── Flash messages ────────────────────────────────────────────
     private static final String MSG_RESET_LINK_SENT =
             "Nếu email tồn tại trong hệ thống, một liên kết đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư (kể cả thư rác).";
+
+    private static final String MSG_RESET_DONE =
+            "Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.";
 
     private final PasswordRecoveryService service;
 
@@ -93,7 +95,6 @@ public class PasswordRecoveryController {
 
     /**
      * Submits the reset-password form. Redirects to {@code /login} on success
-     * with {@code resetSuccess} flash; re-renders with {@code invalid=true} on failure.
      */
     @PostMapping("/reset-password")
     public String resetSubmit(@Valid @ModelAttribute("request") AuthDtos.ResetPasswordRequest req,
@@ -109,7 +110,7 @@ public class PasswordRecoveryController {
             model.addAttribute(ATTR_INVALID, true);
             return VIEW_RESET_PASSWORD;
         }
-        ra.addFlashAttribute(ATTR_RESET_SUCCESS, true);
+        ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_RESET_DONE);
         return REDIRECT_LOGIN;
     }
 

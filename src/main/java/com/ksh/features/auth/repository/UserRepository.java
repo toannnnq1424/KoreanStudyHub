@@ -128,6 +128,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
             nativeQuery = true)
     Optional<User> findByIdIncludingDeleted(Long id);
 
+    @Query(value = "SELECT * FROM users WHERE LOWER(email) = LOWER(?1) LIMIT 1",
+            nativeQuery = true)
+    Optional<User> findByEmailIncludingDeleted(String email);
+
     /**
      * Locks a non-deleted user row for update inside the current transaction.
      *

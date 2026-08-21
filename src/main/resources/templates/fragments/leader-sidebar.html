@@ -7,7 +7,7 @@
 <aside th:fragment="leaderSidebar(activeTab)" class="col">
   <div class="side">
     <div class="class-head">
-      <div class="class-name">Trưởng bộ môn</div>
+      <div class="class-name">Trưởng môn</div>
       <div class="class-ma" th:if="${leaderDepartment != null}"
            th:text="${leaderDepartment.code() + ' — ' + leaderDepartment.name()}">BM</div>
       <div class="class-ma" th:if="${leaderDepartment == null}">Chưa gán bộ môn</div>
