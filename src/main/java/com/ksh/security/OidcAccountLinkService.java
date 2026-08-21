@@ -9,6 +9,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /** Resolves and, when needed, creates the durable local binding for an OIDC subject. */
@@ -53,10 +54,15 @@ public class OidcAccountLinkService {
             }
         }
 
-        if (!user.isActive() || user.isLocked()) {
+        if (user.isLocked()) {
             throw unregistered();
         }
         // Soft-deleted users are excluded by User's @SQLRestriction on both lookups.
+
+        // Allow pending activation accounts to activate via Google OAuth
+        if (user.isPendingActivation()) {
+            user.markActivated(LocalDateTime.now());
+        }
 
         if (user.getGoogleId() != null && !user.getGoogleId().isBlank()
                 && !user.getGoogleId().equals(providerSubject)) {
