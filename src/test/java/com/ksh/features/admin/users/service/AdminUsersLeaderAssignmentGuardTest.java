@@ -9,6 +9,7 @@ import com.ksh.features.admin.departments.service.DepartmentService;
 import com.ksh.features.admin.departments.service.DepartmentValidationException;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.permissions.service.PermissionResolver;
+import com.ksh.features.admin.users.imports.service.ActivationMailComposer;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.auth.service.CredentialRotationService;
@@ -76,7 +77,7 @@ class AdminUsersLeaderAssignmentGuardTest {
         return new AdminUsersWriteService(
                 users, passwordEncoder, guard, auditWriter,
                 departments, settings, sessionRevocation, credentialRotation,
-                permissionResolver);
+                permissionResolver, mock(ActivationMailComposer.class));
     }
 
     private static User user(Long id, Role role, Long subjectId) {

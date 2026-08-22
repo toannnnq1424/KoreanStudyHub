@@ -98,7 +98,9 @@ class Sprint3UserManagementIntegrationTest {
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void list_filter_by_role_returns_only_matching() throws Exception {
-        mockMvc.perform(get("/admin/users").param("role", "STUDENT"))
+        mockMvc.perform(get("/admin/users")
+                        .param("role", "STUDENT")
+                        .param("q", "student@ksh.edu.vn"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("student@ksh.edu.vn")));
     }
@@ -133,7 +135,9 @@ class Sprint3UserManagementIntegrationTest {
     void list_sort_by_rolePriority_orders_admin_before_student() throws Exception {
         // Seed data has: 1 ADMIN, 1 LEADER, 1 LECTURER, students. With rolePriority sort,
         // the ADMIN row's position in the rendered HTML must precede the student row.
-        String html = mockMvc.perform(get("/admin/users").param("sort", "rolePriority,asc"))
+        String html = mockMvc.perform(get("/admin/users")
+                        .param("sort", "rolePriority,asc")
+                        .param("size", "100"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -414,16 +418,21 @@ class Sprint3UserManagementIntegrationTest {
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void softDelete_hides_user_then_restore_brings_it_back() throws Exception {
+        String editHref = "href=\"/admin/users/" + lecturer.getId() + "/edit\"";
+
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/delete").with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
-        // Default list excludes the row.
-        mockMvc.perform(get("/admin/users"))
-                .andExpect(content().string(not(containsString("lecturer@ksh.edu.vn"))));
+        // Default list excludes the row. The email itself is echoed in the search input,
+        // so assert on the row's edit link rather than all rendered text.
+        mockMvc.perform(get("/admin/users").param("q", lecturer.getEmail()))
+                .andExpect(content().string(not(containsString(editHref))));
 
         // DELETED filter surfaces it.
-        mockMvc.perform(get("/admin/users").param("status", "DELETED"))
-                .andExpect(content().string(containsString("lecturer@ksh.edu.vn")));
+        mockMvc.perform(get("/admin/users")
+                        .param("status", "DELETED")
+                        .param("q", lecturer.getEmail()))
+                .andExpect(content().string(containsString(editHref)));
 
         // Audit row with type DELETED is recorded.
         assertThat(activityRepository.findAll().stream()
@@ -434,8 +443,8 @@ class Sprint3UserManagementIntegrationTest {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/restore").with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
-        mockMvc.perform(get("/admin/users"))
-                .andExpect(content().string(containsString("lecturer@ksh.edu.vn")));
+        mockMvc.perform(get("/admin/users").param("q", lecturer.getEmail()))
+                .andExpect(content().string(containsString(editHref)));
 
         // Audit row with type RESTORED is recorded.
         assertThat(activityRepository.findAll().stream()

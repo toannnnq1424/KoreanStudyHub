@@ -197,6 +197,7 @@ public class AdminUsersEditController {
     private static String deriveStatusLabel(User u) {
         if (u.isDeleted()) return STATUS_DELETED;
         if (u.isLocked())  return STATUS_LOCKED;
+        if (u.isPendingActivation()) return "PENDING";
         if (!u.isActive()) return STATUS_INACTIVE;
         return STATUS_ACTIVE;
     }

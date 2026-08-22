@@ -74,6 +74,10 @@ public class User {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    /** NULL only while an imported account is waiting for owner activation. */
+    @Column(name = "activated_at")
+    private LocalDateTime activatedAt;
+
     // â”€â”€ Sprint 1 additions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Column(name = "bio")
@@ -146,6 +150,31 @@ public class User {
             invalidateAuthenticatedAccess();
         }
         this.active = active;
+    }
+
+    /** Completes owner activation and makes the verified account login-capable. */
+    public void markActivated(LocalDateTime at) {
+        Objects.requireNonNull(at, "at");
+        if (!this.active || !this.emailVerified) {
+            invalidateAuthenticatedAccess();
+        }
+        this.active = true;
+        this.emailVerified = true;
+        if (this.activatedAt == null) {
+            this.activatedAt = at;
+        }
+    }
+
+    /** Imported accounts remain pending until the owner consumes an email link. */
+    public boolean isPendingActivation() {
+        return this.activatedAt == null;
+    }
+
+    /** Factory-only stamp for accounts created with an already-known password. */
+    void markPasswordEstablished(LocalDateTime at) {
+        if (this.activatedAt == null) {
+            this.activatedAt = Objects.requireNonNull(at, "at");
+        }
     }
 
     /**
