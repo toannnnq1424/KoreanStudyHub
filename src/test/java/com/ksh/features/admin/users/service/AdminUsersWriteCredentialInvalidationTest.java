@@ -6,6 +6,7 @@ import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.admin.departments.service.DepartmentService;
 import com.ksh.features.admin.permissions.service.PermissionResolver;
+import com.ksh.features.admin.users.imports.service.ActivationMailComposer;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
@@ -54,7 +55,8 @@ class AdminUsersWriteCredentialInvalidationTest {
                 settings,
                 sessions,
                 credentials,
-                permissions);
+                permissions,
+                mock(ActivationMailComposer.class));
     }
 
     @Test

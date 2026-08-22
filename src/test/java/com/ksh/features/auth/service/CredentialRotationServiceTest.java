@@ -2,6 +2,7 @@ package com.ksh.features.auth.service;
 
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
+import com.ksh.features.auth.repository.AccountActivationTokenRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ class CredentialRotationServiceTest {
     private UserRepository users;
     private PasswordResetTokenRepository tokens;
     private PasswordEncoder encoder;
+    private AccountActivationTokenRepository activationTokens;
     private CredentialRotationService service;
 
     @BeforeEach
@@ -30,7 +32,8 @@ class CredentialRotationServiceTest {
         users = mock(UserRepository.class);
         tokens = mock(PasswordResetTokenRepository.class);
         encoder = mock(PasswordEncoder.class);
-        service = new CredentialRotationService(users, tokens, encoder);
+        activationTokens = mock(AccountActivationTokenRepository.class);
+        service = new CredentialRotationService(users, tokens, activationTokens, encoder);
     }
 
     @Test
@@ -48,13 +51,15 @@ class CredentialRotationServiceTest {
 
         assertThat(result).contains(new CredentialRotationService.ChangedCredential(
                 17L, "student@example.test"));
-        var order = inOrder(users, encoder, user, tokens);
+        var order = inOrder(users, encoder, user, tokens, activationTokens);
         order.verify(users).findByIdForUpdate(17L);
         order.verify(encoder).matches("old-password", "old-hash");
         order.verify(encoder).encode("new-password");
         order.verify(user).setPasswordHash("new-hash");
         order.verify(users).save(user);
         order.verify(tokens).invalidateUnusedForUser(org.mockito.ArgumentMatchers.eq(17L), any());
+        order.verify(activationTokens).invalidateUnusedForUser(
+                org.mockito.ArgumentMatchers.eq(17L), any());
     }
 
     @Test
@@ -70,6 +75,7 @@ class CredentialRotationServiceTest {
         verify(encoder, never()).encode("new-password");
         verify(users, never()).save(any());
         verifyNoInteractions(tokens);
+        verifyNoInteractions(activationTokens);
     }
 
     @Test
@@ -83,6 +89,8 @@ class CredentialRotationServiceTest {
 
         verify(user).setPasswordHash("admin-hash");
         verify(tokens).invalidateUnusedForUser(org.mockito.ArgumentMatchers.eq(29L), any());
+        verify(activationTokens).invalidateUnusedForUser(
+                org.mockito.ArgumentMatchers.eq(29L), any());
     }
 
     @Test

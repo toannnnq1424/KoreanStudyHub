@@ -53,4 +53,14 @@ public class MailOutboxService {
                 SOURCE_NOTIFICATION,
                 now));
     }
+
+    /** Enqueues transactional system mail such as an account activation link. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void enqueueSystemMail(String recipientEmail,
+                                  String subject,
+                                  String body,
+                                  String source) {
+        repository.save(MailOutboxJob.pendingSystem(
+                recipientEmail, subject, body, source, LocalDateTime.now(clock)));
+    }
 }

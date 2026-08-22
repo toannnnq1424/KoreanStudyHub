@@ -10,6 +10,7 @@ import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -69,6 +70,7 @@ public class AdminUsersLifecycleService {
     @Transactional
     public void activate(Long id, Long actingUserId) {
         User target = lockForLifecycle(id);
+        requireOwnerActivationCompleted(target, "kích hoạt thủ công");
 
         target.setActive(true);
         User saved = userRepository.save(target);
@@ -117,6 +119,7 @@ public class AdminUsersLifecycleService {
     @Transactional
     public void resetPassword(Long id, String newPassword, Long actingUserId) {
         User target = lockForLifecycle(id);
+        requireOwnerActivationCompleted(target, "đặt lại mật khẩu");
         guard.requireNotSelf(actingUserId, target.getId(), "đặt lại mật khẩu");
 
         requireValidPassword(newPassword);
@@ -158,6 +161,13 @@ public class AdminUsersLifecycleService {
     }
 
     // ── Internals ─────────────────────────────────────────────────
+
+    private static void requireOwnerActivationCompleted(User target, String action) {
+        if (target.isPendingActivation()) {
+            throw new AccessDeniedException(
+                    "Tài khoản đang chờ chủ sở hữu kích hoạt qua email; không thể " + action + ".");
+        }
+    }
 
     private void lockAdminLifecycleMutex() {
         userRepository.findAdminLifecycleMutexForUpdate(Role.ADMIN.name())

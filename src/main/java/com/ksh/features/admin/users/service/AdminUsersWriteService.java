@@ -12,6 +12,7 @@ import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
 import com.ksh.features.admin.users.dto.CreateUserForm;
 import com.ksh.features.admin.users.dto.EditUserForm;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.admin.users.imports.service.ActivationMailComposer;
 import com.ksh.features.auth.service.CredentialRotationService;
 import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.security.Role;
@@ -54,6 +55,7 @@ public class AdminUsersWriteService {
     private final SessionRevocationService sessionRevocationService;
     private final CredentialRotationService credentialRotationService;
     private final PermissionResolver permissionResolver;
+    private final ActivationMailComposer activationMailComposer;
 
     public AdminUsersWriteService(UserRepository userRepository,
                                   PasswordEncoder passwordEncoder,
@@ -63,7 +65,8 @@ public class AdminUsersWriteService {
                                   SystemSettingsRepository systemSettingsRepository,
                                   SessionRevocationService sessionRevocationService,
                                   CredentialRotationService credentialRotationService,
-                                  PermissionResolver permissionResolver) {
+                                  PermissionResolver permissionResolver,
+                                  ActivationMailComposer activationMailComposer) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.guard = guard;
@@ -73,6 +76,7 @@ public class AdminUsersWriteService {
         this.sessionRevocationService = sessionRevocationService;
         this.credentialRotationService = credentialRotationService;
         this.permissionResolver = permissionResolver;
+        this.activationMailComposer = activationMailComposer;
     }
 
     /**
@@ -185,6 +189,9 @@ public class AdminUsersWriteService {
 
         if (!Objects.equals(oldEmail, saved.getEmail())) {
             credentialRotationService.invalidateRecoveryTokens(saved.getId());
+            if (saved.isPendingActivation()) {
+                activationMailComposer.issueAndQueue(saved, actingUserId);
+            }
         }
 
         return List.of();

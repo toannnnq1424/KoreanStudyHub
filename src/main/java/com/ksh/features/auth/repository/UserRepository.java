@@ -128,6 +128,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
             nativeQuery = true)
     Optional<User> findByIdIncludingDeleted(Long id);
 
+    /** Email ownership check that deliberately includes soft-deleted rows. */
+    @Query(value = "SELECT * FROM users WHERE LOWER(email) = LOWER(?1) LIMIT 1",
+            nativeQuery = true)
+    Optional<User> findByEmailIncludingDeleted(String email);
+
     /**
      * Locks a non-deleted user row for update inside the current transaction.
      *
@@ -160,7 +165,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      *                {@code full_name} or {@code email}; pass {@code null}
      *                or empty to disable
      * @param role    optional role filter; pass {@code null} or empty to disable
-     * @param status  one of {@code "ACTIVE" | "INACTIVE" | "LOCKED" | "DELETED"};
+     * @param status  one of {@code "ACTIVE" | "INACTIVE" | "PENDING" | "LOCKED" | "DELETED"};
      *                pass {@code null} for the default (non-deleted only)
      * @param pageable Spring page request (sort key handled by the
      *                  {@code ORDER BY} fragment built in JPA)
@@ -175,11 +180,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "       u.subject_id AS subjectId, " +
                    "       u.last_login_at AS lastLoginAt, " +
                    "       u.created_at AS createdAt, " +
+                   "       u.activated_at AS activatedAt, " +
                    "       u.avatar_url AS avatarUrl " +
                    "FROM users u " +
                    "WHERE (" +
-                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                   "    (:status = 'PENDING'  AND u.is_deleted = 0 AND u.activated_at IS NULL AND u.is_locked = 0) OR " +
                    "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
                    "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
                    "    (:status IS NULL      AND u.is_deleted = 0)" +
@@ -190,8 +197,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "     LOWER(u.email)     LIKE CONCAT('%', LOWER(:q), '%'))",
             countQuery = "SELECT COUNT(*) FROM users u " +
                          "WHERE (" +
-                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                         "    (:status = 'PENDING'  AND u.is_deleted = 0 AND u.activated_at IS NULL AND u.is_locked = 0) OR " +
                          "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
                          "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
                          "    (:status IS NULL      AND u.is_deleted = 0)" +
@@ -223,11 +231,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "       u.subject_id AS subjectId, " +
                    "       u.last_login_at AS lastLoginAt, " +
                    "       u.created_at AS createdAt, " +
+                   "       u.activated_at AS activatedAt, " +
                    "       u.avatar_url AS avatarUrl " +
                    "FROM users u " +
                    "WHERE (" +
-                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                   "    (:status = 'PENDING'  AND u.is_deleted = 0 AND u.activated_at IS NULL AND u.is_locked = 0) OR " +
                    "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
                    "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
                    "    (:status IS NULL      AND u.is_deleted = 0)" +
@@ -241,8 +251,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "  WHEN 'LECTURER' THEN 3 ELSE 4 END ASC, u.created_at DESC",
             countQuery = "SELECT COUNT(*) FROM users u " +
                          "WHERE (" +
-                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                         "    (:status = 'PENDING'  AND u.is_deleted = 0 AND u.activated_at IS NULL AND u.is_locked = 0) OR " +
                          "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
                          "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
                          "    (:status IS NULL      AND u.is_deleted = 0)" +
@@ -272,11 +283,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "       u.subject_id AS subjectId, " +
                    "       u.last_login_at AS lastLoginAt, " +
                    "       u.created_at AS createdAt, " +
+                   "       u.activated_at AS activatedAt, " +
                    "       u.avatar_url AS avatarUrl " +
                    "FROM users u " +
                    "WHERE (" +
-                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                   "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                   "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                   "    (:status = 'PENDING'  AND u.is_deleted = 0 AND u.activated_at IS NULL AND u.is_locked = 0) OR " +
                    "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
                    "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
                    "    (:status IS NULL      AND u.is_deleted = 0)" +
@@ -290,8 +303,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
                    "  WHEN 'LECTURER' THEN 3 ELSE 4 END DESC, u.created_at DESC",
             countQuery = "SELECT COUNT(*) FROM users u " +
                          "WHERE (" +
-                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.is_active = 1 AND u.is_locked = 0) OR " +
-                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                         "    (:status = 'ACTIVE'   AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 1 AND u.is_locked = 0) OR " +
+                         "    (:status = 'INACTIVE' AND u.is_deleted = 0 AND u.activated_at IS NOT NULL AND u.is_active = 0 AND u.is_locked = 0) OR " +
+                         "    (:status = 'PENDING'  AND u.is_deleted = 0 AND u.activated_at IS NULL AND u.is_locked = 0) OR " +
                          "    (:status = 'LOCKED'   AND u.is_deleted = 0 AND u.is_locked = 1) OR " +
                          "    (:status = 'DELETED'  AND u.is_deleted = 1) OR " +
                          "    (:status IS NULL      AND u.is_deleted = 0)" +

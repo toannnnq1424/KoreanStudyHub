@@ -2,6 +2,7 @@ package com.ksh.features.auth.service;
 
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.PasswordResetTokenRepository;
+import com.ksh.features.auth.repository.AccountActivationTokenRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,13 +26,16 @@ public class CredentialRotationService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
+    private final AccountActivationTokenRepository activationTokenRepository;
     private final PasswordEncoder passwordEncoder;
 
     public CredentialRotationService(UserRepository userRepository,
                                      PasswordResetTokenRepository tokenRepository,
+                                     AccountActivationTokenRepository activationTokenRepository,
                                      PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
+        this.activationTokenRepository = activationTokenRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -71,6 +75,7 @@ public class CredentialRotationService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         User saved = userRepository.save(user);
         invalidateRecoveryTokensInCurrentTransaction(saved.getId());
+        activationTokenRepository.invalidateUnusedForUser(saved.getId(), LocalDateTime.now());
         return saved;
     }
 

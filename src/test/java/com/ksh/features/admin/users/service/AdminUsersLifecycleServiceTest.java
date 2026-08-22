@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Optional;
 
@@ -90,6 +91,24 @@ class AdminUsersLifecycleServiceTest {
 
         verify(credentialRotationService).replacePassword(target, "new-password");
         verify(userRepository, never()).save(target);
+    }
+
+    @Test
+    void pendingImportedAccountCannotBeManuallyActivatedOrHavePasswordReset() {
+        User pending = UserFactory.newPendingActivation(
+                "pending@ksh.test", "unknown-hash", "Pending",
+                Role.STUDENT, null, null);
+        ReflectionTestUtils.setField(pending, "id", 31L);
+        when(userRepository.findByIdForUpdate(31L)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.activate(31L, 99L))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("chờ chủ sở hữu kích hoạt qua email");
+        assertThatThrownBy(() -> service.resetPassword(31L, "new-password", 99L))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("chờ chủ sở hữu kích hoạt qua email");
+        verify(userRepository, never()).save(pending);
+        verify(credentialRotationService, never()).replacePassword(any(), any());
     }
 
     private User arrangeLockedTarget(Long targetId) {
