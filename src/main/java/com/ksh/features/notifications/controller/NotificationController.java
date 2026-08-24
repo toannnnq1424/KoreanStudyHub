@@ -174,6 +174,13 @@ public class NotificationController {
         if (NotificationType.JOIN_REQUEST.equals(n.type())) {
             return "/lecturer/classes/" + n.referenceId() + "/members";
         }
+        // Announcements and their comments live on the board tab; referenceId is
+        // the class id. Without this branch a comment notification falls through
+        // to /lessons below — the link works, it just opens the wrong tab.
+        if (NotificationType.CLASS_ANNOUNCEMENT.equals(n.type())
+                || NotificationType.ANNOUNCEMENT_COMMENT.equals(n.type())) {
+            return "/my/classes/" + n.referenceId() + "/board";
+        }
         // Admitted students land on published lessons for the class.
         return "/my/classes/" + n.referenceId() + "/lessons";
     }
