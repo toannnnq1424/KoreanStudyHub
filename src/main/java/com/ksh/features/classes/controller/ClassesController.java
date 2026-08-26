@@ -76,14 +76,15 @@ public class ClassesController {
     /**
      * Lists all classes owned by or accessible to the authenticated user.
      *
-     * <p>Pagination defaults: 20 rows per page, sorted by {@code createdAt DESC}.
-     * Clients can override via {@code ?page=N&size=M&sort=...} query parameters.
+     * <p>Pagination defaults to 6 rows per page so each list screen stays compact
+     * and consistent with the class dashboard UX. Clients can still override via
+     * {@code ?page=N&size=M&sort=...} query parameters when needed.
      */
     @GetMapping("/classes")
     public String list(@AuthenticationPrincipal KshUserDetails user,
-                       @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "createdAt",
-                               direction = Sort.Direction.DESC) Pageable pageable,
-                       Model model) {
+                      @PageableDefault(size = 6, sort = "createdAt",
+                              direction = Sort.Direction.DESC) Pageable pageable,
+                      Model model) {
         Page<ClassRow> page = classesService.listForUser(user.getId(), user.getRole(), pageable);
         // Keep the existing template loop driven by ${classes} (a List). The Page
         // object is exposed separately as ${classesPage} for the pagination block.

@@ -3,6 +3,7 @@
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head('Lớp học', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/pager.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/classes.css}">
 </head>
 <body>
@@ -184,19 +185,9 @@
 
     </div>
 
-    <!-- Pagination — mirrors the admin/users.html pattern.
-         Hidden when there is only one page so tiny lists don't render an empty nav. -->
-    <nav th:if="${classesPage != null and classesPage.totalPages > 1}"
-         class="users-pagination" aria-label="Phân trang">
-      <a class="page-link"
-         th:if="${!classesPage.first}"
-         th:href="@{/lecturer/classes(page=${classesPage.number - 1},size=${classesPage.size})}">‹ Trước</a>
-      <span class="page-current"
-            th:text="'Trang ' + (${classesPage.number + 1}) + ' / ' + ${classesPage.totalPages}">Trang 1 / 1</span>
-      <a class="page-link"
-         th:if="${!classesPage.last}"
-         th:href="@{/lecturer/classes(page=${classesPage.number + 1},size=${classesPage.size})}">Sau ›</a>
-    </nav>
+    <!-- Shared numbered pager: Previous / page numbers / Next -->
+    <div th:if="${classesPage != null}"
+         th:replace="~{fragments/pager :: pager(${classesPage}, '/lecturer/classes', null)}"></div>
   </section>
 </main>
 

@@ -13,17 +13,22 @@
   margin-bottom: 16px;
 }
 
+.users-filter-form {
+  width: 100%;
+}
+
 .users-toolbar-row {
   display: flex;
-  gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 
 .users-search {
   position: relative;
-  flex: 1 1 280px;
-  min-width: 240px;
+  flex: 1 1 320px;
+  min-width: 260px;
 }
 
 .users-search .ico {
@@ -36,11 +41,18 @@
 
 .users-search input {
   width: 100%;
+  min-width: 0;
   padding: 10px 12px 10px 38px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   background: #fff;
   font-size: 14px;
+}
+
+.users-toolbar-row select,
+.users-toolbar-row .btn-ghost,
+.users-toolbar-row .create-btn {
+  flex-shrink: 0;
 }
 
 .users-toolbar-row select,
@@ -50,10 +62,18 @@
   border-radius: 8px;
   background: #fff;
   font-size: 14px;
+  min-width: 0;
+}
+
+.users-toolbar-row select {
+  flex: 0 0 160px;
+}
+
+.users-toolbar-row .btn-ghost {
+  white-space: nowrap;
 }
 
 .users-toolbar-row .create-btn {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -63,10 +83,44 @@
   text-decoration: none;
   border-radius: 8px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .users-toolbar-row .create-btn:hover {
   background: #1d4ed8;
+}
+
+@media (max-width: 1180px) {
+  .users-toolbar-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .users-search {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .users-toolbar-row select {
+    flex-basis: calc(33.333% - 8px);
+    min-width: 140px;
+  }
+}
+
+@media (max-width: 640px) {
+  .users-toolbar-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .users-search,
+  .users-toolbar-row select,
+  .users-toolbar-row .btn-ghost,
+  .users-toolbar-row .create-btn {
+    width: 100%;
+    flex-basis: auto;
+  }
 }
 
 /* ── Table cells (shell — panel/scroll/table/empty — lives in admin.css) ── */
