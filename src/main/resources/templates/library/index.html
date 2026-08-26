@@ -198,7 +198,7 @@
 
     <div class="library-add-actions" th:if="${librarySubjectId != null}">
       <button type="button" class="library-add-row js-library-editor"
-              th:attr="data-form-url=@{/lecturer/library/templates/new(subjectId=${librarySubjectId},newChapter=true)}">+ Thêm chương mới</button>
+              th:attr="data-form-url=@{/lecturer/library/templates/new(subjectId=${librarySubjectId},newChapter=true)},data-default-tab='CHAPTER'">+ Thêm chương mới</button>
     </div>
 
     <nav th:if="${libraryPage != null and libraryPage.totalPages > 1}"

@@ -688,6 +688,44 @@ button.personal-library-share-option { width: 100%; font: inherit; }
   background: #2786dd;
   content: '';
 }
+.library-chapter-form {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+}
+.library-chapter-form h2 {
+  margin: 0;
+  color: #23465f;
+  font-size: 18px;
+}
+.library-chapter-form p {
+  margin: 0;
+  color: #6a7f8d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.library-chapter-name-field {
+  display: grid;
+  gap: 8px;
+  color: #35576c;
+  font-size: 13px;
+  font-weight: 750;
+}
+.library-chapter-name-field input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #cfdae5;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e2c3a;
+  font: inherit;
+  font-size: 14px;
+}
+.library-chapter-name-field input:focus-visible {
+  border-color: #2786dd;
+  outline: 3px solid rgba(39, 134, 221, .12);
+}
 .library-primary-video-picker {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

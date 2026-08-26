@@ -294,7 +294,7 @@
     });
   }
 
-  async function openEditor(url) {
+  async function openEditor(url, defaultTab) {
     if (!dialog || !editorContent) return;
     const requestId = ++editorRequestSequence;
     editorRequestController?.abort();
@@ -313,6 +313,7 @@
       if (requestId !== editorRequestSequence || !dialog.open) return;
       const form = parsed.querySelector('[data-library-lesson-form]');
       if (!form) throw new Error('Biểu mẫu không hợp lệ');
+      if (defaultTab) form.setAttribute('data-library-default-tab', defaultTab);
       editorContent.replaceChildren(document.importNode(form, true));
       initializeEditorForm(editorContent.querySelector('[data-library-lesson-form]'));
     } catch (error) {
@@ -336,7 +337,7 @@
     if (!dialog || !dialog.contains(form)) initializeEditorForm(form);
   });
   document.querySelectorAll('.js-library-editor').forEach(button => {
-    button.addEventListener('click', () => openEditor(button.dataset.formUrl));
+    button.addEventListener('click', () => openEditor(button.dataset.formUrl, button.dataset.defaultTab || 'CONTENT'));
   });
   dialog?.querySelector('[data-library-editor-close]')?.addEventListener('click', () => dialog.close());
   dialog?.addEventListener('close', () => {

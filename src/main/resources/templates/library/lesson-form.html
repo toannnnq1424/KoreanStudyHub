@@ -30,18 +30,34 @@
     <input type="hidden" th:field="*{pdfLibraryAssetId}">
 
     <nav class="library-authoring-tabs" role="tablist" aria-label="Nội dung bài giảng">
+      <button type="button" role="tab" id="libraryFormTabChapter"
+             aria-controls="libraryFormPanelChapter" data-library-form-tab="CHAPTER"
+             aria-selected="false" tabindex="-1">Tên chương</button>
       <button type="button" role="tab" id="libraryFormTabContent"
-              aria-controls="libraryFormPanelContent" data-library-form-tab="CONTENT"
-              th:classappend="${form.contentType != 'VIDEO'} ? ' is-active'"
-              th:attr="aria-selected=${form.contentType != 'VIDEO'},tabindex=${form.contentType != 'VIDEO'} ? '0' : '-1'">Nội dung bài học</button>
+             aria-controls="libraryFormPanelContent" data-library-form-tab="CONTENT"
+             th:classappend="${form.contentType != 'VIDEO'} ? ' is-active'"
+             th:attr="aria-selected=${form.contentType != 'VIDEO'},tabindex=${form.contentType != 'VIDEO'} ? '0' : '-1'">Nội dung bài học</button>
       <button type="button" role="tab" id="libraryFormTabVideo"
-              aria-controls="libraryFormPanelVideo" data-library-form-tab="VIDEO"
-              th:classappend="${form.contentType == 'VIDEO'} ? ' is-active'"
-              th:attr="aria-selected=${form.contentType == 'VIDEO'},tabindex=${form.contentType == 'VIDEO'} ? '0' : '-1'">Video</button>
+             aria-controls="libraryFormPanelVideo" data-library-form-tab="VIDEO"
+             th:classappend="${form.contentType == 'VIDEO'} ? ' is-active'"
+             th:attr="aria-selected=${form.contentType == 'VIDEO'},tabindex=${form.contentType == 'VIDEO'} ? '0' : '-1'">Video</button>
       <button type="button" role="tab" id="libraryFormTabAttachments"
-              aria-controls="libraryFormPanelAttachments" data-library-form-tab="ATTACHMENTS"
-              aria-selected="false" tabindex="-1">Tài liệu đính kèm</button>
+             aria-controls="libraryFormPanelAttachments" data-library-form-tab="ATTACHMENTS"
+             aria-selected="false" tabindex="-1">Tài liệu đính kèm</button>
     </nav>
+
+    <section class="library-form-section library-chapter-form" id="libraryFormPanelChapter"
+             aria-labelledby="libraryFormTabChapter"
+             role="tabpanel" data-library-form-panel="CHAPTER" hidden>
+      <h2 id="chapterTitleHeading">Tên chương</h2>
+      <label class="library-chapter-name-field" for="libraryChapterTitleInput">
+        <span>Tên chương *</span>
+        <input id="libraryChapterTitleInput" type="text" maxlength="200" required
+              th:value="${form.chapterTitle}" data-library-chapter-title-input
+              placeholder="Nhập tên chương...">
+      </label>
+      <p>Tên chương sẽ hiển thị trong danh sách bài học.</p>
+    </section>
 
     <section class="library-form-section library-editor-main" id="libraryFormPanelContent"
              aria-labelledby="libraryFormTabContent"

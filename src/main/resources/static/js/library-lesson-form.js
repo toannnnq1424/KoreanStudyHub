@@ -19,6 +19,13 @@
     var clearVideo = form.querySelector('[data-clear-primary-video]');
     var tabs = Array.prototype.slice.call(form.querySelectorAll('[data-library-form-tab]'));
     var panels = Array.prototype.slice.call(form.querySelectorAll('[data-library-form-panel]'));
+    var chapterTitleField = form.querySelector('[name="chapterTitle"]');
+    var chapterTitleInput = form.querySelector('[data-library-chapter-title-input]');
+
+    function syncChapterTitle() {
+      if (!chapterTitleField || !chapterTitleInput) return;
+      chapterTitleField.value = chapterTitleInput.value;
+    }
 
     function showPanel(name, moveFocus) {
       var activeTab = null;
@@ -33,6 +40,9 @@
         if (active) activeTab = tab;
       });
       if (moveFocus && activeTab) activeTab.focus();
+      if (name === 'CHAPTER' && chapterTitleInput && document.activeElement !== chapterTitleInput) {
+        chapterTitleInput.focus();
+      }
     }
 
     tabs.forEach(function (tab) {
@@ -127,10 +137,17 @@
       });
     }
 
+    if (chapterTitleInput) {
+      chapterTitleInput.addEventListener('input', syncChapterTitle);
+    }
+
     renderPrimaryVideo(null);
-    showPanel(contentType && contentType.value === 'VIDEO' ? 'VIDEO' : 'CONTENT');
+    var defaultTab = form.getAttribute('data-library-default-tab') ||
+      (contentType && contentType.value === 'VIDEO' ? 'VIDEO' : 'CONTENT');
+    showPanel(defaultTab);
 
     form.addEventListener('submit', function () {
+      syncChapterTitle();
       if (primaryVideoId()) {
         if (provider) provider.value = 'UPLOAD';
         if (videoUrl) videoUrl.value = '';
