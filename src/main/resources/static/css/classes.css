@@ -50,7 +50,7 @@
    top while panel still extends to the bottom of the viewport. */
 .class-list {
   flex: 1 1 auto;
-  overflow-y: auto;
+  overflow: visible;
   min-height: 0;
 }
 
