@@ -1,11 +1,7 @@
 package com.ksh.features.admin.settings.controller;
 
-import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileForm;
-<<<<<<< HEAD
-import com.ksh.features.admin.settings.dto.StorageSettingsDtos.TestResult;
-=======
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ConnectionTestResult;
->>>>>>> origin/main
+import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileForm;
 import com.ksh.features.admin.settings.service.StorageProfileAdminService;
 import com.ksh.features.storage.profile.StorageProfileCode;
 import com.ksh.security.KshUserDetails;
