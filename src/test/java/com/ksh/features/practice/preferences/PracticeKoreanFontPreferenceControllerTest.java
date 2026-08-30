@@ -3,9 +3,11 @@ package com.ksh.features.practice.preferences;
 import com.ksh.entities.User;
 import com.ksh.features.messaging.service.MessagingService;
 import com.ksh.features.notifications.service.NotificationService;
+import com.ksh.security.AuthenticatedAccessVersionService;
 import com.ksh.security.AuthenticatedUserIdResolver;
 import com.ksh.security.KshUserDetails;
 import com.ksh.security.Role;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -14,6 +16,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -46,6 +49,14 @@ class PracticeKoreanFontPreferenceControllerTest {
 
     @MockitoBean
     private NotificationService notificationService;
+
+    @MockitoBean
+    private AuthenticatedAccessVersionService accessVersions;
+
+    @BeforeEach
+    void acceptSyntheticPrincipalSecurityVersions() {
+        when(accessVersions.isCurrent(anyLong(), anyLong())).thenReturn(true);
+    }
 
     @Test
     void studentViewReceivesCanonicalServerPreferenceAndExactAllowlist()

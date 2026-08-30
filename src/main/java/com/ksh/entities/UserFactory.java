@@ -2,6 +2,8 @@ package com.ksh.entities;
 
 import com.ksh.security.Role;
 
+import java.time.LocalDateTime;
+
 /**
  * Package-private factory for constructing new {@link User} instances.
  *
@@ -36,7 +38,7 @@ public final class UserFactory {
                                        boolean emailVerified,
                                        String phone,
                                        String bio) {
-        return new User(
+        User user = new User(
                 normalizedEmail,
                 passwordHash,
                 fullName,
@@ -48,5 +50,30 @@ public final class UserFactory {
                 phone,
                 bio
         );
+        user.markPasswordEstablished(LocalDateTime.now());
+        return user;
+    }
+
+    /** Builds an inactive account whose password is unknown to every person. */
+    public static User newPendingActivation(String normalizedEmail,
+                                            String passwordHash,
+                                            String fullName,
+                                            Role role,
+                                            String phone,
+                                            Long subjectId) {
+        User user = new User(
+                normalizedEmail,
+                passwordHash,
+                fullName,
+                role,
+                false,
+                false,
+                false,
+                false,
+                phone,
+                null
+        );
+        user.setSubjectId(subjectId);
+        return user;
     }
 }

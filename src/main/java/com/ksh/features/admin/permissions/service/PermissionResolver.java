@@ -129,6 +129,46 @@ public class PermissionResolver {
     }
 
     /**
+     * Describes the expiry boundary of active overrides for one user.
+     *
+     * <p>The login path uses this metadata for two related safeguards. An already
+     * elapsed row means a previously cached permission set may still contain a
+     * temporary grant, so that cache entry must be evicted before resolving the
+     * new principal. The nearest future expiry is copied into the principal so
+     * the authenticated HTTP session can be retired at that exact boundary.
+     *
+     * @param userId user whose override timeline is requested
+     * @param now one shared clock value for all comparisons
+     * @return elapsed/future expiry metadata; never {@code null}
+     */
+    @Transactional(readOnly = true)
+    public PermissionTimeline permissionTimeline(Long userId, LocalDateTime now) {
+        if (userId == null) {
+            return new PermissionTimeline(false, null);
+        }
+        LocalDateTime observedAt = now == null ? LocalDateTime.now() : now;
+        boolean hasElapsedActiveOverride = false;
+        LocalDateTime nextExpiry = null;
+        for (UserPermissionOverride override : overrideRepository.findByUserIdOrderByIdDesc(userId)) {
+            if (!override.isActive() || override.getExpiresAt() == null) {
+                continue;
+            }
+            LocalDateTime expiry = override.getExpiresAt();
+            if (!expiry.isAfter(observedAt)) {
+                hasElapsedActiveOverride = true;
+            } else if (nextExpiry == null || expiry.isBefore(nextExpiry)) {
+                nextExpiry = expiry;
+            }
+        }
+        return new PermissionTimeline(hasElapsedActiveOverride, nextExpiry);
+    }
+
+    /** Cache/session freshness metadata associated with one permission resolution. */
+    public record PermissionTimeline(boolean hasElapsedActiveOverride,
+                                     LocalDateTime nextExpiry) {
+    }
+
+    /**
      * Drops the cached permission set of one user.
      *
      * @param userId the user whose next resolution should re-read the database
@@ -149,23 +189,30 @@ public class PermissionResolver {
      * @param roleCode the role whose permission set changed (e.g. {@code LECTURER})
      */
     @Transactional(readOnly = true)
-    public void evictRole(String roleCode) {
+    public List<Long> evictRole(String roleCode) {
+        List<Long> userIds = affectedUserIds(roleCode);
+        Cache cache = cacheManager.getCache(CacheConfig.CACHE_USER_PERMISSIONS);
+        // Evict through the CacheManager, not evictUser(): a self-invocation would
+        // bypass the Spring proxy and silently skip the @CacheEvict.
+        if (cache != null) {
+            for (Long userId : userIds) {
+                cache.evict(userId);
+            }
+        }
+        return List.copyOf(userIds);
+    }
+
+    /** Returns users whose inherited permission set changes with the given role. */
+    @Transactional(readOnly = true)
+    public List<Long> affectedUserIds(String roleCode) {
         if (roleCode == null || roleCode.isBlank()) {
-            return;
+            return List.of();
         }
         List<Role> affectedRoles = toRoles(descendantRoleCodes(roleCode));
         if (affectedRoles.isEmpty()) {
-            return;
+            return List.of();
         }
-        Cache cache = cacheManager.getCache(CacheConfig.CACHE_USER_PERMISSIONS);
-        if (cache == null) {
-            return;
-        }
-        // Evict through the CacheManager, not evictUser(): a self-invocation would
-        // bypass the Spring proxy and silently skip the @CacheEvict.
-        for (Long userId : rolePermissionRepository.findUserIdsByRoleCodes(affectedRoles)) {
-            cache.evict(userId);
-        }
+        return List.copyOf(rolePermissionRepository.findUserIdsByRoleCodes(affectedRoles));
     }
 
     /**

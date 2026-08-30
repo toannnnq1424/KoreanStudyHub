@@ -159,6 +159,7 @@ public class StudentLessonDetailService {
                 pdfDownloadUrl,
                 pdfViewerUrl,
                 videoUrl,
+                lesson.getVideoSummary(),
                 lesson.getVideoProvider());
     }
 
@@ -216,7 +217,7 @@ public class StudentLessonDetailService {
 
     /** Returns the iframe-embed URL or MP4 stream URL when type=VIDEO; null otherwise. */
     private String buildStudentVideoUrl(Lesson lesson) {
-        if (lesson.getVideoProvider() == null || lesson.getVideoUrl() == null) {
+        if (lesson.getVideoProvider() == null || (lesson.getVideoUrl() == null && !lesson.hasLibraryVideo())) {
             return null;
         }
         String provider = lesson.getVideoProvider();

@@ -277,7 +277,29 @@ class StudentLessonDetailServiceTest {
         assertThat(view.contentType()).isEqualTo("RICHTEXT");
         assertThat(view.pdfDownloadUrl()).isNull();
         assertThat(view.videoUrl()).isNull();
+        assertThat(view.videoSummary()).isNull();
         assertThat(view.videoProvider()).isNull();
+    }
+
+    @Test
+    void richtext_lesson_exposes_optional_video_and_plain_text_summary() {
+        Lesson lesson = persistLesson(section.getId(), "Bài hội thoại",
+                "<p>안녕하세요?</p>", true);
+        lesson.setVideoProvider("YOUTUBE");
+        lesson.setVideoUrl("https://www.youtube.com/watch?v=kshLesson42");
+        lesson.setVideoSummary("Nghe mẫu chào hỏi, sau đó trả lời trong 45 giây.");
+        lessonRepository.saveAndFlush(lesson);
+        enrollActive();
+
+        LessonDetailView view = studentLessonDetailService.getLessonDetail(
+                clazz.getId(), lesson.getId(), student.getId(), Role.STUDENT);
+
+        assertThat(view.contentType()).isEqualTo("RICHTEXT");
+        assertThat(view.contentRichtext()).isEqualTo("<p>안녕하세요?</p>");
+        assertThat(view.videoUrl()).isEqualTo("https://www.youtube.com/embed/kshLesson42");
+        assertThat(view.videoSummary())
+                .isEqualTo("Nghe mẫu chào hỏi, sau đó trả lời trong 45 giây.");
+        assertThat(view.videoProvider()).isEqualTo("YOUTUBE");
     }
 
     @Test
@@ -310,6 +332,7 @@ class StudentLessonDetailServiceTest {
         lesson.switchContentTypeTo("VIDEO");
         lesson.setVideoProvider("YOUTUBE");
         lesson.setVideoUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+        lesson.setVideoSummary("Video minh họa phát âm chậm và rõ.");
         lessonRepository.saveAndFlush(lesson);
         enrollActive();
 
@@ -319,6 +342,7 @@ class StudentLessonDetailServiceTest {
         assertThat(view.contentType()).isEqualTo("VIDEO");
         assertThat(view.videoProvider()).isEqualTo("YOUTUBE");
         assertThat(view.videoUrl()).isEqualTo("https://www.youtube.com/embed/dQw4w9WgXcQ");
+        assertThat(view.videoSummary()).isEqualTo("Video minh họa phát âm chậm và rõ.");
     }
 
     @Test

@@ -60,6 +60,7 @@ class QuestionBankItemServiceTest {
     void setUp() {
         lecturer = mock(User.class);
         when(lecturer.getId()).thenReturn(ACTOR_ID);
+        when(lecturer.getFullName()).thenReturn("Giảng viên Kim");
         when(lecturer.getRole()).thenReturn(Role.LECTURER);
         when(lecturer.getSubjectId()).thenReturn(SUBJECT_ID);
         when(userRepository.findById(ACTOR_ID)).thenReturn(Optional.of(lecturer));
@@ -80,7 +81,7 @@ class QuestionBankItemServiceTest {
                 "<p>Alpha foreign</p>");
         when(itemRepository.findBySubjectIdOrderByUpdatedAtDescIdDesc(SUBJECT_ID))
                 .thenReturn(List.of(matching, otherStatus, otherContributor));
-        when(userRepository.findAllById(anyCollection())).thenReturn(List.of());
+        when(userRepository.findAllById(anyCollection())).thenReturn(List.of(lecturer));
         when(lessonRepository.findAllById(List.of(201L))).thenReturn(List.of());
 
         List<ItemRow> rows = service.list(ACTOR_ID, Role.LECTURER, SUBJECT_ID,
@@ -89,9 +90,12 @@ class QuestionBankItemServiceTest {
         assertThat(rows).singleElement().satisfies(row -> {
             assertThat(row.id()).isEqualTo(101L);
             assertThat(row.contentPreview()).isEqualTo("Alpha question");
+            assertThat(row.contributorId()).isEqualTo(ACTOR_ID);
+            assertThat(row.contributorName()).isEqualTo("Giảng viên Kim");
             assertThat(row.editable()).isTrue();
             assertThat(row.reviewable()).isFalse();
         });
+        verify(userRepository, times(1)).findAllById(anyCollection());
     }
 
     @Test

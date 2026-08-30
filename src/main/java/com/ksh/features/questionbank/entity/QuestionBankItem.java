@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.LocalDateTime;
 
@@ -31,6 +32,11 @@ public class QuestionBankItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Prevents a later concurrent curator decision from silently overwriting the first. */
+    @Version
+    @Column(name = "row_version", nullable = false)
+    private long rowVersion;
 
     @Column(name = "subject_id", nullable = false)
     private Long subjectId;
@@ -189,6 +195,8 @@ public class QuestionBankItem {
     public Long getId() {
         return id;
     }
+
+    public long getRowVersion() { return rowVersion; }
 
     public Long getSubjectId() {
         return subjectId;

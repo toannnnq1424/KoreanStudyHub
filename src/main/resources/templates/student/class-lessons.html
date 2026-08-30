@@ -31,7 +31,7 @@
        first chapter. Only the content columns change between empty and
        populated states; class navigation must never disappear with content. -->
   <div class="student-lessons-grid"
-       th:classappend="${(#lists.isEmpty(view.sections()) ? ' is-empty' : '') + (teachingView ? ' is-teaching' : '')}">
+       th:classappend="${(#lists.isEmpty(view.sections()) ? ' is-empty' : '') + (teachingView ? ' is-teaching' : '') + (lessonDetail != null ? ' has-lesson-context' : '')}">
 
     <!-- LEFT SIDEBAR: shared class shell sidebar. Progress bar + lessons-only
          extras (shared decks, chapter switcher) are passed as slot markup;
@@ -55,32 +55,17 @@
         </div>
       </th:block>
 
-      <!-- SLOT: lessons-only extras (shared decks + chapter switcher). -->
+      <!-- SLOT: the complete chapter/lesson outline replaces the former
+           duplicate right rail while the active class menu stays collapsed. -->
       <th:block th:fragment="lessonsExtras">
-
-        <!-- Chapter switcher kept in the sidebar: the right rail is
-             section-scoped, so students still need to pick a chapter here. -->
-        <div th:if="${#lists.size(view.sections()) > 1}">
-          <p class="student-lessons-sidebar-title">Chương</p>
-          <ul class="student-lessons-section-list">
-            <li th:each="section : ${view.sections()}"
-                th:classappend="${section.sectionId() == activeSectionId} ? ' active' : ''"
-                class="student-lessons-section-item">
-              <a th:href="${lessonBasePath + '?section=' + section.sectionId()}"
-                 class="student-lessons-section-link">
-                <span th:text="${section.title()}">Chương 1</span>
-                <span class="student-lessons-section-count"
-                      th:text="${teachingView} ? (${section.publishedCount()} + ' bài') : (${section.completedCount()} + '/' + ${section.publishedCount()})">0/0</span>
-              </a>
-            </li>
-          </ul>
-        </div>
+        <div th:replace="~{fragments/lesson-outline :: lessonOutline(${view}, ${activeSectionId}, ${lessonDetail}, ${lessonBasePath}, ${teachingView})}"></div>
       </th:block>
     </div>
     </th:block>
 
     <div th:if="${teachingView}" class="lecturer-lessons-sidebar">
       <aside th:replace="~{fragments/class-sidebar :: classSidebar(${clazz}, 'lessons')}"></aside>
+      <div th:replace="~{fragments/lesson-outline :: lessonOutline(${view}, ${activeSectionId}, ${lessonDetail}, ${lessonBasePath}, ${teachingView})}"></div>
     </div>
 
     <!-- Empty class: keep the shared class sidebar and replace only the
@@ -108,83 +93,128 @@
              th:unless="${#lists.isEmpty(view.sections())}">
       <!-- Inlined lesson detail (KSH-4.2) — renders when controller resolves ?lesson=X. -->
       <th:block th:if="${lessonDetail != null}">
-        <p class="student-lessons-eyebrow">Bài giảng</p>
-        <h2 class="student-lessons-main-title" th:text="${lessonDetail.lessonTitle()}">Tên bài giảng</h2>
-        <p class="student-lessons-main-subtitle"
-           th:if="${lessonDetail.publishedAt() != null}"
-           th:text="'Đăng ngày ' + ${#temporals.format(lessonDetail.publishedAt(), 'dd/MM/yyyy')}">
-          Đăng ngày --/--/----
-        </p>
-
-        <!-- RICHTEXT viewer — sanitised on persistence so utext is safe. -->
-        <article class="student-lesson-detail-content"
-                 th:if="${lessonDetail.contentType() == 'RICHTEXT' and lessonDetail.contentRichtext() != null and !#strings.isEmpty(lessonDetail.contentRichtext())}"
-                 th:utext="${lessonDetail.contentRichtext()}">
-          Nội dung bài giảng
-        </article>
-        <p class="student-lesson-detail-empty"
-           th:if="${lessonDetail.contentType() == 'RICHTEXT' and (lessonDetail.contentRichtext() == null or #strings.isEmpty(lessonDetail.contentRichtext()))}">
-          Bài giảng này chưa có nội dung.
-        </p>
-
-        <!-- PDF viewer — browser-native inline view + download fallback. -->
-        <div class="lesson-pdf-viewer"
-             th:if="${lessonDetail.contentType() == 'PDF' and lessonDetail.pdfViewerUrl() != null}">
-          <iframe th:src="${lessonDetail.pdfViewerUrl()}"
-                  class="lesson-pdf-iframe"
-                  frameborder="0"
-                  allowfullscreen>
-          </iframe>
-          <a th:href="${lessonDetail.pdfDownloadUrl()}" target="_blank" rel="noopener"
-             class="lesson-pdf-fallback">Tải PDF xuống</a>
-        </div>
-
-        <!-- VIDEO viewer — iframe for YouTube/Vimeo, HTML5 video for UPLOAD.
-             The 16:9 wrapper keeps both shapes responsive. -->
-        <div class="lesson-video-viewer"
-             th:if="${lessonDetail.videoUrl() != null}">
-          <div class="lesson-video-aspect">
-            <iframe th:if="${lessonDetail.videoProvider() == 'YOUTUBE' or lessonDetail.videoProvider() == 'VIMEO'}"
-                    th:src="${lessonDetail.videoUrl()}"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowfullscreen>
-            </iframe>
-            <video th:if="${lessonDetail.videoProvider() == 'UPLOAD'}"
-                   th:src="${lessonDetail.videoUrl()}"
-                   controls preload="metadata">
-              Trình duyệt không hỗ trợ thẻ video.
-            </video>
+        <header class="student-lesson-heading">
+          <div>
+            <p class="student-lessons-eyebrow"
+               th:text="${lessonDetail.sectionTitle()}">Bài giảng</p>
+            <h2 class="student-lessons-main-title"
+                th:text="${lessonDetail.lessonTitle()}">Tên bài giảng</h2>
+            <p class="student-lessons-main-subtitle"
+               th:if="${lessonDetail.publishedAt() != null}"
+               th:text="'Đăng ngày ' + ${#temporals.format(lessonDetail.publishedAt(), 'dd/MM/yyyy')}">
+              Đăng ngày --/--/----
+            </p>
           </div>
+
+          <form th:if="${!teachingView}"
+                method="post"
+                class="student-lesson-completion-form"
+                th:action="@{|/my/classes/${view.classId()}/lessons/${lessonDetail.lessonId()}/progress/toggle|}">
+            <input type="hidden" name="section" th:value="${activeSectionId}"/>
+            <button type="submit"
+                    class="student-lesson-completion-button"
+                    data-lesson-completion-button
+                    th:disabled="${activeLessonCompleted or (lessonEngagement != null and !lessonEngagement.eligible())}"
+                    th:attr="aria-label=${activeLessonCompleted ? 'Bài học đã hoàn thành' : 'Đánh dấu bài học hoàn thành'}"
+                    th:classappend="${activeLessonCompleted ? ' is-complete' : (lessonEngagement != null and !lessonEngagement.eligible() ? ' is-locked' : '')}">
+              <span class="student-lesson-completion-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.4">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+              <span class="student-lesson-completion-copy">
+                <strong th:text="${activeLessonCompleted ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}">Đánh dấu hoàn thành</strong>
+                <small data-lesson-completion-hint
+                       th:text="${activeLessonCompleted ? 'Tiến độ đã được lưu' : (lessonEngagement != null and lessonEngagement.eligible() ? 'Checklist đã đủ điều kiện' : 'Hoàn tất checklist để mở khóa')}">Hoàn tất checklist để mở khóa</small>
+              </span>
+            </button>
+          </form>
+        </header>
+
+        <div class="student-lesson-tabs" role="tablist" aria-label="Nội dung bài giảng">
+          <button id="lesson-tab-content" class="student-lesson-tab" type="button"
+                  role="tab" aria-selected="true" aria-controls="lesson-panel-content"
+                  data-engagement-tab="CONTENT" tabindex="0">Nội dung bài học</button>
+          <button id="lesson-tab-video" class="student-lesson-tab" type="button"
+                  role="tab" aria-selected="false" aria-controls="lesson-panel-video"
+                  data-engagement-tab="VIDEO" tabindex="-1">Video</button>
+          <button id="lesson-tab-attachments" class="student-lesson-tab" type="button"
+                  role="tab" aria-selected="false" aria-controls="lesson-panel-attachments"
+                  data-engagement-tab="ATTACHMENTS" tabindex="-1">Tài liệu đính kèm</button>
         </div>
 
-        <!-- Description block. Lessons have no description column yet, so
-             this always renders the empty-state copy (matches SHub). -->
-        <section class="student-lessons-desc">
-          <h3 class="student-lessons-desc-title">Mô tả</h3>
-          <p class="student-lessons-desc-empty">Bài giảng không có mô tả nào</p>
-        </section>
+        <div id="lesson-panel-content" class="student-lesson-panel"
+             role="tabpanel" aria-labelledby="lesson-tab-content" tabindex="0">
+          <article class="student-lesson-detail-content"
+                   th:if="${lessonDetail.contentRichtext() != null and !#strings.isEmpty(lessonDetail.contentRichtext())}"
+                   th:utext="${lessonDetail.contentRichtext()}">
+            Nội dung bài giảng
+          </article>
+          <div class="lesson-pdf-viewer"
+               th:if="${lessonDetail.contentType() == 'PDF' and lessonDetail.pdfViewerUrl() != null}">
+            <iframe th:src="${lessonDetail.pdfViewerUrl()}"
+                    class="lesson-pdf-iframe" title="Nội dung PDF của bài giảng"
+                    frameborder="0" allowfullscreen></iframe>
+            <a th:href="${lessonDetail.pdfDownloadUrl()}" target="_blank" rel="noopener"
+               class="lesson-pdf-fallback">Tải PDF xuống</a>
+          </div>
+          <p class="student-lesson-detail-empty"
+             th:if="${(lessonDetail.contentRichtext() == null or #strings.isEmpty(lessonDetail.contentRichtext())) and (lessonDetail.contentType() != 'PDF' or lessonDetail.pdfViewerUrl() == null)}">
+            Nội dung bài học đang được cập nhật.
+          </p>
+        </div>
 
-        <section class="student-lesson-detail-attachments"
-                 th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
-          <h3 class="student-lesson-detail-attachments-title">Tệp đính kèm</h3>
-          <ul class="student-lesson-detail-attachment-list">
-            <li th:each="att : ${lessonDetail.attachments()}" class="student-lesson-detail-attachment-item">
-              <span class="student-lesson-detail-attachment-ext"
-                    th:text="${att.extension()}">PDF</span>
-              <a class="student-lesson-detail-attachment-name"
-                 th:href="${att.downloadUrl()}"
-                 th:text="${att.filename()}"
-                 th:title="${att.filename()}">tệp.pdf</a>
-              <span class="student-lesson-detail-attachment-size"
-                    th:text="${att.formattedSize()}">— KB</span>
-              <a th:if="${att.viewUrl() != null}"
-                 th:href="${att.viewUrl()}"
-                 class="student-lesson-detail-attachment-view"
-                 target="_blank" rel="noopener">Xem</a>
-            </li>
-          </ul>
-        </section>
+        <div id="lesson-panel-video" class="student-lesson-panel"
+             role="tabpanel" aria-labelledby="lesson-tab-video" tabindex="0" hidden>
+          <div class="lesson-video-viewer" th:if="${lessonDetail.videoUrl() != null}">
+            <div class="lesson-video-aspect">
+              <iframe th:if="${lessonDetail.videoProvider() == 'YOUTUBE' or lessonDetail.videoProvider() == 'VIMEO'}"
+                      th:src="${lessonDetail.videoUrl()}" title="Video bài giảng"
+                      frameborder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowfullscreen></iframe>
+              <video th:if="${lessonDetail.videoProvider() == 'UPLOAD'}"
+                     th:src="${lessonDetail.videoUrl()}" controls preload="metadata">
+                Trình duyệt không hỗ trợ thẻ video.
+              </video>
+            </div>
+          </div>
+          <section class="student-lesson-video-summary"
+                   th:if="${lessonDetail.videoSummary() != null and !#strings.isEmpty(lessonDetail.videoSummary())}">
+            <h3>Tóm tắt nội dung</h3>
+            <p th:text="${lessonDetail.videoSummary()}">Tóm tắt video</p>
+          </section>
+          <p class="student-lesson-detail-empty"
+             th:if="${lessonDetail.videoUrl() == null}">Bài giảng này chưa có video.</p>
+        </div>
+
+        <div id="lesson-panel-attachments" class="student-lesson-panel"
+             role="tabpanel" aria-labelledby="lesson-tab-attachments" tabindex="0" hidden>
+          <section class="student-lesson-detail-attachments"
+                   th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
+            <h3 class="student-lesson-detail-attachments-title"
+                th:text="'Tài liệu đính kèm (' + ${#lists.size(lessonDetail.attachments())} + ')'">Tài liệu đính kèm</h3>
+            <ul class="student-lesson-detail-attachment-list">
+              <li th:each="att : ${lessonDetail.attachments()}" class="student-lesson-detail-attachment-item">
+                <span class="student-lesson-detail-attachment-ext"
+                      th:text="${att.extension()}">PDF</span>
+                <a class="student-lesson-detail-attachment-name"
+                   th:href="${att.downloadUrl()}" th:text="${att.filename()}"
+                   th:title="${att.filename()}">tệp.pdf</a>
+                <span class="student-lesson-detail-attachment-size"
+                      th:text="${att.formattedSize()}">— KB</span>
+                <a th:if="${att.viewUrl() != null}" th:href="${att.viewUrl()}"
+                   class="student-lesson-detail-attachment-view"
+                   target="_blank" rel="noopener">Xem</a>
+                <a class="student-lesson-detail-attachment-download"
+                   th:href="${att.downloadUrl()}" download>Tải xuống</a>
+              </li>
+            </ul>
+          </section>
+          <p class="student-lesson-detail-empty"
+             th:if="${#lists.isEmpty(lessonDetail.attachments())}">Bài giảng này chưa có tài liệu đính kèm.</p>
+        </div>
 
       </th:block>
 
@@ -206,129 +236,165 @@
             </svg>
             <p class="student-lessons-hero-title">Chọn bài giảng để bắt đầu</p>
             <p class="student-lessons-hero-text">
-              Nhấn vào một bài giảng ở cột bên phải để xem nội dung chi tiết của chương này.
+              Chọn một bài trong danh sách ở thanh bên trái để xem nội dung.
             </p>
           </div>
-
-          <div class="student-lessons-divider"></div>
-          <p class="student-lessons-meta-label">Mô tả chương</p>
-          <p class="student-lessons-meta-value">Chương này chưa có mô tả</p>
         </th:block>
       </th:block>
     </section>
 
-    <!-- RIGHT RAIL: accordion of ALL chapters. Native <details> keeps it
-         JS-free; the chapter holding the currently-viewed lesson starts open,
-         the rest collapse until the student clicks their header. -->
-    <aside class="student-lessons-rail"
-           th:unless="${#lists.isEmpty(view.sections())}">
-      <div class="student-lessons-rail-header">
-        <svg class="student-lessons-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="8" y1="6" x2="21" y2="6"/>
-          <line x1="8" y1="12" x2="21" y2="12"/>
-          <line x1="8" y1="18" x2="21" y2="18"/>
-          <line x1="3" y1="6" x2="3.01" y2="6"/>
-          <line x1="3" y1="12" x2="3.01" y2="12"/>
-          <line x1="3" y1="18" x2="3.01" y2="18"/>
-        </svg>
-        <p class="student-lessons-rail-title">Nội dung khoá học</p>
-        <span class="student-lessons-rail-count"
-              th:text="${#lists.size(view.sections())} + ' chương'">0 chương</span>
-      </div>
+    <!-- RIGHT CONTEXT RAIL: compact progress, quick resources and lesson
+         navigation. The checkpoint endpoint is student-only; lecturer mode
+         keeps the same useful read-only shortcuts without emitting progress. -->
+    <aside class="student-lesson-context"
+           th:if="${lessonDetail != null}"
+           aria-label="Công cụ bài học"
+           data-lesson-workspace
+           data-checkpoint-interval-ms="5000"
+           th:attr="data-lesson-key=${view.classId() + ':' + lessonDetail.lessonId()},
+                    data-tracking-enabled=${!teachingView},
+                    data-progress-endpoint=${!teachingView ? '/my/classes/' + view.classId() + '/lessons/' + lessonDetail.lessonId() + '/progress/checkpoint' : ''},
+                    data-overall-percent=${lessonEngagement != null ? lessonEngagement.overallPercent() : 0},
+                    data-eligible=${lessonEngagement != null and lessonEngagement.eligible()},
+                    data-overall-completed=${activeLessonCompleted}">
 
-      <div class="student-lessons-acc-scroll">
-        <details th:each="section : ${view.sections()}"
-                 class="student-lessons-acc"
-                 th:open="${section.sectionId() == activeSectionId}">
-          <summary class="student-lessons-acc-head">
-            <svg class="student-lessons-acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-            <span class="student-lessons-acc-title" th:text="${section.title()}">Chương 1</span>
-            <span class="student-lessons-acc-count"
-                  th:text="${teachingView} ? (${section.publishedCount()} + ' bài') : (${section.completedCount()} + '/' + ${section.publishedCount()})">0/0</span>
-          </summary>
+      <section class="student-lesson-context-card student-lesson-progress-card"
+               th:if="${!teachingView}">
+        <div class="student-lesson-context-title-row">
+          <h3>Tiến độ bài học</h3>
+          <span class="student-lesson-progress-state" data-lesson-progress-state
+                aria-live="polite">Đang ghi nhận</span>
+        </div>
+        <p class="sr-only" role="status" aria-live="polite" aria-atomic="true"
+           data-lesson-engagement-announcement></p>
 
-          <!-- Empty-section state -->
-          <div class="student-lessons-empty-rail"
-               th:if="${#lists.isEmpty(section.lessons())}">
-            <svg class="student-lessons-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="16" rx="2" ry="2"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
+        <div class="student-lesson-progress-overview">
+          <div class="student-lesson-progress-ring" data-lesson-progress-ring
+               role="progressbar" aria-label="Tiến độ checklist bài học"
+               aria-valuemin="0" aria-valuemax="100"
+               th:attr="aria-valuenow=${lessonEngagement != null ? lessonEngagement.overallPercent() : 0}"
+               th:style="${'--lesson-progress: ' + (lessonEngagement != null ? lessonEngagement.overallPercent() : 0)}">
+            <svg viewBox="0 0 44 44" aria-hidden="true">
+              <circle class="student-lesson-progress-ring-track" cx="22" cy="22" r="18"/>
+              <circle class="student-lesson-progress-ring-value" cx="22" cy="22" r="18"
+                      pathLength="100"/>
             </svg>
-            <p th:text="${T(com.ksh.common.IConstant).MSG_STUDENT_LESSONS_EMPTY_SECTION}">Chương này chưa có bài giảng</p>
+            <strong data-lesson-progress-percent
+                    th:text="${(lessonEngagement != null ? lessonEngagement.overallPercent() : 0) + '%'}">0%</strong>
           </div>
+          <div>
+            <strong data-lesson-progress-count
+                    th:text="${lessonEngagement == null ? '0/3 mục hoàn tất' : (((lessonEngagement.content().complete() ? 1 : 0) + (lessonEngagement.video().complete() ? 1 : 0) + (lessonEngagement.attachments().complete() ? 1 : 0)) + '/' + ((lessonEngagement.content().applicable() ? 1 : 0) + (lessonEngagement.video().applicable() ? 1 : 0) + (lessonEngagement.attachments().applicable() ? 1 : 0)) + ' mục hoàn tất')}">0/3 mục hoàn tất</strong>
+            <p>Mỗi tab được ghi nhận khi bạn xem tab đó trong 60 giây.</p>
+          </div>
+        </div>
 
-          <!-- Lesson cards -->
-          <ul class="student-lessons-lesson-list"
-              th:unless="${#lists.isEmpty(section.lessons())}">
-            <li th:each="lesson : ${section.lessons()}"
-                th:classappend="${lessonDetail != null and lesson.id() == lessonDetail.lessonId()} ? ' active' : ''"
-                class="student-lessons-lesson-card">
-            <a th:href="${lessonBasePath + '?section=' + section.sectionId() + '&amp;lesson=' + lesson.id()}"
-               class="student-lessons-lesson-link">
-              <span class="student-lessons-lesson-thumb">
-                <!-- Icon switches per contentType so the rail signals the
-                     viewer the student will land on. Defaults to the
-                     document icon when contentType is null (legacy rows). -->
-                <svg th:if="${lesson.contentType() == 'VIDEO'}"
-                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="23 7 16 12 23 17 23 7" fill="currentColor"/>
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-                </svg>
-                <svg th:if="${lesson.contentType() == 'PDF'}"
-                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <text x="7" y="18" font-size="6" font-weight="700"
-                        fill="currentColor" stroke="none">PDF</text>
-                </svg>
-                <svg th:if="${lesson.contentType() == null or lesson.contentType() == 'RICHTEXT'}"
-                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="8" y1="13" x2="16" y2="13"/>
-                  <line x1="8" y1="17" x2="16" y2="17"/>
-                  <line x1="8" y1="9" x2="10" y2="9"/>
-                </svg>
-              </span>
-              <span class="student-lessons-lesson-body">
-                <span class="student-lessons-lesson-title" th:text="${lesson.title()}">Bài giảng</span>
-                <span class="student-lessons-lesson-meta"
-                      th:if="${lesson.publishedAt() != null}"
-                      th:text="'Đăng ' + ${#temporals.format(lesson.publishedAt(), 'dd/MM/yyyy')}">
-                  Đăng --/--/----
-                </span>
-              </span>
-            </a>
-            <!-- Completion toggle (KSH-4.5) — a POST form sibling of the link
-                 (a form/button cannot be nested inside the anchor). Always
-                 shown: empty circle = not done → click to complete; filled ✓
-                 = done → click to un-complete. Backend toggles either way. -->
-            <form method="post"
-                  th:action="@{|/my/classes/${view.classId()}/lessons/${lesson.id()}/progress/toggle|}"
-                  class="student-lessons-lesson-check-form">
-              <input type="hidden" name="section" th:value="${section.sectionId()}"/>
-              <button type="submit" class="student-lessons-lesson-check"
-                      th:classappend="${lesson.completed()} ? ' is-done' : ''"
-                      th:title="${lesson.completed()} ? 'Bỏ đánh dấu hoàn thành' : 'Đánh dấu hoàn thành'"
-                      th:aria-label="${lesson.completed()} ? 'Bỏ đánh dấu hoàn thành' : 'Đánh dấu hoàn thành'">
-                <span th:if="${lesson.completed()}">✓</span>
-              </button>
-            </form>
+        <ul class="student-lesson-checklist" aria-label="Checklist hoàn thành bài học">
+          <li data-lesson-checkpoint="CONTENT"
+              th:classappend="${lessonEngagement != null and !lessonEngagement.content().applicable() ? ' is-not-applicable' : (lessonEngagement != null and lessonEngagement.content().complete() ? ' is-complete' : '')}"
+              th:attr="data-applicable=${lessonEngagement != null and lessonEngagement.content().applicable()},
+                       data-seconds=${lessonEngagement != null ? lessonEngagement.content().seconds() : 0},
+                       data-required-seconds=${lessonEngagement != null ? lessonEngagement.content().requiredSeconds() : 60},
+                       data-complete=${lessonEngagement != null and lessonEngagement.content().complete()},
+                       data-satisfied=${lessonEngagement != null and lessonEngagement.content().satisfied()}">
+            <span class="student-lesson-checklist-mark" aria-hidden="true">✓</span>
+            <span><strong>Nội dung bài học</strong><small data-checkpoint-status
+                  th:text="${lessonEngagement == null ? 'Cần xem 60 giây' : (!lessonEngagement.content().applicable() ? 'Không áp dụng cho bài này' : (lessonEngagement.content().complete() ? 'Đã xem đủ 60 giây' : 'Còn ' + lessonEngagement.content().remainingSeconds() + ' giây'))}">Cần xem 60 giây</small></span>
           </li>
+          <li data-lesson-checkpoint="VIDEO"
+              th:classappend="${lessonEngagement != null and !lessonEngagement.video().applicable() ? ' is-not-applicable' : (lessonEngagement != null and lessonEngagement.video().complete() ? ' is-complete' : '')}"
+              th:attr="data-applicable=${lessonEngagement != null and lessonEngagement.video().applicable()},
+                       data-seconds=${lessonEngagement != null ? lessonEngagement.video().seconds() : 0},
+                       data-required-seconds=${lessonEngagement != null ? lessonEngagement.video().requiredSeconds() : 60},
+                       data-complete=${lessonEngagement != null and lessonEngagement.video().complete()},
+                       data-satisfied=${lessonEngagement != null and lessonEngagement.video().satisfied()}">
+            <span class="student-lesson-checklist-mark" aria-hidden="true">✓</span>
+            <span><strong>Video</strong><small data-checkpoint-status
+                  th:text="${lessonEngagement == null ? 'Cần xem 60 giây' : (!lessonEngagement.video().applicable() ? 'Không áp dụng cho bài này' : (lessonEngagement.video().complete() ? 'Đã xem đủ 60 giây' : 'Còn ' + lessonEngagement.video().remainingSeconds() + ' giây'))}">Cần xem 60 giây</small></span>
+          </li>
+          <li data-lesson-checkpoint="ATTACHMENTS"
+              th:classappend="${lessonEngagement != null and !lessonEngagement.attachments().applicable() ? ' is-not-applicable' : (lessonEngagement != null and lessonEngagement.attachments().complete() ? ' is-complete' : '')}"
+              th:attr="data-applicable=${lessonEngagement != null and lessonEngagement.attachments().applicable()},
+                       data-seconds=${lessonEngagement != null ? lessonEngagement.attachments().seconds() : 0},
+                       data-required-seconds=${lessonEngagement != null ? lessonEngagement.attachments().requiredSeconds() : 60},
+                       data-complete=${lessonEngagement != null and lessonEngagement.attachments().complete()},
+                       data-satisfied=${lessonEngagement != null and lessonEngagement.attachments().satisfied()}">
+            <span class="student-lesson-checklist-mark" aria-hidden="true">✓</span>
+            <span><strong>Tài liệu đính kèm</strong><small data-checkpoint-status
+                  th:text="${lessonEngagement == null ? 'Cần xem 60 giây' : (!lessonEngagement.attachments().applicable() ? 'Không áp dụng cho bài này' : (lessonEngagement.attachments().complete() ? 'Đã xem đủ 60 giây' : 'Còn ' + lessonEngagement.attachments().remainingSeconds() + ' giây'))}">Cần xem 60 giây</small></span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="student-lesson-context-card">
+        <h3>Tài nguyên nhanh</h3>
+        <div class="student-lesson-quick-actions">
+          <button type="button" data-lesson-tab-target="lesson-tab-video"
+                  th:classappend="${lessonDetail.videoUrl() == null} ? ' is-empty' : ''">
+            <span aria-hidden="true">▶</span>
+            <span><strong>Mở video bài học</strong><small th:text="${lessonDetail.videoUrl() == null} ? 'Chưa có video' : 'Xem video và tóm tắt'">Xem video</small></span>
+          </button>
+          <button type="button" data-lesson-tab-target="lesson-tab-attachments"
+                  th:classappend="${#lists.isEmpty(lessonDetail.attachments())} ? ' is-empty' : ''">
+            <span aria-hidden="true">⇩</span>
+            <span><strong>Tài liệu đính kèm</strong><small th:text="${#lists.size(lessonDetail.attachments())} + ' tệp'">0 tệp</small></span>
+          </button>
+        </div>
+
+        <div class="student-lesson-quick-downloads"
+             th:if="${lessonDetail.pdfDownloadUrl() != null or !#lists.isEmpty(lessonDetail.attachments())}">
+          <p>Tải nhanh</p>
+          <ul class="student-lesson-quick-download-list">
+            <li th:if="${lessonDetail.pdfDownloadUrl() != null}">
+              <a th:href="${lessonDetail.pdfDownloadUrl()}"
+                 class="student-lesson-quick-download"
+                 download aria-label="Tải nội dung PDF chính">
+                <span class="student-lesson-quick-download-type" aria-hidden="true">PDF</span>
+                <span class="student-lesson-quick-download-copy">
+                  <strong>Nội dung PDF chính</strong>
+                  <small>Tải xuống thiết bị</small>
+                </span>
+                <span class="student-lesson-quick-download-icon" aria-hidden="true">↓</span>
+              </a>
+            </li>
+
+            <li th:each="att : ${lessonDetail.attachments()}">
+              <a th:href="${att.downloadUrl()}"
+                 th:title="${att.filename()}"
+                 th:attr="aria-label=${'Tải ' + att.filename()}"
+                 class="student-lesson-quick-download"
+                 download>
+                <span class="student-lesson-quick-download-type"
+                      th:text="${#strings.isEmpty(att.extension()) ? 'FILE' : att.extension()}"
+                      aria-hidden="true">FILE</span>
+                <span class="student-lesson-quick-download-copy">
+                  <strong th:text="${att.filename()}">tai-lieu.pdf</strong>
+                  <small th:text="${att.formattedSize()}">— KB</small>
+                </span>
+                <span class="student-lesson-quick-download-icon" aria-hidden="true">↓</span>
+              </a>
+            </li>
           </ul>
-        </details>
-      </div>
+        </div>
+      </section>
+
+      <nav class="student-lesson-context-card student-lesson-neighbours"
+           aria-label="Điều hướng bài giảng">
+        <h3>Điều hướng nhanh</h3>
+        <a href="#" data-lesson-previous hidden>
+          <span aria-hidden="true">←</span>
+          <span><small>Bài trước</small><strong data-neighbour-title>Bài giảng trước</strong></span>
+        </a>
+        <a href="#" data-lesson-next hidden>
+          <span aria-hidden="true">→</span>
+          <span><small>Bài tiếp theo</small><strong data-neighbour-title>Bài giảng tiếp theo</strong></span>
+        </a>
+        <p class="student-lesson-neighbours-empty" data-lesson-neighbours-empty>
+          Đây là bài duy nhất trong khóa học.
+        </p>
+      </nav>
     </aside>
+
   </div>
 </main>
 

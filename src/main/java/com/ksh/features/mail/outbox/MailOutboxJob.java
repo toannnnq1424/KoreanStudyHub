@@ -110,6 +110,39 @@ public class MailOutboxJob {
         return job;
     }
 
+    /** Creates a durable mail job not backed by an in-app notification row. */
+    public static MailOutboxJob pendingSystem(
+            String recipientEmail,
+            String subject,
+            String body,
+            String source,
+            LocalDateTime now) {
+        MailOutboxJob job = pendingFields(recipientEmail, subject, body, source, now);
+        job.notificationId = null;
+        return job;
+    }
+
+    private static MailOutboxJob pendingFields(
+            String recipientEmail,
+            String subject,
+            String body,
+            String source,
+            LocalDateTime now) {
+        Objects.requireNonNull(now, "now");
+        MailOutboxJob job = new MailOutboxJob();
+        job.recipientEmail = requireText(recipientEmail, 255, "recipientEmail");
+        job.subject = requireText(subject, 500, "subject");
+        job.body = Objects.requireNonNull(body, "body");
+        job.source = requireText(source, 50, "source");
+        job.status = MailOutboxStatus.PENDING;
+        job.attemptCount = 0;
+        job.maxAttempts = DEFAULT_MAX_ATTEMPTS;
+        job.availableAt = now;
+        job.createdAt = now;
+        job.updatedAt = now;
+        return job;
+    }
+
     public boolean isClaimable(LocalDateTime now) {
         if (now == null) {
             return false;

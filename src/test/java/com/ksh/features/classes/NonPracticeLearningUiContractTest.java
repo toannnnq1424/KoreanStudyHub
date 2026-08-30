@@ -1,10 +1,13 @@
 package com.ksh.features.classes;
 
 import org.junit.jupiter.api.Test;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,8 +50,19 @@ class NonPracticeLearningUiContractTest {
         assertThat(script).contains(
                 "document.createElement('button')",
                 "setAttribute('role', 'listbox')",
+                "document.body.appendChild(menu)",
+                "wrapper.contains(target) || menu.contains(target)",
+                "window.KshLearningSelect = { mount: mount }",
+                "ksh:detail-tab-loaded",
+                "dataset.kshSelectReady === 'true'",
                 "event.key === 'Escape'",
                 "event.key !== 'ArrowDown'",
+                "event.key !== 'Enter'",
+                "event.stopPropagation()",
+                ".filter(function (button) { return !button.hidden; })",
+                "select.getAttribute('aria-labelledby')",
+                "select.getAttribute('aria-label')",
+                "labelCopy.querySelectorAll('select, input, textarea, button, .ksh-select')",
                 "select.dispatchEvent(new Event('change'",
                 "select.setAttribute('aria-hidden', 'true')");
         assertThat(script).doesNotContain("<dropdown", "<select-wrapper");
@@ -62,6 +76,28 @@ class NonPracticeLearningUiContractTest {
                 ".library-subject-list > a[hidden]",
                 ".qb-subject-rail > a[hidden]",
                 "display: none !important");
+    }
+
+    @Test
+    void dictionary_deck_picker_opens_above_panel_and_can_create_a_personal_deck()
+            throws IOException {
+        String dictionaryScript = Files.readString(STATIC.resolve("js/korean-dictionary.js"));
+        String selectScript = Files.readString(STATIC.resolve("js/learning-select.js"));
+        String dictionaryCss = Files.readString(STATIC.resolve("css/korean-dictionary.css"));
+
+        assertThat(dictionaryScript).contains(
+                "data-ksh-select-menu-class=\"kdict-select-menu\"",
+                "+ Tạo bộ thẻ mới…",
+                "newDeckTitle",
+                "Tạo bộ và lưu flashcard",
+                "deckCreated");
+        assertThat(selectScript).contains(
+                "select.dataset.kshSelectMenuClass",
+                "menu.classList.add.apply");
+        assertThat(dictionaryCss).contains(
+                ".kdict-panel{position:fixed;z-index:1210",
+                ".kdict-select-menu{z-index:1240!important}",
+                ".kdict-create-deck[hidden]{display:none}");
     }
 
     @Test
@@ -120,6 +156,8 @@ class NonPracticeLearningUiContractTest {
     void lesson_authoring_uses_one_fixed_context_with_inline_content_and_optional_resources()
             throws IOException {
         String template = Files.readString(TEMPLATES.resolve("library/lesson-form.html"));
+        String script = Files.readString(STATIC.resolve("js/library-lesson-form.js"));
+        String css = Files.readString(STATIC.resolve("css/learning-ui.css"));
 
         assertThat(template).contains(
                 "data-inline-action=",
@@ -127,7 +165,10 @@ class NonPracticeLearningUiContractTest {
                 "th:field=\"*{chapterNumber}\"",
                 "th:field=\"*{lessonNumber}\"",
                 "th:field=\"*{title}\"",
-                "th:field=\"*{contentType}\" value=\"RICHTEXT\"",
+                "th:field=\"*{contentType}\" data-library-content-type",
+                "data-library-form-tab=\"CONTENT\"",
+                "data-library-form-tab=\"VIDEO\"",
+                "data-library-form-tab=\"ATTACHMENTS\"",
                 "data-library-richtext-value",
                 "data-library-richtext-editor",
                 "th:field=\"*{videoUrl}\"",
@@ -137,8 +178,28 @@ class NonPracticeLearningUiContractTest {
                 "library-subject-banner",
                 "library-fixed-subject",
                 "library-numbered-input",
-                "data-library-content-type",
                 "data-content-section=");
+
+        var document = Jsoup.parse(template);
+        for (String name : List.of("CONTENT", "VIDEO", "ATTACHMENTS")) {
+            Element tab = document.selectFirst("[role=tab][data-library-form-tab=" + name + "]");
+            Element panel = document.selectFirst("[role=tabpanel][data-library-form-panel=" + name + "]");
+            assertThat(tab).as("authoring tab %s", name).isNotNull();
+            assertThat(panel).as("authoring panel %s", name).isNotNull();
+            assertThat(tab.id()).as("tab id for %s", name).isNotBlank();
+            assertThat(panel.id()).as("panel id for %s", name).isNotBlank();
+            assertThat(tab.attr("aria-controls")).isEqualTo(panel.id());
+            assertThat(panel.attr("aria-labelledby")).isEqualTo(tab.id());
+        }
+        assertThat(script).contains(
+                "tab.tabIndex = active ? 0 : -1",
+                "event.key === 'ArrowRight'",
+                "event.key === 'ArrowLeft'",
+                "event.key === 'Home'",
+                "event.key === 'End'",
+                "activeTab.focus()");
+        assertThat(css).contains(
+                ".library-form-section[hidden] { display: none !important; }");
     }
 
     @Test
@@ -174,10 +235,11 @@ class NonPracticeLearningUiContractTest {
                 "src/main/java/com/ksh/features/student/service/StudentClassDetailService.java"));
 
         assertThat(lecturerSidebar)
-                .doesNotContain(">Lịch học<", ">Nhóm học tập<", ">Vai trò lớp<");
+                .contains("/lessons", "/materials")
+                .doesNotContain(">Bảng tin<", ">Lịch học<", ">Nhóm học tập<", ">Vai trò lớp<");
         assertThat(studentSidebar)
-                .contains("/board|}", "/members|}")
-                .doesNotContain(">Lịch học<", ">Nhóm học tập<", ">Tin nhắn<");
+                .contains("/lessons|}", "/members|}", "/materials|}")
+                .doesNotContain(">Bảng tin<", ">Lịch học<", ">Nhóm học tập<", ">Tin nhắn<");
         assertThat(lessonController)
                 .contains("return \"student/class-lessons\"", "lessonBasePath")
                 .doesNotContain("redirect:/my/classes/");

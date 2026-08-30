@@ -17,6 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
@@ -96,7 +98,9 @@ class Sprint3UserManagementIntegrationTest {
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void list_filter_by_role_returns_only_matching() throws Exception {
-        mockMvc.perform(get("/admin/users").param("role", "STUDENT"))
+        mockMvc.perform(get("/admin/users")
+                        .param("role", "STUDENT")
+                        .param("q", "student@ksh.edu.vn"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("student@ksh.edu.vn")));
     }
@@ -131,7 +135,9 @@ class Sprint3UserManagementIntegrationTest {
     void list_sort_by_rolePriority_orders_admin_before_student() throws Exception {
         // Seed data has: 1 ADMIN, 1 LEADER, 1 LECTURER, students. With rolePriority sort,
         // the ADMIN row's position in the rendered HTML must precede the student row.
-        String html = mockMvc.perform(get("/admin/users").param("sort", "rolePriority,asc"))
+        String html = mockMvc.perform(get("/admin/users")
+                        .param("sort", "rolePriority,asc")
+                        .param("size", "100"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -302,8 +308,7 @@ class Sprint3UserManagementIntegrationTest {
 
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
-    void demoting_lecturer_who_owns_classes_surfaces_warning_flash() throws Exception {
-        // Create a class owned by the lecturer so the demote-warning path fires.
+    void lecturer_account_cannot_be_converted_to_student_even_when_it_owns_classes() throws Exception {
         ClassEntity clazz = new ClassEntity(
                 "Demo Class", lecturer.getId(), lecturer.getId(),
                 "desc", null, null, 50);
@@ -314,8 +319,12 @@ class Sprint3UserManagementIntegrationTest {
                         .param("fullName", lecturer.getFullName())
                         .param("role", "STUDENT")
                         .param("emailVerified", "true"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(flash().attributeExists("flashWarning"));
+                .andExpect(status().isOk())
+                .andExpect(view().name("admin/users-form"))
+                .andExpect(model().attributeHasFieldErrors("form", "role"));
+
+        User unchanged = userRepository.findByIdIncludingDeleted(lecturer.getId()).orElseThrow();
+        assertThat(unchanged.getRole()).isEqualTo(Role.LECTURER);
     }
 
     // ──────────────── Lifecycle (12.5) ────────────────
@@ -409,16 +418,21 @@ class Sprint3UserManagementIntegrationTest {
     @Test
     @WithUserDetails("admin@ksh.edu.vn")
     void softDelete_hides_user_then_restore_brings_it_back() throws Exception {
+        String editHref = "href=\"/admin/users/" + lecturer.getId() + "/edit\"";
+
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/delete").with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
-        // Default list excludes the row.
-        mockMvc.perform(get("/admin/users"))
-                .andExpect(content().string(not(containsString("lecturer@ksh.edu.vn"))));
+        // Default list excludes the row. The email itself is echoed in the search input,
+        // so assert on the row's edit link rather than all rendered text.
+        mockMvc.perform(get("/admin/users").param("q", lecturer.getEmail()))
+                .andExpect(content().string(not(containsString(editHref))));
 
         // DELETED filter surfaces it.
-        mockMvc.perform(get("/admin/users").param("status", "DELETED"))
-                .andExpect(content().string(containsString("lecturer@ksh.edu.vn")));
+        mockMvc.perform(get("/admin/users")
+                        .param("status", "DELETED")
+                        .param("q", lecturer.getEmail()))
+                .andExpect(content().string(containsString(editHref)));
 
         // Audit row with type DELETED is recorded.
         assertThat(activityRepository.findAll().stream()
@@ -429,8 +443,8 @@ class Sprint3UserManagementIntegrationTest {
         mockMvc.perform(post("/admin/users/" + lecturer.getId() + "/restore").with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
-        mockMvc.perform(get("/admin/users"))
-                .andExpect(content().string(containsString("lecturer@ksh.edu.vn")));
+        mockMvc.perform(get("/admin/users").param("q", lecturer.getEmail()))
+                .andExpect(content().string(containsString(editHref)));
 
         // Audit row with type RESTORED is recorded.
         assertThat(activityRepository.findAll().stream()
@@ -567,6 +581,42 @@ class Sprint3UserManagementIntegrationTest {
         assertThat(lookup3).isPresent();
         assertThat(lookup1.get().getId()).isEqualTo(lookup2.get().getId());
         assertThat(lookup2.get().getId()).isEqualTo(lookup3.get().getId());
+    }
+
+    @Test
+    void newlyCreatedStudentCanAuthenticateAndOpenLandingPage() throws Exception {
+        User created = createUser("first.login.student@ksh.test", Role.STUDENT);
+
+        MvcResult login = mockMvc.perform(post("/login")
+                        .param("username", created.getEmail())
+                        .param("password", "123456")
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/my/classes"))
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
+        assertThat(session).isNotNull();
+        mockMvc.perform(get("/my/classes").session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void newlyCreatedLecturerCanAuthenticateAndOpenLandingPage() throws Exception {
+        User created = createUser("first.login.lecturer@ksh.test", Role.LECTURER);
+
+        MvcResult login = mockMvc.perform(post("/login")
+                        .param("username", created.getEmail())
+                        .param("password", "123456")
+                        .with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/lecturer/classes"))
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
+        assertThat(session).isNotNull();
+        mockMvc.perform(get("/lecturer/classes").session(session))
+                .andExpect(status().isOk());
     }
 
     // ──────────────── Transaction rollback (audit-log spec) ────────

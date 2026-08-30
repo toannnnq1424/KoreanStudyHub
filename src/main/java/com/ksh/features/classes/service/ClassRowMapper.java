@@ -41,7 +41,8 @@ final class ClassRowMapper {
                 ClassGradient.forIndex(index).css(),
                 Math.toIntExact(studentCount), Math.toIntExact(lectureCount),
                 Math.toIntExact(assignmentCount), Math.toIntExact(materialCount),
-                createdAtIso
+                createdAtIso,
+                e.getStatus()
         );
     }
 
@@ -56,6 +57,7 @@ final class ClassRowMapper {
         m.put("startDate", e.getStartDate() != null ? e.getStartDate().toString() : null);
         m.put("endDate", e.getEndDate() != null ? e.getEndDate().toString() : null);
         m.put("maxStudents", e.getMaxStudents());
+        m.put("status", e.getStatus());
         return m;
     }
 }

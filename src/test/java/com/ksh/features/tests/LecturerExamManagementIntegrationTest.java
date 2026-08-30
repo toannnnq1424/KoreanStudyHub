@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * MockMvc integration tests for lecturer exam management: owner list/edit, JSON save
- * (create + validation rejects), class-ownership 403 on monitor data, and the
+ * (create + validation rejects), same-subject leader access, and the
  * submissions overview with search.
  */
 @SpringBootTest
@@ -56,7 +56,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class LecturerExamManagementIntegrationTest {
 
     private static final String LECTURER = "lecturer@ksh.edu.vn";
-    private static final String OTHER_LECTURER = "leader@ksh.edu.vn"; // LECTURER+ but non-owner
+    private static final String SAME_SUBJECT_LEADER = "leader@ksh.edu.vn";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
@@ -70,6 +70,7 @@ class LecturerExamManagementIntegrationTest {
     @Autowired private TestResponseRepository responseRepository;
 
     private Long lecturerId;
+    private Long subjectId;
     private Long classId;
     private Long examId;
 
@@ -77,6 +78,7 @@ class LecturerExamManagementIntegrationTest {
     void setUp() {
         User lecturer = userRepository.findByEmailIgnoreCase(LECTURER).orElseThrow();
         lecturerId = lecturer.getId();
+        subjectId = lecturer.getSubjectId();
         ClassEntity clazz = saveClass(lecturer);
         classId = clazz.getId();
         examId = lecturerExamService.save(lecturerId, validForm(null, "Đề GV JUnit"));
@@ -102,10 +104,12 @@ class LecturerExamManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(OTHER_LECTURER)
-    void non_owner_preview_is_forbidden() throws Exception {
+    @WithUserDetails(SAME_SUBJECT_LEADER)
+    void same_subject_leader_can_preview() throws Exception {
         mockMvc.perform(get("/lecturer/tests/" + examId + "/preview"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Chế độ xem trước")))
+                .andExpect(content().string(containsString("Đề GV JUnit")));
     }
 
     @Test
@@ -156,10 +160,11 @@ class LecturerExamManagementIntegrationTest {
     }
 
     @Test
-    @WithUserDetails(OTHER_LECTURER)
-    void non_owner_monitor_data_is_forbidden() throws Exception {
+    @WithUserDetails(SAME_SUBJECT_LEADER)
+    void same_subject_leader_can_read_monitor_data() throws Exception {
         mockMvc.perform(get("/lecturer/tests/" + examId + "/monitor/data"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.examStatus").value("PUBLISHED"));
     }
 
     @Test
@@ -201,23 +206,24 @@ class LecturerExamManagementIntegrationTest {
 
     @Test
     @WithUserDetails(LECTURER)
-    void save_with_media_keeps_questions_when_responses_exist() throws Exception {
+    void save_rejects_all_exam_mutation_when_responses_exist() throws Exception {
         List<Question> before = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(examId);
         Question q = before.get(0);
         TestAttempt attempt = attemptRepository.save(new TestAttempt(examId, lecturerId));
         responseRepository.save(new TestResponse(attempt.getId(), q.getId(), "[1]"));
 
         String mediaUrl = "https://youtu.be/8Pu0AM6BvEw?si=h0Wkdo9QivQNTJEb";
-        ExamForm form = validForm(examId, "Đề GV JUnit", "YOUTUBE", mediaUrl);
+        ExamForm form = validForm(examId, "Tiêu đề không được phép sửa", "YOUTUBE", mediaUrl);
         mockMvc.perform(post("/lecturer/tests/save").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(form)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ok").value(true));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.ok").value(false));
 
         com.ksh.features.tests.entity.Test saved = testRepository.findById(examId).orElseThrow();
-        assertEquals("YOUTUBE", saved.getMediaType());
-        assertEquals(mediaUrl, saved.getMediaUrl());
+        assertEquals("Đề GV JUnit", saved.getTitle());
+        assertEquals(null, saved.getMediaType());
+        assertEquals(null, saved.getMediaUrl());
         List<Question> after = questionRepository.findByTestIdOrderBySortOrderAscIdAsc(examId);
         assertEquals(before.size(), after.size());
         assertEquals(before.get(0).getId(), after.get(0).getId());
@@ -247,6 +253,7 @@ class LecturerExamManagementIntegrationTest {
                 examId,
                 "Đề GV JUnit",
                 "mô tả",
+                subjectId,
                 classId,
                 "MOCK",
                 "PUBLISHED",
@@ -291,7 +298,7 @@ class LecturerExamManagementIntegrationTest {
         List<QuestionForm> questions = List.of(
                 new QuestionForm(null, "MCQ", "1+1=2?", null, new BigDecimal("2.00"), mcq),
                 new QuestionForm(null, "MR", "Chọn A và B", null, new BigDecimal("3.00"), mr));
-        return new ExamForm(id, title, "mô tả", classId, "MOCK", "PUBLISHED",
+        return new ExamForm(id, title, "mô tả", subjectId, classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(1), new BigDecimal("1.00"), false, false,
                 mediaType, mediaUrl, questions, false);
@@ -299,7 +306,7 @@ class LecturerExamManagementIntegrationTest {
 
     /** A valid form but with a single (possibly invalid) question, for reject tests. */
     private ExamForm formWith(QuestionForm question) {
-        return new ExamForm(null, "Đề lỗi", "mô tả", classId, "MOCK", "PUBLISHED",
+        return new ExamForm(null, "Đề lỗi", "mô tả", subjectId, classId, "MOCK", "PUBLISHED",
                 "FIXED_WINDOW", null, LocalDateTime.now().minusHours(1),
                 LocalDateTime.now().plusHours(1), new BigDecimal("1.00"), false, false,
                 null, null, List.of(question), false);
@@ -308,6 +315,7 @@ class LecturerExamManagementIntegrationTest {
     private ClassEntity saveClass(User lecturer) {
         ClassEntity entity = new ClassEntity("Lecturer exam class", lecturer.getId(),
                 lecturer.getId(), null, null, null, 100);
+        entity.setSubjectId(lecturer.getSubjectId());
         entity.setCode("LECEXM");
         try {
             return classRepository.saveAndFlush(entity);

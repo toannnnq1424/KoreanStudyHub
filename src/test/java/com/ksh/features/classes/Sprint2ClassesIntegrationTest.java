@@ -105,6 +105,59 @@ class Sprint2ClassesIntegrationTest {
     }
 
     @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void list_tabs_separate_operational_and_archived_lifecycle_states() throws Exception {
+        ClassEntity pending = saveClass("Tab-Pending-Unique", lecturer.getId(), "TPEND");
+        ClassEntity rejected = saveClass("Tab-Rejected-Unique", lecturer.getId(), "TREJT");
+        rejected.reject(leader.getId(), "Cần bổ sung mô tả", java.time.LocalDateTime.now());
+        classRepository.saveAndFlush(rejected);
+        ClassEntity active = saveClass("Tab-Active-Unique", lecturer.getId(), "TACTV");
+        active.approve(leader.getId(), java.time.LocalDateTime.now());
+        classRepository.saveAndFlush(active);
+        ClassEntity archived = saveClass("Tab-Archived-Unique", lecturer.getId(), "TARCH");
+        archived.approve(leader.getId(), java.time.LocalDateTime.now());
+        archived.archive();
+        classRepository.saveAndFlush(archived);
+
+        mockMvc.perform(get("/lecturer/classes").param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(pending.getName())))
+                .andExpect(content().string(containsString(rejected.getName())))
+                .andExpect(content().string(containsString(active.getName())))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString(archived.getName()))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("Hiện xếp hạng"))))
+                .andExpect(content().string(containsString("tab=archived")));
+
+        mockMvc.perform(get("/lecturer/classes")
+                        .param("tab", "archived")
+                        .param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString(archived.getName())))
+                .andExpect(content().string(containsString("Đã lưu trữ")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString(pending.getName()))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString(rejected.getName()))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString(active.getName()))));
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void list_pagination_is_centered_component_and_preserves_selected_tab() throws Exception {
+        saveClass("Pagination-First-Unique", lecturer.getId(), "PGN01");
+        saveClass("Pagination-Second-Unique", lecturer.getId(), "PGN02");
+        saveClass("Pagination-Third-Unique", lecturer.getId(), "PGN03");
+
+        mockMvc.perform(get("/lecturer/classes")
+                        .param("tab", "current")
+                        .param("page", "1")
+                        .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("class=\"classes-pagination\"")))
+                .andExpect(content().string(containsString("Trang 2 trên ")))
+                .andExpect(content().string(containsString("tab=current&amp;page=0&amp;size=1")))
+                .andExpect(content().string(containsString("tab=current&amp;page=2&amp;size=1")));
+    }
+
+    @Test
     @WithUserDetails("student@ksh.edu.vn")
     void list_student_forbidden() throws Exception {
         mockMvc.perform(get("/lecturer/classes"))
@@ -159,7 +212,8 @@ class Sprint2ClassesIntegrationTest {
         ClassEntity saved = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(lecturer.getId())
                 .stream().filter(c -> "Java cơ bản".equals(c.getName())).findFirst().orElseThrow();
         assertThat(saved.getSubjectId()).isEqualTo(lecturer.getSubjectId());
-        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_PENDING);
+        assertThat(saved.getStartDate()).isEqualTo(java.time.LocalDate.of(2026, 7, 1));
 
     }
 
@@ -220,9 +274,13 @@ class Sprint2ClassesIntegrationTest {
         mockMvc.perform(post("/lecturer/classes/" + entity.getId()).with(csrf())
                         .param("name", "New")
                         .param("description", "Updated")
+                        .param("startDate", "2026-08-01")
                         .param("subjectId", String.valueOf(entity.getSubjectId())))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/lecturer/classes"));
+
+        ClassEntity updated = classRepository.findById(entity.getId()).orElseThrow();
+        assertThat(updated.getStartDate()).isEqualTo(java.time.LocalDate.of(2026, 8, 1));
 
         ClassEntity reloaded = classRepository.findById(entity.getId()).orElseThrow();
         assertThat(reloaded.getName()).isEqualTo("New");
@@ -447,11 +505,11 @@ class Sprint2ClassesIntegrationTest {
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void detail_root_redirects_to_board() throws Exception {
+    void detail_root_redirects_to_lessons() throws Exception {
         ClassEntity c = saveClass("DetailRoot", lecturer.getId(), "DTRT1");
         mockMvc.perform(get("/lecturer/classes/" + c.getId()))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/lecturer/classes/" + c.getId() + "/board"));
+                .andExpect(redirectedUrl("/lecturer/classes/" + c.getId() + "/lessons"));
     }
 
     @Test
@@ -492,10 +550,11 @@ class Sprint2ClassesIntegrationTest {
 
     @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
-    void detail_non_owner_lecturer_returns_403() throws Exception {
+    void retired_board_url_redirects_to_lessons() throws Exception {
         ClassEntity c = saveClass("OwnedByLeader", leader.getId(), "OWNHD");
         mockMvc.perform(get("/lecturer/classes/" + c.getId() + "/board"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/lecturer/classes/" + c.getId() + "/lessons"));
     }
 
     @Test

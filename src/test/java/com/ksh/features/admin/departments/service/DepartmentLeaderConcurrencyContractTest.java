@@ -7,6 +7,8 @@ import com.ksh.entities.UserFactory;
 import com.ksh.features.admin.departments.dto.DepartmentDtos.DepartmentForm;
 import com.ksh.features.admin.departments.repository.DepartmentRepository;
 import com.ksh.features.admin.settings.repository.SystemSettingsRepository;
+import com.ksh.features.admin.permissions.service.PermissionResolver;
+import com.ksh.features.profile.service.SessionRevocationService;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,12 @@ class DepartmentLeaderConcurrencyContractTest {
     @Mock
     private SystemSettingsRepository systemSettingsRepository;
 
+    @Mock
+    private SessionRevocationService sessionRevocationService;
+
+    @Mock
+    private PermissionResolver permissionResolver;
+
     @Test
     void assignmentLocksAnchorThenDepartmentThenAffectedUsersInAscendingIdOrder() {
         Department department = department(10L, 30L);
@@ -66,6 +74,11 @@ class DepartmentLeaderConcurrencyContractTest {
         assertThat(candidate.getRole()).isEqualTo(Role.LEADER);
         assertThat(candidate.getSubjectId()).isEqualTo(10L);
         assertThat(previous.getRole()).isEqualTo(Role.LECTURER);
+        var accessOrder = inOrder(permissionResolver, sessionRevocationService);
+        accessOrder.verify(permissionResolver).evictUser(30L);
+        accessOrder.verify(sessionRevocationService).revokeAllSessions(30L);
+        accessOrder.verify(permissionResolver).evictUser(20L);
+        accessOrder.verify(sessionRevocationService).revokeAllSessions(20L);
     }
 
     @Test
@@ -140,7 +153,9 @@ class DepartmentLeaderConcurrencyContractTest {
                 departmentRepository,
                 userRepository,
                 auditWriter,
-                systemSettingsRepository);
+                systemSettingsRepository,
+                sessionRevocationService,
+                permissionResolver);
     }
 
     private void stubAnchor() {

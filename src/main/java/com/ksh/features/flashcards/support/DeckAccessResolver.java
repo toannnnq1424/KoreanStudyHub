@@ -1,12 +1,16 @@
 package com.ksh.features.flashcards.support;
 
 import com.ksh.entities.Enrollment;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.EnrollmentRepository;
 import com.ksh.features.flashcards.entity.FlashcardDeck;
 import com.ksh.features.flashcards.repository.FlashcardDeckRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Resolves a deck for a caller and enforces the flashcard authorization policy
@@ -41,11 +45,14 @@ public class DeckAccessResolver {
 
     private final FlashcardDeckRepository deckRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final ClassRepository classRepository;
 
     public DeckAccessResolver(FlashcardDeckRepository deckRepository,
-                              EnrollmentRepository enrollmentRepository) {
+                              EnrollmentRepository enrollmentRepository,
+                              ClassRepository classRepository) {
         this.deckRepository = deckRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.classRepository = classRepository;
     }
 
     /**
@@ -97,13 +104,22 @@ public class DeckAccessResolver {
         return resolved.deck();
     }
 
-    /** SHARED deck whose class the caller is ACTIVE-enrolled in. */
+    /** SHARED deck whose classes include one where the caller is ACTIVE-enrolled. */
     private boolean isSharedMember(FlashcardDeck deck, Long userId) {
-        if (!deck.isShared() || deck.getClassId() == null) {
-            return false;
+        if (!deck.isShared()) return false;
+        Set<Long> classIds = new LinkedHashSet<>();
+        if (deck.getSharedClassIds() != null) classIds.addAll(deck.getSharedClassIds());
+        if (classIds.isEmpty() && deck.getClassId() != null) classIds.add(deck.getClassId());
+        for (Long classId : classIds) {
+            boolean liveClass = classRepository.findById(classId)
+                    .filter(clazz -> !clazz.isDeleted())
+                    .isPresent();
+            if (liveClass && enrollmentRepository.findByUserIdAndClassId(userId, classId)
+                    .map(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
+                    .orElse(false)) {
+                return true;
+            }
         }
-        return enrollmentRepository.findByUserIdAndClassId(userId, deck.getClassId())
-                .map(e -> Enrollment.STATUS_ACTIVE.equals(e.getStatus()))
-                .orElse(false);
+        return false;
     }
 }

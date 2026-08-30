@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +21,14 @@ public interface SectionRepository extends JpaRepository<Section, Long> {
 
     /** Returns the live sections of a class ordered by {@code display_order}. */
     List<Section> findByClassIdOrderByDisplayOrderAsc(Long classId);
+
+    /**
+     * Batch counterpart used by class-target trees. Keeping the parent id in
+     * the ordering lets callers group the flat result without issuing one
+     * query for every class.
+     */
+    List<Section> findByClassIdInOrderByClassIdAscDisplayOrderAsc(
+            Collection<Long> classIds);
 
     /** Loads a section scoped by class to harden the URL hierarchy. */
     Optional<Section> findByIdAndClassId(Long id, Long classId);

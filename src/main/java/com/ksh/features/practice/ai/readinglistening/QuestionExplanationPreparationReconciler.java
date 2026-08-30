@@ -41,12 +41,23 @@ public class QuestionExplanationPreparationReconciler {
             } catch (Exception exception) {
                 log.error(
                         "[ReadingListeningAI] Could not reconcile explanation preparation "
-                                + "publishedVersionId={} exception={}",
-                        publishedVersionId, exception.getClass().getSimpleName());
+                                + "publishedVersionId={} exception={} reason={}",
+                        publishedVersionId,
+                        exception.getClass().getSimpleName(),
+                        safeReason(exception));
             }
         }
         if (prepared > 0) {
             log.info("Reconciled explanation preparation for {} published versions", prepared);
         }
+    }
+
+    private static String safeReason(Exception exception) {
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            return "unspecified";
+        }
+        String oneLine = message.replace('\r', ' ').replace('\n', ' ').trim();
+        return oneLine.length() <= 240 ? oneLine : oneLine.substring(0, 240);
     }
 }

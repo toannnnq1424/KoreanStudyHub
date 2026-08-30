@@ -26,7 +26,7 @@ import java.util.Map;
  * payload + a warning log, mirroring the original semantics.
  */
 @Component
-class AdminUsersAuditWriter {
+public class AdminUsersAuditWriter {
 
     private static final Logger log = LoggerFactory.getLogger(AdminUsersAuditWriter.class);
 
@@ -40,13 +40,13 @@ class AdminUsersAuditWriter {
     }
 
     /** Writes a single activity row with the supplied (already serialised) metadata payload. */
-    void write(Long targetUserId, String type, String message,
-               String metadata, Long actorId) {
+    public void write(Long targetUserId, String type, String message,
+                      String metadata, Long actorId) {
         activityRepository.save(new UserActivity(targetUserId, type, message, metadata, actorId));
     }
 
     /** Serialises an arbitrary payload to JSON; returns {@code null} when serialisation fails. */
-    String serialize(Map<String, Object> payload) {
+    public String serialize(Map<String, Object> payload) {
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException ex) {

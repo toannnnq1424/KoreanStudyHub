@@ -32,6 +32,10 @@ public class LessonTemplateForm {
     private Long pdfLibraryAssetId;
     private String videoProvider;
     private String videoUrl;
+
+    @Size(max = 1000, message = "Tóm tắt video tối đa 1000 ký tự")
+    private String videoSummary;
+
     private Long videoLibraryAssetId;
     private List<Long> materialAssetIds = new ArrayList<>();
     private MultipartFile pdfUpload;
@@ -60,6 +64,8 @@ public class LessonTemplateForm {
     public void setVideoProvider(String videoProvider) { this.videoProvider = videoProvider; }
     public String getVideoUrl() { return videoUrl; }
     public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
+    public String getVideoSummary() { return videoSummary; }
+    public void setVideoSummary(String videoSummary) { this.videoSummary = videoSummary; }
     public Long getVideoLibraryAssetId() { return videoLibraryAssetId; }
     public void setVideoLibraryAssetId(Long videoLibraryAssetId) { this.videoLibraryAssetId = videoLibraryAssetId; }
     public List<Long> getMaterialAssetIds() { return materialAssetIds; }

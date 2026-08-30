@@ -31,7 +31,11 @@
     deactivate: { confirm: 'Vô hiệu hoá tài khoản này? Người dùng sẽ không đăng nhập được.', form: 'form-deactivate-', danger: true },
     unlock:     { confirm: 'Mở khoá tài khoản này?',       form: 'form-unlock-',     danger: false },
     delete:     { confirm: 'Xoá tài khoản này? Có thể khôi phục từ bộ lọc Đã xoá.', form: 'form-delete-',  danger: true  },
-    restore:    { confirm: 'Khôi phục tài khoản đã xoá?',  form: 'form-restore-',    danger: false }
+    restore:    { confirm: 'Khôi phục tài khoản đã xoá?',  form: 'form-restore-',    danger: false },
+    'resend-activation': {
+      confirm: 'Gửi liên kết kích hoạt mới? Liên kết cũ sẽ hết hiệu lực.',
+      form: 'form-resend-activation-', danger: false
+    }
   };
 
   // ── Focus management helpers ────────────────────────────────────

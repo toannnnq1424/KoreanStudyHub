@@ -93,6 +93,8 @@ public class LecturerTestController {
     private static final int HISTORY_PAGE_SIZE = 20;
 
     private static final String ATTR_SELECTED_CLASS_ID = "selectedClassId";
+    private static final String ATTR_SELECTED_SUBJECT_ID = "selectedSubjectId";
+    private static final String ATTR_TEST_SUBJECTS = "testSubjects";
     private static final String ATTR_TEST_RETURN_URL = "testReturnUrl";
 
     /** Whitelist of valid {@code tab} values; anything else falls back to {@code info}. */
@@ -154,9 +156,15 @@ public class LecturerTestController {
 
         model.addAttribute(ATTR_EXAM_FORM, null);
         model.addAttribute(ATTR_LED_CLASSES, ledClasses);
+        model.addAttribute(ATTR_TEST_SUBJECTS, examService.subjectOptions(user.getId()));
         model.addAttribute(ATTR_MODE, MODE_CREATE);
         model.addAttribute(ATTR_SELECTED_CLASS_ID, selectedClassId);
+        model.addAttribute(ATTR_SELECTED_SUBJECT_ID, ledClasses.stream()
+                .filter(option -> option.id().equals(selectedClassId))
+                .map(ClassOption::subjectId)
+                .findFirst().orElse(null));
         model.addAttribute(ATTR_TEST_RETURN_URL, returnUrlForClass(selectedClassId));
+        populateClassSidebarIfViewable(selectedClassId, user, model);
         return VIEW_TEST_LECTURER_FORM;
     }
 
@@ -227,6 +235,9 @@ public class LecturerTestController {
         ExamForm form = examService.getForEdit(id, userId);
         model.addAttribute(ATTR_EXAM_FORM, form);
         model.addAttribute(ATTR_LED_CLASSES, examService.ledClasses(userId));
+        model.addAttribute(ATTR_TEST_SUBJECTS, examService.subjectOptions(userId));
+        model.addAttribute(ATTR_SELECTED_SUBJECT_ID, form.subjectId());
+        model.addAttribute(ATTR_SELECTED_CLASS_ID, form.classId());
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_TEST, monitorService.header(id, userId));
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);

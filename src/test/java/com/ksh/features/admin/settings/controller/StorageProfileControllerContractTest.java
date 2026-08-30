@@ -1,6 +1,8 @@
 package com.ksh.features.admin.settings.controller;
 
 import com.ksh.features.admin.settings.service.StorageProfileAdminService;
+import com.ksh.features.admin.settings.dto.StorageProfileDtos.ConnectionTestResult;
+import com.ksh.features.admin.settings.dto.StorageProfileDtos.ConnectionTestStatus;
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileRow;
 import com.ksh.features.storage.profile.StorageBackend;
 import com.ksh.features.storage.profile.StorageProfileCode;
@@ -55,6 +57,21 @@ class StorageProfileControllerContractTest {
                 .containsExactly(StorageProfileCode.PRACTICE_AUTHORING);
         assertThat(model.getAttribute("missingCodes"))
                 .isEqualTo(List.of(StorageProfileCode.PRACTICE_SPEAKING));
+    }
+
+    @Test
+    void connectionTestIsProfileScopedAndNeverCached() {
+        StorageProfileAdminService service = mock(StorageProfileAdminService.class);
+        var result = new ConnectionTestResult(
+                ConnectionTestStatus.SUCCESS, "Kết nối thành công");
+        when(service.testConnection(StorageProfileCode.GENERAL_UPLOADS))
+                .thenReturn(result);
+
+        var response = new StorageProfileController(service)
+                .testConnection(StorageProfileCode.GENERAL_UPLOADS);
+
+        assertThat(response.getHeaders().getCacheControl()).contains("no-store");
+        assertThat(response.getBody()).isEqualTo(result);
     }
 
     private static ProfileRow row(StorageProfileCode code) {

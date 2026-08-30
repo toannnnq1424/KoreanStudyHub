@@ -12,8 +12,8 @@
   <h1 class="msg-title">Tin nhắn</h1>
 
   <!-- has-open drives the mobile single-column behavior (hide list when a
-       thread is open). conversation is null on the plain list view. -->
-  <div class="msg-grid" th:classappend="${conversation != null} ? 'has-open'">
+       thread or the new-message composer is open). -->
+  <div class="msg-grid" th:classappend="${conversation != null or compose} ? 'has-open'">
 
     <!-- LEFT: conversation list ------------------------------------------------ -->
     <aside class="msg-list-pane">

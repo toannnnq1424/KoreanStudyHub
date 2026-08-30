@@ -19,22 +19,20 @@
         th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}"
         style="display:none;"></span>
 
-  <!-- ===== Rank toggle ===== -->
-  <button class="rank-toggle" id="rankToggle" type="button">
-    <span>Hiện xếp hạng</span>
-    <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-  </button>
-
   <!-- ===== Panel: tabs + toolbar + list ===== -->
   <section class="panel">
 
     <!-- Tabs row -->
     <div class="panel-top">
       <div class="tabs">
-        <button class="tab active" type="button">
-          Lớp của bạn <span th:text="${classes != null ? classes.size() : 0}">0</span>
-        </button>
-        <button class="tab" type="button" title="Sắp ra mắt">Lớp đã ẩn</button>
+        <a class="tab" th:classappend="${selectedTab == 'current'} ? ' active'"
+           th:href="@{/lecturer/classes(tab='current',page=0,size=${classesPage.size})}">
+          Lớp của bạn <span class="tab-count" th:text="${currentClassCount}">0</span>
+        </a>
+        <a class="tab" th:classappend="${selectedTab == 'archived'} ? ' active'"
+           th:href="@{/lecturer/classes(tab='archived',page=0,size=${classesPage.size})}">
+          Lớp đã ẩn <span class="tab-count" th:text="${archivedClassCount}">0</span>
+        </a>
       </div>
       <div class="panel-top-right">
         <button class="btn-ghost" type="button" title="Sắp ra mắt">
@@ -90,21 +88,31 @@
 
       <!-- Empty state when no classes -->
       <div class="empty" th:if="${classes == null or classes.isEmpty()}">
-        Chưa có lớp học nào. Nhấn <b>Tạo lớp học</b> để bắt đầu.
+        <th:block th:if="${selectedTab == 'archived'}">
+          Chưa có lớp đã lưu trữ.
+        </th:block>
+        <th:block th:unless="${selectedTab == 'archived'}">
+          Chưa có lớp học nào. Nhấn <b>Tạo lớp học</b> để bắt đầu.
+        </th:block>
       </div>
 
-      <!-- Class rows. The whole name + thumb area is a link to the class detail page —
-           click anywhere on the class card to open the detail (Bảng tin tab) directly. -->
+      <!-- Selecting a class opens its lessons directly. -->
       <div th:each="cls : ${classes}" class="class-row"
            th:attr="data-class-id=${cls.id},data-class-name=${cls.name},data-class-code=${cls.code},data-student-count=${cls.studentCount},data-created-at=${cls.createdAtIso}">
         <a class="class-main class-main-link"
-           th:href="@{'/lecturer/classes/' + ${cls.id}}"
+           th:href="@{'/lecturer/classes/' + ${cls.id} + '/lessons'}"
            th:aria-label="'Mở lớp ' + ${cls.name}">
           <div class="class-thumb"
                th:style="'background:' + ${cls.gradientCss}"
                th:text="${cls.thumbLabel()}">SE</div>
           <div class="class-info">
-            <h4 th:text="${cls.name}">SE1865</h4>
+            <h4>
+              <span class="class-name" th:text="${cls.name}">SE1865</span>
+              <span class="review-badge"
+                    th:if="${cls.reviewStateLabel() != null}"
+                    th:classappend="${cls.reviewStateCss()}"
+                    th:text="${cls.reviewStateLabel()}">Chờ duyệt</span>
+            </h4>
             <div class="class-code">
               Mã môn &bull; <b th:text="${cls.code}">KOR311</b>
               <button class="copy-code" type="button" aria-label="Sao chép mã môn"
@@ -118,11 +126,24 @@
         <div class="stat" th:text="${cls.lectureCount}">0</div>
         <div class="stat" th:text="${cls.assignmentCount}">0</div>
         <div class="stat" th:text="${cls.materialCount}">0</div>
+        <form class="class-resubmit-inline" th:if="${cls.status == 'REJECTED'}"
+              th:action="@{'/lecturer/classes/' + ${cls.id} + '/resubmit'}" method="post">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+          <button type="submit">Gửi duyệt lại</button>
+        </form>
         <div class="dropdown row-menu" style="position:relative;">
           <button class="icon-btn" data-toggle="dropdown" type="button" aria-label="Tùy chọn">
             <svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
           </button>
           <div class="menu right">
+            <form th:if="${cls.status == 'REJECTED'}"
+                  th:action="@{'/lecturer/classes/' + ${cls.id} + '/resubmit'}" method="post">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+              <button class="menu-item" type="submit">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 9 9 9"/></svg>
+                Gửi duyệt lại
+              </button>
+            </form>
             <button class="menu-item" type="button" title="Sắp ra mắt" disabled>
               <svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               Quản lý học sinh
@@ -170,18 +191,29 @@
 
     </div>
 
-    <!-- Pagination — mirrors the admin/users.html pattern.
-         Hidden when there is only one page so tiny lists don't render an empty nav. -->
+    <!-- Centered list pagination. Hidden when a tab has only one page. -->
     <nav th:if="${classesPage != null and classesPage.totalPages > 1}"
-         class="users-pagination" aria-label="Phân trang">
-      <a class="page-link"
+         class="classes-pagination" aria-label="Phân trang danh sách lớp">
+      <a class="classes-page-link"
          th:if="${!classesPage.first}"
-         th:href="@{/lecturer/classes(page=${classesPage.number - 1},size=${classesPage.size})}">‹ Trước</a>
-      <span class="page-current"
-            th:text="'Trang ' + (${classesPage.number + 1}) + ' / ' + ${classesPage.totalPages}">Trang 1 / 1</span>
-      <a class="page-link"
+         th:href="@{/lecturer/classes(tab=${selectedTab},page=${classesPage.number - 1},size=${classesPage.size})}"
+         aria-label="Trang trước">
+        <span aria-hidden="true">‹</span> Trước
+      </a>
+      <span class="classes-page-link is-disabled" th:if="${classesPage.first}" aria-disabled="true">
+        <span aria-hidden="true">‹</span> Trước
+      </span>
+      <span class="classes-page-current"
+            th:text="'Trang ' + (${classesPage.number + 1}) + ' trên ' + ${classesPage.totalPages}">Trang 1 trên 1</span>
+      <a class="classes-page-link"
          th:if="${!classesPage.last}"
-         th:href="@{/lecturer/classes(page=${classesPage.number + 1},size=${classesPage.size})}">Sau ›</a>
+         th:href="@{/lecturer/classes(tab=${selectedTab},page=${classesPage.number + 1},size=${classesPage.size})}"
+         aria-label="Trang sau">
+        Sau <span aria-hidden="true">›</span>
+      </a>
+      <span class="classes-page-link is-disabled" th:if="${classesPage.last}" aria-disabled="true">
+        Sau <span aria-hidden="true">›</span>
+      </span>
     </nav>
   </section>
 </main>

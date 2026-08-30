@@ -60,6 +60,10 @@ public class LessonTemplate {
     @Column(name = "video_url", length = 500)
     private String videoUrl;
 
+    /** Optional plain-text summary copied into distributed lesson snapshots. */
+    @Column(name = "video_summary", length = 1000)
+    private String videoSummary;
+
     @Column(name = "video_library_asset_id")
     private Long videoLibraryAssetId;
 
@@ -137,6 +141,7 @@ public class LessonTemplate {
         this.pdfLibraryAssetId = null;
         this.videoProvider = null;
         this.videoUrl = null;
+        this.videoSummary = null;
         this.videoLibraryAssetId = null;
     }
 
@@ -174,6 +179,10 @@ public class LessonTemplate {
 
     public void setVideoUrl(String videoUrl) {
         this.videoUrl = videoUrl;
+    }
+
+    public void setVideoSummary(String videoSummary) {
+        this.videoSummary = videoSummary;
     }
 
     public void setVideoLibraryAssetId(Long videoLibraryAssetId) {
@@ -218,6 +227,10 @@ public class LessonTemplate {
 
     public String getVideoUrl() {
         return videoUrl;
+    }
+
+    public String getVideoSummary() {
+        return videoSummary;
     }
 
     public Long getVideoLibraryAssetId() {

@@ -16,6 +16,7 @@ import com.ksh.features.classes.imports.session.ImportSession;
 import com.ksh.features.classes.imports.session.ImportSessionStore;
 import com.ksh.features.classes.imports.validator.RowValidator;
 import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.service.ClassActivityWriter;
 import com.ksh.features.classes.service.ClassesService;
 import org.slf4j.Logger;
@@ -59,6 +60,7 @@ public class ImportStudentsService {
     private final ImportSessionStore sessionStore;
     private final ClassesService classesService;
     private final EnrollmentRepository enrollmentRepository;
+    private final ClassRepository classRepository;
     private final ImportRowProcessor rowProcessor;
     private final ClassActivityWriter activityWriter;
     private final ObjectMapper objectMapper;
@@ -68,6 +70,7 @@ public class ImportStudentsService {
                                  ImportSessionStore sessionStore,
                                  ClassesService classesService,
                                  EnrollmentRepository enrollmentRepository,
+                                 ClassRepository classRepository,
                                  ImportRowProcessor rowProcessor,
                                  ClassActivityWriter activityWriter,
                                  ObjectMapper objectMapper) {
@@ -76,6 +79,7 @@ public class ImportStudentsService {
         this.sessionStore = sessionStore;
         this.classesService = classesService;
         this.enrollmentRepository = enrollmentRepository;
+        this.classRepository = classRepository;
         this.rowProcessor = rowProcessor;
         this.activityWriter = activityWriter;
         this.objectMapper = objectMapper;
@@ -126,6 +130,9 @@ public class ImportStudentsService {
             throw new InvalidFileException("Phiên import không khớp với lớp hiện tại.");
         }
 
+        ClassEntity lockedClass = classRepository.findByIdForUpdate(clazz.getId())
+                .orElseThrow(() -> new InvalidFileException("Lớp không còn tồn tại."));
+
         long errorCount = session.errorCount();
         ImportOptions opts = options == null ? new ImportOptions(false) : options;
         if (errorCount > 0 && !opts.skipErrors()) {
@@ -136,7 +143,10 @@ public class ImportStudentsService {
         }
 
         restoreSessionOnRollback(session);
-        RowOutcome totals = processAllRows(session.getRows(), classId);
+        long activeCount = enrollmentRepository.countActiveByClassIdForUpdate(classId);
+        int maxStudents = lockedClass.getMaxStudents() == null ? 100 : lockedClass.getMaxStudents();
+        int availableSeats = (int) Math.max(0L, (long) maxStudents - activeCount);
+        RowOutcome totals = processAllRows(session.getRows(), classId, availableSeats);
         writeActivity(classId, lecturerId, session, totals);
 
         return new ImportResult(session.totalRows(),
@@ -166,7 +176,7 @@ public class ImportStudentsService {
      * successful in this call. Preview-time duplicate detection should make
      * this rare in practice.
      */
-    private RowOutcome processAllRows(List<ImportRow> rows, Long classId) {
+    private RowOutcome processAllRows(List<ImportRow> rows, Long classId, int availableSeats) {
         List<Enrollment> pending = new ArrayList<>(SAVE_BATCH_SIZE);
         RowOutcome totals = RowOutcome.ZERO;
 
@@ -174,7 +184,7 @@ public class ImportStudentsService {
             if (row.getStatus() == null) continue;
             RowOutcome outcome;
             try {
-                outcome = rowProcessor.process(row, classId, pending);
+                outcome = rowProcessor.process(row, classId, pending, availableSeats > 0);
             } catch (RuntimeException ex) {
                 // Per-row failure is captured on the row; batch flush below can still roll back.
                 log.warn("Failed to persist import row {} for class {}: {}",
@@ -183,6 +193,9 @@ public class ImportStudentsService {
                 outcome = RowOutcome.FAILED;
             }
             totals = totals.plus(outcome);
+            if (outcome.imported() + outcome.reactivated() > 0) {
+                availableSeats--;
+            }
             if (pending.size() >= SAVE_BATCH_SIZE) flush(pending);
         }
         flush(pending);

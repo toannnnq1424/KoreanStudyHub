@@ -1,5 +1,6 @@
 package com.ksh.features.tests.service;
 
+import com.ksh.common.HtmlSanitizer;
 import com.ksh.features.lessons.support.YouTubeEmbedUrl;
 import com.ksh.features.tests.dto.TestDtos.PreviewView;
 import com.ksh.features.tests.dto.TestDtos.TakeOptionView;
@@ -43,7 +44,7 @@ public class TakeViewBuilder {
         List<TakeQuestionView> views = buildQuestions(test, attempt.getId(), true);
         long remaining = ExamDeadline.remainingSeconds(test, attempt, LocalDateTime.now());
         return new TakeView(attempt.getId(), test.getId(), test.getClassId(), test.getTitle(),
-                test.getDescription(), test.getTimeMode(), remaining,
+                HtmlSanitizer.sanitize(test.getDescription()), test.getTimeMode(), remaining,
                 ExamDeadline.deadlineEpochMillis(test, attempt),
                 test.getMediaType(), test.getMediaUrl(), mediaEmbedUrl(test), views);
     }
@@ -55,7 +56,8 @@ public class TakeViewBuilder {
     public PreviewView buildPreview(Test test) {
         // Preview skips shuffle so the lecturer sees the authored order.
         List<TakeQuestionView> views = buildQuestions(test, null, false);
-        return new PreviewView(test.getId(), test.getTitle(), test.getDescription(),
+        return new PreviewView(test.getId(), test.getTitle(),
+                HtmlSanitizer.sanitize(test.getDescription()),
                 test.getTimeMode(), test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getMediaType(), test.getMediaUrl(), mediaEmbedUrl(test), views);
     }
@@ -86,10 +88,11 @@ public class TakeViewBuilder {
                         DeterministicShuffle.optionSeed(attemptId, q.getId()));
             }
             List<TakeOptionView> optViews = opts.stream()
-                    .map(o -> new TakeOptionView(o.getId(), o.getContent()))
+                    .map(o -> new TakeOptionView(
+                            o.getId(), HtmlSanitizer.sanitize(o.getContent())))
                     .toList();
-            views.add(new TakeQuestionView(q.getId(), q.getQuestionType(), q.getContent(),
-                    q.getPoints(), optViews));
+            views.add(new TakeQuestionView(q.getId(), q.getQuestionType(),
+                    HtmlSanitizer.sanitize(q.getContent()), q.getPoints(), optViews));
         }
         return views;
     }

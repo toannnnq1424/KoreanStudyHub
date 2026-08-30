@@ -14,6 +14,8 @@ import com.ksh.features.lessons.repository.LessonRepository;
 import com.ksh.features.lessons.repository.SectionRepository;
 import com.ksh.features.progress.repository.LearningProgressRepository;
 import com.ksh.features.student.dto.StudentLessonsDtos.ClassLessonsView;
+import com.ksh.features.student.dto.StudentLessonsDtos.LessonEngagementTab;
+import com.ksh.features.student.dto.StudentLessonsDtos.LessonEngagementView;
 import com.ksh.features.student.service.StudentLessonsService;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityManager;
@@ -97,23 +99,23 @@ class LearningProgressServiceTest {
     }
 
     @Test
-    void toggle_marks_completed() {
+    void legacy_toggle_cannot_bypass_incomplete_checklist() {
         Lesson lesson = persistLesson("Bài 1", true);
         enrollActive();
         progressService.recordOpened(clazz.getId(), lesson.getId(), student.getId());
 
         boolean now = progressService.toggleCompletion(clazz.getId(), lesson.getId(), student.getId());
 
-        assertThat(now).isTrue();
+        assertThat(now).isFalse();
         LearningProgress p = progressRepository
                 .findByUserIdAndLessonId(student.getId(), lesson.getId()).orElseThrow();
-        assertThat(p.getStatus()).isEqualTo(LearningProgress.STATUS_COMPLETED);
-        assertThat(p.getCompletedAt()).isNotNull();
-        assertThat(p.getProgressPercent()).isEqualByComparingTo("100");
+        assertThat(p.getStatus()).isEqualTo(LearningProgress.STATUS_IN_PROGRESS);
+        assertThat(p.getCompletedAt()).isNull();
+        assertThat(p.getProgressPercent()).isEqualByComparingTo("0");
     }
 
     @Test
-    void toggle_unmarks_completed() {
+    void legacy_toggle_is_idempotent_and_does_not_alternate_state() {
         Lesson lesson = persistLesson("Bài 1", true);
         enrollActive();
         progressService.toggleCompletion(clazz.getId(), lesson.getId(), student.getId());
@@ -129,17 +131,69 @@ class LearningProgressServiceTest {
     }
 
     @Test
-    void toggle_without_prior_open_creates_completed() {
+    void legacy_toggle_without_prior_open_creates_in_progress_only() {
         Lesson lesson = persistLesson("Bài 1", true);
         enrollActive();
 
         boolean now = progressService.toggleCompletion(clazz.getId(), lesson.getId(), student.getId());
 
-        assertThat(now).isTrue();
+        assertThat(now).isFalse();
         LearningProgress p = progressRepository
                 .findByUserIdAndLessonId(student.getId(), lesson.getId()).orElseThrow();
-        assertThat(p.getStatus()).isEqualTo(LearningProgress.STATUS_COMPLETED);
+        assertThat(p.getStatus()).isEqualTo(LearningProgress.STATUS_IN_PROGRESS);
         assertThat(p.getStartedAt()).isNotNull();
+    }
+
+    @Test
+    void checkpoint_exposes_applicable_and_not_applicable_items_without_fake_completion() {
+        Lesson lesson = persistLesson("Bài có nội dung", true);
+        enrollActive();
+
+        LessonEngagementView view = progressService.checkpointEngagement(
+                clazz.getId(), lesson.getId(), student.getId(),
+                LessonEngagementTab.CONTENT, true);
+
+        assertThat(view.content().applicable()).isTrue();
+        assertThat(view.content().requiredSeconds()).isEqualTo(60);
+        assertThat(view.content().complete()).isFalse();
+        assertThat(view.video().applicable()).isFalse();
+        assertThat(view.video().satisfied()).isTrue();
+        assertThat(view.attachments().applicable()).isFalse();
+        assertThat(view.attachments().satisfied()).isTrue();
+        assertThat(view.eligible()).isFalse();
+        assertThat(view.overallCompleted()).isFalse();
+    }
+
+    @Test
+    void completed_checklist_unlocks_then_explicit_action_marks_lesson_complete() {
+        Lesson lesson = persistLesson("Bài đủ checklist", true);
+        enrollActive();
+        LearningProgress evidence = new LearningProgress(student.getId(), lesson.getId());
+        LocalDateTime now = LocalDateTime.of(2026, 8, 10, 12, 0);
+        evidence.checkpointEngagement(LearningProgress.TAB_CONTENT, true,
+                true, false, false, now);
+        for (int i = 0; i < 4; i++) {
+            now = now.plusSeconds(15);
+            evidence.checkpointEngagement(LearningProgress.TAB_CONTENT, true,
+                    true, false, false, now);
+        }
+        evidence.checkpointEngagement(LearningProgress.TAB_CONTENT, false,
+                true, false, false, now);
+        progressRepository.saveAndFlush(evidence);
+        entityManager.flush();
+        entityManager.clear();
+
+        LessonEngagementView unlocked = progressService.getEngagement(
+                clazz.getId(), lesson.getId(), student.getId());
+        assertThat(unlocked.eligible()).isTrue();
+        assertThat(unlocked.overallCompleted()).isFalse();
+
+        assertThat(progressService.toggleCompletion(
+                clazz.getId(), lesson.getId(), student.getId())).isTrue();
+        LearningProgress completed = progressRepository
+                .findByUserIdAndLessonId(student.getId(), lesson.getId()).orElseThrow();
+        assertThat(completed.isCompleted()).isTrue();
+        assertThat(completed.getProgressPercent()).isEqualByComparingTo("100");
     }
 
     @Test
@@ -171,7 +225,9 @@ class LearningProgressServiceTest {
         persistLesson("Bài 2", true);
         persistLesson("Bài nháp", false); // DRAFT must not count
         enrollActive();
-        progressService.toggleCompletion(clazz.getId(), pub1.getId(), student.getId());
+        LearningProgress completed = new LearningProgress(student.getId(), pub1.getId());
+        completed.markCompleted();
+        progressRepository.saveAndFlush(completed);
         entityManager.flush();
         entityManager.clear();
 
@@ -200,6 +256,7 @@ class LearningProgressServiceTest {
 
     private Lesson persistLesson(String title, boolean published) {
         Lesson l = new Lesson(section.getId(), title, orderSeq++, lecturer.getId());
+        l.updateContent("<p>Body</p>");
         if (published) l.publish();
         return lessonRepository.saveAndFlush(l);
     }

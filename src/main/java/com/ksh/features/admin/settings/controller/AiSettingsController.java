@@ -9,7 +9,9 @@ import com.ksh.features.admin.settings.service.AiProviderService;
 import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -244,10 +246,13 @@ public class AiSettingsController {
      */
     @GetMapping(value = "/{id}/key", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public RevealKeyResult revealKey(@PathVariable Long id) {
-        return service.revealKey(id)
+    public ResponseEntity<RevealKeyResult> revealKey(@PathVariable Long id) {
+        RevealKeyResult body = service.revealKey(id)
                 .map(RevealKeyResult::ok)
                 .orElseGet(() -> RevealKeyResult.fail(MSG_AI_PROVIDER_NOT_FOUND));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(body);
     }
 
     // ─────────────────────────────────────────────────────────────────

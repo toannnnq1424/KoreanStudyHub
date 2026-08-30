@@ -13,6 +13,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,6 +42,31 @@ class LibraryControllerTest {
     }
 
     @Test
+    void anonymous_personal_asset_picker_redirects_to_login() throws Exception {
+        mockMvc.perform(get("/lecturer/library/assets/api"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("**/login"));
+    }
+
+    @Test
+    @WithUserDetails("student@ksh.edu.vn")
+    void student_cannot_browse_lecturer_personal_assets() throws Exception {
+        mockMvc.perform(get("/lecturer/library/assets/api"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithUserDetails("lecturer@ksh.edu.vn")
+    void lecturer_personal_asset_picker_is_owner_scoped_json() throws Exception {
+        mockMvc.perform(get("/lecturer/library/assets/api")
+                        .param("kind", "DOCUMENT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(12));
+    }
+
+    @Test
     @WithUserDetails("lecturer@ksh.edu.vn")
     void lecturer_library_page_uses_subject_lesson_flow_without_loose_attach_ui()
             throws Exception {
@@ -66,7 +92,7 @@ class LibraryControllerTest {
                 .andExpect(view().name("library/lesson-form"))
                 .andExpect(content().string(containsString("multipart/form-data")))
                 .andExpect(content().string(containsString("Trình soạn thảo nội dung")))
-                .andExpect(content().string(containsString("Link video YouTube/Vimeo")))
+                .andExpect(content().string(containsString("Hoặc link video YouTube/Vimeo")))
                 .andExpect(content().string(containsString("Kéo thả file vào đây")));
     }
 }

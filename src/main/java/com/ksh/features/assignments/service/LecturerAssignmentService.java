@@ -26,7 +26,6 @@ import java.util.Optional;
 
 import static com.ksh.common.IConstant.MSG_ASSIGNMENT_INVALID_TRANSITION;
 import static com.ksh.common.IConstant.MSG_ASSIGNMENT_NOT_FOUND;
-import static com.ksh.common.IConstant.MSG_GRADE_SCORE_INVALID;
 import static com.ksh.common.IConstant.MSG_NOTIF_ASSIGNMENT_GRADED_BODY_MID;
 import static com.ksh.common.IConstant.MSG_NOTIF_ASSIGNMENT_GRADED_BODY_PREFIX;
 import static com.ksh.common.IConstant.MSG_NOTIF_ASSIGNMENT_GRADED_TITLE;
@@ -97,7 +96,8 @@ public class LecturerAssignmentService {
     }
 
     /**
-     * Updates an existing assignment. Only DRAFT or PUBLISHED assignments can be edited.
+     * Updates an existing assignment. Published/closed work is immutable because
+     * learners may already have viewed or submitted against its contract.
      *
      * @throws IllegalArgumentException when validation fails
      */
@@ -106,6 +106,7 @@ public class LecturerAssignmentService {
         access.requireEditableClass(classId, userId, role);
         access.validateForm(form);
         Assignment a = access.requireAssignment(classId, assignmentId);
+        requireDraftForEdit(a);
         access.applyForm(a, form);
         a.setUpdatedAt(LocalDateTime.now());
         assignmentRepository.save(a);
@@ -204,12 +205,8 @@ public class LecturerAssignmentService {
                 .filter(s -> s.getAssignmentId().equals(assignmentId))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_ASSIGNMENT_NOT_FOUND));
 
-        // Validate score is in [0, maxScore].
-        if (form.score() == null
-                || form.score().compareTo(BigDecimal.ZERO) < 0
-                || form.score().compareTo(a.getMaxScore()) > 0) {
-            throw new IllegalArgumentException(MSG_GRADE_SCORE_INVALID);
-        }
+        // Validate both the business range and assignment_feedback.score DECIMAL(5,2).
+        access.validateGradeScore(form.score(), a.getMaxScore());
 
         // Upsert the single feedback row.
         AssignmentFeedback fb = feedbackRepository.findBySubmissionId(submissionId)
@@ -249,8 +246,15 @@ public class LecturerAssignmentService {
     public AssignmentForm getFormForEdit(Long classId, Long assignmentId, Long userId, Role role) {
         access.requireEditableClass(classId, userId, role);
         Assignment a = access.requireAssignment(classId, assignmentId);
+        requireDraftForEdit(a);
         return new AssignmentForm(a.getId(), a.getTitle(), a.getDescription(),
                 a.getMaxScore(), a.getDueDate(), a.isAllowLateSubmission());
+    }
+
+    private static void requireDraftForEdit(Assignment assignment) {
+        if (!AssignmentStatus.DRAFT.equals(assignment.getStatus())) {
+            throw new IllegalStateException(MSG_ASSIGNMENT_INVALID_TRANSITION);
+        }
     }
 
     /**

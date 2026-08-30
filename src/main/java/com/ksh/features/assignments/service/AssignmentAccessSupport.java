@@ -15,8 +15,12 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 
 import static com.ksh.common.IConstant.MSG_ASSIGNMENT_MAX_SCORE_NEGATIVE;
+import static com.ksh.common.IConstant.MSG_ASSIGNMENT_MAX_SCORE_INVALID;
 import static com.ksh.common.IConstant.MSG_ASSIGNMENT_NOT_FOUND;
 import static com.ksh.common.IConstant.MSG_ASSIGNMENT_TITLE_BLANK;
+import static com.ksh.common.IConstant.MSG_ASSIGNMENT_TITLE_TOO_LONG;
+import static com.ksh.common.IConstant.MSG_GRADE_SCORE_FORMAT_INVALID;
+import static com.ksh.common.IConstant.MSG_GRADE_SCORE_INVALID;
 import static com.ksh.common.IConstant.MSG_NOT_ENROLLED;
 
 /**
@@ -25,6 +29,10 @@ import static com.ksh.common.IConstant.MSG_NOT_ENROLLED;
  */
 @Component
 public class AssignmentAccessSupport {
+
+    private static final int ASSIGNMENT_TITLE_MAX_LENGTH = 300;
+    private static final int SCORE_MAX_SCALE = 2;
+    private static final BigDecimal SCORE_COLUMN_MAX = new BigDecimal("999.99");
 
     private final AssignmentRepository assignmentRepository;
     private final EnrollmentRepository enrollmentRepository;
@@ -57,6 +65,9 @@ public class AssignmentAccessSupport {
 
     /** Validates that the student is ACTIVE-enrolled in the class. */
     public void requireActiveEnrollment(Long classId, Long userId) {
+        classRepository.findById(classId)
+                .filter(clazz -> !clazz.isDeleted())
+                .orElseThrow(() -> new EntityNotFoundException(MSG_NOT_ENROLLED));
         enrollmentRepository.findByUserIdAndClassId(userId, classId)
                 .filter(e -> "ACTIVE".equals(e.getStatus()))
                 .orElseThrow(() -> new EntityNotFoundException(MSG_NOT_ENROLLED));
@@ -76,7 +87,7 @@ public class AssignmentAccessSupport {
 
     /** Applies form fields to an Assignment entity. */
     public void applyForm(Assignment a, AssignmentForm form) {
-        a.setTitle(form.title());
+        a.setTitle(form.title().trim());
         a.setDescription(form.description() != null ? form.description() : "");
         a.setMaxScore(form.maxScore() != null ? form.maxScore() : BigDecimal.valueOf(100));
         a.setDueDate(form.dueDate());
@@ -88,9 +99,37 @@ public class AssignmentAccessSupport {
         if (form.title() == null || form.title().isBlank()) {
             throw new IllegalArgumentException(MSG_ASSIGNMENT_TITLE_BLANK);
         }
-        if (form.maxScore() != null && form.maxScore().compareTo(BigDecimal.ZERO) < 0) {
+        if (form.title().trim().length() > ASSIGNMENT_TITLE_MAX_LENGTH) {
+            throw new IllegalArgumentException(MSG_ASSIGNMENT_TITLE_TOO_LONG);
+        }
+        BigDecimal maxScore = form.maxScore() != null
+                ? form.maxScore()
+                : BigDecimal.valueOf(100);
+        if (maxScore.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException(MSG_ASSIGNMENT_MAX_SCORE_NEGATIVE);
         }
+        if (!fitsScoreColumn(maxScore)) {
+            throw new IllegalArgumentException(MSG_ASSIGNMENT_MAX_SCORE_INVALID);
+        }
+    }
+
+    /** Validates a grade against both the assignment cap and DECIMAL(5,2). */
+    public void validateGradeScore(BigDecimal score, BigDecimal assignmentMaxScore) {
+        if (score == null
+                || assignmentMaxScore == null
+                || score.compareTo(BigDecimal.ZERO) < 0
+                || score.compareTo(assignmentMaxScore) > 0) {
+            throw new IllegalArgumentException(MSG_GRADE_SCORE_INVALID);
+        }
+        if (!fitsScoreColumn(score)) {
+            throw new IllegalArgumentException(MSG_GRADE_SCORE_FORMAT_INVALID);
+        }
+    }
+
+    private static boolean fitsScoreColumn(BigDecimal value) {
+        BigDecimal normalized = value.stripTrailingZeros();
+        return normalized.scale() <= SCORE_MAX_SCALE
+                && value.compareTo(SCORE_COLUMN_MAX) <= 0;
     }
 
     /** Resolves a user's display name; falls back to "Sinh viên" when not found. */

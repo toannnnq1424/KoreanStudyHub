@@ -1793,7 +1793,7 @@ class PracticeServiceTest {
     }
 
     @Test
-    void testSubmitReadingAttemptSuccessful() {
+    void testSubmitReadingAttemptUsesTypedAutosaveAnswers() {
         PracticeSet set = new PracticeSet("Reading Set", "Desc", "READING",  "GLOBAL", null, null, null, "PUBLISHED", 1L);
         com.ksh.entities.PracticeTest test = new com.ksh.entities.PracticeTest(1L, "Test Full", "Desc", 1, 40);
         setEntityId(test, 10L);
@@ -1804,6 +1804,10 @@ class PracticeServiceTest {
         PracticeAttempt attempt = new PracticeAttempt(2L, 1L, 10L, "READING", 20L);
         attempt.setStatus("IN_PROGRESS");
         attempt.setDeadlineAt(LocalDateTime.now().plusMinutes(30));
+        attempt.setAnswersJson("""
+                {"schemaVersion":"practice-attempt-answers.v2",\
+                "responses":{"101":{"responseMode":"TEXT","text":"3"}}}
+                """);
         setEntityId(attempt, 99L);
 
         when(setRepository.findById(1L)).thenReturn(Optional.of(set));
@@ -1823,7 +1827,7 @@ class PracticeServiceTest {
 
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(q1));
 
-        Map<String, String> form = Map.of("answer_101", "3");
+        Map<String, String> form = Map.of();
         Long attemptId = practiceService.submitAttempt(99L, 2L, form);
 
         assertEquals(99L, attemptId);

@@ -2241,16 +2241,13 @@ public class PracticeService {
 
         List<QuestionSnapshot> sectionQuestions = loadQuestionSnapshots(attempt, section.getId());
 
-        Map<String, String> answers = new LinkedHashMap<>();
-        if (attempt.getAnswersJson() != null && !attempt.getAnswersJson().isBlank()) {
-            try {
-                Map<String, String> prev = objectMapper.readValue(attempt.getAnswersJson(), new TypeReference<Map<String, String>>() {});
-                answers.putAll(prev);
-            } catch (Exception e) {
-                log.warn("[submitAttempt] Failed to parse previous in-progress answers exception={}",
-                        exceptionCategory(e));
-            }
-        }
+        Map<Long, WritingBlankContract.QuestionResponse> authorities =
+                writingAuthorities(sectionQuestions);
+        PracticeAttemptAnswerCodec.DecodedAnswers persistedAnswers =
+                attemptAnswerCodec.read(attempt.getAnswersJson(), authorities);
+        Map<String, String> answers = new LinkedHashMap<>(
+                attemptAnswerCodec.compatibilityTextAnswers(
+                        persistedAnswers));
 
         // Process only form fields that belong to sectionQuestions
         PracticeAnswerFormMapper.mergeAllowedQuestionAnswers(

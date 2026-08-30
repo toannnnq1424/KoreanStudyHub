@@ -46,10 +46,18 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
                     <span>Quay lại</span>
                 </a>
-                <button id="btn-test-connection" class="btn-ghost" type="button" th:data-profile-code="${form.profileCode}">Kiểm tra kết nối</button>
+                <button th:if="${mode == 'edit' and form.backend.name() == 'R2'}"
+                        type="button" class="btn-ghost js-storage-profile-test"
+                        th:attr="data-profile-code=${form.profileCode}"
+                        aria-controls="storageProfileTestResult">Kiểm tra R2 đã lưu</button>
                 <button class="btn btn-primary" type="submit">Lưu cấu hình</button>
             </div>
-            <div id="storage-test-result" role="alert" aria-live="polite" style="display:none; margin-top:0.5rem; padding:0.6rem 1rem; border-radius:6px; font-size:0.875rem; font-weight:500;"></div>
+            <p th:if="${mode == 'edit' and form.backend.name() == 'R2'}"
+               id="storageProfileTestResult" class="storage-connection-result"
+               role="status" aria-live="polite" hidden></p>
+            <p th:if="${mode == 'edit' and form.backend.name() == 'R2'}" class="field-hint">
+                Bài kiểm tra dùng cấu hình đã lưu. Hãy lưu thay đổi trước khi kiểm tra lại.
+            </p>
         </form>
     </main>
 </div>

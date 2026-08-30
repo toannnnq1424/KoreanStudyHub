@@ -4,6 +4,7 @@ import com.ksh.entities.Lesson;
 import com.ksh.entities.LessonAttachment;
 import com.ksh.entities.Section;
 import com.ksh.features.classes.repository.EnrollmentRepository;
+import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.service.ClassesService;
 import com.ksh.features.lessons.repository.LessonAttachmentRepository;
 import com.ksh.features.lessons.repository.LessonRepository;
@@ -45,6 +46,7 @@ class PrivateAttachmentLeaderScopeTest {
                 mock(LessonAttachmentStorageService.class), objects,
                 mock(LibraryService.class), classes,
                 mock(LessonsReorderService.class), mock(EnrollmentRepository.class),
+                mock(ClassRepository.class),
                 mock(LessonActivityWriter.class), mock(LessonContentTypeSwitcher.class));
 
         assertThatThrownBy(() -> service.download(2L, 3L, 7L, Role.LEADER))

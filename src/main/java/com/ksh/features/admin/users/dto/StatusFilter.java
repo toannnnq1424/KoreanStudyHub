@@ -4,6 +4,7 @@ package com.ksh.features.admin.users.dto;
 public enum StatusFilter {
     ACTIVE,
     INACTIVE,
+    PENDING,
     LOCKED,
     DELETED;
 

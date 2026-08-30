@@ -149,6 +149,50 @@ class ClassesServiceTest {
     }
 
     @Test
+    void list_current_tab_filters_out_archived_classes_for_lecturer() {
+        Pageable pageable = PageRequest.of(0, 20);
+        List<String> currentStatuses = List.of(
+                ClassEntity.STATUS_PENDING,
+                ClassEntity.STATUS_REJECTED,
+                ClassEntity.STATUS_ACTIVE);
+        when(classRepository.findAllAccessibleToLecturerByStatuses(
+                eq(LECTURER_ID), eq(currentStatuses), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(
+                        List.of(buildClass(1L, "Current", LECTURER_ID)), pageable, 1));
+
+        Page<ClassRow> rows = service.listForUserByStatuses(
+                LECTURER_ID, Role.LECTURER, currentStatuses, pageable);
+
+        assertThat(rows.getContent()).extracting(ClassRow::name).containsExactly("Current");
+        verify(classRepository).findAllAccessibleToLecturerByStatuses(
+                eq(LECTURER_ID), eq(currentStatuses), any(Pageable.class));
+    }
+
+    @Test
+    void archived_tab_uses_archived_only_and_reports_its_badge_count() {
+        Pageable pageable = PageRequest.of(0, 20);
+        List<String> archivedOnly = List.of(ClassEntity.STATUS_ARCHIVED);
+        ClassEntity archived = buildClass(2L, "Archived", LECTURER_ID);
+        archived.approve(LEADER_ID, java.time.LocalDateTime.now());
+        archived.archive();
+        when(classRepository.findAllAccessibleToLecturerByStatuses(
+                eq(LECTURER_ID), eq(archivedOnly), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(archived), pageable, 1));
+        when(classRepository.countAccessibleToLecturerByStatuses(
+                LECTURER_ID, archivedOnly)).thenReturn(1L);
+
+        Page<ClassRow> rows = service.listForUserByStatuses(
+                LECTURER_ID, Role.LECTURER, archivedOnly, pageable);
+
+        assertThat(rows.getContent()).singleElement().satisfies(row -> {
+            assertThat(row.status()).isEqualTo(ClassEntity.STATUS_ARCHIVED);
+            assertThat(row.reviewStateLabel()).isEqualTo("Đã lưu trữ");
+        });
+        assertThat(service.countForUserByStatuses(
+                LECTURER_ID, Role.LECTURER, archivedOnly)).isEqualTo(1L);
+    }
+
+    @Test
     void list_returns_zero_stat_columns() {
         Pageable pageable = PageRequest.of(0, 20);
         when(classRepository.findAllAccessibleToLecturer(eq(LECTURER_ID), any(Pageable.class)))
@@ -210,7 +254,7 @@ class ClassesServiceTest {
 
         assertThat(saved.getSubjectId()).isEqualTo(12L);
         assertThat(saved.getLecturerId()).isEqualTo(LECTURER_ID);
-        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_DRAFT);
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_PENDING);
 
         verify(activityWriter).write(eq(100L), eq(ClassActivity.TYPE_CREATED),
                 eq("Tạo lớp Java"), eq(LECTURER_ID));
@@ -325,6 +369,35 @@ class ClassesServiceTest {
     }
 
     // ───────────────── Soft-delete ─────────────────
+
+    @Test
+    void rejected_class_is_resubmitted_only_by_an_explicit_owner_action() {
+        ClassEntity entity = buildClass(9L, "Needs correction", LECTURER_ID);
+        ReflectionTestUtils.setField(entity, "subjectId", 12L);
+        entity.reject(LEADER_ID, "Thiếu lịch học", java.time.LocalDateTime.now());
+        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+        when(classRepository.save(any(ClassEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ClassEntity saved = service.resubmitForReview(9L, LECTURER_ID, Role.LECTURER);
+
+        assertThat(saved.getStatus()).isEqualTo(ClassEntity.STATUS_PENDING);
+        assertThat(saved.getRejectionNote()).isNull();
+        verify(activityWriter).write(eq(9L), eq(ClassActivity.TYPE_UPDATED),
+                eq("Gửi duyệt lại lớp Needs correction"), eq(LECTURER_ID));
+        verify(eventPublisher).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void active_class_cannot_be_resubmitted_for_review() {
+        ClassEntity entity = buildClass(9L, "Active", LECTURER_ID);
+        entity.approve(LEADER_ID, java.time.LocalDateTime.now());
+        when(classRepository.findById(9L)).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> service.resubmitForReview(9L, LECTURER_ID, Role.LECTURER))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("bị từ chối");
+        verify(classRepository, never()).save(any(ClassEntity.class));
+    }
 
     @Test
     void soft_delete_by_owner_marks_deleted_and_writes_activity() {

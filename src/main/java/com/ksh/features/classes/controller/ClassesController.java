@@ -13,6 +13,7 @@ import com.ksh.security.KshUserDetails;
 import jakarta.validation.Valid;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -29,7 +30,10 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.List;
 
 import static com.ksh.common.IConstant.*;
 import static com.ksh.features.classes.controller.support.ClassDetailModelSupport.classUrl;
@@ -43,13 +47,13 @@ import static com.ksh.features.classes.controller.support.ClassDetailModelSuppor
  *   <li>{@code GET  /lecturer/classes}             — list all classes for the current user</li>
  *   <li>{@code GET  /lecturer/classes/new}         — render the create-class form</li>
  *   <li>{@code POST /lecturer/classes}             — submit the create-class form</li>
- *   <li>{@code GET  /lecturer/classes/{id}}        — redirect to the default board tab</li>
+ *   <li>{@code GET  /lecturer/classes/{id}}        — redirect to lessons</li>
  *   <li>{@code GET  /lecturer/classes/{id}/edit}   — render the edit-class form</li>
  *   <li>{@code POST /lecturer/classes/{id}}        — submit the edit-class form</li>
  *   <li>{@code POST /lecturer/classes/{id}/delete} — soft-delete after confirm modal</li>
  * </ul>
  *
- * <p>Sidebar tabs (board/members/settings/...) live on
+ * <p>Sidebar tabs (lessons/members/materials/settings/...) live on
  * {@link ClassDetailController}. Validation errors render inline beneath each
  * field via {@code th:errors}; the service layer enforces owner authorization.
  */
@@ -57,6 +61,14 @@ import static com.ksh.features.classes.controller.support.ClassDetailModelSuppor
 @RequestMapping(BASE_LECTURER)
 @PreAuthorize(Roles.PREAUTH_LECTURER_OR_ABOVE)
 public class ClassesController {
+
+    private static final String TAB_CURRENT = "current";
+    private static final String TAB_ARCHIVED = "archived";
+    private static final List<String> CURRENT_STATUSES = List.of(
+            ClassEntity.STATUS_PENDING,
+            ClassEntity.STATUS_REJECTED,
+            ClassEntity.STATUS_ACTIVE);
+    private static final List<String> ARCHIVED_STATUSES = List.of(ClassEntity.STATUS_ARCHIVED);
 
     private final ClassesService classesService;
     private final DepartmentRepository subjectRepository;
@@ -83,15 +95,33 @@ public class ClassesController {
     public String list(@AuthenticationPrincipal KshUserDetails user,
                        @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "createdAt",
                                direction = Sort.Direction.DESC) Pageable pageable,
+                       @RequestParam(defaultValue = TAB_CURRENT) String tab,
                        Model model) {
         if (user == null) {
             return "redirect:/login";
         }
-        Page<ClassRow> page = classesService.listForUser(user.getId(), user.getRole(), pageable);
+        String selectedTab = TAB_ARCHIVED.equalsIgnoreCase(tab) ? TAB_ARCHIVED : TAB_CURRENT;
+        List<String> selectedStatuses = TAB_ARCHIVED.equals(selectedTab)
+                ? ARCHIVED_STATUSES : CURRENT_STATUSES;
+        Page<ClassRow> page = classesService.listForUserByStatuses(
+                user.getId(), user.getRole(), selectedStatuses, pageable);
+        if (page.getTotalPages() > 0 && pageable.getPageNumber() >= page.getTotalPages()) {
+            Pageable lastPage = PageRequest.of(
+                    page.getTotalPages() - 1, pageable.getPageSize(), pageable.getSort());
+            page = classesService.listForUserByStatuses(
+                    user.getId(), user.getRole(), selectedStatuses, lastPage);
+        }
         // Keep the existing template loop driven by ${classes} (a List). The Page
         // object is exposed separately as ${classesPage} for the pagination block.
         model.addAttribute(ATTR_CLASSES, page.getContent());
         model.addAttribute(ATTR_CLASSES_PAGE, page);
+        model.addAttribute("selectedTab", selectedTab);
+        model.addAttribute("currentClassCount", TAB_CURRENT.equals(selectedTab)
+                ? page.getTotalElements()
+                : classesService.countForUserByStatuses(user.getId(), user.getRole(), CURRENT_STATUSES));
+        model.addAttribute("archivedClassCount", TAB_ARCHIVED.equals(selectedTab)
+                ? page.getTotalElements()
+                : classesService.countForUserByStatuses(user.getId(), user.getRole(), ARCHIVED_STATUSES));
         model.addAttribute("pendingJoinRequests", quickJoinRequests.forOwnedClasses(
                 page.getContent().stream().map(ClassRow::id).toList(), user.getId()));
         return VIEW_CLASS_MANAGE;
@@ -211,6 +241,20 @@ public class ClassesController {
         return "redirect:" + URL_CLASSES_LIST;
     }
 
+    /** Returns a corrected REJECTED class to the leader approval queue. */
+    @PostMapping("/classes/{id}/resubmit")
+    public String resubmitForReview(@PathVariable Long id,
+                                    @AuthenticationPrincipal KshUserDetails user,
+                                    RedirectAttributes ra) {
+        try {
+            classesService.resubmitForReview(id, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, "Đã gửi lại lớp để chờ duyệt");
+        } catch (IllegalStateException exception) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, exception.getMessage());
+        }
+        return "redirect:" + URL_CLASSES_LIST;
+    }
+
     /** Soft-deletes a class after the user confirms the action via the confirm modal. */
     @PostMapping("/classes/{id}/delete")
     public String delete(@PathVariable Long id,
@@ -221,10 +265,10 @@ public class ClassesController {
         return "redirect:" + URL_CLASSES_LIST;
     }
 
-    /** Redirects the root class-detail URL to the default {@code /board} tab. */
+    /** Redirects the root class-detail URL straight to lessons. */
     @GetMapping("/classes/{id}")
     public String detailRoot(@PathVariable Long id) {
-        return "redirect:" + classUrl(id) + "/" + TAB_BOARD;
+        return "redirect:" + classUrl(id) + "/" + TAB_LESSONS;
     }
 
     /**

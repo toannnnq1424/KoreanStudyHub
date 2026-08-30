@@ -32,7 +32,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ClassEntity {
 
-    public static final String STATUS_DRAFT = "DRAFT";
+    /** A newly created class or a corrected rejected class awaiting leader review. */
+    public static final String STATUS_PENDING = "PENDING";
+    /** A class returned by its leader; the owner must edit it before re-submitting. */
+    public static final String STATUS_REJECTED = "REJECTED";
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_ARCHIVED = "ARCHIVED";
 
@@ -93,7 +96,7 @@ public class ClassEntity {
 
     /**
      * Creates a new class for the create flow.
-     * The status is set to {@code UPCOMING} by default.
+     * The status is set to {@link #STATUS_PENDING} by default.
      * If {@code maxStudents} is {@code null}, it defaults to {@code 100}.
      *
      * @param name        display name of the class
@@ -114,7 +117,7 @@ public class ClassEntity {
         this.startDate = startDate;
         this.endDate = endDate;
         this.maxStudents = maxStudents != null ? maxStudents : 100;
-        this.status = STATUS_DRAFT;
+        this.status = STATUS_PENDING;
     }
 
     // ── Business helpers ───────────────────────────────────────────
@@ -135,6 +138,7 @@ public class ClassEntity {
                               Integer maxStudents) {
         this.name = name;
         this.description = description;
+        this.startDate = startDate;
         this.endDate = endDate;
         if (maxStudents != null) {
             this.maxStudents = maxStudents;
@@ -151,7 +155,7 @@ public class ClassEntity {
     }
 
     public void approve(Long reviewerId, LocalDateTime reviewedAt) {
-        requireDraft();
+        requirePending();
         this.status = STATUS_ACTIVE;
         this.approvedBy = reviewerId;
         this.approvedAt = reviewedAt;
@@ -159,11 +163,28 @@ public class ClassEntity {
     }
 
     public void reject(Long reviewerId, String note, LocalDateTime reviewedAt) {
-        requireDraft();
-        this.status = STATUS_DRAFT;
+        requirePending();
+        this.status = STATUS_REJECTED;
         this.approvedBy = reviewerId;
         this.approvedAt = reviewedAt;
         this.rejectionNote = note == null || note.isBlank() ? null : note.trim();
+    }
+
+    /**
+     * Reopens a rejected class for leader review after its owner has corrected
+     * the submitted details. Active and archived classes never re-enter review.
+     *
+     * @return {@code true} only when this invocation changed REJECTED to PENDING
+     */
+    public boolean resubmitForReview() {
+        if (!STATUS_REJECTED.equals(status)) {
+            return false;
+        }
+        this.status = STATUS_PENDING;
+        this.approvedBy = null;
+        this.approvedAt = null;
+        this.rejectionNote = null;
+        return true;
     }
 
     public void archive() {
@@ -184,8 +205,8 @@ public class ClassEntity {
         this.legacyCode = ignored;
     }
 
-    private void requireDraft() {
-        if (!STATUS_DRAFT.equals(status)) {
+    private void requirePending() {
+        if (!STATUS_PENDING.equals(status)) {
             throw new IllegalStateException("Lớp không còn ở trạng thái chờ duyệt");
         }
     }

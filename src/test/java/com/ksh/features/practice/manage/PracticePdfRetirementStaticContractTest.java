@@ -59,7 +59,8 @@ class PracticePdfRetirementStaticContractTest {
             }).containsExactlyInAnyOrder(
                     "V114__retire_practice_collaboration_and_dark_audio_review.sql",
                     "V118__practice_demo_canonical_seed_catalog.sql",
-                    "V119__practice_topik35_premium_canonical_catalog.sql");
+                    "V119__practice_topik35_premium_canonical_catalog.sql",
+                    "V126__repair_practice_demo_assessment_contracts.sql");
         }
     }
 

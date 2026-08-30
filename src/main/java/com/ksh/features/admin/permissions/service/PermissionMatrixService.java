@@ -9,6 +9,8 @@ import com.ksh.features.admin.permissions.dto.PermissionDtos.MatrixRow;
 import com.ksh.features.admin.permissions.dto.PermissionDtos.MatrixView;
 import com.ksh.features.admin.permissions.repository.PermissionRepository;
 import com.ksh.features.admin.permissions.repository.RolePermissionRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
+import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.security.Role;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,17 +45,23 @@ public class PermissionMatrixService {
     private final AdminPermissionsGuard guard;
     private final PermissionAuditWriter auditWriter;
     private final PermissionResolver permissionResolver;
+    private final SessionRevocationService sessionRevocationService;
+    private final UserRepository userRepository;
 
     public PermissionMatrixService(PermissionRepository permissionRepository,
                                    RolePermissionRepository rolePermissionRepository,
                                    AdminPermissionsGuard guard,
                                    PermissionAuditWriter auditWriter,
-                                   PermissionResolver permissionResolver) {
+                                   PermissionResolver permissionResolver,
+                                   SessionRevocationService sessionRevocationService,
+                                   UserRepository userRepository) {
         this.permissionRepository = permissionRepository;
         this.rolePermissionRepository = rolePermissionRepository;
         this.guard = guard;
         this.auditWriter = auditWriter;
         this.permissionResolver = permissionResolver;
+        this.sessionRevocationService = sessionRevocationService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -109,8 +117,9 @@ public class PermissionMatrixService {
             return;
         }
         rolePermissionRepository.save(new RolePermission(roleCode, permission.getId()));
+        invalidateAffectedPrincipalVersions(roleCode);
         auditWriter.writeMatrixChange(roleCode, featureKey, true, actorId);
-        TransactionLifecycle.afterCommit(() -> permissionResolver.evictRole(roleCode));
+        refreshAffectedSessionsAfterCommit(roleCode);
     }
 
     /**
@@ -134,8 +143,9 @@ public class PermissionMatrixService {
             return;
         }
         rolePermissionRepository.delete(existing.get());
+        invalidateAffectedPrincipalVersions(roleCode);
         auditWriter.writeMatrixChange(roleCode, featureKey, false, actorId);
-        TransactionLifecycle.afterCommit(() -> permissionResolver.evictRole(roleCode));
+        refreshAffectedSessionsAfterCommit(roleCode);
     }
 
     /** Role codes forming the matrix columns, in enum order. */
@@ -159,6 +169,18 @@ public class PermissionMatrixService {
             Role.valueOf(roleCode);
         } catch (IllegalArgumentException | NullPointerException ex) {
             throw new NoSuchElementException(MSG_UNKNOWN_ROLE + roleCode);
+        }
+    }
+
+    private void refreshAffectedSessionsAfterCommit(String roleCode) {
+        TransactionLifecycle.afterCommit(() -> permissionResolver.evictRole(roleCode)
+                .forEach(sessionRevocationService::revokeAllSessions));
+    }
+
+    private void invalidateAffectedPrincipalVersions(String roleCode) {
+        List<Long> affectedUserIds = permissionResolver.affectedUserIds(roleCode);
+        if (!affectedUserIds.isEmpty()) {
+            userRepository.incrementSecurityVersions(affectedUserIds);
         }
     }
 }

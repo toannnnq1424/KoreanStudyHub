@@ -35,7 +35,7 @@ class AssignmentCatalogUiContractTest {
     }
 
     @Test
-    void student_catalog_is_searchable_responsive_and_keeps_submission_lock_language()
+    void student_catalog_is_searchable_and_detail_renders_result_on_the_same_page()
             throws IOException {
         String template = Files.readString(TEMPLATES.resolve("student-list.html"));
         String detail = Files.readString(TEMPLATES.resolve("student-detail.html"));
@@ -47,12 +47,18 @@ class AssignmentCatalogUiContractTest {
                 "asgn-student-list",
                 "Xem kết quả đã khóa");
         assertThat(template).doesNotContain("<table", "overflow-x:auto");
-        assertThat(detail).contains("asgn-lock-notice");
+        assertThat(detail).contains(
+                "asgn-summary-card",
+                "asgn-submission-card",
+                "asgn-result-card",
+                "Nhận xét của giảng viên");
+        assertThat(detail).doesNotContain("asgn-lock-notice", "/feedback", "experience-polish.css");
     }
 
     @Test
     void catalog_script_filters_sorts_and_updates_lecturer_detail_actions() throws IOException {
         String script = Files.readString(STATIC.resolve("js/assignments.js"));
+        String css = Files.readString(STATIC.resolve("css/assignments.css"));
 
         assertThat(script).contains(
                 "data-assignment-status-shortcut",
@@ -61,6 +67,12 @@ class AssignmentCatalogUiContractTest {
                 "data-detail-edit-link",
                 "data-detail-publish-form",
                 "data-detail-close-form",
-                "setDetail(rows.find");
+                "syncVisibleSelection()",
+                "const firstVisible = rows.find((row) => !row.hidden)",
+                "detail.hidden = true",
+                "status.dispatchEvent(new Event('change', { bubbles: true }))");
+        assertThat(css)
+                .contains("@media(max-width:620px)", ".asgn-catalog-toolbar select{min-height:42px}")
+                .doesNotContain(".asgn-catalog-toolbar select{display:none}");
     }
 }

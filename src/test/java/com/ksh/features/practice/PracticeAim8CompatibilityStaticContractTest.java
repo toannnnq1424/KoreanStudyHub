@@ -43,11 +43,15 @@ class PracticeAim8CompatibilityStaticContractTest {
                 .max()
                 .orElseThrow();
         assertThat(currentVersion).isGreaterThanOrEqualTo(111);
-        assertThat(migrations.stream().map(
-                PracticeAim8CompatibilityStaticContractTest::version).toList())
-                .containsExactlyElementsOf(
-                        java.util.stream.IntStream.rangeClosed(1, currentVersion)
-                                .boxed().toList());
+        List<Integer> expectedVersions = java.util.stream.Stream.concat(
+                        java.util.stream.IntStream.rangeClosed(1, 119).boxed(),
+                        java.util.stream.IntStream.rangeClosed(123, currentVersion).boxed())
+                .toList();
+        List<Integer> actualVersions = migrations.stream()
+                .map(PracticeAim8CompatibilityStaticContractTest::version)
+                .toList();
+        assertThat(actualVersions).containsExactlyElementsOf(expectedVersions);
+        assertThat(actualVersions).doesNotContain(120, 121, 122);
 
         List<String> manifestEntries = new ArrayList<>();
         manifestEntries.addAll(lines(

@@ -674,6 +674,25 @@
       });
   };
 
+  const awaitInFlightAutosaveBeforeSubmit = () => {
+    window.clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    // Prevent the in-flight PUT's finally block from scheduling another PUT
+    // between the lock-version refresh and the native submit POST.  The POST
+    // already contains the complete current form, so that follow-up autosave
+    // would race the submit against the same optimistic-lock version.
+    autosaveSubmitDrain = true;
+    // The submit POST already carries the complete current form. Starting a
+    // second PUT here duplicated the write and, on a server error, made the
+    // learner wait through the 1s/2s/4s retry chain before POST was attempted.
+    // Only drain a PUT that was already in flight so its newer lock version is
+    // observed; otherwise submit the form immediately.
+    return (autosaveInFlight || Promise.resolve(true))
+      .finally(() => {
+        autosaveSubmitDrain = false;
+      });
+  };
+
   player.addEventListener('input', (event) => {
     const fill = event.target.closest && event.target.closest('[data-fill-question]');
     if (fill) syncFillAnswer(fill);
@@ -805,14 +824,7 @@
   };
   initializeSplitResize();
 
-  ['contextmenu', 'copy', 'cut', 'paste', 'drop', 'dragstart'].forEach((eventName) => {
-    player.addEventListener(eventName, (event) => event.preventDefault());
-  });
-  player.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && ['c', 'x', 'v'].includes(event.key.toLowerCase())) {
-      event.preventDefault();
-    }
-  });
+  // Anti-cheat copy/paste disabled per user request
 
   const selectionTools = player.querySelector('[data-selection-tools]');
   const noteComposer = player.querySelector('[data-note-composer]');
@@ -1119,17 +1131,8 @@
         player.submit();
         return;
       }
-      window.clearTimeout(autosaveTimer);
-      flushLatestAnswers().then((saved) => {
-        if (!saved) {
-          if (deadlineSubmission && !nativeSubmitAuthorized) {
-            nativeSubmitAuthorized = true;
-            allowNavigation = true;
-            player.submit();
-          }
-          return;
-        }
-        if (autosaveBlocked) return;
+      awaitInFlightAutosaveBeforeSubmit().then(() => {
+        if (autosaveBlocked && !deadlineSubmission) return;
         nativeSubmitAuthorized = true;
         allowNavigation = true;
         player.submit();
@@ -1152,20 +1155,9 @@
       exitPending = true;
       link.setAttribute('aria-disabled', 'true');
       window.clearTimeout(autosaveTimer);
-      flushLatestAnswers().then((saved) => {
-        if (saved && !autosaveBlocked) {
-          allowNavigation = true;
-          window.location.assign(link.href);
-          return;
-        }
-        if (deadlineSubmission) {
-          player.requestSubmit();
-        }
-      }).finally(() => {
-        if (!allowNavigation) {
-          exitPending = false;
-          link.removeAttribute('aria-disabled');
-        }
+      flushLatestAnswers().finally(() => {
+        allowNavigation = true;
+        window.location.assign(link.href);
       });
     });
   });

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Chọn kho học liệu', ~{::link.page-css})}">
+<head th:replace="~{fragments/head :: head('Chọn Kho bài giảng', ~{::link.page-css})}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/library.css}">
 </head>
@@ -9,8 +9,8 @@
 
 <main class="library-list-page">
   <div class="library-list-header">
-    <h1>Kho học liệu</h1>
-    <p>Chọn một mã môn để xem hoặc quản lý học liệu.</p>
+    <h1>Kho bài giảng</h1>
+    <p>Chọn một mã môn để xem hoặc quản lý bài giảng.</p>
   </div>
 
   <div class="library-list-search">
@@ -49,7 +49,7 @@
 
   <div class="content-empty" th:if="${librarySubjectStats.isEmpty()}">
     <h3>Chưa có mã môn nào</h3>
-    <p>Hiện tại bạn chưa có mã môn nào để quản lý học liệu.</p>
+    <p>Hiện tại bạn chưa có mã môn nào để quản lý bài giảng.</p>
   </div>
 </main>
 

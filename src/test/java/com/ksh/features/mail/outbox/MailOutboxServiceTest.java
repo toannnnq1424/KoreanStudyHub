@@ -52,4 +52,27 @@ class MailOutboxServiceTest {
 
         verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
     }
+
+    @Test
+    void enqueueSystemMailPersistsAStandalonePendingJob() {
+        MailOutboxRepository repository = mock(MailOutboxRepository.class);
+        MailOutboxService service = new MailOutboxService(repository, FIXED_CLOCK);
+
+        service.enqueueSystemMail(
+                "owner@example.edu.vn",
+                "[KSH] Kích hoạt tài khoản của bạn",
+                "Activation body",
+                "ACCOUNT_ACTIVATION");
+
+        ArgumentCaptor<MailOutboxJob> captor =
+                ArgumentCaptor.forClass(MailOutboxJob.class);
+        verify(repository).save(captor.capture());
+        MailOutboxJob job = captor.getValue();
+        assertThat(job.getNotificationId()).isNull();
+        assertThat(job.getRecipientEmail()).isEqualTo("owner@example.edu.vn");
+        assertThat(job.getSource()).isEqualTo("ACCOUNT_ACTIVATION");
+        assertThat(job.getStatus()).isEqualTo(MailOutboxStatus.PENDING);
+        assertThat(job.getAvailableAt()).isEqualTo(FIXED_CLOCK.instant().atZone(
+                ZoneOffset.UTC).toLocalDateTime());
+    }
 }

@@ -1,7 +1,11 @@
 package com.ksh.features.admin.settings.controller;
 
 import com.ksh.features.admin.settings.dto.StorageProfileDtos.ProfileForm;
+<<<<<<< HEAD
 import com.ksh.features.admin.settings.dto.StorageSettingsDtos.TestResult;
+=======
+import com.ksh.features.admin.settings.dto.StorageProfileDtos.ConnectionTestResult;
+>>>>>>> origin/main
 import com.ksh.features.admin.settings.service.StorageProfileAdminService;
 import com.ksh.features.storage.profile.StorageProfileCode;
 import com.ksh.security.KshUserDetails;
@@ -142,11 +146,14 @@ public class StorageProfileController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
     }
 
-    /** AJAX HeadBucket test against the saved credentials for a specific profile. */
+    /** Tests the saved R2 credentials for one profile; form drafts are not used. */
     @PostMapping(value = "/{code}/test", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public TestResult testConnection(@PathVariable StorageProfileCode code) {
-        return service.testConnection(code);
+    public ResponseEntity<ConnectionTestResult> testConnection(
+            @PathVariable StorageProfileCode code) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(service.testConnection(code));
     }
 
     private static void populateForm(Model model, String mode, StorageProfileCode code) {

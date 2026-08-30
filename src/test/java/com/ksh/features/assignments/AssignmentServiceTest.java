@@ -119,6 +119,25 @@ class AssignmentServiceTest {
     }
 
     @Test
+    void published_assignment_cannot_be_edited_or_loaded_into_edit_form() {
+        Long aid = createAndPublish("Immutable published assignment");
+        AssignmentForm replacement = new AssignmentForm(
+                aid, "Tampered title", "Tampered description",
+                BigDecimal.ONE, null, false);
+
+        assertThatThrownBy(() -> lecturerAssignmentService.update(
+                clazz.getId(), aid, replacement, lecturer.getId(), Role.LECTURER))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> lecturerAssignmentService.getFormForEdit(
+                clazz.getId(), aid, lecturer.getId(), Role.LECTURER))
+                .isInstanceOf(IllegalStateException.class);
+
+        AssignmentRow row = lecturerAssignmentService.listForLecturer(
+                clazz.getId(), lecturer.getId(), Role.LECTURER).get(0);
+        assertThat(row.title()).isEqualTo("Immutable published assignment");
+    }
+
+    @Test
     void close_on_draft_throws_illegal_state() {
         AssignmentForm form = new AssignmentForm(null, "X", "Y", BigDecimal.TEN, null, false);
         lecturerAssignmentService.create(clazz.getId(), form, lecturer.getId(), Role.LECTURER);
@@ -174,6 +193,20 @@ class AssignmentServiceTest {
         StudentAssignmentDetail detail =
                 studentAssignmentService.getForStudent(clazz.getId(), aid, student.getId());
         assertThat(detail.submissionContent()).isEqualTo("First and final");
+    }
+
+    @Test
+    void blank_submission_is_rejected_without_consuming_the_one_attempt() {
+        Long aid = createAndPublish("Blank submission guard");
+
+        assertThatThrownBy(() -> studentAssignmentService.submit(
+                clazz.getId(), aid, new SubmitForm("   "), student.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("không được để trống");
+
+        StudentAssignmentDetail detail =
+                studentAssignmentService.getForStudent(clazz.getId(), aid, student.getId());
+        assertThat(detail.submissionId()).isNull();
     }
 
     @Test

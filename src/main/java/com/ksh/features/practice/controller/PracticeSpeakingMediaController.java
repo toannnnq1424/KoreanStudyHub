@@ -6,6 +6,7 @@ import com.ksh.features.practice.service.SpeakingAudioUploadService;
 import com.ksh.features.practice.web.PracticeMediaRoutes;
 import com.ksh.features.practice.web.PracticeRoutes;
 import com.ksh.security.AuthenticatedUserIdResolver;
+import com.ksh.security.Roles;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -28,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping(PracticeRoutes.BASE)
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 @ConditionalOnProperty(
         prefix = "app.practice.speaking-media",
         name = "upload-api-enabled",

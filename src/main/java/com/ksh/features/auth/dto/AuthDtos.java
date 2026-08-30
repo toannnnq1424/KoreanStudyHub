@@ -15,4 +15,10 @@ public class AuthDtos {
             @NotBlank String token,
             @NotBlank @Size(min = 6, max = 64) String newPassword
     ) {}
+
+    public record ActivateAccountRequest(
+            @NotBlank String token,
+            @NotBlank @Size(min = 6, max = 64) String newPassword,
+            @NotBlank @Size(min = 6, max = 64) String confirmPassword
+    ) {}
 }

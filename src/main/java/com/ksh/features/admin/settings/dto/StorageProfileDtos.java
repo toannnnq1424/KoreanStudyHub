@@ -1,5 +1,6 @@
 package com.ksh.features.admin.settings.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.ksh.features.storage.profile.StorageBackend;
 import com.ksh.features.storage.profile.StorageProfileCode;
 import jakarta.validation.constraints.NotNull;
@@ -44,5 +45,18 @@ public final class StorageProfileDtos {
             return new ProfileForm(code, StorageBackend.LOCAL, "", "", "",
                     "", "", "auto", code.fixedKeyPrefix(), false, null);
         }
+    }
+
+    public enum ConnectionTestStatus {
+        SUCCESS,
+        NOT_APPLICABLE,
+        FAILED
+    }
+
+    /** JSON result of testing one saved storage profile. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ConnectionTestResult(
+            ConnectionTestStatus status,
+            String message) {
     }
 }

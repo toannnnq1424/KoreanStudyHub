@@ -41,8 +41,7 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      *
      * <p>The {@code @SQLRestriction("is_deleted = 0")} on {@link ClassEntity}
      * already filters out soft-deleted rows, so this method surfaces ONLY the
-     * live ownership relationships — used by the admin role-demote warning
-     * to list the classes that would be left without a teaching lecturer.
+     * live ownership relationships used by lifecycle and ownership guards.
      */
     List<ClassEntity> findAllByLecturerId(Long lecturerId);
 
@@ -72,6 +71,39 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     Page<ClassEntity> findAllAccessibleToLecturer(@Param("lecturerId") Long lecturerId,
                                                    Pageable pageable);
 
+    /** Owner/co-lecturer scope restricted to the lifecycle states selected by the list tab. */
+    @Query("""
+            SELECT c
+            FROM ClassEntity c
+            WHERE c.status IN :statuses
+              AND (c.lecturerId = :lecturerId
+                   OR c.id IN (
+                        SELECT cc.classId
+                        FROM ClassCoLecturer cc
+                        WHERE cc.lecturerId = :lecturerId
+                   ))
+            """)
+    Page<ClassEntity> findAllAccessibleToLecturerByStatuses(
+            @Param("lecturerId") Long lecturerId,
+            @Param("statuses") Collection<String> statuses,
+            Pageable pageable);
+
+    /** Count counterpart used for the current/archived tab badges. */
+    @Query("""
+            SELECT COUNT(c)
+            FROM ClassEntity c
+            WHERE c.status IN :statuses
+              AND (c.lecturerId = :lecturerId
+                   OR c.id IN (
+                        SELECT cc.classId
+                        FROM ClassCoLecturer cc
+                        WHERE cc.lecturerId = :lecturerId
+                   ))
+            """)
+    long countAccessibleToLecturerByStatuses(
+            @Param("lecturerId") Long lecturerId,
+            @Param("statuses") Collection<String> statuses);
+
     /** Non-paginated owner/co-lecturer scope used by class-backed authoring pickers. */
     @Query("""
             SELECT c
@@ -99,6 +131,11 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
      * with an explicit method on the repository for clarity.
      */
     Page<ClassEntity> findAllBy(Pageable pageable);
+
+    /** Paginated lifecycle filter for the administrator class list. */
+    Page<ClassEntity> findAllByStatusIn(Collection<String> statuses, Pageable pageable);
+
+    long countByStatusIn(Collection<String> statuses);
 
     /**
      * Returns the distinct lecturer ids that teach any of the given classes.
@@ -139,11 +176,23 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     List<ClassEntity> findAllBySubjectIdAndStatusOrderByCreatedAtDesc(
             Long subjectId, String status);
 
+    /** Review queue ordering: an explicit resubmission must return to the top. */
+    List<ClassEntity> findAllBySubjectIdAndStatusOrderByUpdatedAtDescIdDesc(
+            Long subjectId, String status);
+
     /** Paginated department-scoped class list. */
     Page<ClassEntity> findAllBySubjectId(Long subjectId, Pageable pageable);
 
     /** Paginated multi-subject class list for a leader. */
     Page<ClassEntity> findAllBySubjectIdIn(Collection<Long> subjectIds, Pageable pageable);
+
+    /** Department scope plus lifecycle tab filter for subject leaders. */
+    Page<ClassEntity> findAllBySubjectIdInAndStatusIn(Collection<Long> subjectIds,
+                                                       Collection<String> statuses,
+                                                       Pageable pageable);
+
+    long countBySubjectIdInAndStatusIn(Collection<Long> subjectIds,
+                                        Collection<String> statuses);
 
     long countBySubjectId(Long subjectId);
 

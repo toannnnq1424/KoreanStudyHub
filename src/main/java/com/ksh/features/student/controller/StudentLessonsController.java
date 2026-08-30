@@ -3,6 +3,7 @@ package com.ksh.features.student.controller;
 import com.ksh.features.flashcards.service.DeckService;
 import com.ksh.features.student.dto.StudentLessonsDtos.ClassLessonsView;
 import com.ksh.features.student.dto.StudentLessonsDtos.LessonDetailView;
+import com.ksh.features.student.dto.StudentLessonsDtos.LessonEngagementView;
 import com.ksh.features.student.dto.StudentLessonsDtos.SectionWithLessons;
 import com.ksh.features.progress.service.LearningProgressService;
 import com.ksh.features.student.service.StudentLessonDetailService;
@@ -89,6 +90,8 @@ public class StudentLessonsController {
         model.addAttribute(ATTR_VIEW, view);
         model.addAttribute(ATTR_ACTIVE_SECTION_ID, activeSectionId);
         model.addAttribute("teachingView", false);
+        model.addAttribute("activeLessonCompleted", false);
+        model.addAttribute("lessonEngagement", null);
         model.addAttribute("lessonBasePath", "/my/classes/" + classId + "/lessons");
         // Surface flashcard decks shared to this class in the sidebar.
         model.addAttribute("classSharedDecks", deckService.listSharedForClass(classId, user.getId()));
@@ -102,9 +105,17 @@ public class StudentLessonsController {
                 LessonDetailView detail = studentLessonDetailService
                         .getLessonDetail(classId, lessonParam, user.getId(), user.getRole());
                 model.addAttribute(ATTR_LESSON_DETAIL, detail);
+                model.addAttribute("activeLessonCompleted",
+                        lessonCompleted(view, activeSectionId, lessonParam));
                 // Auto-record IN_PROGRESS only after the detail gates pass;
                 // isolated so a progress write failure never breaks rendering.
-                recordOpenedQuietly(classId, lessonParam, user.getId(), user.getRole());
+                var engagement = recordOpenedQuietly(
+                        classId, lessonParam, user.getId(), user.getRole());
+                model.addAttribute("lessonEngagement", engagement);
+                if (engagement != null) {
+                    model.addAttribute("activeLessonCompleted",
+                            engagement.overallCompleted());
+                }
             } catch (EntityNotFoundException ignored) {
                 // Silently fall back to hero placeholder — caller's enrollment
                 // was already validated by listClassLessons() above.
@@ -138,16 +149,27 @@ public class StudentLessonsController {
      * must not emit a WARN. Guarding by role here also spares the wasted
      * enrollment gate query {@code recordOpened} would otherwise run.
      */
-    private void recordOpenedQuietly(Long classId, Long lessonId, Long userId, Role role) {
+    private LessonEngagementView recordOpenedQuietly(
+            Long classId, Long lessonId, Long userId, Role role) {
         // Progress belongs to students only; privileged viewers generate none.
         if (role != Role.STUDENT) {
-            return;
+            return null;
         }
         try {
-            learningProgressService.recordOpened(classId, lessonId, userId);
+            return learningProgressService.recordOpened(classId, lessonId, userId);
         } catch (RuntimeException ex) {
             log.warn("Failed to record open progress for lesson {} (user {})",
                     lessonId, userId, ex);
+            // A failed write must not fail page rendering. A read-only fallback
+            // is paid only on this exceptional path; the normal route performs
+            // one auth/access/applicability pass instead of two.
+            try {
+                return learningProgressService.getEngagement(classId, lessonId, userId);
+            } catch (RuntimeException fallbackFailure) {
+                log.warn("Failed to read progress for lesson {} (user {})",
+                        lessonId, userId, fallbackFailure);
+                return null;
+            }
         }
     }
 
@@ -161,6 +183,19 @@ public class StudentLessonsController {
             }
         }
         return false;
+    }
+
+    /** Reads the selected row's already-loaded progress state without a second query. */
+    private static boolean lessonCompleted(ClassLessonsView view,
+                                           Long activeSectionId,
+                                           Long lessonId) {
+        return view.sections().stream()
+                .filter(section -> activeSectionId.equals(section.sectionId()))
+                .flatMap(section -> section.lessons().stream())
+                .filter(lesson -> lessonId.equals(lesson.id()))
+                .map(lesson -> lesson.completed())
+                .findFirst()
+                .orElse(false);
     }
 
     /**

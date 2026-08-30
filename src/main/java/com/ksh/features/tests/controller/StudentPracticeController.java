@@ -6,6 +6,7 @@ import com.ksh.features.tests.dto.TestDtos.ReadinessView;
 import com.ksh.features.tests.service.PracticeTestService;
 import com.ksh.features.tests.service.ReadinessService;
 import com.ksh.security.KshUserDetails;
+import com.ksh.security.Roles;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -31,7 +32,7 @@ import static com.ksh.common.IConstant.VIEW_TEST_READINESS;
  */
 @Controller
 @RequestMapping(BASE_MY_TESTS)
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize(Roles.PREAUTH_STUDENT)
 public class StudentPracticeController {
 
     private final PracticeTestService practiceService;

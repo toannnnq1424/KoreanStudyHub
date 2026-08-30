@@ -106,6 +106,7 @@ public class AdminUsersController {
     }
 
     /** Renders the create-user form, preserving flashed values from a failed POST. */
+    @PreAuthorize("hasAuthority('PERM_user.view') and hasAuthority('PERM_user.create')")
     @GetMapping("/new")
     public String createForm(Model model) {
         if (!model.containsAttribute(ATTR_FORM)) {
@@ -116,6 +117,7 @@ public class AdminUsersController {
     }
 
     /** Submits the create-user form; re-renders inline on error, redirects to list on success. */
+    @PreAuthorize("hasAuthority('PERM_user.view') and hasAuthority('PERM_user.create')")
     @PostMapping
     public String create(@Valid @ModelAttribute("form") CreateUserForm form,
                          BindingResult result,

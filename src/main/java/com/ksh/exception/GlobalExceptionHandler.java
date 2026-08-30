@@ -14,6 +14,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
@@ -99,6 +101,32 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(), ex.getReason());
         return ResponseEntity.status(ex.getStatusCode())
                 .body(ex.getReason() != null ? ex.getReason() : "");
+    }
+
+    /**
+     * Keeps malformed MVC parameters in the client-error boundary instead of
+     * allowing the catch-all handler to turn them into an internal-server
+     * error. This covers, for example, an unknown enum value supplied to a
+     * request parameter and an omitted required parameter.
+     */
+    @ExceptionHandler({
+            MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class
+    })
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Object handleInvalidRequestParameter(Exception ex,
+                                                HttpServletRequest request,
+                                                Model model) {
+        String message = "Tham số yêu cầu không hợp lệ.";
+        log.info("400 tai [{}]: {}", request.getRequestURI(), ex.getMessage());
+        if (wantsJson(request)) {
+            return ResponseEntity.badRequest()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(AjaxResult.failure(message));
+        }
+        model.addAttribute("status", HttpStatus.BAD_REQUEST.value());
+        model.addAttribute("message", message);
+        return "error";
     }
 
     @ExceptionHandler(AsyncRequestNotUsableException.class)

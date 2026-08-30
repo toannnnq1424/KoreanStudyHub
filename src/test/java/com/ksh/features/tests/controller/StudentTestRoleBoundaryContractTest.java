@@ -10,9 +10,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class StudentTestRoleBoundaryContractTest {
 
     @Test
-    void everyNonPracticeLearnerTestControllerRequiresExactStudentRole() {
+    void everyLearnerTestControllerRequiresExactStudentRole() {
         assertStudentGate(StudentTestController.class);
         assertStudentGate(StudentClassTestsController.class);
+        assertStudentGate(StudentPracticeController.class);
         assertStudentGate(TestApiController.class);
     }
 

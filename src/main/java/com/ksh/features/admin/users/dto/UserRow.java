@@ -24,7 +24,12 @@ public interface UserRow {
     Long getSubjectId();
     LocalDateTime getLastLoginAt();
     LocalDateTime getCreatedAt();
+    LocalDateTime getActivatedAt();
     String getAvatarUrl();
+
+    default boolean isPendingActivation() {
+        return getActivatedAt() == null;
+    }
 
     /**
      * Computed status label used by the template for the status pill.
@@ -36,6 +41,7 @@ public interface UserRow {
     default String statusLabel() {
         if (isDeleted()) return "DELETED";
         if (isLocked())  return "LOCKED";
+        if (isPendingActivation()) return "PENDING";
         if (!isActive()) return "INACTIVE";
         return "ACTIVE";
     }

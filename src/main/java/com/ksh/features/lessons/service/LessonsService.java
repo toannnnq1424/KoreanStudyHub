@@ -14,8 +14,10 @@ import com.ksh.features.storage.StorageTransactionLifecycle;
 import com.ksh.features.upload.LessonVideoStorageService;
 import com.ksh.security.Role;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,6 +55,9 @@ import static com.ksh.entities.LibraryAsset.KIND_VIDEO;
  */
 @Service
 public class LessonsService {
+
+    private static final String MSG_CANONICAL_CONTENT_LOCKED =
+            "Bài giảng được phân phối từ Kho bài giảng; hãy sửa video tại bản chuẩn";
 
     private final LessonRepository lessonRepository;
     private final ClassesService classesService;
@@ -283,6 +288,7 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        rejectCanonicalVideoOverride(lesson);
         // External URL replaces any previous library/one-off upload binding.
         if (lesson.hasLibraryVideo()) {
             lesson.setVideoLibraryAssetId(null);
@@ -313,6 +319,7 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        rejectCanonicalVideoOverride(lesson);
         // Classic upload is one-off — clear any prior library video FK and
         // drop the previous one-off object so disk/R2 usage stays bounded.
         if (!lesson.hasLibraryVideo()
@@ -344,6 +351,7 @@ public class LessonsService {
         classesService.getEditable(classId, userId, role);
         reorderService.verifySectionBelongsToClass(sectionId, classId);
         Lesson lesson = loadLesson(sectionId, lessonId);
+        rejectCanonicalVideoOverride(lesson);
         LibraryAsset asset = libraryService.getOwnedAssetForUpdate(userId, assetId);
         if (!KIND_VIDEO.equals(asset.getKind())) {
             throw new IllegalArgumentException(MSG_LIBRARY_BIND_INVALID_KIND);
@@ -404,6 +412,12 @@ public class LessonsService {
     private Lesson loadLesson(Long sectionId, Long lessonId) {
         return lessonRepository.findByIdAndSectionId(lessonId, sectionId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_LESSON_NOT_FOUND));
+    }
+
+    private static void rejectCanonicalVideoOverride(Lesson lesson) {
+        if (lesson != null && lesson.getSourceLessonTemplateId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, MSG_CANONICAL_CONTENT_LOCKED);
+        }
     }
 
     private static LessonRow toRow(Lesson l) {

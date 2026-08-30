@@ -104,4 +104,15 @@ class ExamQuestionBankInsertIntegrationTest {
         assertThatThrownBy(() -> examService.insertFromBank(lecturerId, Role.LECTURER, testId, List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void duplicate_bank_ids_insert_exactly_one_snapshot() {
+        int inserted = examService.insertFromBank(
+                lecturerId, Role.LECTURER, testId,
+                List.of(approvedItemId, approvedItemId, approvedItemId));
+
+        assertThat(inserted).isEqualTo(1);
+        assertThat(questionRepository.findByTestIdOrderBySortOrderAscIdAsc(testId))
+                .hasSize(1);
+    }
 }

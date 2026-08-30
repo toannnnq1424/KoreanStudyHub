@@ -27,10 +27,14 @@ class SiblingAppendLockContractTest {
     @Test
     void libraryDistributionLocksTargetSectionBeforeMaterializingSnapshot() throws Exception {
         String source = readFeature("library/service/LessonTemplateService.java");
-        int snapshot = source.indexOf("snapshotTemplateToSection");
-        int lock = source.indexOf("lockSectionForUpdate(sectionId, classId)", snapshot);
-        int materialize = source.indexOf("materializeDraft(sectionId", lock);
-        assertTrue(snapshot >= 0 && lock > snapshot && materialize > lock);
+        int lock = source.indexOf(
+                "reorderService.lockSectionForUpdate(section.getId(), classId)");
+        int snapshotCall = source.indexOf("snapshotTemplateToSection(", lock);
+        int snapshotMethod = source.indexOf(
+                "private LessonCloneResult snapshotTemplateToSection", snapshotCall);
+        int materialize = source.indexOf("materializeDraft(sectionId", snapshotMethod);
+        assertTrue(lock >= 0 && snapshotCall > lock
+                && snapshotMethod > snapshotCall && materialize > snapshotMethod);
         assertTrue(!source.contains("cloneLessonToSection"));
     }
 

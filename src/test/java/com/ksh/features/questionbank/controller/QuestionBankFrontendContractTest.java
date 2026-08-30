@@ -44,6 +44,8 @@ class QuestionBankFrontendContractTest {
 
         assertThat(list)
                 .contains("for=\"qbLecturerQuery\"", "id=\"qbLecturerQuery\"")
+                .contains("for=\"qbLecturerStatus\"", "id=\"qbLecturerStatus\"", "name=\"status\"")
+                .contains("value=\"ALL\"", "value=\"DRAFT\"", "value=\"APPROVED\"")
                 .contains("class=\"qb-subject-catalog\"")
                 .contains("class=\"qb-catalog-row\"")
                 .contains("data-qb-question-row", "class=\"qb-pagination\"", "data-qb-detail-drawer")
@@ -80,5 +82,18 @@ class QuestionBankFrontendContractTest {
                 .contains("Chưa có mã môn đang hoạt động")
                 .doesNotContain("Bạn chưa được gán mã môn")
                 .doesNotContain("emptyCategories", "Danh mục ngân hàng câu hỏi");
+    }
+
+    @Test
+    void question_bank_listings_show_stable_uploader_name_and_id() throws IOException {
+        String list = Files.readString(LIST_TEMPLATE);
+        String review = Files.readString(SUBJECT_REVIEW_TEMPLATE);
+
+        assertThat(list).contains(
+                "Người tải lên",
+                "item.contributorName() + ' · ID ' + item.contributorId()");
+        assertThat(review).contains(
+                "item.contributorName() + ' · ID ' + item.contributorId()",
+                "th:data-contributor");
     }
 }

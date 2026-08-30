@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Kích hoạt tài khoản', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/auth.css}">
+</head>
+<body>
+<div class="page">
+  <header>
+    <a th:href="@{/login}" class="logo">
+      <img th:src="@{/images/brand/ksh-logo.png}" alt="">
+      KSH
+    </a>
+  </header>
+  <main class="centered">
+    <div class="auth-card">
+      <h1 th:if="${invalid}">Liên kết không hợp lệ</h1>
+      <h1 th:unless="${invalid}">Kích hoạt tài khoản</h1>
+
+      <div th:if="${invalid}" class="alert alert-error">
+        Liên kết kích hoạt không hợp lệ, đã được dùng hoặc đã hết hạn.
+        Vui lòng liên hệ quản trị viên để được gửi liên kết mới.
+      </div>
+
+      <p th:unless="${invalid}" class="text-muted text-sm" style="margin-bottom:20px;">
+        Đặt mật khẩu để xác minh email và mở quyền đăng nhập cho tài khoản của bạn.
+      </p>
+
+      <form th:unless="${invalid}" th:action="@{/activate}" method="post" th:object="${request}">
+        <input type="hidden" th:field="*{token}">
+        <div class="field">
+          <label class="field-label" for="newPassword">Mật khẩu mới</label>
+          <div class="input-wrap">
+            <input id="newPassword" type="password" th:field="*{newPassword}"
+                   minlength="6" maxlength="64" autocomplete="new-password"
+                   placeholder="Từ 6 đến 64 ký tự" required autofocus>
+          </div>
+          <p th:if="${#fields.hasErrors('newPassword')}" th:errors="*{newPassword}"
+             class="text-danger text-xs" style="margin-top:4px;">Mật khẩu không hợp lệ</p>
+        </div>
+        <div class="field">
+          <label class="field-label" for="confirmPassword">Nhập lại mật khẩu</label>
+          <div class="input-wrap">
+            <input id="confirmPassword" type="password" th:field="*{confirmPassword}"
+                   minlength="6" maxlength="64" autocomplete="new-password" required>
+          </div>
+          <p th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}"
+             class="text-danger text-xs" style="margin-top:4px;">Mật khẩu xác nhận không khớp</p>
+        </div>
+        <button class="btn btn-primary" type="submit">Kích hoạt tài khoản</button>
+      </form>
+
+      <p style="margin-top:16px;text-align:center;">
+        <a th:href="@{/login}" class="hint" style="color:var(--primary);">← Quay lại đăng nhập</a>
+      </p>
+    </div>
+  </main>
+</div>
+</body>
+</html>

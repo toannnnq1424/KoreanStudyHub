@@ -10,7 +10,8 @@
 
 <main class="fc-learning-shell">
   <div class="fc-learning-topbar">
-    <a class="btn-back-link" th:href="@{|/my/flashcards/${deck.id()}|}">
+    <a class="btn-back-link"
+       th:href="${publicStudy == true} ? @{|/s/${publicToken}|} : @{|/my/flashcards/${deck.id()}|}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
       <span>Bộ thẻ</span>
     </a>

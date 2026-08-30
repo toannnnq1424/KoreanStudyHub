@@ -1,6 +1,7 @@
 package com.ksh.features.tests.support;
 
 import com.ksh.entities.ClassEntity;
+import com.ksh.entities.Enrollment;
 import com.ksh.entities.User;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
@@ -10,6 +11,7 @@ import com.ksh.features.tests.entity.Test;
 import com.ksh.features.tests.repository.TestAttemptRepository;
 import com.ksh.features.tests.repository.TestRepository;
 import com.ksh.security.Role;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -30,6 +32,7 @@ class TestAccessResolverLeaderScopeTest {
     private static final Long CLASS_ID = 13L;
 
     private final TestRepository testRepository = mock(TestRepository.class);
+    private final EnrollmentRepository enrollmentRepository = mock(EnrollmentRepository.class);
     private final ClassRepository classRepository = mock(ClassRepository.class);
     private final UserRepository userRepository = mock(UserRepository.class);
     private final ClassRoleAccessPolicy classAccessPolicy = mock(ClassRoleAccessPolicy.class);
@@ -43,7 +46,7 @@ class TestAccessResolverLeaderScopeTest {
         resolver = new TestAccessResolver(
                 testRepository,
                 mock(TestAttemptRepository.class),
-                mock(EnrollmentRepository.class),
+                enrollmentRepository,
                 classRepository,
                 userRepository,
                 classAccessPolicy);
@@ -135,5 +138,19 @@ class TestAccessResolverLeaderScopeTest {
 
         assertThat(resolver.manageableClasses(USER_ID, Role.LECTURER))
                 .containsExactly(ownedClass);
+    }
+
+    @org.junit.jupiter.api.Test
+    void studentCannotOpenPublishedExamAfterItsClassWasDeleted() {
+        Enrollment enrollment = mock(Enrollment.class);
+        when(exam.isPublished()).thenReturn(true);
+        when(classRepository.findById(CLASS_ID)).thenReturn(Optional.empty());
+        when(enrollment.getStatus()).thenReturn(Enrollment.STATUS_ACTIVE);
+        when(enrollmentRepository.findByUserIdAndClassId(USER_ID, CLASS_ID))
+                .thenReturn(Optional.of(enrollment));
+
+        assertThatThrownBy(() -> resolver.requireViewable(TEST_ID, USER_ID))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessage(TestAccessResolver.NF_MSG);
     }
 }

@@ -84,7 +84,7 @@ public class ExamQuestionBankWriter {
         for (QuestionForm qf : questions) {
             String contentHtml = HtmlSanitizer.sanitize(qf.content());
             Question q = new Question(testId, defaultQuestionType(qf.type()), contentHtml,
-                    trimToNull(qf.explanation()), qf.points(), order++);
+                    sanitizeOptional(qf.explanation()), qf.points(), order++);
             Long qId = questionRepository.save(q).getId();
             int optOrder = 1;
             for (OptionForm of : qf.options()) {
@@ -107,7 +107,7 @@ public class ExamQuestionBankWriter {
         for (QuestionForm qf : questions) {
             String contentHtml = HtmlSanitizer.sanitize(qf.content());
             Question q = new Question(testId, defaultQuestionType(qf.type()), contentHtml,
-                    trimToNull(qf.explanation()), qf.points(), order++);
+                    sanitizeOptional(qf.explanation()), qf.points(), order++);
             Long qId = questionRepository.save(q).getId();
             int optOrder = 1;
             for (OptionForm of : qf.options()) {
@@ -138,7 +138,7 @@ public class ExamQuestionBankWriter {
             // answer key, ids and shape are grading history and stay immutable.
             q.updateContent(q.getQuestionType(),
                     HtmlSanitizer.sanitize(qf.content()),
-                    trimToNull(qf.explanation()),
+                    sanitizeOptional(qf.explanation()),
                     q.getPoints(),
                     i + 1);
             questionRepository.save(q);
@@ -198,9 +198,9 @@ public class ExamQuestionBankWriter {
         return Question.TYPE_MR.equals(type) ? Question.TYPE_MR : Question.TYPE_MCQ;
     }
 
-    private static String trimToNull(String s) {
+    private static String sanitizeOptional(String s) {
         if (s == null) return null;
-        String t = s.trim();
+        String t = HtmlSanitizer.sanitize(s.trim()).trim();
         return t.isEmpty() ? null : t;
     }
 }

@@ -12,6 +12,7 @@ import com.ksh.features.admin.permissions.repository.UserPermissionOverrideRepos
 import com.ksh.features.admin.permissions.service.AdminPermissionsGuard;
 import com.ksh.features.admin.permissions.service.PermissionResolver;
 import com.ksh.features.auth.repository.UserRepository;
+import com.ksh.features.profile.service.SessionRevocationService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +56,7 @@ public class UserPermissionToggleService {
     private final AdminPermissionsGuard guard;
     private final AdminUsersAuditWriter auditWriter;
     private final PermissionResolver permissionResolver;
+    private final SessionRevocationService sessionRevocationService;
 
     public UserPermissionToggleService(UserRepository userRepository,
                                        PermissionRepository permissionRepository,
@@ -62,7 +64,8 @@ public class UserPermissionToggleService {
                                        EffectivePermissionRepository effectivePermissionRepository,
                                        AdminPermissionsGuard guard,
                                        AdminUsersAuditWriter auditWriter,
-                                       PermissionResolver permissionResolver) {
+                                       PermissionResolver permissionResolver,
+                                       SessionRevocationService sessionRevocationService) {
         this.userRepository = userRepository;
         this.permissionRepository = permissionRepository;
         this.overrideRepository = overrideRepository;
@@ -70,6 +73,7 @@ public class UserPermissionToggleService {
         this.guard = guard;
         this.auditWriter = auditWriter;
         this.permissionResolver = permissionResolver;
+        this.sessionRevocationService = sessionRevocationService;
     }
 
     /**
@@ -103,8 +107,12 @@ public class UserPermissionToggleService {
         String after = describe(fromRole, newOverrideType(granted, fromRole));
 
         applyChange(userId, permission.getId(), granted, fromRole, existing, actorId);
+        user.invalidateAuthenticatedAccess();
         writeAudit(userId, permission, before, after, actorId);
-        TransactionLifecycle.afterCommit(() -> permissionResolver.evictUser(userId));
+        TransactionLifecycle.afterCommit(() -> {
+            permissionResolver.evictUser(userId);
+            sessionRevocationService.revokeAllSessions(userId);
+        });
         return permission.getName();
     }
 
