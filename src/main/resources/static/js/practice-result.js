@@ -1531,9 +1531,565 @@
     });
   }
 
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function formatAndHighlightJson(preElement, data, issues = []) {
+    if (!preElement) return;
+    try {
+      let obj = data;
+      if (typeof obj === 'string' && obj.trim()) {
+        try {
+          obj = JSON.parse(obj.trim());
+        } catch (e) {
+          // Keep as string if not valid JSON
+        }
+      }
+      const formatted = typeof obj === 'object' && obj !== null
+        ? JSON.stringify(obj, null, 2)
+        : String(obj || '');
+      preElement.dataset.rawJson = formatted;
+
+      let html = escapeHtml(formatted);
+      const highlightedKeys = new Set();
+      (issues || []).forEach((issue) => {
+        if (issue && issue.key && !highlightedKeys.has(issue.key)) {
+          highlightedKeys.add(issue.key);
+          const keyRegex = new RegExp(`("${escapeRegExp(issue.key)}"\\s*:)`, 'g');
+          html = html.replace(keyRegex, '<mark class="prd-json-error-key">$1</mark>');
+        }
+      });
+      preElement.innerHTML = html;
+    } catch (ignored) {
+      preElement.textContent = typeof data === 'string' ? data : JSON.stringify(data);
+    }
+  }
+
+  function initWritingTechnicalFeedback() {
+    const rawNode = document.querySelector('[data-writing-technical-json]');
+    let root = null;
+    if (rawNode && rawNode.textContent && rawNode.textContent.trim()) {
+      try {
+        root = JSON.parse(rawNode.textContent.trim());
+      } catch (error) {
+        renderWritingMappingErrors([
+          { tab: 'Định dạng JSON', key: null, path: '/', message: 'Phản hồi đã lưu không phải JSON hợp lệ.' }
+        ]);
+        document.querySelectorAll('[data-writing-tab-technical-pre]').forEach((pre) => {
+          pre.textContent = rawNode.textContent.trim();
+        });
+        return;
+      }
+    }
+
+    const activeSection = document.querySelector('[data-writing-active-question], [data-speaking-active-question]');
+    const activeQuestionId = activeSection
+      ? (activeSection.dataset.writingActiveQuestion || activeSection.dataset.speakingActiveQuestion)
+      : null;
+    const urlQuestionId = new URLSearchParams(window.location.search).get('questionId');
+    const questionId = urlQuestionId || activeQuestionId;
+
+    let entry = null;
+    if (root && typeof root === 'object') {
+      if (questionId && root[questionId] && typeof root[questionId] === 'object') {
+        entry = root[questionId];
+      } else if (activeQuestionId && root[activeQuestionId] && typeof root[activeQuestionId] === 'object') {
+        entry = root[activeQuestionId];
+      } else {
+        const keys = Object.keys(root);
+        const firstNumericKey = keys.find((k) => /^\d+$/.test(k));
+        if (firstNumericKey && typeof root[firstNumericKey] === 'object') {
+          entry = root[firstNumericKey];
+        } else {
+          entry = root;
+        }
+      }
+    }
+
+    const fieldMap = {
+      tong_quan: ['tong_quan', 'xxx_tongquan', 'xxx_tong_quan', 'tongquan', 'overview', 'summary', 'summary_vi'],
+      diem_manh: ['diem_manh', 'xxx_diemmanh', 'xxx_diem_manh', 'diemmanh', 'strengths', 'strength'],
+      can_cai_thien: ['can_cai_thien', 'xxx_cancaithien', 'xxx_can_cai_thien', 'cancaithien', 'needs_improvement', 'improvements'],
+      bai_nang_cap: ['bai_nang_cap', 'xxx_bainangcap', 'xxx_bai_nang_cap', 'bainangcap', 'upgraded_answer', 'upgradedAnswer']
+    };
+
+    function resolveCompactText(fieldName) {
+      const candidates = fieldMap[fieldName] || [fieldName, 'xxx_' + fieldName];
+      const pf = entry?.presentation_fallback;
+      if (pf && typeof pf === 'object') {
+        for (const k of candidates) {
+          if (typeof pf[k] === 'string' && pf[k].trim()) return pf[k].trim();
+        }
+      }
+      const cf = entry?.compactFallback;
+      if (cf && typeof cf === 'object') {
+        for (const k of candidates) {
+          if (typeof cf[k] === 'string' && cf[k].trim()) return cf[k].trim();
+        }
+      }
+      if (entry && typeof entry === 'object') {
+        for (const k of candidates) {
+          if (typeof entry[k] === 'string' && entry[k].trim()) return entry[k].trim();
+        }
+      }
+      if (typeof entry?.provider_raw_response === 'string' && entry.provider_raw_response.trim()) {
+        try {
+          const pr = JSON.parse(entry.provider_raw_response);
+          if (pr && typeof pr === 'object') {
+            const prCf = pr.compactFallback || pr.presentation_fallback || pr;
+            for (const k of candidates) {
+              if (typeof prCf[k] === 'string' && prCf[k].trim()) return prCf[k].trim();
+            }
+          }
+        } catch (ignored) {}
+        for (const k of candidates) {
+          const re = new RegExp(`"(?:xxx_)?${escapeRegExp(k.replace(/^xxx_/, ''))}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`, 'i');
+          const m = re.exec(entry.provider_raw_response);
+          if (m && m[1]) {
+            try {
+              return JSON.parse(`"${m[1]}"`).trim();
+            } catch (e) {
+              return m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
+            }
+          }
+        }
+      }
+      return '';
+    }
+
+    function formatWritingUpgradedText(rawText) {
+      if (!rawText) return '';
+      let essayPart = rawText;
+      let explanationPart = '';
+
+      const splitMatch = rawText.match(/\n\s*\n\s*(\[(?:Điểm nâng cấp|Lí giải|Giải thích|Lý do)[^\]]*\][\s\S]*)/i);
+      if (splitMatch) {
+        essayPart = rawText.substring(0, splitMatch.index).trim();
+        explanationPart = splitMatch[1].trim();
+      }
+
+      function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      let formattedEssay = escapeHtml(essayPart)
+        .replace(/\*\*(.+?)\*\*/g, '<strong class="prd-upgrade-highlight">$1</strong>')
+        .replace(/\n\n+/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      formattedEssay = `<p>${formattedEssay}</p>`;
+
+      let formattedExplanation = '';
+      if (explanationPart) {
+        const lines = explanationPart.split('\n').filter((l) => l.trim().length > 0);
+        let title = lines[0].replace(/^\[|\]:?$/g, '').trim();
+        let items = lines.slice(1).map((line) => {
+          let clean = line.replace(/^-\s*/, '').trim();
+          return `<li>${escapeHtml(clean).replace(/\*\*(.+?)\*\*/g, '<strong class="prd-upgrade-highlight">$1</strong>')}</li>`;
+        }).join('');
+
+        formattedExplanation = `
+          <div class="prd-upgrade-explanations">
+            <h5>${escapeHtml(title)}</h5>
+            <ul>${items}</ul>
+          </div>`;
+      }
+
+      return formattedEssay + formattedExplanation;
+    }
+
+    document.querySelectorAll('[data-writing-compact-field], [data-speaking-compact-field]').forEach((node) => {
+      const field = node.dataset.writingCompactField || node.dataset.speakingCompactField;
+      const val = resolveCompactText(field);
+      if (val) {
+        if (field === 'bai_nang_cap') {
+          node.innerHTML = formatWritingUpgradedText(val);
+        } else {
+          node.textContent = val;
+        }
+        const container = node.closest('[data-writing-compact-container], [data-speaking-compact-container]');
+        if (container) {
+          container.hidden = false;
+          if (container.tagName === 'DETAILS') {
+            const panel = container.closest('.prd-writing-panel, .prd-speaking-panel');
+            if (panel) {
+              const hasPrimary = panel.querySelector('.prd-writing-finding, .prd-speaking-finding, .prd-writing-upgraded-answer:not(:empty), .prd-speaking-upgraded-answer:not(:empty)');
+              const isEmpty = panel.querySelector('.prd-writing-empty:not([hidden]), .prd-speaking-empty:not([hidden])');
+              container.open = (isEmpty != null || !hasPrimary);
+            }
+          }
+        }
+        const fallbackBanner = node.closest('.prd-writing-evaluation-fallback, .prd-speaking-alert-contract');
+        if (fallbackBanner) fallbackBanner.hidden = false;
+      }
+    });
+
+    // Also format primary upgraded answers if they contain markdown bolding or explanation blocks
+    document.querySelectorAll('.prd-writing-upgraded-answer, .prd-speaking-upgraded-answer').forEach((node) => {
+      const text = node.textContent;
+      if (text && (text.includes('**') || text.includes('['))) {
+        node.innerHTML = formatWritingUpgradedText(text);
+      }
+    });
+
+    const issues = writingMappingIssues(entry);
+    renderWritingMappingErrors(issues);
+
+    // Format each question's dedicated technical tab panel with the FIRST raw JSON from OpenAI
+    document.querySelectorAll('[data-writing-tab-technical-pre]').forEach((pre) => {
+      const qid = pre.id ? pre.id.replace('technical-json-', '').trim() : '';
+      let targetData = (root && qid && root[qid]) ? root[qid] : (entry || root || {});
+
+      let displayData = null;
+      if (typeof targetData.provider_raw_response === 'string' && targetData.provider_raw_response.trim()) {
+        try {
+          displayData = JSON.parse(targetData.provider_raw_response);
+        } catch (e) {
+          displayData = targetData.provider_raw_response;
+        }
+      } else if (targetData.provider_raw_response && typeof targetData.provider_raw_response === 'object') {
+        displayData = targetData.provider_raw_response;
+      }
+
+      const itemIssues = writingMappingIssues(targetData);
+
+      if (displayData) {
+        formatAndHighlightJson(pre, displayData, itemIssues);
+      } else {
+        const statusMsg = `// Chưa có chuỗi phản hồi AI từ OpenAI cho câu này.\n// Trạng thái hiện tại: ${targetData.evaluation_status || 'CHƯA_CHẤM'} (${targetData.evaluation_reason || 'Đang chờ chấm'})\n// Vui lòng nhấn nút "Chấm lại câu này" ở góc trên để AI thực hiện chấm và ghi nhận chuỗi JSON kỹ thuật.\n\n` + JSON.stringify(targetData, null, 2);
+        pre.textContent = statusMsg;
+        pre.dataset.rawJson = statusMsg;
+      }
+    });
+
+    // Format bottom details pre element
+    if (rawNode) {
+      let displayRoot = root || rawNode.textContent;
+      if (displayRoot && typeof displayRoot === 'object') {
+        displayRoot = { ...displayRoot };
+      }
+      formatAndHighlightJson(rawNode, displayRoot, issues);
+    }
+
+    // Hook click on alert banner action to open technical tab directly
+    document.querySelectorAll('.prd-btn-view-technical').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetTabId = btn.getAttribute('data-target-tab');
+        let targetTab = targetTabId ? document.getElementById(targetTabId) : null;
+        if (!targetTab) {
+          const currentQuestionId = questionId || activeQuestionId;
+          targetTab = currentQuestionId
+            ? document.getElementById(`writing-tab-technical-${currentQuestionId}`)
+            : document.querySelector('[id^="writing-tab-technical-"]');
+        }
+        if (targetTab) {
+          targetTab.click();
+          targetTab.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        const bottomDetails = document.getElementById('writing-technical-json-section');
+        if (bottomDetails) {
+          bottomDetails.open = true;
+        }
+      });
+    });
+
+    // Hook copy button
+    document.querySelectorAll('.prd-btn-copy-json').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-copy-target');
+        const targetEl = targetId ? document.getElementById(targetId) : null;
+        const textToCopy = targetEl ? (targetEl.dataset.rawJson || targetEl.textContent) : '';
+        if (textToCopy) {
+          navigator.clipboard.writeText(textToCopy).then(() => {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '✓ Đã sao chép!';
+            btn.style.background = '#dcfce7';
+            btn.style.borderColor = '#86efac';
+            setTimeout(() => {
+              btn.innerHTML = orig;
+              btn.style.background = '';
+              btn.style.borderColor = '';
+            }, 2000);
+          }).catch(() => {
+            btn.textContent = 'Không thể chép';
+          });
+        }
+      });
+    });
+
+    // Hook re-evaluate form to show immediate visual loading state
+    const reEvaluateForm = document.getElementById('questionReEvaluateForm');
+    if (reEvaluateForm) {
+      reEvaluateForm.addEventListener('submit', () => {
+        const btn = reEvaluateForm.querySelector('.prd-reevaluate-btn');
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '⏳ Đang gửi yêu cầu...';
+          btn.style.opacity = '0.7';
+          btn.style.cursor = 'wait';
+        }
+      });
+    }
+  }
+
+  function writingMappingIssues(entry) {
+    if (!entry || typeof entry !== 'object') {
+      return [{ tab: 'Chung', key: null, path: '/', message: 'Không tìm thấy phản hồi hoặc phản hồi chưa được ghi nhận cho câu đang chọn.' }];
+    }
+    const issues = Array.isArray(entry.validation_issues)
+      ? entry.validation_issues.map((issue) => ({
+          tab: issue.path.startsWith('/rubricScores') || issue.path.startsWith('/taskCoverage')
+            ? 'Tổng quan' : issue.path.startsWith('/upgradedAnswer')
+              ? 'Bài nâng cấp' : 'Điểm mạnh / Cần cải thiện / Bằng chứng',
+          key: issue.path.split('/')[1], path: issue.path, message: issue.message
+        })) : [];
+    let provider = null;
+    if (typeof entry.provider_raw_response === 'string' && entry.provider_raw_response.trim()) {
+      try {
+        provider = JSON.parse(entry.provider_raw_response);
+      } catch (error) {
+        issues.push({
+          tab: 'Chuỗi thô AI',
+          key: 'provider_raw_response',
+          path: '/provider_raw_response',
+          message: 'Chuỗi phản hồi gốc từ AI không phải JSON hợp lệ (bị lỗi cú pháp hoặc bị cắt bớt).'
+        });
+        return issues;
+      }
+    } else if (entry.provider_raw_response && typeof entry.provider_raw_response === 'object') {
+      provider = entry.provider_raw_response;
+    }
+
+    if (!provider) {
+      if (entry.evaluation_status && entry.evaluation_status !== 'EVALUATED') {
+        issues.push({
+          tab: 'Trạng thái',
+          key: 'evaluation_status',
+          path: '/evaluation_status',
+          message: `Chưa có chuỗi phản hồi AI từ OpenAI (Trạng thái: ${entry.evaluation_status} — ${entry.evaluation_reason || 'Đang chờ chấm'}). Hãy nhấn nút "Chấm lại câu này" ở góc trên để gửi chấm AI.`
+        });
+      }
+      return issues;
+    }
+
+    const requiredArrays = [
+      ['rubricScores', 'Tab Tổng quan / từng tiêu chí điểm', 'rubricScores'],
+      ['taskCoverage', 'Tab Tổng quan / phạm vi nhiệm vụ', 'taskCoverage'],
+      ['evidenceLedger', 'Bằng chứng trích xuất nội tuyến', 'evidenceLedger'],
+      ['findings', 'Tab Điểm mạnh & Cần cải thiện', 'findings']
+    ];
+    requiredArrays.forEach(([field, destination, key]) => {
+      if (!Array.isArray(provider[field])) {
+        issues.push({
+          tab: destination,
+          key: key,
+          path: `/${field}`,
+          message: `Không phải array; không thể ánh xạ vào ${destination}.`
+        });
+      }
+    });
+    if (!provider.upgradedAnswer || typeof provider.upgradedAnswer !== 'object') {
+      issues.push({
+        tab: 'Tab Bài nâng cấp',
+        key: 'upgradedAnswer',
+        path: '/upgradedAnswer',
+        message: 'Không phải object; không thể ánh xạ vào tab Bài nâng cấp.'
+      });
+    }
+    if (!provider.compactFallback || typeof provider.compactFallback !== 'object') {
+      issues.push({
+        tab: 'Kênh cứu hộ',
+        key: 'compactFallback',
+        path: '/compactFallback',
+        message: 'Thiếu bốn chuỗi cứu hộ ngắn gọn (xxx_tongquan, xxx_diemmanh, xxx_cancaithien, xxx_bainangcap).'
+      });
+    }
+    if (Array.isArray(provider.rubricScores)) {
+      provider.rubricScores.forEach((item, index) => {
+        ['criterionId', 'score', 'maxScore'].forEach((field) => {
+          if (!item || item[field] === undefined || item[field] === null) {
+            issues.push({
+              tab: 'Tab Tổng quan / Tiêu chí',
+              key: field,
+              path: `/rubricScores/${index}/${field}`,
+              message: `Mục #${index + 1} thiếu trường ${field}; không thể ánh xạ vào bảng điểm.`
+            });
+          }
+        });
+      });
+    }
+    if (Array.isArray(provider.findings)) {
+      provider.findings.forEach((item, index) => {
+        ['findingId', 'polarity', 'criterionId', 'explanationVi'].forEach((field) => {
+          if (!item || typeof item[field] !== 'string' || !item[field].trim()) {
+            issues.push({
+              tab: 'Tab Điểm mạnh & Cần cải thiện',
+              key: field,
+              path: `/findings/${index}/${field}`,
+              message: `Mục #${index + 1} thiếu ${field}; không thể ánh xạ vào Điểm mạnh/Cần cải thiện.`
+            });
+          }
+        });
+      });
+    }
+    return issues;
+  }
+
+  function renderWritingMappingErrors(issues) {
+    const alertBox = document.querySelector('[data-writing-ai-contract-alert]');
+    const panels = document.querySelectorAll('[data-writing-tab-mapping-errors], [data-writing-ai-mapping-errors]');
+    const techDetails = document.querySelector('.pr-technical-ai-json');
+    if (!issues || issues.length === 0) {
+      if (alertBox) alertBox.hidden = true;
+      panels.forEach((p) => { p.hidden = true; });
+      return;
+    }
+    if (alertBox) alertBox.hidden = false;
+    if (techDetails) {
+      techDetails.open = true;
+    }
+
+    const isConsequential = (issue) => {
+      const msg = (issue.message || '').toLowerCase();
+      const path = issue.path || '';
+      return msg.includes('foreign id')
+        || msg.includes('incomplete validated rubric')
+        || msg.includes('lacks verified supporting edits')
+        || (path === '/rubricScores' && msg.includes('total score withheld'));
+    };
+
+    const rootIssues = issues.filter((i) => !isConsequential(i));
+    const cascadedIssues = issues.filter(isConsequential);
+
+    panels.forEach((panel) => {
+      const list = panel.querySelector('ul');
+      if (list) {
+        list.replaceChildren();
+
+        const appendItem = (issue, isRoot) => {
+          const item = document.createElement('li');
+          item.className = 'prd-mapping-error-item';
+
+          const badge = document.createElement('span');
+          badge.className = isRoot ? 'prd-mapping-badge prd-mapping-badge-root' : 'prd-mapping-badge prd-mapping-badge-cascade';
+          badge.textContent = isRoot ? 'LỖI GỐC' : 'ẢNH HƯỞNG LIÊN ĐỚI';
+          if (!isRoot) {
+            badge.style.background = '#fff7ed';
+            badge.style.color = '#c2410c';
+            badge.style.borderColor = '#fed7aa';
+          }
+
+          const tabBadge = document.createElement('span');
+          tabBadge.className = 'prd-mapping-tab';
+          tabBadge.textContent = issue.tab ? `[${issue.tab}] ` : '';
+
+          const path = document.createElement('code');
+          path.className = 'prd-mapping-path';
+          path.textContent = issue.path;
+
+          const msg = document.createElement('span');
+          msg.className = 'prd-mapping-msg';
+          msg.textContent = ` — ${issue.message}`;
+
+          item.append(badge, tabBadge, path, msg);
+          list.appendChild(item);
+        };
+
+        if (rootIssues.length > 0) {
+          const rootHeader = document.createElement('li');
+          rootHeader.style.listStyle = 'none';
+          rootHeader.style.padding = '6px 0 2px';
+          rootHeader.style.fontWeight = '700';
+          rootHeader.style.color = '#c92a2a';
+          rootHeader.style.fontSize = '0.85rem';
+          rootHeader.textContent = `Nguyên nhân trực tiếp (${rootIssues.length} mục):`;
+          list.appendChild(rootHeader);
+          rootIssues.forEach((issue) => appendItem(issue, true));
+        }
+
+        if (cascadedIssues.length > 0) {
+          const cascadeHeader = document.createElement('li');
+          cascadeHeader.style.listStyle = 'none';
+          cascadeHeader.style.padding = '12px 0 2px';
+          cascadeHeader.style.fontWeight = '700';
+          cascadeHeader.style.color = '#d97706';
+          cascadeHeader.style.fontSize = '0.85rem';
+          cascadeHeader.textContent = `Mục bị ảnh hưởng liên đới (${cascadedIssues.length} mục — do thiếu bằng chứng / lỗi gốc ở trên):`;
+          list.appendChild(cascadeHeader);
+          cascadedIssues.forEach((issue) => appendItem(issue, false));
+        }
+      }
+      panel.hidden = false;
+    });
+  }
+
+  function initTechJsonModal() {
+    const dialog = document.getElementById('prTechJsonDialog');
+    const trigger = document.getElementById('prTechJsonTrigger') || document.getElementById('prdTechJsonTrigger');
+    const closeBtn = document.getElementById('prTechModalClose');
+    const copyBtn = document.getElementById('prTechCopyBtn');
+    const copyLabel = document.getElementById('prTechCopyLabel');
+    const pre = document.getElementById('prTechPre');
+
+    if (trigger) {
+      trigger.addEventListener('click', () => {
+        if (dialog && typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        } else {
+          const techDetails = document.querySelector('.pr-technical-ai-json');
+          if (techDetails) {
+            techDetails.open = true;
+            techDetails.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      });
+    }
+
+    if (dialog) {
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => dialog.close());
+      }
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          dialog.close();
+        }
+      });
+      if (copyBtn && pre) {
+        copyBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(pre.textContent || '');
+            if (copyLabel) {
+              const oldText = copyLabel.textContent;
+              copyLabel.textContent = 'Đã sao chép!';
+              setTimeout(() => { copyLabel.textContent = oldText; }, 2000);
+            }
+          } catch (_) {
+            /* clipboard fallback */
+          }
+        });
+      }
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initObjectiveGroupToggle);
+    document.addEventListener('DOMContentLoaded', () => {
+      initObjectiveGroupToggle();
+      initWritingTechnicalFeedback();
+      initTechJsonModal();
+    });
   } else {
     initObjectiveGroupToggle();
+    initWritingTechnicalFeedback();
+    initTechJsonModal();
   }
 })();

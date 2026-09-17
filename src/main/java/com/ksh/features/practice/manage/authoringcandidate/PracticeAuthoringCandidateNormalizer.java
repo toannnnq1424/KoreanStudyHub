@@ -31,7 +31,7 @@ public class PracticeAuthoringCandidateNormalizer {
     private static final Set<String> PROVENANCE_FIELDS = Set.of(
             "source", "approved", "sourceRefs");
     private static final Set<String> QUESTION_FIELDS = Set.of(
-            "candidateQuestionId", "questionOrder", "questionType",
+            "candidateQuestionId", "sourceQuestionNumber", "questionOrder", "questionType",
             "essayTaskType", "prompt", "points", "explanationVi",
             "explanationStrategy", "questionContent", "answerSpec",
             "reviewState", "sourceRefs");
@@ -228,6 +228,10 @@ public class PracticeAuthoringCandidateNormalizer {
                 raw.path("candidateQuestionId").asText(""),
                 "q", candidateId + ":" + groupIndex,
                 questionIndex, path, issues));
+        if (raw.path("sourceQuestionNumber").canConvertToInt()
+                && raw.path("sourceQuestionNumber").asInt() > 0) {
+            question.put("sourceQuestionNumber", raw.path("sourceQuestionNumber").asInt());
+        }
         question.put("questionOrder",
                 raw.path("questionOrder").asInt(questionIndex + 1));
         String rawType = upper(text(raw, "questionType"));

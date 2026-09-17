@@ -249,7 +249,9 @@
     const header = document.createElement('div');
     header.className = 'candidate-question-header';
     const title = document.createElement('h4');
-    title.textContent = `${question.questionOrder}. ${question.questionType}`;
+    const sourceNumber = Number.isInteger(question.sourceQuestionNumber)
+      ? ` · nguồn câu ${question.sourceQuestionNumber}` : '';
+    title.textContent = `${question.questionOrder}. ${question.questionType}${sourceNumber}`;
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'candidate-remove';
@@ -421,6 +423,10 @@
     renderIssues();
     renderGroups();
     refreshActions();
+    const hasSourceWarning = (view?.issues || []).some(i => i.code === 'PDF_PROVIDER_WARNING' || i.code === 'SOURCE_INSUFFICIENT_FOR_EXTRACT');
+    if (hasSourceWarning) {
+      showNotice('AI cảnh báo: Nguồn cung cấp chưa có sẵn nội dung câu hỏi/đáp án để Trích xuất (EXTRACT). Nếu bạn muốn AI tự thiết kế câu hỏi mới theo yêu cầu, hãy bấm "Từ chối candidate" ở góc dưới rồi chọn thao tác GENERATE.', 'warn');
+    }
   }
 
   function versionDigestBody() {

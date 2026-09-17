@@ -37,7 +37,7 @@ public class WritingFeedbackViewMapper {
                 complete ? decimal(feedbackEntry.get("score")) : null,
                 text(feedbackEntry.get("summary")),
                 text(feedbackEntry.get("summary_vi")),
-                complete
+                diagnosticsAvailable
                         ? rubricScores(feedbackEntry.get("rubric_scores"))
                         : List.of(),
                 diagnosticsAvailable

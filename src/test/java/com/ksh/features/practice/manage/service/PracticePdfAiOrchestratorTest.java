@@ -78,9 +78,12 @@ class PracticePdfAiOrchestratorTest {
         assertThat(sent.operation()).isEqualTo("GENERATE");
         assertThat(sent.responseSchemaName())
                 .isEqualTo(PracticePdfAuthoringJsonContract.RESPONSE_SCHEMA_NAME);
-        assertThat(sent.responseSchema()).isEqualTo(PracticePdfAuthoringJsonContract.schema());
+        assertThat(sent.responseSchema()).isEqualTo(
+                PracticePdfAuthoringJsonContract.schema("READING"));
         assertThat(sent.systemInstruction())
-                .contains("PRACTICE_PDF_AUTHORING", "không đáng tin cậy")
+                .contains("PRACTICE_PDF_AUTHORING", "không đáng tin cậy",
+                        "questionType và answerSpec.questionType phải giống hệt nhau",
+                        "Canonical matrix cho Reading/Listening")
                 .doesNotContain("ADMIN_PEDAGOGY_ONLY", "PRIVATE_PDF_DOCUMENT_TEXT");
         assertThat(sent.developerInstruction()).contains("ADMIN_PEDAGOGY_ONLY");
         assertThat(sent.input()).containsEntry("lecturerRequirements", "PRIVATE_LECTURER_REQUEST");

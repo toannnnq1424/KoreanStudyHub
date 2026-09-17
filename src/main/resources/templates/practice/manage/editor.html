@@ -37,9 +37,9 @@
 
   <div class="toolbar-right">
     <div class="toolbar-actions-scroll">
-    <a id="pdf-import-action" href="#" class="btn-action btn-sec" style="display:none;" onclick="handleEditorToolNavigation(event)" aria-label="Biên soạn từ Text hoặc PDF" title="Biên soạn từ Text hoặc PDF">
+    <a id="pdf-import-action" href="#" class="btn-action btn-sec" style="display:none;" onclick="handleEditorToolNavigation(event)" aria-label="AI: Biên soạn từ Text hoặc PDF" title="AI: Biên soạn từ Text hoặc PDF">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <span class="toolbar-action-label">Text/PDF</span>
+      <span class="toolbar-action-label">AI: Text/PDF</span>
     </a>
     <a id="excel-import-action" th:href="@{/practice/manage/excel(draftId=${draft.id})}" class="btn-action btn-sec" style="display:none;" onclick="handleEditorToolNavigation(event)" aria-label="Nhập Excel" title="Nhập Excel">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg>
@@ -789,8 +789,8 @@
                   Lời giải typed đã kiểm chứng
                 </strong>
                 <p>
-                  Tạo bản nháp theo strategy, kiểm tra JSON/evidence rồi duyệt
-                  trước khi xuất bản.
+                  AI tạo bản nháp theo strategy; hệ thống kiểm tra JSON/evidence
+                  trước khi giảng viên duyệt để xuất bản.
                 </p>
               </div>
               <span id="objective-explanation-editorial-state"
@@ -800,9 +800,12 @@
             </div>
             <div class="objective-explanation-editorial__actions">
               <button type="button" class="btn-action btn-sec"
+                      id="objective-explanation-generate"
                       onclick="generateObjectiveExplanationDraft()">
-                Tạo bản nháp
+                AI: Tạo lời giải có kiểm chứng
               </button>
+              <small id="objective-explanation-ai-hint"
+                     style="display:block; flex-basis:100%; color:var(--pp-text-muted);"></small>
               <button type="button" class="btn-action btn-sec"
                       id="objective-explanation-save"
                       onclick="saveObjectiveExplanationRevision()" disabled hidden>
@@ -3544,7 +3547,51 @@
     return ['ko', 'vi'].includes(languageTag) ? languageTag : 'ko';
   }
 
-  function objectiveStrategyPreviewMarkup(strategyCode, question, group) {
+  function objectivePreviewEvidenceMarkup(sourceValue, evidenceRefs, translations) {
+    const source = String(sourceValue || '');
+    const refs = Array.isArray(evidenceRefs) ? evidenceRefs : [];
+    const translationById = new Map((Array.isArray(translations) ? translations : [])
+      .map(item => [String(item && item.evidenceId || ''),
+        String(item && item.translationVi || '').trim()]));
+    const spans = refs
+      .map(ref => ({
+        ref,
+        start: Number(ref && ref.startOffset),
+        end: Number(ref && ref.endOffset),
+        quote: String(ref && ref.exactQuoteKo || '')
+      }))
+      .filter(span => Number.isInteger(span.start) && Number.isInteger(span.end)
+        && span.start >= 0 && span.end > span.start && span.end <= source.length
+        && source.slice(span.start, span.end) === span.quote)
+      .sort((left, right) => left.start - right.start || left.end - right.end);
+    let cursor = 0;
+    const fragments = [];
+    spans.forEach(span => {
+      if (span.start < cursor) return;
+      fragments.push(escapeHtml(source.slice(cursor, span.start)));
+      const evidenceId = String(span.ref && span.ref.evidenceId || '');
+      const translation = translationById.get(evidenceId);
+      fragments.push(`<mark class="objective-preview__answer-span"
+        data-objective-evidence-id="${escapeHtml(evidenceId)}">${
+          escapeHtml(span.quote)
+        }</mark>${translation
+          ? `<em class="objective-preview__inline-translation"> (${escapeHtml(translation)})</em>`
+          : ''}`);
+      cursor = span.end;
+    });
+    fragments.push(escapeHtml(source.slice(cursor)));
+    return fragments.join('') || escapeHtml(source);
+  }
+
+  function objectivePreviewEvidenceSummary(artifact, fallback) {
+    const evidence = artifact && Array.isArray(artifact.evidenceRefs)
+      ? artifact.evidenceRefs[0] : null;
+    return escapeHtml(previewText(
+      evidence && evidence.exactQuoteKo || fallback,
+      'Chưa có bằng chứng typed được kiểm chứng.'));
+  }
+
+  function objectiveStrategyPreviewMarkup(strategyCode, question, group, artifact) {
     const meta = objectiveStrategyCatalogEntry(strategyCode);
     if (!meta) {
       return `
@@ -3591,6 +3638,22 @@
     const fullSource = escapeHtml(previewFullText(
       sourceValue,
       'Đoạn nguồn đã được khóa vào phiên bản sẽ hiển thị ở đây.'));
+    const verifiedEvidence = artifact && artifact.evidence;
+    const verifiedQuote = escapeHtml(previewText(
+      verifiedEvidence && verifiedEvidence.exactQuoteKo || sourceValue,
+      'Đoạn nguồn đã được khóa vào phiên bản sẽ hiển thị ở đây.'));
+    const verifiedEvidenceId = escapeHtml(
+      verifiedEvidence && verifiedEvidence.evidenceId || 'evidence chính xác');
+    const verifiedTranslation = escapeHtml(
+      artifact && artifact.translationVi || 'Bản dịch tiếng Việt gắn đúng evidenceId.');
+    const verifiedConclusion = escapeHtml(
+      artifact && artifact.claimVi
+        || 'Đáp án được chứng minh trực tiếp bởi span đã tô.');
+    const verifiedStatus = artifact
+      ? `<span class="objective-preview__strategy-name">
+           ${artifact.approved ? 'Bản đã duyệt' : 'Bản nháp đã kiểm chứng'}
+         </span>`
+      : '';
 
     if (meta.rendererCode === 'EXACT_EVIDENCE_ONLY') {
       const table = `
@@ -3613,65 +3676,58 @@
                role="row">
             <span role="cell" lang="${questionLanguage}">
               ${prompt}
-              <mark class="objective-preview__keyword">
-                từ khóa câu hỏi
-              </mark>
             </span>
             <span role="cell" lang="${sourceLanguage}">
-              ${source}
-              <strong class="objective-preview__answer-span">
-                evidence chính xác
-              </strong>
+              <mark class="objective-preview__answer-span">${verifiedQuote}</mark>
             </span>
           </div>
           <strong class="objective-preview__prep-translation-title"
                   role="row">DỊCH NGHĨA</strong>
           <div class="objective-preview__prep-row objective-preview__prep-body"
                role="row">
-            <span role="cell">Bản dịch câu hỏi theo questionId.</span>
+            <span role="cell">Câu hỏi được đối chiếu trực tiếp với vùng nguồn.</span>
             <span role="cell" class="objective-preview__inline-translation">
-              Bản dịch tiếng Việt gắn đúng evidenceId.
+              ${verifiedTranslation}
             </span>
           </div>
           <div class="objective-preview__decision" role="row">
             <strong>Kết luận:</strong>
-            Đáp án được chứng minh trực tiếp bởi span đã tô.
+            ${verifiedConclusion}
           </div>
         </div>`;
-      return `${header}${objectivePreviewTableRegion(
+      return `${header.replace('</header>', `${verifiedStatus}</header>`)}${objectivePreviewTableRegion(
         'Bảng bằng chứng chính xác có thể cuộn', table)}`;
     }
     if (meta.rendererCode === 'FULL_SOURCE_INLINE_HIGHLIGHT') {
+      const renderedSource = objectivePreviewEvidenceMarkup(
+        sourceValue,
+        artifact && artifact.evidenceRefs,
+        artifact && artifact.translations);
+      const claims = artifact && artifact.contextClaims || [];
+      const answerClaim = artifact && artifact.answerClaim;
       return `${header}
         <div class="objective-preview__prep-document">
           <p class="objective-preview__source-guide">
             <span>
-              <mark class="objective-preview__keyword">Từ khóa câu hỏi</mark>
-            </span>
-            <span>
-              <strong class="objective-preview__answer-span">
-                Đáp án và evidence
-              </strong>
+              <mark class="objective-preview__answer-span">Bằng chứng nguồn</mark>
             </span>
             <span>
               <em class="objective-preview__inline-translation">
-                [Dịch nghĩa]
+                (Bản dịch gắn với đúng span)
               </em>
             </span>
           </p>
           <div class="objective-preview__source objective-preview__source--full">
             <p class="objective-preview__continuous-source"
                lang="${sourceLanguage}">
-              ${fullSource}
-              <mark class="objective-preview__keyword">từ khóa</mark>
-              <strong class="objective-preview__answer-span">
-                vùng bằng chứng chính xác
-              </strong>
-              <em class="objective-preview__inline-translation">
-                [Bản dịch tiếng Việt gắn đúng span]
-              </em>
+              ${renderedSource}
             </p>
           </div>
+          ${claims.length > 0 || answerClaim ? `
+            <section class="objective-preview__claims" aria-label="Nhận định đã kiểm chứng">
+              ${claims.map(claim => `<p>${escapeHtml(claim && claim.textVi || '')}</p>`).join('')}
+              ${answerClaim ? `<p><strong>Kết luận:</strong> ${escapeHtml(answerClaim.textVi || '')}</p>` : ''}
+            </section>` : ''}
         </div>`;
     }
     if (meta.rendererCode === 'TFNG_CONTRADICTION_TABLE') {
@@ -3880,6 +3936,13 @@
     if (meta.rendererCode === 'QUESTION_EVIDENCE_TRANSLATION_TABLE') {
       const questionNo = escapeHtml(
         question && question.questionNo || '1');
+      const evidenceQuote = objectivePreviewEvidenceSummary(artifact, sourceValue);
+      const translation = artifact && artifact.translations
+        && artifact.translations.find(item => artifact.evidenceRefs
+          && String(item && item.evidenceId || '')
+            === String(artifact.evidenceRefs[0] && artifact.evidenceRefs[0].evidenceId || ''));
+      const contextClaims = artifact && artifact.contextClaims || [];
+      const answerClaim = artifact && artifact.answerClaim;
       const table = `
         <div class="objective-preview__prep-table"
              role="table"
@@ -3899,13 +3962,9 @@
                role="row">
             <span role="cell" lang="${questionLanguage}">
               ${prompt}
-              <mark class="objective-preview__keyword">từ khóa</mark>
             </span>
             <span role="cell" lang="${sourceLanguage}">
-              ${source}
-              <strong class="objective-preview__answer-span">
-                evidence chính xác
-              </strong>
+              <mark class="objective-preview__answer-span">${evidenceQuote}</mark>
             </span>
           </div>
           <strong class="objective-preview__prep-translation-title"
@@ -3915,12 +3974,21 @@
           <div class="objective-preview__prep-row objective-preview__prep-body"
                role="row">
             <span role="cell">
-              Bản dịch tiếng Việt của câu hỏi được gắn đúng questionId.
+              ${answerClaim && answerClaim.textVi
+                ? escapeHtml(answerClaim.textVi)
+                : 'Nội dung câu hỏi được đối chiếu với vùng nguồn ở cột bên phải.'}
             </span>
             <span role="cell" class="objective-preview__inline-translation">
-              Bản dịch vùng thông tin được gắn đúng evidenceId.
+              ${escapeHtml(translation && translation.translationVi
+                || 'Bản dịch vùng thông tin sẽ xuất hiện khi bản nháp typed được tạo.')}
             </span>
           </div>
+          ${contextClaims.length > 0 || answerClaim ? `
+            <div class="objective-preview__decision" role="row">
+              <strong>Nhận định:</strong>
+              ${escapeHtml((answerClaim && answerClaim.textVi)
+                || (contextClaims[0] && contextClaims[0].textVi) || '')}
+            </div>` : ''}
         </div>`;
       return `${header}${objectivePreviewTableRegion(
         'Bảng câu hỏi và vùng thông tin có thể cuộn', table)}`;
@@ -3957,9 +4025,10 @@
                 <strong>${state.correct
                   ? 'GIỮ LẠI'
                   : 'LOẠI'}</strong>
-                <small>${state.correct
-                  ? 'Đáp án này có evidence trực tiếp.'
-                  : 'Lý do loại phải tham chiếu optionId và evidenceId.'}</small>
+                <small>${escapeHtml((artifact && artifact.optionRationales || [])
+                  .find(item => String(item && item.optionId || '')
+                    === String(state.option.id || ''))?.reasonVi
+                  || 'Chưa có lý do typed cho phương án này.')}</small>
               </span>
             </div>`).join('')
         : `<p class="objective-preview__data-missing">
@@ -4005,6 +4074,17 @@
         correct: optionAuthority.correctOptionIds.includes(String(option.id)),
         label: objectivePreviewOptionLabel(option, index)
       }));
+      const typedOptionReason = optionId => (artifact && artifact.optionRationales || [])
+        .find(item => String(item && item.optionId || '') === String(optionId || ''))
+        ?.reasonVi || 'Chưa có lý do typed cho phương án này.';
+      const typedSource = objectivePreviewEvidenceMarkup(
+        sourceValue,
+        artifact && artifact.evidenceRefs,
+        artifact && artifact.translations);
+      const typedTranslation = artifact && artifact.translations
+        && artifact.translations.find(item => artifact.evidenceRefs
+          && String(item && item.evidenceId || '')
+            === String(artifact.evidenceRefs[0] && artifact.evidenceRefs[0].evidenceId || ''));
       const rows = optionStates.length > 0
         ? optionStates.map(state => `
             <div class="objective-preview__option ${
@@ -4014,9 +4094,7 @@
                 <b>${escapeHtml(state.label)}.</b>
                 ${escapeHtml(state.option.text || '')}
               </span>
-              <small>${state.correct
-                ? 'Đúng · có evidence'
-                : 'Loại · xem lý do đối chiếu bên dưới'}</small>
+              <small>${escapeHtml(typedOptionReason(state.option.id))}</small>
             </div>`).join('')
         : `<p class="objective-preview__data-missing">
              Chưa có phương án trong câu hỏi này.
@@ -4026,7 +4104,7 @@
         ? rejectedRows.map(state => `
             <p>
               <strong>Loại ${escapeHtml(state.label)}:</strong>
-              lý do phải tham chiếu optionId và evidenceId tương ứng.
+              ${escapeHtml(typedOptionReason(state.option.id))}
             </p>`).join('')
         : `<p>Không có phương án sai để loại trừ.</p>`;
       const table = `
@@ -4048,14 +4126,11 @@
             </div>
             <div role="cell" lang="${sourceLanguage}">
               <p>
-                ${source}
-                <mark class="objective-preview__keyword">từ khóa</mark>
-                <strong class="objective-preview__answer-span">
-                  evidence chứng minh đáp án đúng
-                </strong>
+                ${typedSource}
               </p>
               <em class="objective-preview__inline-translation">
-                [Bản dịch tiếng Việt gắn evidence]
+                ${escapeHtml(typedTranslation && typedTranslation.translationVi
+                  || 'Chưa có bản dịch evidence typed.')}
               </em>
             </div>
           </div>
@@ -4209,7 +4284,45 @@
       </div>`;
   }
 
-  function renderObjectiveStrategyPreview(question) {
+  function objectiveArtifactPreviewData(editorial) {
+    if (!editorial || !editorial.explanationJson) return null;
+    let artifact;
+    try {
+      artifact = JSON.parse(editorial.explanationJson);
+    } catch (_error) {
+      return null;
+    }
+    const explanation = artifact && artifact.explanation || {};
+    const evidence = Array.isArray(explanation.textEvidenceRefs)
+      ? explanation.textEvidenceRefs : [];
+    const selectedEvidence = evidence[0] || null;
+    const translations = Array.isArray(explanation.relevantTranslations)
+      ? explanation.relevantTranslations : [];
+    const translation = selectedEvidence && translations.find(item =>
+      String(item && item.evidenceId || '')
+        === String(selectedEvidence.evidenceId || ''));
+    const claims = Array.isArray(explanation.strategyBlock
+      && explanation.strategyBlock.evidenceClaims)
+      ? explanation.strategyBlock.evidenceClaims : [];
+    return {
+      approved: editorial.state === 'APPROVED',
+      evidence: selectedEvidence,
+      evidenceRefs: evidence,
+      translations,
+      translationVi: translation && translation.translationVi,
+      claimVi: claims[0] && claims[0].textVi,
+      contextClaims: Array.isArray(explanation.strategyBlock
+        && explanation.strategyBlock.contextClaims)
+        ? explanation.strategyBlock.contextClaims : [],
+      answerClaim: explanation.strategyBlock
+        && explanation.strategyBlock.answerClaim || null,
+      optionRationales: Array.isArray(explanation.strategyBlock
+        && explanation.strategyBlock.optionRationales)
+        ? explanation.strategyBlock.optionRationales : []
+    };
+  }
+
+  function renderObjectiveStrategyPreview(question, editorial) {
     const preview = document.getElementById(
       'objective-explanation-strategy-preview');
     const select = document.getElementById('q-explanation-strategy');
@@ -4219,8 +4332,10 @@
       || question && question.explanationStrategy
         && question.explanationStrategy.strategyCode
       || '';
+    const artifact = objectiveArtifactPreviewData(editorial
+      || question && objectiveEditorialStateByQuestion.get(question.clientId));
     preview.innerHTML = objectiveStrategyPreviewMarkup(
-      strategyCode, question, context && context.group);
+      strategyCode, question, context && context.group, artifact);
   }
 
   function refreshGroupExplanationStrategyField(section, group) {
@@ -4389,6 +4504,15 @@
     return 'Chưa có bản nháp';
   }
 
+  function objectiveExplanationSourceText(question) {
+    const context = currentObjectiveGroup();
+    return String(
+      context && context.group
+        && (context.group.passageText || context.group.transcriptText)
+      || question && question.prompt
+      || '').trim();
+  }
+
   function renderObjectiveEditorialState(question, editorial) {
     const panel = document.getElementById('objective-explanation-editorial');
     const state = document.getElementById(
@@ -4396,11 +4520,14 @@
     const json = document.getElementById('objective-explanation-json');
     const save = document.getElementById('objective-explanation-save');
     const approve = document.getElementById('objective-explanation-approve');
+    const generate = document.getElementById('objective-explanation-generate');
+    const aiHint = document.getElementById('objective-explanation-ai-hint');
     const technical = document.getElementById(
       'objective-explanation-json-details');
     if (!panel || !state || !json || !save || !approve || !technical) return;
     panel.hidden = !question;
     if (!question) return;
+    renderObjectiveStrategyPreview(question, editorial);
     state.textContent = objectiveEditorialStateLabel(
       editorial && editorial.state);
     state.dataset.state = editorial && editorial.state || 'NONE';
@@ -4417,6 +4544,38 @@
       || editorial.state !== 'GENERATED_DRAFT'
       || !editorial.revisionId;
     technical.hidden = !editorial;
+
+    const strategyCode = question.explanationStrategy
+      && String(question.explanationStrategy.strategyCode || '').trim();
+    const strategy = objectiveStrategyCatalogEntry(strategyCode);
+    const requiresSource = !!(strategy
+      && (strategy.requiredEvidence || []).includes('SOURCE_TEXT'));
+    const sourceText = objectiveExplanationSourceText(question);
+    const sourceMissing = requiresSource && !String(sourceText || '').trim();
+    const generating = generate && generate.dataset.busy === 'true';
+    if (generate) {
+      if (!generating) {
+        generate.disabled = !strategyCode || sourceMissing;
+        generate.title = !strategyCode
+          ? 'Chọn chiến lược giải thích trước.'
+          : sourceMissing
+            ? 'Thêm đoạn đọc/lời thoại hoặc nội dung câu hỏi trước khi dùng AI.'
+            : 'Dùng AI để tạo bản nháp lời giải có kiểm chứng.';
+      }
+    }
+    if (aiHint) {
+      aiHint.textContent = generating
+        ? 'Đang gửi yêu cầu AI và kiểm tra JSON/evidence. Vui lòng chờ…'
+        : !strategyCode
+        ? 'Chọn chiến lược trước để bật AI.'
+        : sourceMissing
+          ? 'Cần đoạn đọc/lời thoại hoặc nội dung câu hỏi làm nguồn.'
+          : 'AI chỉ tạo bản nháp; bạn vẫn cần kiểm tra và duyệt trước khi xuất bản.';
+    }
+    if (generating) {
+      state.textContent = 'AI đang tạo bản nháp…';
+      state.dataset.state = 'GENERATING';
+    }
   }
 
   async function refreshObjectiveEditorialPanel(question) {
@@ -4424,6 +4583,14 @@
     const strategyCode = question.explanationStrategy
       && String(question.explanationStrategy.strategyCode || '').trim();
     if (!strategyCode) {
+      objectiveEditorialStateByQuestion.delete(question.clientId);
+      renderObjectiveEditorialState(question, null);
+      return;
+    }
+    const strategy = objectiveStrategyCatalogEntry(strategyCode);
+    const sourceText = objectiveExplanationSourceText(question);
+    if (strategy && (strategy.requiredEvidence || []).includes('SOURCE_TEXT')
+        && !String(sourceText || '').trim()) {
       objectiveEditorialStateByQuestion.delete(question.clientId);
       renderObjectiveEditorialState(question, null);
       return;
@@ -4459,21 +4626,52 @@
   async function generateObjectiveExplanationDraft() {
     const question = currentObjectiveQuestion();
     if (!question) return;
-    saveCurrentNode();
-    if (!(await performAutosave())) {
-      showEditorToast('Phải lưu bản nháp trước khi tạo lời giải.', 'error');
+    const strategy = objectiveStrategyCatalogEntry(
+      question.explanationStrategy && question.explanationStrategy.strategyCode);
+    if (strategy && (strategy.requiredEvidence || []).includes('SOURCE_TEXT')
+        && !objectiveExplanationSourceText(question)) {
+      showEditorToast(
+        'Thêm đoạn đọc/lời thoại hoặc nội dung câu hỏi trước, rồi dùng AI để tạo lời giải.',
+        'error');
       return;
     }
-    const payload = await editorJsonFetch(
-      `/api/practice/manage/explanations/drafts/${DRAFT_ID}`
-        + `/questions/${encodeURIComponent(question.clientId)}/generate`,
-      { method: 'POST', headers: editorApiHeaders() },
-      'Không thể tạo lời giải typed.');
-    objectiveEditorialStateByQuestion.set(question.clientId, payload);
-    renderObjectiveEditorialState(question, payload);
-    await refreshPublishBlockers();
-    showEditorToast('Đã tạo bản nháp lời giải. Hãy kiểm tra trước khi duyệt.',
-      'success');
+    const generate = document.getElementById('objective-explanation-generate');
+    if (generate && generate.dataset.busy === 'true') return;
+    if (generate) {
+      generate.dataset.busy = 'true';
+      generate.disabled = true;
+      generate.textContent = 'AI đang tạo lời giải…';
+    }
+    renderObjectiveEditorialState(question,
+      objectiveEditorialStateByQuestion.get(question.clientId));
+    try {
+      saveCurrentNode();
+      if (!(await performAutosave())) {
+        showEditorToast('Phải lưu bản nháp trước khi tạo lời giải.', 'error');
+        return;
+      }
+      const payload = await editorJsonFetch(
+        `/api/practice/manage/explanations/drafts/${DRAFT_ID}`
+          + `/questions/${encodeURIComponent(question.clientId)}/generate`,
+        { method: 'POST', headers: editorApiHeaders() },
+        'Không thể tạo lời giải typed.');
+      objectiveEditorialStateByQuestion.set(question.clientId, payload);
+      renderObjectiveEditorialState(question, payload);
+      await refreshPublishBlockers();
+      showEditorToast('Đã tạo bản nháp lời giải. Hãy kiểm tra trước khi duyệt.',
+        'success');
+    } catch (error) {
+      showEditorToast(error.message || 'Không thể tạo lời giải typed.', 'error');
+    } finally {
+      if (generate) {
+        delete generate.dataset.busy;
+        generate.textContent = 'AI: Tạo lời giải có kiểm chứng';
+      }
+      if (currentObjectiveQuestion() === question) {
+        renderObjectiveEditorialState(question,
+          objectiveEditorialStateByQuestion.get(question.clientId));
+      }
+    }
   }
 
   async function saveObjectiveExplanationRevision() {

@@ -19,9 +19,11 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class PracticePdfAuthoringCandidateAssemblerTest {
@@ -89,6 +91,33 @@ class PracticePdfAuthoringCandidateAssemblerTest {
                         "PDF_LOW_CONFIDENCE",
                         "PDF_PROVIDER_POINTS_NORMALIZED",
                         "PDF_PROVIDER_WARNING");
+    }
+
+    @Test
+    void keepsValidatedExtractCandidateForReviewWhenProviderAddsInsufficientWarning() throws Exception {
+        PracticePdfAuthoringOutputValidator validator =
+                mock(PracticePdfAuthoringOutputValidator.class);
+        PracticeAuthoringCandidateService candidateService =
+                mock(PracticeAuthoringCandidateService.class);
+        ObjectNode output = (ObjectNode) mapper.readTree(outputJson());
+        output.withArray("warnings").removeAll().addObject()
+                .put("code", "SOURCE_INSUFFICIENT_FOR_EXTRACT")
+                .put("messageVi", "Không có câu hỏi gốc.")
+                .putArray("sourceRefs");
+        when(validator.validate(any(), any())).thenReturn(
+                new PracticePdfAuthoringOutputValidator.ValidatedOutput(output));
+        PracticePdfAuthoringCandidateAssembler assembler =
+                new PracticePdfAuthoringCandidateAssembler(
+                        mapper, validator, candidateService,
+                        new AssessmentAuthoringCatalogService(
+                                new PracticeContentRules()));
+        PracticePdfAiOrchestrator.GenerationResult generation =
+                new PracticePdfAiOrchestrator.GenerationResult(
+                        output, mapper.createObjectNode(), "authoring-v1", "request-1", "provider-1");
+
+        assembler.assemble(request(), generation, 101L);
+
+        verify(candidateService).createOrReuse(any(), any());
     }
 
     private PracticePdfAuthoringRequest request() {

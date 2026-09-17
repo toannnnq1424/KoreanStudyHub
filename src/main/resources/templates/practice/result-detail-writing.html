@@ -24,6 +24,14 @@
         <button class="prd-reevaluate-btn" type="submit">Chấm lại câu này</button>
       </form>
     </th:block>
+    <div class="prd-header-dots-menu" th:if="${resultDetail.payload().technicalAiJson() != null and !resultDetail.payload().technicalAiJson().isBlank()}">
+      <button type="button" class="prd-dots-btn" id="prdTechJsonTrigger"
+              aria-haspopup="dialog" aria-expanded="false"
+              aria-label="Xem dữ liệu kỹ thuật AI"
+              title="Dữ liệu kỹ thuật AI (JSON)">
+        <svg th:replace="~{practice/fragments/icons :: moreVertical}"></svg>
+      </button>
+    </div>
     <a class="prd-complete-btn" th:href="@{/practice}">Hoàn tất</a>
   </div>
 </header>
@@ -172,14 +180,31 @@
                th:aria-labelledby="${'writing-feedback-title-' + task.questionId()}">
         <h2 class="prd-visually-hidden"
             th:id="${'writing-feedback-title-' + task.questionId()}">Phản hồi bài viết</h2>
-        <div th:if="${success}"
-             class="prd-flash prd-flash-success"
-             role="status"
-             th:text="${success}"></div>
-        <div th:if="${error}"
-             class="prd-flash prd-flash-error"
-             role="alert"
-             th:text="${error}"></div>
+        <div class="prd-writing-status-zone" style="margin-bottom: 14px;">
+          <div th:if="${info}"
+               class="prd-flash prd-flash-info"
+               role="status"
+               style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:12px 16px; border-radius:8px;">
+            <div>
+              <div style="font-weight:600; display:flex; align-items:center; gap:8px;">
+                <span class="prd-spinner-inline" style="display:inline-block; width:14px; height:14px; border:2px solid #228be6; border-top-color:transparent; border-radius:50%; animation:prd-spin 0.8s linear infinite;"></span>
+                <span th:text="${info}">Yêu cầu chấm lại đang được xử lý.</span>
+              </div>
+              <div style="font-size:0.85rem; color:#495057; margin-top:4px;">
+                Kết quả hiển thị bên dưới là của lần chấm trước. Trang sẽ tự động cập nhật khi có kết quả mới.
+              </div>
+            </div>
+            <span class="prd-mapping-badge" style="background:#e7f5ff; color:#1971c2; border:1px solid #a5d8ff; flex-shrink:0;">Kết quả lần trước</span>
+          </div>
+          <div th:if="${success}"
+               class="prd-flash prd-flash-success"
+               role="status"
+               th:text="${success}"></div>
+          <div th:if="${error}"
+               class="prd-flash prd-flash-error"
+               role="alert"
+               th:text="${error}"></div>
+        </div>
 
         <div class="prd-writing-tabs"
              role="tablist"
@@ -241,7 +266,36 @@
             <svg th:replace="~{practice/fragments/icons :: sample}"></svg>
             <span>Mẫu</span>
           </button>
+          <button class="prd-writing-tab" type="button" role="tab"
+                  aria-selected="false" tabindex="-1"
+                  th:id="${'writing-tab-technical-' + task.questionId()}"
+                  th:attr="aria-controls=${'writing-panel-technical-' + task.questionId()},
+                           data-result-target=${'writing-panel-technical-' + task.questionId()}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            <span>JSON kỹ thuật</span>
+          </button>
         </div>
+
+        <section class="prd-writing-panel" role="tabpanel" tabindex="0" hidden
+                 th:id="${'writing-panel-undetected-' + task.questionId()}"
+                 th:attr="aria-labelledby=${'writing-tab-undetected-' + task.questionId()}">
+          <h3>Các tiêu chí chưa được phát hiện</h3>
+          <p>Danh mục trong phạm vi đánh giá của bài này. Chưa có phát hiện không có nghĩa là đã đạt,
+             không có lỗi hoặc được 0 điểm. Nếu AI trả kết quả không hợp lệ, các tiêu chí vẫn chỉ là danh mục tham khảo.</p>
+          <section th:each="group : ${resultDetail.payload().diagnosticGroups()}">
+            <h4 th:text="${group.labelVi()}">Nhóm tiêu chí</h4>
+            <p>Những tiêu chí dưới đây chưa có bằng chứng được xác minh trong bài làm.</p>
+            <ul>
+              <li th:each="chip : ${group.strengthChips()}" th:if="${chip.count() == 0}">
+                <span th:text="${chip.labelVi()}">Tiêu chí</span> — Điểm mạnh chưa ghi nhận
+              </li>
+              <li th:each="chip : ${group.needsImprovementChips()}" th:if="${chip.count() == 0}">
+                <span th:text="${chip.labelVi()}">Tiêu chí</span> — Chưa phát hiện điểm cần cải thiện
+              </li>
+            </ul>
+          </section>
+          <p th:if="${resultDetail.payload().diagnosticGroups().isEmpty()}">Chưa có danh mục tiêu chí áp dụng cho nhiệm vụ này.</p>
+        </section>
 
         <section class="prd-writing-panel prd-writing-overview"
                  role="tabpanel"
@@ -262,9 +316,36 @@
             </div>
             <div class="prd-writing-total-score is-unavailable"
                  th:unless="${task.score() != null && task.score().pointsDisplay() != null}">
-              <strong>Chưa khả dụng</strong>
+              <strong th:if="${info != null and !info.isBlank()}">Đang chấm lại...</strong>
+              <strong th:unless="${info != null and !info.isBlank()}">Chưa khả dụng</strong>
             </div>
           </header>
+          <aside class="prd-writing-ai-contract-alert" data-writing-ai-contract-alert hidden>
+            <div class="prd-ai-alert-title">
+              <span class="prd-mapping-badge">CẢNH BÁO CONTRACT AI</span>
+              <strong>Phản hồi chi tiết không thể ánh xạ hoàn toàn vào UI chấm điểm</strong>
+            </div>
+            <p>Hệ thống đã tự động kích hoạt kênh cứu hộ tóm lược. Chi tiết các phần thiếu/lỗi contract đã được đánh dấu đỏ trong tab <em>"JSON kỹ thuật"</em>.</p>
+            <a href="#writing-technical-json-section" class="prd-btn-view-technical"
+               th:attr="data-target-tab=${'writing-tab-technical-' + task.questionId()}"
+               style="display:inline-block; margin-top:8px; padding:6px 14px; background:#fff; border:1px solid #e03131; color:#c92a2a; border-radius:6px; font-weight:600; font-size:0.85rem; text-decoration:none; cursor:pointer;">
+              Xem tab JSON kỹ thuật &amp; vị trí lỗi đánh dấu đỏ →
+            </a>
+          </aside>
+          <aside class="prd-writing-empty prd-writing-evaluation-fallback"
+                 th:if="${!task.evaluated()}"
+                 role="status">
+            <th:block th:if="${info != null and !info.isBlank()}">
+              <strong style="color:#1971c2;">Đang chờ kết quả chấm lại mới nhất</strong>
+              <p>Hệ thống đang gửi yêu cầu và nhận diện phản hồi từ AI. Kết quả sẽ tự động cập nhật ngay khi quá trình chấm lại hoàn tất.</p>
+            </th:block>
+            <th:block th:unless="${info != null and !info.isBlank()}">
+              <strong th:text="${task.feedback().label()}">Chưa có đánh giá khả dụng</strong>
+              <p data-writing-compact-field="tong_quan"
+                 th:text="${task.summary() != null and !task.summary().isBlank() ? task.summary() : 'Đánh giá AI đang cần được chấm lại.'}">Đánh giá AI đang cần được chấm lại.</p>
+              <small>Hệ thống không suy đoán điểm hoặc nhận xét tiêu chí từ phản hồi không hợp lệ.</small>
+            </th:block>
+          </aside>
           <div class="prd-writing-score-grid"
                role="tablist"
                aria-label="Chọn tiêu chí điểm để xem phản hồi">
@@ -341,7 +422,6 @@
                   <span class="prd-writing-coverage-icon" aria-hidden="true"></span>
                   <span>
                     <strong th:text="${coverage.labelVi()}">Yêu cầu đề bài</strong>
-                    <small th:text="${coverage.statusLabelVi()}">Đã đáp ứng</small>
                   </span>
                   <i aria-hidden="true"></i>
                 </button>
@@ -349,10 +429,8 @@
                    hidden
                    data-overview-coverage-detail
                    th:id="${'writing-coverage-detail-' + task.questionId() + '-' + coverage.requirementId()}"
-                   th:text="${coverage.evidenceCount() == 0
-                            ? 'Chưa có span bằng chứng trực tiếp được xác minh cho yêu cầu này.'
-                            : 'Đã xác minh ' + coverage.evidenceCount() + ' bằng chứng trong bài làm cho yêu cầu này.'}">
-                  Đã xác minh bằng chứng trong bài làm.
+                   th:text="${coverage.detailExplanationVi()}">
+                  Chi tiết mức độ bao phủ yêu cầu.
                 </p>
               </li>
             </ol>
@@ -370,6 +448,16 @@
             <h3>Điểm mạnh</h3>
             <p th:text="${resultDetail.payload().diagnosticScopeNoteVi()}">Phạm vi chẩn đoán có giới hạn.</p>
           </header>
+          <details class="prd-writing-compact-feedback" data-writing-compact-container hidden>
+            <summary class="prd-writing-compact-summary">
+              <span>Tóm tắt nhận xét cứu hộ từ AI (Fallback)</span>
+              <span class="prd-writing-compact-badge">Xem nhận xét tóm lược</span>
+            </summary>
+            <div class="prd-writing-compact-body">
+              <p data-writing-compact-field="diem_manh"></p>
+              <small>Nội dung cứu hộ tóm tắt, không dùng để suy ra điểm.</small>
+            </div>
+          </details>
           <p class="prd-writing-diagnostic-state"
              th:text="${resultDetail.payload().diagnosticAvailabilityNoteVi()}">Trạng thái bằng chứng</p>
           <p class="prd-filter-status"
@@ -458,10 +546,6 @@
                 <div class="prd-occurrence-detail"
                      hidden
                      th:id="${'writing-finding-detail-' + finding.findingId()}">
-                  <p class="prd-writing-whole-answer"
-                     th:if="${finding.evidenceScope() == 'WHOLE_ANSWER'}">
-                    Phát hiện áp dụng cho toàn bài; không có đoạn tô sáng giả.
-                  </p>
                   <div class="prd-writing-explanation">
                     <strong>Vì sao đây là điểm mạnh</strong>
                     <p th:text="${finding.explanationVi()}">Giải thích</p>
@@ -491,6 +575,16 @@
             <h3>Cần cải thiện</h3>
             <p th:text="${resultDetail.payload().diagnosticScopeNoteVi()}">Phạm vi chẩn đoán có giới hạn.</p>
           </header>
+          <details class="prd-writing-compact-feedback" data-writing-compact-container hidden>
+            <summary class="prd-writing-compact-summary">
+              <span>Tóm tắt lỗi cần cải thiện từ AI (Fallback)</span>
+              <span class="prd-writing-compact-badge">Xem nhận xét tóm lược</span>
+            </summary>
+            <div class="prd-writing-compact-body">
+              <p data-writing-compact-field="can_cai_thien"></p>
+              <small>Nội dung cứu hộ tóm tắt, không dùng để suy ra điểm.</small>
+            </div>
+          </details>
           <p class="prd-writing-diagnostic-state"
              th:text="${resultDetail.payload().diagnosticAvailabilityNoteVi()}">Trạng thái bằng chứng</p>
           <p class="prd-filter-status"
@@ -594,10 +688,6 @@
                 <div class="prd-occurrence-detail"
                      hidden
                      th:id="${'writing-finding-detail-' + finding.findingId()}">
-                  <p class="prd-writing-whole-answer"
-                     th:if="${finding.evidenceScope() == 'WHOLE_ANSWER'}">
-                    Phát hiện áp dụng cho toàn bài; không có đoạn tô sáng giả.
-                  </p>
                   <div class="prd-writing-explanation">
                     <strong>Vì sao cần sửa</strong>
                     <p th:text="${finding.explanationVi()}">Giải thích</p>
@@ -633,6 +723,16 @@
             <h3>Bài nâng cấp</h3>
             <p>Chọn tiêu chí để đối chiếu đúng các span đã được xử lý trong bài làm.</p>
           </header>
+          <details class="prd-writing-compact-feedback" data-writing-compact-container hidden>
+            <summary class="prd-writing-compact-summary">
+              <span>Gợi ý nâng cấp tóm lược từ AI (Fallback)</span>
+              <span class="prd-writing-compact-badge">Xem bài nâng cấp tóm lược</span>
+            </summary>
+            <div class="prd-writing-compact-body">
+              <div lang="ko" data-writing-compact-field="bai_nang_cap"></div>
+              <small>Nội dung cứu hộ tóm tắt, không phải bài mẫu độc lập.</small>
+            </div>
+          </details>
 
           <section class="prd-writing-upgrade-criteria"
                    th:if="${!#lists.isEmpty(resultDetail.payload().diagnosticGroups())
@@ -776,6 +876,43 @@
             Chưa có bài mẫu do giáo viên soạn cho câu đang chọn.
           </p>
         </section>
+
+        <section class="prd-writing-panel"
+                 role="tabpanel"
+                 tabindex="0"
+                 hidden
+                 th:id="${'writing-panel-technical-' + task.questionId()}"
+                 th:attr="aria-labelledby=${'writing-tab-technical-' + task.questionId()}">
+          <header class="prd-writing-panel-heading" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h3>Chuỗi JSON kỹ thuật gốc từ AI (Provider Raw Response)</h3>
+              <p>Chuỗi JSON thô ban đầu do AI trả về trước khi ánh xạ vào UI. Các khóa/mục đánh dấu đỏ là nguyên nhân khiến backend không thể ánh xạ hoàn toàn.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="prd-btn-copy-json"
+                      th:attr="data-copy-target=${'technical-json-' + task.questionId()}"
+                      style="padding:6px 14px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; font-weight:600; cursor:pointer; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                📋 Sao chép JSON
+              </button>
+            </div>
+          </header>
+
+          <section class="prd-writing-ai-mapping-errors" data-writing-tab-mapping-errors hidden style="margin-top:14px;">
+            <strong>Phần không thể ánh xạ hoàn toàn vào UI chấm điểm</strong>
+            <p>Các đường dẫn màu đỏ dưới đây chỉ ra tab, tiêu chí hoặc mục con không khớp contract với backend.</p>
+            <ul></ul>
+          </section>
+
+          <div style="margin-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-size:0.85rem; font-weight:700; color:#334155;">Chuỗi JSON kỹ thuật &amp; vị trí lỗi (đánh dấu đỏ):</span>
+            </div>
+            <pre class="prd-writing-technical-pre"
+                 th:id="${'technical-json-' + task.questionId()}"
+                 data-writing-tab-technical-pre
+                 style="background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px; overflow:auto; max-height:550px; font-size:0.82rem; line-height:1.5; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space:pre-wrap; word-break:break-word;">Đang tải dữ liệu JSON...</pre>
+          </div>
+        </section>
       </section>
     </section>
 
@@ -784,8 +921,29 @@
   <section class="prd-boundary-card prd-writing-empty"
            th:if="${resultDetail.payload().activeQuestionId() == null}">
     Không có nhiệm vụ Viết hỗ trợ trang chi tiết trong bài làm bất biến này.
-  </section>
 </main>
-<script th:src="@{/js/practice-result.js(v='pre14-e13')}"></script>
+<dialog id="prTechJsonDialog" class="pr-tech-dialog" aria-labelledby="prTechModalTitle">
+  <div class="pr-tech-dialog-box">
+    <div class="pr-tech-dialog-header">
+      <div>
+        <h3 id="prTechModalTitle">Dữ liệu kỹ thuật AI đã nhận</h3>
+        <p>Phần này chỉ để đối chiếu phản hồi đã lưu; không phải điểm hoặc nhận xét đã được xác minh.</p>
+      </div>
+      <button type="button" class="pr-tech-dialog-close" id="prTechModalClose" aria-label="Đóng">
+        <svg th:replace="~{practice/fragments/icons :: close}"></svg>
+      </button>
+    </div>
+    <div class="pr-tech-dialog-actions">
+      <button type="button" class="pr-tech-copy-btn" id="prTechCopyBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <span id="prTechCopyLabel">Sao chép JSON</span>
+      </button>
+    </div>
+    <div class="pr-tech-dialog-content">
+      <pre class="pr-tech-dialog-pre" id="prTechPre" th:text="${resultDetail.payload().technicalAiJson()}">{}</pre>
+    </div>
+  </div>
+</dialog>
+<script th:src="@{/js/practice-result.js(v='pre14-e16')}"></script>
 </body>
 </html>

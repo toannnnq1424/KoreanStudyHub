@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai.speaking;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public record SpeakingEvaluationResult(
         SpeakingEvaluationStatus evaluationStatus,
@@ -51,9 +52,77 @@ public record SpeakingEvaluationResult(
         List<String> fluencyObservations,
         String errorCategory,
         boolean retryable,
-        String policyBundleFingerprint
+        String policyBundleFingerprint,
+        Map<String, String> presentationFallback
 ) {
+    public SpeakingEvaluationResult(
+            SpeakingEvaluationStatus evaluationStatus,
+            boolean scoreAvailable,
+            SpeakingEvaluationSource source,
+            String model,
+            String transcriptionModel,
+            String promptVersion,
+            String rubricVersion,
+            String schemaVersion,
+            String policyBundleId,
+            SpeakingEvaluatorCapability evaluatorCapability,
+            SpeakingEvidenceMode evidenceMode,
+            String evidenceContractVersion,
+            SpeakingContractTrust contractTrust,
+            Long questionVersionId,
+            String promptContextFingerprint,
+            String promptContextContractIdentity,
+            Long audioMediaId,
+            Long mediaVersion,
+            String transcript,
+            String normalizedTranscript,
+            String actuallyHeardTranscript,
+            String interpretedIntent,
+            BigDecimal intentConfidence,
+            BigDecimal transcriptConfidence,
+            String listenerBurden,
+            BigDecimal overallScore,
+            String levelLabel,
+            String overallSummary,
+            String taskAchievementSummary,
+            List<String> majorStrengths,
+            List<String> majorNeedsImprovement,
+            List<ActionPlanItem> actionPlan,
+            List<CriterionFeedback> criterionFeedback,
+            List<TranscriptAnnotation> transcriptAnnotations,
+            List<FeedbackItem> strengths,
+            List<FeedbackItem> needsImprovement,
+            String confidenceNotes,
+            List<RubricScore> rubricScores,
+            List<Finding> findings,
+            List<Evidence> evidence,
+            List<String> recommendations,
+            String upgradedAnswer,
+            String sampleAnswer,
+            List<String> pronunciationAdvisory,
+            List<String> fluencyObservations,
+            String errorCategory,
+            boolean retryable,
+            String policyBundleFingerprint
+    ) {
+        this(evaluationStatus, scoreAvailable, source, model, transcriptionModel,
+                promptVersion, rubricVersion, schemaVersion, policyBundleId,
+                evaluatorCapability, evidenceMode, evidenceContractVersion,
+                contractTrust, questionVersionId, promptContextFingerprint,
+                promptContextContractIdentity, audioMediaId, mediaVersion,
+                transcript, normalizedTranscript, actuallyHeardTranscript,
+                interpretedIntent, intentConfidence, transcriptConfidence,
+                listenerBurden, overallScore, levelLabel, overallSummary,
+                taskAchievementSummary, majorStrengths, majorNeedsImprovement,
+                actionPlan, criterionFeedback, transcriptAnnotations,
+                strengths, needsImprovement, confidenceNotes, rubricScores,
+                findings, evidence, recommendations, upgradedAnswer,
+                sampleAnswer, pronunciationAdvisory, fluencyObservations,
+                errorCategory, retryable, policyBundleFingerprint, Map.of());
+    }
+
     public SpeakingEvaluationResult {
+        presentationFallback = presentationFallback == null ? Map.of() : Map.copyOf(presentationFallback);
         policyBundleId = policyBundleId == null || policyBundleId.isBlank()
                 ? null
                 : policyBundleId.trim();

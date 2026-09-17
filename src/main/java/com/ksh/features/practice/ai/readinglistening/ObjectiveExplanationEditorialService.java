@@ -128,7 +128,6 @@ public class ObjectiveExplanationEditorialService {
                 .findByDraftIdAndQuestionClientIdOrderByRevisionNoDesc(
                         draftId, questionClientId)
                 .stream()
-                .findFirst()
                 .filter(revision -> {
                     try {
                         requireRevisionMatches(authority, revision);
@@ -140,6 +139,11 @@ public class ObjectiveExplanationEditorialService {
                         return false;
                     }
                 })
+                // A later revision for another selected strategy must not
+                // hide an older, still-valid approved revision when the
+                // lecturer switches back. Reuse it without another provider
+                // request; strategy/fingerprint validation remains exact.
+                .findFirst()
                 .map(ObjectiveExplanationEditorialService::view);
     }
 
@@ -474,15 +478,21 @@ public class ObjectiveExplanationEditorialService {
                 .path("approved").asBoolean(
                         pointer.group().path("stimulusApproved")
                                 .asBoolean(true));
-        AssessmentStimulus stimulus =
-                pointer.skill() == AssessmentSkill.READING
+        String immutablePrompt = question.path("prompt").asText("");
+        // A question without a shared passage or transcript is still a valid
+        // independent exercise. Its versioned prompt is the evidence source,
+        // as it is for the published-question preparation path.
+        AssessmentStimulus stimulus = !source.isBlank()
+                ? pointer.skill() == AssessmentSkill.READING
                         ? AssessmentStimulus.readingPassage(
                                 source, "DRAFT_EDITORIAL_AUTHORITY")
                         : AssessmentStimulus.listeningAudio(
                                 null,
                                 source,
                                 "DRAFT_EDITORIAL_AUTHORITY",
-                                approved);
+                                approved)
+                : AssessmentStimulus.standalonePrompt(
+                        immutablePrompt, "DRAFT_EDITORIAL_AUTHORITY");
         ExplanationContext context = new ExplanationContext(
                 ExplanationContext.SCHEMA_VERSION,
                 draftId,
@@ -490,7 +500,7 @@ public class ObjectiveExplanationEditorialService {
                 question.path("questionNo").asInt(),
                 pointer.skill(),
                 type,
-                question.path("prompt").asText(""),
+                immutablePrompt,
                 pointer.group().path("instruction").asText(""),
                 content,
                 answerSpec,

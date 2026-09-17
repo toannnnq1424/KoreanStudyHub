@@ -259,7 +259,24 @@ public class PracticeControlPlaneStructuredGenerationAdapter
         }
         int status = last == null ? 0 : last.status();
         throw new PracticeAiControlPlaneException(
-                "PROVIDER_HTTP_ERROR", retryable(status));
+                providerHttpError(status), retryable(status));
+    }
+
+    /**
+     * Preserve only the HTTP class needed for operator action.  Provider response
+     * bodies may contain credentials or implementation details and must not reach
+     * the learner/lecturer UI or the execution audit.
+     */
+    private static String providerHttpError(int status) {
+        return switch (status) {
+            case 400, 422 -> "PROVIDER_HTTP_REQUEST_REJECTED";
+            case 401, 403 -> "PROVIDER_HTTP_AUTHENTICATION_FAILED";
+            case 404 -> "PROVIDER_HTTP_ENDPOINT_OR_MODEL_NOT_FOUND";
+            case 408, 504 -> "PROVIDER_HTTP_TIMEOUT";
+            case 413 -> "PROVIDER_HTTP_REQUEST_TOO_LARGE";
+            case 429 -> "PROVIDER_HTTP_RATE_LIMITED";
+            default -> "PROVIDER_HTTP_ERROR";
+        };
     }
 
     private Map<String, Object> structuredInput(
@@ -314,9 +331,15 @@ public class PracticeControlPlaneStructuredGenerationAdapter
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
-        body.put("temperature", 0.0);
-        body.put("top_p", 1.0);
-        body.put("max_tokens", request.maxOutputTokens());
+        String modelFamily = model.substring(model.lastIndexOf('/') + 1)
+                .toLowerCase(java.util.Locale.ROOT);
+        if (modelFamily.startsWith("gpt-5")) {
+            body.put("max_completion_tokens", request.maxOutputTokens());
+        } else {
+            body.put("temperature", 0.0);
+            body.put("top_p", 1.0);
+            body.put("max_tokens", request.maxOutputTokens());
+        }
         body.put("messages", messages);
         body.put("response_format", responseFormat);
         return body;

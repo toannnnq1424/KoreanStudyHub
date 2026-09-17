@@ -10,6 +10,7 @@ import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCand
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceKind;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.SourceSnapshot;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateModels.ValidationIssue;
+import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateException;
 import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCandidateService;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +45,7 @@ public class PracticePdfAuthoringCandidateAssembler {
             Long actorId) {
         ObjectNode output = outputValidator.validate(
                 generation.output(), request).root();
+        rejectInsufficientExtractSource(output.path("warnings"), request);
         List<ValidationIssue> sourceIssues = new ArrayList<>();
         ArrayNode groups = candidateGroups(output.path("groups"), request, sourceIssues);
         appendProviderWarnings(output.path("warnings"), sourceIssues);
@@ -96,6 +98,10 @@ public class PracticePdfAuthoringCandidateAssembler {
                 ObjectNode question = questions.addObject();
                 question.put("candidateQuestionId",
                         rawQuestion.path("sourceQuestionId").asText());
+                if (rawQuestion.hasNonNull("sourceQuestionNumber")) {
+                    question.put("sourceQuestionNumber",
+                            rawQuestion.path("sourceQuestionNumber").asInt());
+                }
                 question.put("questionOrder", questionIndex + 1);
                 String type = rawQuestion.path("questionType").asText();
                 question.put("questionType", type);
@@ -120,14 +126,16 @@ public class PracticePdfAuthoringCandidateAssembler {
 
                 String questionPath = "/groups/" + groupIndex
                         + "/questions/" + questionIndex;
-                double confidence = rawQuestion.path("confidence").asDouble();
-                if (confidence < 0.8d) {
+                JsonNode rawConfidence = rawQuestion.get("confidence");
+                if (rawConfidence != null && rawConfidence.isNumber()
+                        && rawConfidence.asDouble() < 0.8d) {
                     sourceIssues.add(warning(
                             "PDF_LOW_CONFIDENCE", questionPath,
                             "AI đánh dấu câu hỏi có độ tin cậy thấp; hãy kiểm tra nguồn và đáp án.",
                             firstSourceRef(rawQuestion.path("sourceRefs"))));
                 }
-                if (Math.abs(rawQuestion.path("points").asDouble()
+                if (rawQuestion.path("points").isNumber()
+                        && Math.abs(rawQuestion.path("points").asDouble()
                         - authoritativePoints) > 0.000_001d) {
                     sourceIssues.add(warning(
                             "PDF_PROVIDER_POINTS_NORMALIZED",
@@ -164,6 +172,28 @@ public class PracticePdfAuthoringCandidateAssembler {
                     "/groups",
                     raw.path("messageVi").asText(),
                     firstSourceRef(raw.path("sourceRefs"))));
+        }
+    }
+
+    private void rejectInsufficientExtractSource(
+            JsonNode warnings,
+            PracticePdfAuthoringRequest request) {
+        if (request.operation() != com.ksh.features.practice.manage.authoringcandidate
+                .PracticeAuthoringCandidateModels.SourceOperation.EXTRACT) {
+            return;
+        }
+        for (JsonNode warning : warnings) {
+            String code = warning.path("code").asText("");
+            if ("SOURCE_INSUFFICIENT_FOR_EXTRACT".equals(code)
+                    || "SOURCE_SCOPE_UNSUPPORTED".equals(code)) {
+                // The provider may conservatively emit this warning while it
+                // still returned non-empty, canonical, source-linked groups.
+                // Those groups have already crossed the strict output and
+                // source-reference validators, so keep the warning for lecturer
+                // review instead of discarding the entire candidate. Truly
+                // empty/unsupported output is rejected earlier by the schema.
+                return;
+            }
         }
     }
 

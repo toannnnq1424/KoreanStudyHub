@@ -30,6 +30,54 @@ class WritingEvaluationNormalizerTest {
             new WritingEvaluationNormalizer(objectMapper);
 
     @Test
+    void completeFallbackStringsSurviveTruncatedDetailedJson() throws Exception {
+        String raw = "{\"compactFallback\":{\"xxx_tongquan\":\"- Nhận xét thật\\n- Ý thứ hai\","
+                + "\"xxx_diemmanh\":\"- Lập luận rõ\",\"xxx_cancaithien\":\"- Sửa câu cuối\","
+                + "\"xxx_bainangcap\":\"한국어\"},\"findings\":[{";
+        JsonNode result = objectMapper.readTree(normalizer.normalize(raw, "Q54", "한국어", null));
+        assertThat(result.path("score_available").asBoolean()).isFalse();
+        assertThat(result.path("provider_raw_response").asText()).isEqualTo(raw);
+        assertThat(result.path("presentation_fallback").path("tong_quan").asText())
+                .isEqualTo("- Nhận xét thật\n- Ý thứ hai");
+        assertThat(result.path("presentation_fallback").path("bai_nang_cap").asText()).isEqualTo("한국어");
+    }
+
+    @Test
+    void resolvesNfcAndEmojiUtf16WithoutProviderOffsetsAndRejectsAmbiguity() {
+        String answer = "😀가 가";
+        ObjectNode provider = zeroEnvelope(objectMapper, "Q54", answer);
+        provider.withArray("evidenceLedger").addObject()
+                .put("evidenceId", "second").put("exactText", "가").put("occurrenceIndex", 2);
+        var resolved = new WritingEvidenceLedgerVerifier().recover(provider, "Q54", "😀가 가");
+        assertThat(resolved.envelope().evidence()).hasSize(1);
+        assertThat(resolved.envelope().evidence().get(0).startOffset()).isEqualTo(4);
+        assertThat(resolved.envelope().evidence().get(0).endOffset()).isEqualTo(5);
+        assertThat(resolved.envelope().evidence().get(0).occurrenceCount()).isEqualTo(2);
+        ((ObjectNode) provider.path("evidenceLedger").get(0)).remove("occurrenceIndex");
+        var ambiguous = new WritingEvidenceLedgerVerifier().recover(provider, "Q54", answer);
+        assertThat(ambiguous.envelope().evidence()).isEmpty();
+        assertThat(ambiguous.rejected()).anyMatch(row -> row.path().equals("/evidenceLedger/0"));
+    }
+
+    @Test
+    void rejectsOnlyBadEvidenceAndDependantsKeepingOtherCommentsAndFallback() throws Exception {
+        ObjectNode provider = q53AtomicEnvelope();
+        ((ObjectNode) provider.path("evidenceLedger").get(0)).put("exactText", "not in learner answer");
+        provider.putObject("compactFallback").put("xxx_tongquan", "- Nhận xét tổng quan riêng từ AI.");
+        JsonNode result = normalize(provider, "Q53", Q53_ANSWER);
+        assertThat(result.path("evaluation_status").asText()).isEqualTo("EVALUATED_PARTIAL");
+        assertThat(result.path("score_available").asBoolean()).isFalse();
+        assertThat(result.has("raw_score")).isFalse();
+        assertThat(result.path("strengths")).isNotEmpty();
+        assertThat(result.path("needs_improvement")).hasSize(1);
+        assertThat(result.path("sentence_rewrites")).hasSize(1);
+        assertThat(result.path("validation_issues")).anyMatch(row -> row.path("path").asText().equals("/evidenceLedger/0"));
+        assertThat(result.path("presentation_fallback").path("tong_quan").asText())
+                .isEqualTo("- Nhận xét tổng quan riêng từ AI.");
+        assertThat(result.path("provider_raw_response").asText()).contains("not in learner answer");
+    }
+
+    @Test
     void q53ProducesAnchoredScoreCoverageAndAtomicOneToOneLedger()
             throws Exception {
         ObjectNode provider = q53AtomicEnvelope();
@@ -109,17 +157,61 @@ class WritingEvaluationNormalizerTest {
                 .path("occurrenceIndex");
         ((ObjectNode) provider.withArray("evidenceLedger").get(0))
                 .put("occurrenceIndex", 1);
-        assertContractFailed(normalize(provider, "Q53", answer));
+        JsonNode first = normalize(provider, "Q53", answer);
+        assertThat(first.path("annotations").get(0).path("startOffset").asInt()).isZero();
+        ((ObjectNode) provider.withArray("evidenceLedger").get(0)).put("occurrenceIndex", 3);
+        assertThat(normalize(provider, "Q53", answer).path("score_available").asBoolean()).isFalse();
     }
 
     @Test
-    void exactOffsetsFailClosedInsteadOfGuessingEvidencePosition()
+    void obsoleteProviderOffsetsAreRecomputedFromExactText()
             throws Exception {
         ObjectNode provider = q53AtomicEnvelope();
         ((ObjectNode) provider.withArray("evidenceLedger").get(0))
                 .put("startOffset", 10);
 
-        assertContractFailed(normalize(provider, "Q53", Q53_ANSWER));
+        JsonNode resolved = normalize(provider, "Q53", Q53_ANSWER);
+        assertThat(resolved.path("evaluation_status").asText()).isEqualTo("EVALUATED");
+        assertThat(resolved.path("evidence_ledger").get(0).path("startOffset").asInt())
+                .isEqualTo(Q53_ANSWER.indexOf(provider.path("evidenceLedger").get(0).path("exactText").asText()));
+    }
+
+    @Test
+    void canonicalizesEmptyReplacementAsADeletionInsteadOfDiscardingFeedback()
+            throws Exception {
+        ObjectNode provider = q53AtomicEnvelope();
+        ObjectNode deletion = (ObjectNode) provider.withArray("findings").get(4);
+        deletion.put("operation", "REPLACE");
+        deletion.put("replacementKo", "");
+        ObjectNode upgrade = (ObjectNode) provider.path("upgradedAnswer");
+        upgrade.put("content", "");
+        upgrade.putArray("rewrites");
+
+        JsonNode normalized = normalize(provider, "Q53", Q53_ANSWER);
+
+        assertThat(normalized.path("evaluation_status").asText())
+                .isEqualTo("EVALUATED");
+        assertThat(normalized.path("needs_improvement").get(0)
+                .path("operation").asText()).isEqualTo("REDUNDANT");
+    }
+
+    @Test
+    void contractFailureStillCarriesAVisibleNonScoringPresentationFallback()
+            throws Exception {
+        ObjectNode malformed = q53AtomicEnvelope();
+        malformed.remove("rubricScores");
+
+        JsonNode normalized = normalize(malformed, "Q53", Q53_ANSWER);
+
+        assertContractFailed(normalized);
+        assertThat(normalized.path("presentation_fallback").path("schema_version").asText())
+                .isEqualTo("practice-writing-presentation-fallback-v1");
+        assertThat(normalized.path("presentation_fallback").path("tong_quan").asText())
+                .isNotBlank();
+        assertThat(normalized.path("presentation_fallback").path("diem_manh").asText())
+                .isNotBlank();
+        assertThat(normalized.path("presentation_fallback").path("can_cai_thien").asText())
+                .isNotBlank();
     }
 
     @Test
@@ -128,7 +220,10 @@ class WritingEvaluationNormalizerTest {
         ObjectNode provider = q53AtomicEnvelope();
         rubric(provider, "W_LANGUAGE_EXPRESSION").put("score", 9);
 
-        assertContractFailed(normalize(provider, "Q53", Q53_ANSWER));
+        JsonNode partial = normalize(provider, "Q53", Q53_ANSWER);
+        assertThat(partial.path("score_available").asBoolean()).isFalse();
+        assertThat(partial.path("strengths")).hasSize(5);
+        assertThat(partial.path("needs_improvement")).hasSize(1);
     }
 
     @Test
@@ -172,8 +267,8 @@ class WritingEvaluationNormalizerTest {
         replaceIds(
                 (ObjectNode) noBlankAuthority.withArray("findings").get(0),
                 "requirementIds");
-        assertContractFailed(
-                normalize(noBlankAuthority, "Q51", answer));
+        assertThat(normalize(noBlankAuthority, "Q51", answer)
+                .path("evaluation_status").asText()).isEqualTo("EVALUATED_PARTIAL");
 
         ObjectNode ambiguousBlankAuthority = provider.deepCopy();
         replaceIds(
@@ -182,8 +277,8 @@ class WritingEvaluationNormalizerTest {
                 "requirementIds",
                 "CLOZE_BLANK_1_CONTEXT",
                 "CLOZE_BLANK_2_CONTEXT");
-        assertContractFailed(
-                normalize(ambiguousBlankAuthority, "Q51", answer));
+        assertThat(normalize(ambiguousBlankAuthority, "Q51", answer)
+                .path("evaluation_status").asText()).isEqualTo("EVALUATED_PARTIAL");
     }
 
     @Test

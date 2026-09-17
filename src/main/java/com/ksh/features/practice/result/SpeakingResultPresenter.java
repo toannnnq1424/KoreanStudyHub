@@ -226,6 +226,7 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 submetricPerformance(strengths, needsImprovement, criteria);
 
         SpeakingResultPayload payload = new SpeakingResultPayload(
+                "SPEAKING",
                 displayScore,
                 coveredSegments,
                 questions.size(),
@@ -233,7 +234,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 evidenceMode,
                 evidenceNote,
                 derivedOverviewSummaries(
-                        segments, strengths, needsImprovement),
+                        segments, strengths, needsImprovement,
+                        answered, feedback.state()),
                 strengths,
                 needsImprovement,
                 actionPlan(needsImprovement),
@@ -246,7 +248,8 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 policyBundleFingerprint,
                 contractTrust,
                 holisticAvailable,
-                0);
+                0,
+                technicalAiJson(storedFeedback, context.attempt()));
         return new Presentation(displayScore, distribution, feedback, payload);
     }
 
@@ -308,7 +311,10 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                     "Không có nhiệm vụ Nói để đối chiếu bằng chứng.",
                     "근거를 대조할 말하기 과제가 없습니다.",
                     List.of(),
-                    null);
+                    null,
+                    SpeakingTeacherSampleView.unavailable(),
+                    technicalAiJson(context.attempt().getAiFeedbackJson(),
+                            context.attempt()));
         }
 
         String rawAnswer = context.answers().getOrDefault(
@@ -401,7 +407,31 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                         selectedFeedback,
                         currentEvidence,
                         authoritativeTranscript),
-                teacherSample(root, selected.getQuestionId()));
+                teacherSample(root, selected.getQuestionId()),
+                technicalAiJson(context.attempt().getAiFeedbackJson(),
+                        context.attempt()));
+    }
+
+    private String technicalAiJson(String raw, PracticeAttempt attempt) {
+        if (raw == null || raw.isBlank()) {
+            try {
+                Map<String, Object> fallback = new LinkedHashMap<>();
+                fallback.put("resultCompleteness", "UNAVAILABLE");
+                fallback.put("reasonCode", attempt == null
+                        ? "AI_RESPONSE_NOT_RECORDED"
+                        : firstPresent(attempt.getAnalysisErrorCode(),
+                                "AI_RESPONSE_NOT_RECORDED"));
+                fallback.put("analysisStatus", attempt == null
+                        ? "UNKNOWN" : attempt.getAnalysisStatus());
+                fallback.put("providerRawResponseAvailable", false);
+                return objectMapper.writeValueAsString(fallback);
+            } catch (Exception ignored) {
+                return "{\"resultCompleteness\":\"UNAVAILABLE\"}";
+            }
+        }
+        return raw.length() <= 131_072
+                ? raw
+                : raw.substring(0, 131_072) + "\n…[đã cắt bớt]";
     }
 
     private static SpeakingTeacherSampleView teacherSample(
@@ -645,8 +675,40 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
                 submissionText,
                 submissionState,
                 evaluationState,
-                verifiedTaskSummary(feedback, currentEvidence),
+                visibleTaskSummary(feedback, currentEvidence, answer, evaluationState),
                 questionLanguageTag(question));
+    }
+
+    /**
+     * A failed provider response must not make an answered task look blank.  This
+     * deliberately contains no score, rubric claim, or invented language feedback:
+     * it is only a safe explanation of why the detailed result is not available.
+     */
+    private static String visibleTaskSummary(
+            SpeakingEvaluationResult feedback,
+            boolean currentEvidence,
+            String answer,
+            String evaluationState
+    ) {
+        String verified = verifiedTaskSummary(feedback, currentEvidence);
+        if (verified != null || !present(answer)) {
+            return verified;
+        }
+        if (feedback != null && feedback.presentationFallback() != null) {
+            String fbSummary = feedback.presentationFallback().get("xxx_tongquan");
+            if (fbSummary == null || fbSummary.isBlank()) {
+                fbSummary = feedback.presentationFallback().get("tong_quan");
+            }
+            if (fbSummary != null && !fbSummary.isBlank()) {
+                return fbSummary.trim();
+            }
+        }
+        if ("FAILED".equals(evaluationState) || "UNAVAILABLE".equals(evaluationState)) {
+            return "AI chưa tạo được đánh giá Nói có thể kiểm chứng cho câu này. "
+                    + "Không có điểm hoặc nhận xét tiêu chí nào được suy đoán; "
+                    + "hãy chấm lại để nhận kết quả đầy đủ.";
+        }
+        return null;
     }
 
     private String questionLanguageTag(PracticeQuestionVersion question) {
@@ -1170,6 +1232,15 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
         String upgraded = eligible && present(feedback.upgradedAnswer())
                 ? feedback.upgradedAnswer()
                 : "";
+        if (upgraded.isBlank() && feedback != null && feedback.presentationFallback() != null) {
+            String fbUpgrade = feedback.presentationFallback().get("xxx_bainangcap");
+            if (fbUpgrade == null || fbUpgrade.isBlank()) {
+                fbUpgrade = feedback.presentationFallback().get("bai_nang_cap");
+            }
+            if (fbUpgrade != null && !fbUpgrade.isBlank()) {
+                upgraded = fbUpgrade.trim();
+            }
+        }
         String sample = eligible && present(feedback.sampleAnswer())
                 ? feedback.sampleAnswer()
                 : "";
@@ -1457,9 +1528,18 @@ final class SpeakingResultPresenter implements PracticeResultPresenter, Practice
     private static List<String> derivedOverviewSummaries(
             List<SegmentFeedback> segments,
             List<SpeakingOverviewFindingView> strengths,
-            List<SpeakingOverviewFindingView> needsImprovement
+            List<SpeakingOverviewFindingView> needsImprovement,
+            int answered,
+            String feedbackState
     ) {
         if (segments.isEmpty()) {
+            if (answered > 0 && ("FAILED".equals(feedbackState)
+                    || "UNAVAILABLE".equals(feedbackState))) {
+                return List.of(
+                        "AI chưa tạo được hồ sơ Nói có thể kiểm chứng cho lần này. "
+                                + "Không có điểm hoặc nhận xét tiêu chí nào được suy đoán; "
+                                + "hãy chấm lại để nhận kết quả đầy đủ.");
+            }
             return List.of();
         }
         long evidenceCount = segments.stream()

@@ -1,6 +1,9 @@
 package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,11 +21,119 @@ import java.util.Set;
 /**
  * Strict referential verifier for the current Writing provider envelope.
  *
- * <p>Offsets are provider-supplied UTF-16 indexes and are only verified, never
- * inferred from an evidence string. Invalid, ambiguous, overlapping or
- * contradictory envelopes fail closed before score availability.</p>
+ * <p>The provider boundary resolves exact quotations against NFC learner text.
+ * The strict verifier remains available for internal envelopes containing
+ * backend-derived UTF-16 positions.</p>
  */
 public final class WritingEvidenceLedgerVerifier {
+
+    public record Rejection(String path, String message) {}
+    public record Recovery(VerifiedEnvelope envelope, List<Rejection> rejected) {}
+
+    /** Resolve source positions locally and quarantine invalid rows with their dependants. */
+    public Recovery recover(JsonNode input, String taskType, String learnerAnswer) {
+        if (!(input instanceof ObjectNode)) throw invalid("Writing root must be an object");
+        ObjectNode root = input.deepCopy();
+        root.remove("compactFallback");
+        requireExactFields(root, ROOT_FIELDS, "Writing root");
+        if (!WritingPromptRules.EVALUATION_SCHEMA_VERSION.equals(text(root, "schemaVersion"))
+                || !WritingPromptRules.PROMPT_VERSION.equals(text(root, "promptVersion"))
+                || !WritingScoreAnchorPolicy.VERSION.equals(text(root, "scoreAnchorVersion"))
+                || !WritingTaskRequirementPolicy.VERSION.equals(text(root, "taskRequirementVersion"))) {
+            throw invalid("Writing response contract version is stale");
+        }
+        String source = Normalizer.normalize(learnerAnswer == null ? "" : learnerAnswer, Normalizer.Form.NFC);
+        String hash = sha256(source);
+        List<Rejection> rejected = new ArrayList<>();
+        Map<String, Evidence> evidence = new LinkedHashMap<>();
+        int index = 0;
+        for (JsonNode row : array(root, "evidenceLedger")) {
+            String path = "/evidenceLedger/" + index++;
+            try {
+                String id = identifier(row, "evidenceId");
+                if (evidence.containsKey(id)) throw invalid("Duplicate evidenceId");
+                String exact = nonBlankText(row, "exactText");
+                List<Integer> positions = occurrences(source, exact);
+                if (positions.isEmpty()) throw invalid("exactText does not occur in the NFC learner answer");
+                int occurrence = row.path("occurrenceIndex").isMissingNode()
+                        || row.path("occurrenceIndex").isNull()
+                        ? (positions.size() == 1 ? 1 : 0) : positiveInteger(row, "occurrenceIndex");
+                if (occurrence < 1 || occurrence > positions.size()) {
+                    throw invalid("occurrenceIndex is missing/ambiguous or out of range");
+                }
+                int start = positions.get(occurrence - 1);
+                evidence.put(id, new Evidence(id, exact, start,
+                        start + exact.length(), occurrence, positions.size(), SOURCE_NORMALIZATION, hash));
+            } catch (IllegalArgumentException ex) { rejected.add(new Rejection(path, ex.getMessage())); }
+        }
+        Map<String, WritingTaskRequirementPolicy.Requirement> requirements = new LinkedHashMap<>();
+        for (var row : WritingTaskRequirementPolicy.requirementsFor(taskType)) requirements.put(row.requirementId(), row);
+        Set<String> validRequirementIds = requirements.keySet();
+        List<Coverage> coverage = new ArrayList<>();
+        Set<String> acceptedRequirements = new LinkedHashSet<>();
+        index = 0;
+        for (JsonNode row : array(root, "taskCoverage")) {
+            String path = "/taskCoverage/" + index++;
+            try {
+                String id = identifier(row, "requirementId");
+                if (!requirements.containsKey(id) || acceptedRequirements.contains(id)) throw invalid("Unknown or duplicate requirementId " + id);
+                coverage.addAll(coverage(single(row), Map.of(id, requirements.get(id)), evidence.keySet(), source));
+                acceptedRequirements.add(id);
+            } catch (IllegalArgumentException ex) { rejected.add(new Rejection(path, ex.getMessage())); }
+        }
+        for (String id : requirements.keySet()) if (!acceptedRequirements.contains(id)) {
+            rejected.add(new Rejection("/taskCoverage/" + id, "Requirement has no validated coverage"));
+        }
+        Map<String, Finding> findings = new LinkedHashMap<>();
+        index = 0;
+        for (JsonNode row : array(root, "findings")) {
+            String path = "/findings/" + index++;
+            try {
+                // Pass validRequirementIds so findings are not rejected just because taskCoverage failed
+                Map<String, Finding> candidate = findings(single(row), taskType, evidence, validRequirementIds);
+                String id = candidate.keySet().iterator().next();
+                if (findings.containsKey(id)) throw invalid("Duplicate findingId " + id);
+                findings.putAll(candidate);
+            } catch (IllegalArgumentException ex) { rejected.add(new Rejection(path, ex.getMessage())); }
+        }
+        List<RubricJudgment> rubrics = new ArrayList<>();
+        Set<String> acceptedRubrics = new HashSet<>();
+        index = 0;
+        for (JsonNode row : array(root, "rubricScores")) {
+            String path = "/rubricScores/" + index++;
+            try {
+                var candidate = rubrics(single(row), taskType, evidence.keySet(), findings, coverage, requirements, true);
+                if (!acceptedRubrics.add(candidate.get(0).criterionId())) throw invalid("Duplicate rubric criterion " + candidate.get(0).criterionId());
+                rubrics.addAll(candidate);
+            } catch (IllegalArgumentException ex) { rejected.add(new Rejection(path, ex.getMessage())); }
+        }
+        if (rubrics.size() != WritingScoringPolicy.rubricFor(taskType).criteria().size()) {
+            rejected.add(new Rejection("/rubricScores", "Incomplete validated rubric; total score withheld"));
+        }
+        List<Rewrite> rewrites = new ArrayList<>();
+        JsonNode upgradeNode = root.path("upgradedAnswer");
+        if (!upgradeNode.isObject() || !upgradeNode.path("content").isTextual()) {
+            rejected.add(new Rejection("/upgradedAnswer", "Invalid upgrade object or content"));
+        }
+        index = 0;
+        for (JsonNode row : upgradeNode.path("rewrites").isArray()
+                ? upgradeNode.path("rewrites") : JsonNodeFactory.instance.arrayNode()) {
+            String path = "/upgradedAnswer/rewrites/" + index++;
+            try {
+                ObjectNode one = JsonNodeFactory.instance.objectNode();
+                one.put("content", ""); one.set("rewrites", single(row));
+                rewrites.addAll(upgrade(one, evidence, findings).rewrites());
+            } catch (IllegalArgumentException ex) { rejected.add(new Rejection(path, ex.getMessage())); }
+        }
+        // Retain proposed upgraded answer text even if individual rewrites are unverified
+        String content = upgradeNode.path("content").asText("");
+        return new Recovery(new VerifiedEnvelope(source, hash, List.copyOf(evidence.values()), coverage,
+                List.copyOf(findings.values()), rubrics, new Upgrade(content, rewrites)), List.copyOf(rejected));
+    }
+
+    private static ArrayNode single(JsonNode row) {
+        return JsonNodeFactory.instance.arrayNode().add(row);
+    }
 
     public static final String CONTRACT_VERSION =
             "writing-evidence-ledger-v2";
@@ -131,7 +242,6 @@ public final class WritingEvidenceLedgerVerifier {
             String source,
             String sourceHash) {
         Map<String, Evidence> result = new LinkedHashMap<>();
-        List<Range> ranges = new ArrayList<>();
         for (JsonNode node : rows) {
             requireExactFields(node, EVIDENCE_FIELDS, "Writing evidence");
             String evidenceId = identifier(node, "evidenceId");
@@ -168,16 +278,12 @@ public final class WritingEvidenceLedgerVerifier {
                     sourceHash)) != null) {
                 throw invalid("Duplicate Writing evidence ID");
             }
-            ranges.add(new Range(start, end, evidenceId));
         }
-        ranges.sort(Comparator.comparingInt(Range::start)
-                .thenComparingInt(Range::end));
-        for (int index = 1; index < ranges.size(); index++) {
-            if (ranges.get(index).start() < ranges.get(index - 1).end()) {
-                throw invalid(
-                        "Overlapping Writing evidence spans are not authoritative");
-            }
-        }
+        // Nested spans are valid: a language finding can concern a short
+        // phrase inside a longer, independently cited content span. Each
+        // span above is still verified against the immutable answer, its
+        // exact UTF-16 offsets, hash, and occurrence identity. The presenter
+        // owns visual precedence so nested highlights do not fabricate text.
         return result;
     }
 
@@ -241,44 +347,46 @@ public final class WritingEvidenceLedgerVerifier {
             String operation = text(node, "operation");
             WritingRubricCriterion criterion = WritingRubricCriterion.parse(
                     text(node, "criterionId"));
-            String scoringCriterionId = nullableText(
-                    node.get("scoringCriterionId"));
-            String subtype = nonBlankText(node, "subtype");
-            String errorCategory = nonBlankText(node, "errorCategory");
+            if (criterion == null || !criterion.activeForProvider() || !criterion.appliesTo(taskType)) {
+                throw invalid("Writing finding criterionId '" + text(node, "criterionId") + "' is invalid for task " + taskType);
+            }
+            if (!POLARITIES.contains(polarity)) {
+                throw invalid("Writing finding polarity '" + polarity + "' is invalid (allowed: " + POLARITIES + ")");
+            }
+            if (!OPERATIONS.contains(operation)) {
+                throw invalid("Writing finding operation '" + operation + "' is invalid (allowed: " + OPERATIONS + ")");
+            }
+
             List<String> evidenceRefs = identifiers(node, "evidenceIds");
             List<String> requirementRefs = identifiers(node, "requirementIds");
-            WritingRubricCriterion.EvidenceScope evidenceScope =
-                    evidenceRefs.isEmpty()
-                            ? WritingRubricCriterion.EvidenceScope.WHOLE_ANSWER
-                            : WritingRubricCriterion.EvidenceScope.TEXT_SPAN;
             requireKnown(evidenceRefs, evidence.keySet(), "finding evidence");
             requireKnown(requirementRefs, requirementIds, "finding requirement");
-            if (!POLARITIES.contains(polarity)
-                    || !OPERATIONS.contains(operation)
-                    || criterion == null
-                    || !criterion.activeForProvider()
-                    || !WritingDiagnosticContract.ledgerEligible(criterion)
-                    || !criterion.appliesTo(taskType)
-                    || !criterion.supports(evidenceScope)
-                    || !WritingDiagnosticContract.allowedSubtypes(criterion)
-                    .contains(subtype)
-                    || !WritingDiagnosticContract.categoryCode(criterion)
-                    .equals(errorCategory)
-                    || !java.util.Objects.equals(
-                    WritingDiagnosticContract.expectedParentCriterionId(
-                            criterion, taskType, requirementRefs),
-                    scoringCriterionId)
-                    || !validOperation(polarity, operation, evidenceRefs)
-                    || !validFindingMetadata(node)
-                    || result.containsKey(findingId)) {
-                throw invalid("Writing finding is outside the strict registry");
+
+            if (!validOperation(polarity, operation, evidenceRefs)) {
+                throw invalid("Operation '" + operation + "' is invalid for polarity '" + polarity + "' with " + evidenceRefs.size() + " evidence spans");
             }
-            for (String evidenceRef : evidenceRefs) {
-                if (!findingEvidenceIds.add(evidenceRef)) {
-                    throw invalid(
-                            "One Writing evidence span cannot own multiple findings");
-                }
+            if (!validFindingMetadata(node)) {
+                throw invalid("Finding metadata invalid for " + findingId + " (check impact/confidence/observability/replacement)");
             }
+            if (result.containsKey(findingId)) {
+                throw invalid("Duplicate findingId '" + findingId + "'");
+            }
+
+            // Backend automatically derives and supplements errorCategory and scoringCriterionId
+            String errorCategory = WritingDiagnosticContract.categoryCode(criterion);
+            String scoringCriterionId = WritingDiagnosticContract.expectedParentCriterionId(
+                    criterion, taskType, requirementRefs);
+            if (WritingDiagnosticContract.isClozeTask(taskType) && scoringCriterionId == null) {
+                throw invalid("Cloze finding requires unambiguous blank requirement");
+            }
+
+            // Backend normalizes subtype if omitted or outside allowed subtypes
+            String subtype = nonBlankText(node, "subtype");
+            List<String> allowedSubtypes = WritingDiagnosticContract.allowedSubtypes(criterion);
+            if (!allowedSubtypes.contains(subtype)) {
+                subtype = allowedSubtypes.isEmpty() ? "GENERAL" : allowedSubtypes.get(0);
+            }
+
             Finding finding = new Finding(
                     findingId,
                     polarity,
@@ -324,12 +432,13 @@ public final class WritingEvidenceLedgerVerifier {
             String operation,
             List<String> evidenceRefs) {
         if ("STRENGTH".equals(polarity)) {
-            return "KEEP".equals(operation) && evidenceRefs.size() <= 1;
+            return "KEEP".equals(operation);
         }
-        if ("MISSING".equals(operation)) {
-            return evidenceRefs.isEmpty();
-        }
-        return evidenceRefs.size() == 1;
+        return switch (operation) {
+            case "MISSING" -> evidenceRefs.isEmpty();
+            case "REPLACE", "REDUNDANT" -> !evidenceRefs.isEmpty();
+            default -> false;
+        };
     }
 
     private static List<RubricJudgment> rubrics(
@@ -339,6 +448,16 @@ public final class WritingEvidenceLedgerVerifier {
             Map<String, Finding> findings,
             List<Coverage> coverage,
             Map<String, WritingTaskRequirementPolicy.Requirement> requirements) {
+        return rubrics(rows, taskType, evidenceIds, findings, coverage, requirements, false);
+    }
+
+    private static List<RubricJudgment> rubrics(
+            JsonNode rows,
+            String taskType,
+            Set<String> evidenceIds,
+            Map<String, Finding> findings,
+            List<Coverage> coverage,
+            Map<String, WritingTaskRequirementPolicy.Requirement> requirements, boolean partial) {
         WritingScoringRubric rubric = WritingScoringPolicy.rubricFor(taskType);
         Map<String, WritingScoringCriterion> expected = new LinkedHashMap<>();
         for (WritingScoringCriterion criterion : rubric.criteria()) {
@@ -355,43 +474,76 @@ public final class WritingEvidenceLedgerVerifier {
             List<String> findingRefs = identifiers(node, "findingIds");
             List<String> requirementRefs = identifiers(
                     node, "requirementIds");
-            requireKnown(evidenceRefs, evidenceIds, "rubric evidence");
-            requireKnown(findingRefs, findings.keySet(), "rubric finding");
-            requireKnown(requirementRefs, requirements.keySet(),
-                    "rubric requirement");
-            if (criterion == null
-                    || maxScore != criterion.maxScore()
-                    || result.containsKey(criterionId)) {
-                throw invalid("Writing rubric identity is invalid");
+
+            if (partial) {
+                // Recovery mode: auto-correct maxScore from policy and clamp score
+                if (criterion == null || result.containsKey(criterionId)) {
+                    throw invalid("Writing rubric identity is invalid: " + criterionId);
+                }
+                // AI may return wrong maxScore; use authoritative value from policy
+                int correctMaxScore = criterion.maxScore();
+                maxScore = correctMaxScore;
+                // Clamp score into valid range [0, correctMaxScore]
+                score = Math.max(0, Math.min(score, correctMaxScore));
+            } else {
+                if (criterion == null
+                        || maxScore != criterion.maxScore()
+                        || result.containsKey(criterionId)) {
+                    throw invalid("Writing rubric identity is invalid: " + criterionId);
+                }
             }
             WritingScoreAnchorPolicy.ScoreAnchor anchor =
                     WritingScoreAnchorPolicy.requireAnchor(criterion, score);
-            Set<String> ownedFindings = new LinkedHashSet<>();
-            for (Finding finding : findings.values()) {
-                if (criterionId.equals(finding.scoringCriterionId())) {
-                    ownedFindings.add(finding.findingId());
+
+            if (partial) {
+                findingRefs = findingRefs.stream()
+                        .filter(findings::containsKey)
+                        .filter(fid -> criterionId.equals(findings.get(fid).scoringCriterionId()))
+                        .toList();
+                requirementRefs = requirementRefs.stream()
+                        .filter(requirements::containsKey)
+                        .filter(rid -> criterionId.equals(requirements.get(rid).scoringCriterionId()))
+                        .toList();
+                evidenceRefs = evidenceRefs.stream()
+                        .filter(evidenceIds::contains)
+                        .toList();
+                if (score == maxScore && contradictsMaximum(criterionId, findings.values(), coverage, requirements)) {
+                    throw invalid("Writing rubric judgment contradicts verified evidence");
                 }
-            }
-            Set<String> ownedRequirements = new LinkedHashSet<>();
-            for (WritingTaskRequirementPolicy.Requirement requirement
-                    : requirements.values()) {
-                if (criterionId.equals(requirement.scoringCriterionId())) {
-                    ownedRequirements.add(requirement.requirementId());
+            } else {
+                requireKnown(evidenceRefs, evidenceIds, "rubric evidence");
+                requireKnown(findingRefs, findings.keySet(), "rubric finding");
+                requireKnown(requirementRefs, requirements.keySet(), "rubric requirement");
+                Set<String> ownedFindings = new LinkedHashSet<>();
+                for (Finding finding : findings.values()) {
+                    if (criterionId.equals(finding.scoringCriterionId())) {
+                        ownedFindings.add(finding.findingId());
+                    }
                 }
-            }
-            if (!new LinkedHashSet<>(findingRefs).equals(ownedFindings)
-                    || !new LinkedHashSet<>(requirementRefs)
-                    .equals(ownedRequirements)
-                    || score > 0 && evidenceRefs.isEmpty()
-                    || contradictsAnchor(
-                    criterionId,
-                    score,
-                    maxScore,
-                    findings.values(),
-                    coverage,
-                    requirements)) {
-                throw invalid(
-                        "Writing rubric judgment contradicts verified evidence");
+                Set<String> ownedRequirements = new LinkedHashSet<>();
+                for (WritingTaskRequirementPolicy.Requirement requirement
+                        : requirements.values()) {
+                    if (criterionId.equals(requirement.scoringCriterionId())) {
+                        ownedRequirements.add(requirement.requirementId());
+                    }
+                }
+                if (!new LinkedHashSet<>(findingRefs).equals(ownedFindings)
+                        || !new LinkedHashSet<>(requirementRefs).equals(ownedRequirements)
+                        || (score > 0 && evidenceRefs.isEmpty())) {
+                    throw invalid("Writing rubric judgment contradicts verified evidence");
+                }
+
+                if (contradictsAnchor(
+                        criterionId,
+                        score,
+                        maxScore,
+                        findings.values(),
+                        coverage,
+                        requirements,
+                        partial)) {
+                    throw invalid(
+                            "Writing rubric judgment contradicts verified evidence");
+                }
             }
             result.put(criterionId, new RubricJudgment(
                     criterionId,
@@ -403,7 +555,7 @@ public final class WritingEvidenceLedgerVerifier {
                     findingRefs,
                     requirementRefs));
         }
-        if (!result.keySet().equals(expected.keySet())) {
+        if (!partial && !result.keySet().equals(expected.keySet())) {
             throw invalid("Writing rubric coverage is incomplete");
         }
         return List.copyOf(result.values());
@@ -435,11 +587,36 @@ public final class WritingEvidenceLedgerVerifier {
             java.util.Collection<Finding> findings,
             List<Coverage> coverage,
             Map<String, WritingTaskRequirementPolicy.Requirement> requirements) {
+        return contradictsAnchor(criterionId, score, maxScore, findings, coverage, requirements, false);
+    }
+
+    private static boolean contradictsAnchor(
+            String criterionId,
+            int score,
+            int maxScore,
+            java.util.Collection<Finding> findings,
+            List<Coverage> coverage,
+            Map<String, WritingTaskRequirementPolicy.Requirement> requirements,
+            boolean partial) {
+        if (score == maxScore) {
+            return contradictsMaximum(
+                    criterionId, findings, coverage, requirements);
+        }
+        if (score == 0) {
+            boolean hasStrength = findings.stream().anyMatch(finding ->
+                    "STRENGTH".equals(finding.polarity())
+                            && criterionId.equals(finding.scoringCriterionId()));
+            boolean hasMetRequirement = coverage.stream().anyMatch(row -> {
+                WritingTaskRequirementPolicy.Requirement requirement =
+                        requirements.get(row.requirementId());
+                return requirement != null
+                        && criterionId.equals(requirement.scoringCriterionId())
+                        && "MET".equals(row.status());
+            });
+            return hasStrength || hasMetRequirement;
+        }
         boolean hasImprovement = findings.stream().anyMatch(finding ->
                 "IMPROVEMENT".equals(finding.polarity())
-                        && criterionId.equals(finding.scoringCriterionId()));
-        boolean hasStrength = findings.stream().anyMatch(finding ->
-                "STRENGTH".equals(finding.polarity())
                         && criterionId.equals(finding.scoringCriterionId()));
         boolean hasUnmetRequirement = coverage.stream().anyMatch(row -> {
             WritingTaskRequirementPolicy.Requirement requirement =
@@ -449,21 +626,16 @@ public final class WritingEvidenceLedgerVerifier {
                     && criterionId.equals(requirement.scoringCriterionId())
                     && !"MET".equals(row.status());
         });
-        boolean hasMetRequirement = coverage.stream().anyMatch(row -> {
-            WritingTaskRequirementPolicy.Requirement requirement =
-                    requirements.get(row.requirementId());
-            return requirement != null
-                    && criterionId.equals(requirement.scoringCriterionId())
-                    && "MET".equals(row.status());
-        });
-        if (score == maxScore) {
-            return contradictsMaximum(
-                    criterionId, findings, coverage, requirements);
+        if (hasImprovement || hasUnmetRequirement) {
+            return false;
         }
-        if (score == 0) {
-            return hasStrength || hasMetRequirement;
+        boolean hasStrength = findings.stream().anyMatch(finding ->
+                "STRENGTH".equals(finding.polarity())
+                        && criterionId.equals(finding.scoringCriterionId()));
+        if (hasStrength && (maxScore - score) <= 1) {
+            return false;
         }
-        return !hasImprovement && !hasUnmetRequirement;
+        return true;
     }
 
     private static Upgrade upgrade(
@@ -507,15 +679,7 @@ public final class WritingEvidenceLedgerVerifier {
 
     private static void requireOneToOnePositionedFindings(
             java.util.Collection<Finding> findings) {
-        Set<String> evidenceIds = new HashSet<>();
-        for (Finding finding : findings) {
-            for (String evidenceId : finding.evidenceIds()) {
-                if (!evidenceIds.add(evidenceId)) {
-                    throw invalid(
-                            "Writing finding/span ownership is not one-to-one");
-                }
-            }
-        }
+        // Multiple findings are permitted to reference the same evidence span (e.g. grammar + vocabulary).
     }
 
     private static List<Integer> occurrences(
@@ -664,8 +828,6 @@ public final class WritingEvidenceLedgerVerifier {
         return new IllegalArgumentException(message);
     }
 
-    private record Range(int start, int end, String evidenceId) {
-    }
 
     public record Evidence(
             String evidenceId,

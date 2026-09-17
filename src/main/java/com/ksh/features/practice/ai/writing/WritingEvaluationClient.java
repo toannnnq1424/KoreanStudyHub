@@ -30,6 +30,9 @@ import java.util.Map;
 public class WritingEvaluationClient {
 
     private static final Logger log = LoggerFactory.getLogger(WritingEvaluationClient.class);
+    // Keep one learner's typed envelope bounded. The control-plane binding
+    // owns the provider read timeout independently of this output budget.
+    private static final int UNIFIED_MAX_OUTPUT_TOKENS = 4_096;
 
     private final OpenAiProperties properties;
     private final ObjectMapper objectMapper;
@@ -82,6 +85,30 @@ public class WritingEvaluationClient {
 
     public String evaluate(String prompt, String learnerAnswer) {
         return evaluate(null, prompt, learnerAnswer, false);
+    }
+
+    /**
+     * Produces the typed zero-score envelope for an unanswered Writing task.
+     * This path deliberately does not inspect caches, resolve media, or call an
+     * AI provider.  It is used when the application has already established
+     * that a learner did not answer the question.
+     */
+    public String unansweredResponse(
+            WritingTaskType taskType,
+            String learnerAnswer) {
+        return normalizer.spamResponse(
+                taskType == null ? "GENERAL" : taskType.name(),
+                learnerAnswer);
+    }
+
+    public String unavailableResponse(
+            WritingTaskType taskType,
+            String learnerAnswer) {
+        return normalizer.providerUnavailable(
+                "EVALUATION_PENDING",
+                taskType == null ? "GENERAL" : taskType.name(),
+                learnerAnswer,
+                true);
     }
 
     public String evaluationContractIdentity() {
@@ -353,7 +380,7 @@ public class WritingEvaluationClient {
                             String.valueOf(jsonSchema.get("name")),
                             schema,
                             images,
-                            4096,
+                            UNIFIED_MAX_OUTPUT_TOKENS,
                             "");
             return structuredGeneration.generate(request).output();
         } catch (PracticeAiContractException exception) {
@@ -549,7 +576,7 @@ public class WritingEvaluationClient {
     private Map<String, Object> unifiedSchema() {
         Map<String, Object> schema = baseObject(list(
                 "schemaVersion", "promptVersion", "scoreAnchorVersion",
-                "taskRequirementVersion",
+                "taskRequirementVersion", "compactFallback",
                 "rubricScores", "taskCoverage", "evidenceLedger",
                 "findings", "upgradedAnswer"));
         schema.put("properties", prop(
@@ -561,12 +588,23 @@ public class WritingEvaluationClient {
                         WritingScoreAnchorPolicy.VERSION),
                 "taskRequirementVersion", enumSchema(
                         WritingTaskRequirementPolicy.VERSION),
+                "compactFallback", compactFallbackSchema(),
                 "rubricScores", arrayOf(rubricJudgmentSchema()),
                 "taskCoverage", arrayOf(taskCoverageSchema()),
                 "evidenceLedger", arrayOf(evidenceSchema()),
                 "findings", arrayOf(findingSchema()),
                 "upgradedAnswer", upgradedAnswerSchema()));
         return schema;
+    }
+
+    private Map<String, Object> compactFallbackSchema() {
+        return objectSchema(
+                list("xxx_tongquan", "xxx_diemmanh", "xxx_cancaithien",
+                        "xxx_bainangcap"),
+                prop("xxx_tongquan", typed("string"),
+                        "xxx_diemmanh", typed("string"),
+                        "xxx_cancaithien", typed("string"),
+                        "xxx_bainangcap", typed("string")));
     }
 
     private Map<String, Object> rubricJudgmentSchema() {
@@ -593,21 +631,10 @@ public class WritingEvaluationClient {
 
     private Map<String, Object> evidenceSchema() {
         return objectSchema(
-                list("evidenceId", "sourceRole", "exactText",
-                        "startOffset", "endOffset", "occurrenceIndex",
-                        "occurrenceCount", "normalization", "sourceHash"),
+                list("evidenceId", "exactText", "occurrenceIndex"),
                 prop("evidenceId", typed("string"),
-                        "sourceRole", enumSchema(
-                                WritingEvidenceLedgerVerifier.SOURCE_ROLE),
                         "exactText", typed("string"),
-                        "startOffset", integerSchema(0),
-                        "endOffset", integerSchema(1),
-                        "occurrenceIndex", integerSchema(1),
-                        "occurrenceCount", integerSchema(1),
-                        "normalization", enumSchema(
-                                WritingEvidenceLedgerVerifier
-                                        .SOURCE_NORMALIZATION),
-                        "sourceHash", typed("string")));
+                        "occurrenceIndex", integerSchema(1)));
     }
 
     private Map<String, Object> findingSchema() {

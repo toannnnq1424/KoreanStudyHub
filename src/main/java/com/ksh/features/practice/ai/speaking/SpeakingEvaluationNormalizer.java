@@ -29,10 +29,11 @@ public class SpeakingEvaluationNormalizer {
             if (input == null || !input.isObject()) {
                 return contractFailure("PROVIDER_MALFORMED_JSON");
             }
+            Map<String, String> presentationFallback = extractPresentationFallback(input);
             SpeakingEvaluationStatus status = enumValue(
                     SpeakingEvaluationStatus.class, text(input, "evaluation_status"));
             if (status == null) {
-                return contractFailure("INVALID_EVALUATION_STATUS");
+                return contractFailure("INVALID_EVALUATION_STATUS", presentationFallback);
             }
             if (!status.scoreBearing()) {
                 return unavailable(status, input);
@@ -40,7 +41,7 @@ public class SpeakingEvaluationNormalizer {
 
             BigDecimal transcriptConfidence = confidence(input, "transcript_confidence");
             if (transcriptConfidence == null && input.hasNonNull("transcript_confidence")) {
-                return invalidProviderResult("INVALID_TRANSCRIPT_CONFIDENCE");
+                return invalidProviderResult("INVALID_TRANSCRIPT_CONFIDENCE", presentationFallback);
             }
 
             boolean lowConfidence = status == SpeakingEvaluationStatus.TRANSCRIPTION_LOW_CONFIDENCE
@@ -48,7 +49,13 @@ public class SpeakingEvaluationNormalizer {
                     && transcriptConfidence.compareTo(LOW_CONFIDENCE) < 0;
             String actuallyHeardTranscript = text(input, "actually_heard_transcript");
             if (actuallyHeardTranscript == null) {
-                return invalidProviderResult("MISSING_AUTHORITATIVE_TRANSCRIPT");
+                actuallyHeardTranscript = text(input, "transcript");
+                if (actuallyHeardTranscript == null) {
+                    actuallyHeardTranscript = text(input, "normalized_transcript");
+                }
+            }
+            if (actuallyHeardTranscript == null) {
+                return invalidProviderResult("MISSING_AUTHORITATIVE_TRANSCRIPT", presentationFallback);
             }
             List<SpeakingEvaluationResult.Evidence> evidence = lowConfidence
                     ? List.of()
@@ -59,7 +66,7 @@ public class SpeakingEvaluationNormalizer {
                     ? List.of()
                     : rubrics(input.path("rubric_scores"), evidenceById);
             if (!lowConfidence && rubrics.size() != SpeakingRubricCriterion.values().length) {
-                return contractFailure("INVALID_RUBRIC_CONTRACT");
+                return contractFailure("INVALID_RUBRIC_CONTRACT", presentationFallback);
             }
             List<SpeakingEvaluationResult.TranscriptAnnotation> annotations =
                     lowConfidence ? List.of() : transcriptAnnotations(
@@ -68,7 +75,7 @@ public class SpeakingEvaluationNormalizer {
                             evidenceById);
             if (!lowConfidence
                     && !scoreEvidenceReconciled(rubrics, annotations, evidenceById)) {
-                return contractFailure("SPEAKING_SCORE_EVIDENCE_CONTRADICTION");
+                return contractFailure("SPEAKING_SCORE_EVIDENCE_CONTRADICTION", presentationFallback);
             }
             List<SpeakingEvaluationResult.FeedbackItem> strengths =
                     feedbackItems(annotations, true);
@@ -131,9 +138,10 @@ public class SpeakingEvaluationNormalizer {
                     List.of(),
                     null,
                     input.path("retryable").asBoolean(false),
-                    text(input, "policy_bundle_fingerprint"));
+                    text(input, "policy_bundle_fingerprint"),
+                    presentationFallback);
         } catch (RuntimeException ex) {
-            return contractFailure("PROVIDER_CONTRACT_INVALID");
+            return contractFailure("PROVIDER_CONTRACT_INVALID", extractPresentationFallback(input));
         }
     }
 
@@ -142,23 +150,34 @@ public class SpeakingEvaluationNormalizer {
                 status,
                 source(input, status),
                 text(input, "error_category"),
-                input.path("retryable").asBoolean(true));
+                input.path("retryable").asBoolean(true),
+                extractPresentationFallback(input));
     }
 
     public SpeakingEvaluationResult contractFailure(String errorCategory) {
+        return contractFailure(errorCategory, Map.of());
+    }
+
+    public SpeakingEvaluationResult contractFailure(String errorCategory, Map<String, String> presentationFallback) {
         return emptyResult(
                 SpeakingEvaluationStatus.EVALUATION_CONTRACT_FAILED,
                 SpeakingEvaluationSource.SYSTEM,
                 errorCategory,
-                true);
+                true,
+                presentationFallback);
     }
 
     public SpeakingEvaluationResult invalidProviderResult(String errorCategory) {
+        return invalidProviderResult(errorCategory, Map.of());
+    }
+
+    public SpeakingEvaluationResult invalidProviderResult(String errorCategory, Map<String, String> presentationFallback) {
         return emptyResult(
                 SpeakingEvaluationStatus.INVALID_PROVIDER_RESULT,
                 SpeakingEvaluationSource.SYSTEM,
                 errorCategory,
-                true);
+                true,
+                presentationFallback);
     }
 
     private SpeakingEvaluationResult emptyResult(
@@ -166,6 +185,16 @@ public class SpeakingEvaluationNormalizer {
             SpeakingEvaluationSource source,
             String errorCategory,
             boolean retryable
+    ) {
+        return emptyResult(status, source, errorCategory, retryable, Map.of());
+    }
+
+    private SpeakingEvaluationResult emptyResult(
+            SpeakingEvaluationStatus status,
+            SpeakingEvaluationSource source,
+            String errorCategory,
+            boolean retryable,
+            Map<String, String> presentationFallback
     ) {
         return new SpeakingEvaluationResult(
                 status, false, source, null, null,
@@ -209,7 +238,30 @@ public class SpeakingEvaluationNormalizer {
                 List.of(),
                 errorCategory,
                 retryable,
-                SpeakingAssessmentPolicyBundle.fingerprint());
+                SpeakingAssessmentPolicyBundle.fingerprint(),
+                presentationFallback);
+    }
+
+    public Map<String, String> extractPresentationFallback(JsonNode input) {
+        if (input == null || !input.isObject()) {
+            return Map.of();
+        }
+        JsonNode cf = input.get("compactFallback");
+        if (!(cf instanceof com.fasterxml.jackson.databind.node.ObjectNode)) {
+            cf = input.get("presentation_fallback");
+        }
+        if (!(cf instanceof com.fasterxml.jackson.databind.node.ObjectNode obj)) {
+            return Map.of();
+        }
+        Map<String, String> map = new LinkedHashMap<>();
+        for (String key : List.of("xxx_tongquan", "xxx_diemmanh", "xxx_cancaithien", "xxx_bainangcap",
+                "tong_quan", "diem_manh", "can_cai_thien", "bai_nang_cap")) {
+            String val = text(obj, key);
+            if (val != null && !val.isBlank()) {
+                map.put(key, val);
+            }
+        }
+        return Map.copyOf(map);
     }
 
     private List<SpeakingEvaluationResult.RubricScore> rubrics(

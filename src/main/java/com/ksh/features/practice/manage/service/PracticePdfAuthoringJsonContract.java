@@ -23,7 +23,7 @@ public final class PracticePdfAuthoringJsonContract {
     static final Set<String> STIMULUS_FIELDS = Set.of(
             "type", "passageText", "transcriptText", "sourceRefs");
     static final Set<String> QUESTION_FIELDS = Set.of(
-            "sourceQuestionId", "questionType", "essayTaskType", "prompt",
+            "sourceQuestionId", "sourceQuestionNumber", "questionType", "essayTaskType", "prompt",
             "points", "explanationVi", "questionContent", "answerSpec",
             "sourceRefs", "confidence");
     static final Set<String> WARNING_FIELDS = Set.of(
@@ -67,21 +67,25 @@ public final class PracticePdfAuthoringJsonContract {
     }
 
     public static Map<String, Object> schema() {
+        return schema(null);
+    }
+
+    /** The provider schema is narrowed to the immutable target skill before
+     * dispatch, so an objective Reading request cannot emit ESSAY/SPEAKING. */
+    public static Map<String, Object> schema(String targetSkill) {
+        List<String> allowedQuestionTypes = allowedQuestionTypes(targetSkill);
         Map<String, Object> root = object(
                 List.of("schemaVersion", "operation", "sourceDigest", "groups", "warnings"),
                 props(
-                        "schemaVersion", Map.of("type", "string", "const", SCHEMA_VERSION),
+                        "schemaVersion", enumString(SCHEMA_VERSION),
                         "operation", enumString("EXTRACT", "GENERATE"),
-                        "sourceDigest", Map.of(
-                                "type", "string",
-                                "pattern", "^sha256:[0-9a-f]{64}$"),
-                        "groups", array(groupSchema(), 1, 100),
+                        "sourceDigest", Map.of("type", "string"),
+                        "groups", array(groupSchema(allowedQuestionTypes), 1, 100),
                         "warnings", array(warningSchema(), 0, 200)));
-        root.put("$schema", "https://json-schema.org/draft/2020-12/schema");
         return root;
     }
 
-    private static Map<String, Object> groupSchema() {
+    private static Map<String, Object> groupSchema(List<String> allowedQuestionTypes) {
         return object(
                 List.of("sourceGroupId", "label", "instruction", "stimulus",
                         "sourceRefs", "questions"),
@@ -91,7 +95,7 @@ public final class PracticePdfAuthoringJsonContract {
                         "instruction", text(0, 4000),
                         "stimulus", stimulusSchema(),
                         "sourceRefs", array(sourceRefSchema(), 0, 200),
-                        "questions", array(questionSchema(), 1, 200)));
+                        "questions", array(questionSchema(allowedQuestionTypes), 1, 200)));
     }
 
     private static Map<String, Object> stimulusSchema() {
@@ -104,34 +108,44 @@ public final class PracticePdfAuthoringJsonContract {
                         "sourceRefs", array(sourceRefSchema(), 0, 200)));
     }
 
-    private static Map<String, Object> questionSchema() {
+    private static Map<String, Object> questionSchema(List<String> allowedQuestionTypes) {
+        // `questionType` is a discriminator in the persisted assessment
+        // contract.  A broad enum here used to let a provider return, for
+        // example, a SINGLE_CHOICE question containing a FILL_BLANK answer
+        // spec.  That JSON is syntactically valid but cannot be published.
+        // Keep the discriminator correlated at generation time instead of
+        // asking lecturers to repair an otherwise usable candidate.
+        if (allowedQuestionTypes.size() > 1) {
+            return Map.of("anyOf", allowedQuestionTypes.stream()
+                    .map(PracticePdfAuthoringJsonContract::questionSchemaForType)
+                    .toList());
+        }
+        return questionSchemaForType(allowedQuestionTypes.get(0));
+    }
+
+    private static Map<String, Object> questionSchemaForType(String questionType) {
         return object(
                 List.of("sourceQuestionId", "questionType", "prompt", "points",
                         "questionContent", "answerSpec", "sourceRefs", "confidence"),
                 props(
                         "sourceQuestionId", stableId(),
-                        "questionType", enumString(
-                                "SINGLE_CHOICE", "MULTIPLE_ANSWER",
-                                "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "MATCHING",
-                                "ESSAY", "SPEAKING"),
-                        "essayTaskType", enumString("Q51", "Q52", "Q53", "Q54"),
+                        "sourceQuestionNumber", nullableInteger(1, 200),
+                        "questionType", enumString(questionType),
+                        "essayTaskType", nullableEnumString("Q51", "Q52", "Q53", "Q54"),
                         "prompt", text(1, 100_000),
-                        "points", Map.of("type", "number", "exclusiveMinimum", 0),
-                        "explanationVi", text(0, 100_000),
-                        "questionContent", questionContentSchema(),
-                        "answerSpec", answerSpecSchema(),
+                        "points", nullableNumber(),
+                        "explanationVi", nullableString(100_000),
+                        "questionContent", questionContentSchemaForType(questionType),
+                        "answerSpec", answerSpecSchemaForType(questionType),
                         "sourceRefs", array(sourceRefSchema(), 1, 200),
-                        "confidence", Map.of(
-                                "type", "number", "minimum", 0, "maximum", 1)));
+                        "confidence", nullableNumber()));
     }
 
     private static Map<String, Object> warningSchema() {
         return object(
                 List.of("code", "messageVi", "sourceRefs"),
                 props(
-                        "code", Map.of(
-                                "type", "string",
-                                "pattern", "^[A-Z][A-Z0-9_]{2,100}$"),
+                        "code", Map.of("type", "string"),
                         "messageVi", text(1, 2000),
                         "sourceRefs", array(sourceRefSchema(), 0, 200)));
     }
@@ -142,24 +156,61 @@ public final class PracticePdfAuthoringJsonContract {
                 props(
                         "kind", enumString("TEXT_SPAN", "PAGE"),
                         "sourceId", text(1, 200),
-                        "pageNumber", integer(1, null),
-                        "start", integer(0, null),
-                        "end", integer(0, null)));
+                        "pageNumber", nullableInteger(1, null),
+                        "start", nullableInteger(0, null),
+                        "end", nullableInteger(0, null)));
     }
 
-    private static Map<String, Object> questionContentSchema() {
+    private static Map<String, Object> questionContentSchemaForType(
+            String questionType) {
+        // question-content-v2 is an audio/delivery contract reserved for
+        // SPEAKING by AssessmentContractCodec.  Offering it to a Reading or
+        // Listening provider produced JSON that passed provider schema mode
+        // and then failed the canonical domain boundary.
+        return "SPEAKING".equals(questionType)
+                ? Map.of("anyOf", List.of(
+                        questionContentV2Schema(), questionContentV3Schema()))
+                : Map.of("anyOf", List.of(
+                        questionContentV1Schema(), questionContentV3Schema()));
+    }
+
+    private static Map<String, Object> questionContentV1Schema() {
         return object(
                 List.of("schemaVersion", "options", "blanks"),
                 props(
-                        "schemaVersion", enumString(
-                                "question-content-v1", "question-content-v2",
-                                "question-content-v3"),
+                        "schemaVersion", enumString("question-content-v1"),
                         "options", array(optionSchema(), 0, 8),
                         "blanks", array(contentBlankSchema(), 0, 100),
                         "imageReference", nullableString(512),
                         "audioReference", nullableString(512),
-                        "speakingDelivery", speakingSchema(),
-                        "writingResponse", writingResponseSchema(),
+                        "speakingDelivery", nullableObject(speakingSchema()),
+                        "writingResponse", nullableObject(writingResponseSchema())));
+    }
+
+    private static Map<String, Object> questionContentV2Schema() {
+        return object(
+                List.of("schemaVersion", "options", "blanks"),
+                props(
+                        "schemaVersion", enumString("question-content-v2"),
+                        "options", array(optionSchema(), 0, 8),
+                        "blanks", array(contentBlankSchema(), 0, 100),
+                        "imageReference", nullableString(512),
+                        "audioReference", nullableString(512),
+                        "speakingDelivery", nullableObject(speakingSchema()),
+                        "writingResponse", nullableObject(writingResponseSchema())));
+    }
+
+    private static Map<String, Object> questionContentV3Schema() {
+        return object(
+                List.of("schemaVersion", "options", "blanks", "languageTag"),
+                props(
+                        "schemaVersion", enumString("question-content-v3"),
+                        "options", array(optionSchema(), 0, 8),
+                        "blanks", array(contentBlankSchema(), 0, 100),
+                        "imageReference", nullableString(512),
+                        "audioReference", nullableString(512),
+                        "speakingDelivery", nullableObject(speakingSchema()),
+                        "writingResponse", nullableObject(writingResponseSchema()),
                         "languageTag", enumString("ko", "vi")));
     }
 
@@ -184,10 +235,10 @@ public final class PracticePdfAuthoringJsonContract {
                         "audioOrigin", "promptPlayLimit", "preparationSeconds",
                         "responseSeconds"),
                 props(
-                        "inputType", Map.of("type", "string", "const", "manual_text"),
-                        "deliveryMode", Map.of("type", "string", "const", "text_only"),
+                        "inputType", enumString("manual_text"),
+                        "deliveryMode", enumString("text_only"),
                         "promptAudioReference", Map.of("type", "null"),
-                        "audioOrigin", Map.of("type", "string", "const", "none"),
+                        "audioOrigin", enumString("none"),
                         "promptPlayLimit", Map.of("type", "null"),
                         "preparationSeconds", integer(0, 600),
                         "responseSeconds", integer(1, 1800)));
@@ -197,10 +248,8 @@ public final class PracticePdfAuthoringJsonContract {
         return object(
                 List.of("responseSchemaVersion", "responseMode", "taskType", "blanks"),
                 props(
-                        "responseSchemaVersion", Map.of(
-                                "type", "string", "const", "writing-blanks.v1"),
-                        "responseMode", Map.of(
-                                "type", "string", "const", "STRUCTURED_BLANKS"),
+                        "responseSchemaVersion", enumString("writing-blanks.v1"),
+                        "responseMode", enumString("STRUCTURED_BLANKS"),
                         "taskType", enumString("Q51", "Q52"),
                         "blanks", array(writingResponseBlankSchema(), 2, 2)));
     }
@@ -214,23 +263,37 @@ public final class PracticePdfAuthoringJsonContract {
                         "context", text(1, 1000)));
     }
 
-    private static Map<String, Object> answerSpecSchema() {
+    private static Map<String, Object> answerSpecSchema(List<String> allowedQuestionTypes) {
+        if (allowedQuestionTypes.size() > 1) {
+            return Map.of("anyOf", allowedQuestionTypes.stream()
+                    .map(PracticePdfAuthoringJsonContract::answerSpecSchemaForType)
+                    .toList());
+        }
+        return answerSpecSchemaForType(allowedQuestionTypes.get(0));
+    }
+
+    private static Map<String, Object> answerSpecSchemaForType(String questionType) {
         return object(
                 List.of("schemaVersion", "questionType", "correctOptionIds",
                         "correctValue", "blanks", "scoringPolicyCode"),
                 props(
-                        "schemaVersion", Map.of(
-                                "type", "string", "const", "answer-spec-v1"),
-                        "questionType", enumString(
-                                "SINGLE_CHOICE", "MULTIPLE_ANSWER",
-                                "TRUE_FALSE_NOT_GIVEN", "FILL_BLANK", "MATCHING",
-                                "ESSAY", "SPEAKING"),
+                        "schemaVersion", enumString("answer-spec-v1"),
+                        "questionType", enumString(questionType),
                         "correctOptionIds", array(stableId(), 0, 100),
                         "correctValue", nullableString(10_000),
                         "blanks", array(answerBlankSchema(), 0, 100),
-                        "scoringPolicyCode", enumString(
-                                "ALL_OR_NOTHING", "NORMALIZED_EXACT", "PROFILE_BASED"),
-                        "writingBlankAuthority", writingAuthoritySchema()));
+                        "scoringPolicyCode", scoringPolicyFor(questionType),
+                        "writingBlankAuthority", nullableObject(writingAuthoritySchema())));
+    }
+
+    private static Map<String, Object> scoringPolicyFor(String questionType) {
+        return switch (questionType) {
+            case "SINGLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE_NOT_GIVEN" ->
+                    enumString("ALL_OR_NOTHING");
+            case "FILL_BLANK", "MATCHING" -> enumString("NORMALIZED_EXACT");
+            case "ESSAY", "SPEAKING" -> enumString("PROFILE_BASED");
+            default -> throw new IllegalArgumentException("Unsupported question type: " + questionType);
+        };
     }
 
     private static Map<String, Object> answerBlankSchema() {
@@ -246,12 +309,10 @@ public final class PracticePdfAuthoringJsonContract {
                 List.of("contractVersion", "taskType", "normalization",
                         "whitespacePolicy", "blanks"),
                 props(
-                        "contractVersion", Map.of(
-                                "type", "string", "const", "writing-blank-authority.v1"),
+                        "contractVersion", enumString("writing-blank-authority.v1"),
                         "taskType", enumString("Q51", "Q52"),
-                        "normalization", Map.of("type", "string", "const", "NFC"),
-                        "whitespacePolicy", Map.of(
-                                "type", "string", "const", "TRIM_COLLAPSE"),
+                        "normalization", enumString("NFC"),
+                        "whitespacePolicy", enumString("TRIM_COLLAPSE"),
                         "blanks", array(writingAuthorityBlankSchema(), 2, 2)));
     }
 
@@ -269,35 +330,69 @@ public final class PracticePdfAuthoringJsonContract {
                 List.of("text", "equivalence", "evidenceIds"),
                 props(
                         "text", text(1, 10_000),
-                        "equivalence", Map.of("type", "string", "const", "EXACT"),
+                        "equivalence", enumString("EXACT"),
                         "reason", nullableString(1000),
                         "evidenceIds", array(stableId(), 0, 100)));
     }
 
+    private static List<String> allowedQuestionTypes(String targetSkill) {
+        return switch (targetSkill == null ? "" : targetSkill) {
+            case "READING", "LISTENING" -> List.of(
+                    "SINGLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE_NOT_GIVEN",
+                    "FILL_BLANK", "MATCHING");
+            case "WRITING" -> List.of("ESSAY");
+            case "SPEAKING" -> List.of("SPEAKING");
+            default -> List.of(
+                    "SINGLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE_NOT_GIVEN",
+                    "FILL_BLANK", "MATCHING", "ESSAY", "SPEAKING");
+        };
+    }
+
     private static Map<String, Object> stableId() {
-        return Map.of(
-                "type", "string",
-                "pattern", "^[A-Za-z0-9._-]{1,80}$");
+        return Map.of("type", "string");
     }
 
     private static Map<String, Object> enumString(String... values) {
         return Map.of("type", "string", "enum", List.of(values));
     }
 
+    private static Map<String, Object> enumString(List<String> values) {
+        return Map.of("type", "string", "enum", List.copyOf(values));
+    }
+
+    private static Map<String, Object> nullableEnumString(String... values) {
+        List<Object> nullableValues = new java.util.ArrayList<>(List.of(values));
+        nullableValues.add(null);
+        return Map.of("type", List.of("string", "null"), "enum", nullableValues);
+    }
+
     private static Map<String, Object> text(int min, int max) {
-        return Map.of(
-                "type", "string", "minLength", min, "maxLength", max);
+        return Map.of("type", "string");
     }
 
     private static Map<String, Object> nullableString(int max) {
-        return Map.of("type", List.of("string", "null"), "maxLength", max);
+        return Map.of("type", List.of("string", "null"));
     }
 
     private static Map<String, Object> integer(Integer min, Integer max) {
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("type", "integer");
-        if (min != null) value.put("minimum", min);
-        if (max != null) value.put("maximum", max);
+        return value;
+    }
+
+    private static Map<String, Object> nullableInteger(Integer min, Integer max) {
+        Map<String, Object> value = integer(min, max);
+        value.put("type", List.of("integer", "null"));
+        return value;
+    }
+
+    private static Map<String, Object> nullableNumber() {
+        return Map.of("type", List.of("number", "null"));
+    }
+
+    private static Map<String, Object> nullableObject(Map<String, Object> objectSchema) {
+        Map<String, Object> value = new LinkedHashMap<>(objectSchema);
+        value.put("type", List.of("object", "null"));
         return value;
     }
 
@@ -306,8 +401,6 @@ public final class PracticePdfAuthoringJsonContract {
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("type", "array");
         value.put("items", items);
-        value.put("minItems", min);
-        value.put("maxItems", max);
         return value;
     }
 
@@ -316,7 +409,10 @@ public final class PracticePdfAuthoringJsonContract {
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("type", "object");
         value.put("additionalProperties", false);
-        value.put("required", required);
+        // OpenAI-compatible strict JSON Schema requires every declared
+        // property to be required. Optional domain fields are represented as
+        // nullable and are normalized away by the server before validation.
+        value.put("required", List.copyOf(properties.keySet()));
         value.put("properties", properties);
         return value;
     }

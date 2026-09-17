@@ -2559,7 +2559,8 @@ public final class PracticeDtos {
             List<WritingDiagnosticGroup> diagnosticGroups,
             WritingUpgradeView upgrade,
             List<WritingBlankAnswerView> structuredBlankAnswers,
-            WritingTeacherSampleView teacherSample
+            WritingTeacherSampleView teacherSample,
+            @JsonIgnore String technicalAiJson
     ) implements ResultDetailPayload {
         public WritingDetailPayload {
             if (feedback == null
@@ -2588,6 +2589,7 @@ public final class PracticeDtos {
             diagnosticGroups = immutableResultList(diagnosticGroups);
             structuredBlankAnswers =
                     immutableResultList(structuredBlankAnswers);
+            technicalAiJson = blankResultText(technicalAiJson);
             if (teacherSample == null) {
                 throw new IllegalArgumentException(
                         "Writing teacher sample state is required");
@@ -2737,7 +2739,37 @@ public final class PracticeDtos {
                     diagnosticGroups,
                     upgrade,
                     List.of(),
-                    WritingTeacherSampleView.unavailable());
+                    WritingTeacherSampleView.unavailable(),
+                    "");
+        }
+
+        public WritingDetailPayload(
+                ResultFeedbackAvailability feedback,
+                List<WritingTaskResult> tasks,
+                Long activeQuestionId,
+                List<WritingTextSegment> learnerAnswerSegments,
+                List<ResultDetailScoreCriterion> scoreCriteria,
+                List<WritingTaskCoverageView> taskCoverage,
+                String scoreProfileId,
+                String diagnosticSeamId,
+                String diagnosticSeamState,
+                String diagnosticScopeNoteVi,
+                String diagnosticScopeNoteKo,
+                String diagnosticAvailability,
+                String diagnosticAvailabilityNoteVi,
+                String diagnosticAvailabilityNoteKo,
+                List<WritingDiagnosticGroup> diagnosticGroups,
+                WritingUpgradeView upgrade,
+                List<WritingBlankAnswerView> structuredBlankAnswers,
+                WritingTeacherSampleView teacherSample
+        ) {
+            this(feedback, tasks, activeQuestionId, learnerAnswerSegments,
+                    scoreCriteria, taskCoverage, scoreProfileId,
+                    diagnosticSeamId, diagnosticSeamState, diagnosticScopeNoteVi,
+                    diagnosticScopeNoteKo, diagnosticAvailability,
+                    diagnosticAvailabilityNoteVi, diagnosticAvailabilityNoteKo,
+                    diagnosticGroups, upgrade, structuredBlankAnswers,
+                    teacherSample, "");
         }
 
         public List<WritingDiagnosticFinding> diagnosticFindings() {
@@ -2849,6 +2881,63 @@ public final class PracticeDtos {
 
         public int evidenceCount() {
             return evidenceIds.size();
+        }
+
+        public String detailExplanationVi() {
+            int count = evidenceCount();
+            String evidenceSuffix = count > 0 ? " (đã đối chiếu " + count + " vị trí dẫn chứng trong bài làm)." : ".";
+            return switch (requirementId) {
+                case "Q54_POSITION" -> switch (status) {
+                    case "MET" -> "Bài viết xác lập rõ ràng quan điểm/luận điểm chính ngay từ phần mở đầu và duy trì lập trường nhất quán xuyên suốt bài" + evidenceSuffix;
+                    case "PARTIAL" -> "Đã nêu quan điểm nhưng lập trường chưa thật sự dứt khoát hoặc còn dao động giữa các đoạn văn.";
+                    case "NOT_MET" -> "Chưa thể hiện rõ quan điểm hoặc lập trường cá nhân đối với vấn đề nghị luận được nêu trong đề.";
+                    default -> "Yêu cầu không áp dụng cho cấu trúc bài làm này.";
+                };
+                case "Q54_PROMPT_COVERAGE" -> switch (status) {
+                    case "MET" -> "Nội dung phản hồi trọn vẹn và đầy đủ tất cả các câu hỏi gợi ý/khía cạnh trọng tâm được nêu trong đề bài" + evidenceSuffix;
+                    case "PARTIAL" -> "Đã trả lời một số câu hỏi gợi ý nhưng vẫn còn ý bị bỏ sót hoặc triển khai còn sơ sài.";
+                    case "NOT_MET" -> "Chưa bao phủ các câu hỏi gợi ý cốt lõi của đề bài.";
+                    default -> "Yêu cầu không áp dụng.";
+                };
+                case "Q54_SUPPORT" -> switch (status) {
+                    case "MET" -> "Luận điểm được bảo vệ vững chắc thông qua các lý do phân tích sâu sắc và dẫn chứng thực tế thuyết phục" + evidenceSuffix;
+                    case "PARTIAL" -> "Có đưa ra lý do hoặc giải thích nhưng lập luận còn chung chung, thiếu dẫn chứng cụ thể để củng cố luận cứ.";
+                    case "NOT_MET" -> "Luận điểm chưa có dẫn chứng hoặc lý do xác đáng đi kèm để chứng minh.";
+                    default -> "Yêu cầu không áp dụng.";
+                };
+                case "Q54_LOGICAL_DEVELOPMENT" -> switch (status) {
+                    case "MET" -> "Bố cục bài viết chặt chẽ (mở - thân - kết), các đoạn phát triển mạch lạc theo trình tự logic và có sự liên kết tự nhiên" + evidenceSuffix;
+                    case "PARTIAL" -> "Các đoạn văn có sự kết nối nhưng chuyển ý giữa một số luận điểm còn đột ngột hoặc chưa mượt mà.";
+                    case "NOT_MET" -> "Mạch lập luận chưa rõ ràng, bố cục đoạn văn rời rạc hoặc lặp ý.";
+                    default -> "Yêu cầu không áp dụng.";
+                };
+                case "Q54_LENGTH_600_700", "Q53_LENGTH_200_300" -> switch (status) {
+                    case "MET" -> "Dung lượng bài viết hoàn toàn nằm trong giới hạn ký tự chuẩn mực theo quy chế thi TOPIK.";
+                    case "PARTIAL", "NOT_MET" -> "Dung lượng bài làm chưa đạt hoặc vượt quá giới hạn ký tự quy định của dạng bài.";
+                    default -> "Yêu cầu không áp dụng.";
+                };
+                case "Q53_FOUR_TRANSPORT_MODES" -> switch (status) {
+                    case "MET" -> "Đã bao phủ đầy đủ tất cả các đối tượng/hạng mục được cung cấp trong biểu đồ" + evidenceSuffix;
+                    case "PARTIAL" -> "Chỉ mới đề cập một phần các đối tượng, còn thiếu hạng mục được cho trong đề.";
+                    default -> "Chưa bao phủ các đối tượng trong biểu đồ.";
+                };
+                case "Q53_DATA_2024", "Q53_DATA_2026", "Q53_MAIN_CHANGES" -> switch (status) {
+                    case "MET" -> "Số liệu và xu hướng biến động được mô tả chính xác, khách quan theo nguồn dữ liệu đề bài" + evidenceSuffix;
+                    case "PARTIAL" -> "Đã trích dẫn số liệu nhưng phần phân tích xu hướng hoặc so sánh còn thiếu sót.";
+                    default -> "Chưa mô tả chính xác số liệu hoặc xu hướng biến động của biểu đồ.";
+                };
+                case "Q53_PLAUSIBLE_CAUSE" -> switch (status) {
+                    case "MET" -> "Đã phân tích nguyên nhân hoặc triển vọng hợp lý theo đúng dữ kiện hiển thị trong đề" + evidenceSuffix;
+                    case "PARTIAL" -> "Có nêu nguyên nhân nhưng cách diễn đạt còn sơ sài hoặc chưa bám sát dữ liệu.";
+                    default -> "Chưa nêu nguyên nhân hoặc triển vọng theo yêu cầu.";
+                };
+                default -> switch (status) {
+                    case "MET" -> "Bài làm đã đáp ứng đầy đủ và thuyết phục yêu cầu này" + evidenceSuffix;
+                    case "PARTIAL" -> "Bài làm mới chỉ đáp ứng được một phần yêu cầu này, cần bổ sung thêm dẫn chứng hoặc ý triển khai.";
+                    case "NOT_MET" -> "Chưa tìm thấy nội dung hoặc dẫn chứng phù hợp cho yêu cầu này trong bài viết.";
+                    default -> "Yêu cầu không áp dụng cho cấu trúc bài làm này.";
+                };
+            };
         }
     }
 
@@ -3377,7 +3466,8 @@ public final class PracticeDtos {
             String diagnosticAvailabilityNoteKo,
             List<SpeakingDiagnosticGroup> diagnosticGroups,
             SpeakingUpgradeView upgrade,
-            SpeakingTeacherSampleView teacherSample
+            SpeakingTeacherSampleView teacherSample,
+            @JsonIgnore String technicalAiJson
     ) implements ResultDetailPayload {
         public SpeakingDetailPayload {
             if (feedback == null
@@ -3401,6 +3491,7 @@ public final class PracticeDtos {
             scoreCriteria = immutableResultList(scoreCriteria);
             transcriptSegments = immutableResultList(transcriptSegments);
             diagnosticGroups = immutableResultList(diagnosticGroups);
+            technicalAiJson = blankResultText(technicalAiJson);
             if (teacherSample == null) {
                 throw new IllegalArgumentException(
                         "Speaking teacher sample state is required");
@@ -3554,6 +3645,37 @@ public final class PracticeDtos {
                 throw new IllegalArgumentException(
                         "Speaking upgrade artifacts require an authoritative transcript");
             }
+        }
+
+        public SpeakingDetailPayload(
+                ResultFeedbackAvailability feedback,
+                List<SpeakingTaskDetail> tasks,
+                Long activeQuestionId,
+                String scoreProfileId,
+                String profileState,
+                String evidenceMode,
+                String evaluatorCapability,
+                String evidenceNote,
+                String taskScoreState,
+                List<ResultDetailScoreCriterion> scoreCriteria,
+                SpeakingEvidenceView evidence,
+                List<SpeakingTextSegment> transcriptSegments,
+                String diagnosticAvailability,
+                String diagnosticScopeNoteVi,
+                String diagnosticScopeNoteKo,
+                String diagnosticAvailabilityNoteVi,
+                String diagnosticAvailabilityNoteKo,
+                List<SpeakingDiagnosticGroup> diagnosticGroups,
+                SpeakingUpgradeView upgrade,
+                SpeakingTeacherSampleView teacherSample
+        ) {
+            this(feedback, tasks, activeQuestionId, scoreProfileId, profileState,
+                    evidenceMode, evaluatorCapability, evidenceNote,
+                    taskScoreState, scoreCriteria, evidence, transcriptSegments,
+                    diagnosticAvailability, diagnosticScopeNoteVi,
+                    diagnosticScopeNoteKo, diagnosticAvailabilityNoteVi,
+                    diagnosticAvailabilityNoteKo, diagnosticGroups, upgrade,
+                    teacherSample, "");
         }
 
         public SpeakingDetailPayload(
@@ -4730,15 +4852,23 @@ public final class PracticeDtos {
 
     public record WritingResultPayload(
             String kind,
-            List<WritingTaskResult> tasks
+            List<WritingTaskResult> tasks,
+            @JsonIgnore String technicalAiJson
     ) implements ResultSkillPayload {
         public WritingResultPayload {
             kind = "WRITING";
             tasks = immutableResultList(tasks);
+            technicalAiJson = blankResultText(technicalAiJson);
         }
 
         public WritingResultPayload(List<WritingTaskResult> tasks) {
-            this("WRITING", tasks);
+            this("WRITING", tasks, "");
+        }
+
+        public WritingResultPayload(
+                List<WritingTaskResult> tasks,
+                String technicalAiJson) {
+            this("WRITING", tasks, technicalAiJson);
         }
     }
 
@@ -5050,7 +5180,8 @@ public final class PracticeDtos {
             String policyBundleFingerprint,
             String contractTrust,
             boolean holisticScoreAvailable,
-            int legacyUnverifiedSegments
+            int legacyUnverifiedSegments,
+            @JsonIgnore String technicalAiJson
     ) implements ResultSkillPayload {
         public SpeakingResultPayload {
             kind = "SPEAKING";
@@ -5061,6 +5192,7 @@ public final class PracticeDtos {
             criteria = immutableResultList(criteria);
             submetricPerformance = immutableResultList(submetricPerformance);
             questionPerformance = immutableResultList(questionPerformance);
+            technicalAiJson = blankResultText(technicalAiJson);
             profileState = switch (profileState == null ? "" : profileState) {
                 case "READY", "PARTIAL", "PENDING", "FAILED", "UNAVAILABLE",
                         "LOW_CONFIDENCE", "LEGACY_UNVERIFIED" -> profileState;
@@ -5133,6 +5265,37 @@ public final class PracticeDtos {
             if (!holisticScoreAvailable && holisticScore != null) {
                 holisticScore = holisticScore.unavailableView();
             }
+        }
+
+        public SpeakingResultPayload(
+                String kind,
+                ResultScoreSummary holisticScore,
+                int coveredSegments,
+                int totalSegments,
+                String profileState,
+                String evidenceMode,
+                String evidenceNote,
+                List<String> overallSummaries,
+                List<SpeakingOverviewFindingView> strengths,
+                List<SpeakingOverviewFindingView> needsImprovement,
+                List<SpeakingActionPlanView> actionPlan,
+                List<SpeakingCriterionResult> criteria,
+                List<SpeakingSubmetricPerformance> submetricPerformance,
+                List<SpeakingQuestionPerformance> questionPerformance,
+                String evaluatorCapability,
+                String evidenceContractVersion,
+                String policyBundleId,
+                String policyBundleFingerprint,
+                String contractTrust,
+                boolean holisticScoreAvailable,
+                int legacyUnverifiedSegments) {
+            this(kind, holisticScore, coveredSegments, totalSegments,
+                    profileState, evidenceMode, evidenceNote, overallSummaries,
+                    strengths, needsImprovement, actionPlan, criteria,
+                    submetricPerformance, questionPerformance,
+                    evaluatorCapability, evidenceContractVersion, policyBundleId,
+                    policyBundleFingerprint, contractTrust,
+                    holisticScoreAvailable, legacyUnverifiedSegments, "");
         }
 
         public SpeakingResultPayload(

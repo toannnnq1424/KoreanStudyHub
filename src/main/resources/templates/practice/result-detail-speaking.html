@@ -102,7 +102,14 @@
           </p>
         </section>
       </div>
-    </details>
+    <div class="prd-header-dots-menu" th:if="${resultDetail.payload().technicalAiJson() != null and !resultDetail.payload().technicalAiJson().isBlank()}">
+      <button type="button" class="prd-dots-btn" id="prdTechJsonTrigger"
+              aria-haspopup="dialog" aria-expanded="false"
+              aria-label="Xem dữ liệu kỹ thuật AI"
+              title="Dữ liệu kỹ thuật AI (JSON)">
+        <svg th:replace="~{practice/fragments/icons :: moreVertical}"></svg>
+      </button>
+    </div>
     <a class="prd-complete-btn" th:href="@{/practice}">Hoàn tất</a>
   </div>
 </header>
@@ -382,7 +389,35 @@
             <svg th:replace="~{practice/fragments/icons :: sample}"></svg>
             <span>Mẫu</span>
           </button>
+          <button class="prd-speaking-tab" type="button" role="tab"
+                  aria-selected="false" tabindex="-1"
+                  th:id="${'speaking-tab-undetected-' + task.questionId()}"
+                  th:attr="aria-controls=${'speaking-panel-undetected-' + task.questionId()},
+                           data-result-target=${'speaking-panel-undetected-' + task.questionId()}">
+            <span>Các tiêu chí chưa được phát hiện</span>
+          </button>
         </div>
+
+        <section class="prd-speaking-panel" role="tabpanel" tabindex="0" hidden
+                 th:id="${'speaking-panel-undetected-' + task.questionId()}"
+                 th:attr="aria-labelledby=${'speaking-tab-undetected-' + task.questionId()}">
+          <h3>Các tiêu chí chưa được phát hiện</h3>
+          <p>Danh mục trong phạm vi đánh giá của bài này. Chưa có phát hiện không có nghĩa là đã đạt,
+             không có lỗi hoặc được 0 điểm. Nếu AI trả kết quả không hợp lệ, các tiêu chí vẫn chỉ là danh mục tham khảo.</p>
+          <section th:each="group : ${resultDetail.payload().diagnosticGroups()}">
+            <h4 th:text="${group.labelVi()}">Nhóm tiêu chí</h4>
+            <p>Những tiêu chí dưới đây chưa có bằng chứng được xác minh trong bài làm.</p>
+            <ul>
+              <li th:each="chip : ${group.strengthChips()}" th:if="${chip.count() == 0}">
+                <span th:text="${chip.labelVi()}">Tiêu chí</span> — Điểm mạnh chưa ghi nhận
+              </li>
+              <li th:each="chip : ${group.needsImprovementChips()}" th:if="${chip.count() == 0}">
+                <span th:text="${chip.labelVi()}">Tiêu chí</span> — Chưa phát hiện điểm cần cải thiện
+              </li>
+            </ul>
+          </section>
+          <p th:if="${resultDetail.payload().diagnosticGroups().isEmpty()}">Chưa có danh mục tiêu chí áp dụng cho nhiệm vụ này.</p>
+        </section>
 
         <section class="prd-speaking-panel prd-speaking-overview"
                  role="tabpanel"
@@ -399,11 +434,22 @@
               <span>Không tạo điểm tổng</span>
             </div>
           </header>
+          <aside class="prd-speaking-alert-contract"
+                 th:if="${task.evaluationState() == 'FAILED' or task.evaluationState() == 'UNAVAILABLE'}"
+                 style="margin-bottom:16px; padding:12px 16px; background:#fff5f5; border:1px solid #ffc9c9; border-radius:8px; color:#c92a2a; font-size:0.9rem;">
+            <strong>Lưu ý: Kết quả chi tiết đang ở chế độ cứu hộ</strong>
+            <p>Hệ thống đã tự động kích hoạt kênh cứu hộ tóm lược. Chi tiết kỹ thuật đã được lưu lại trong phần <em>"Dữ liệu kỹ thuật AI đã nhận"</em>.</p>
+          </aside>
           <div class="prd-speaking-overview-context">
             <p th:if="${task.summary() != null && !task.summary().isBlank()}"
+               data-speaking-compact-field="tong_quan"
                th:text="${task.summary()}">Nhận xét tổng quan</p>
             <p th:text="${resultDetail.payload().evidenceNote()}">Phạm vi bằng chứng</p>
           </div>
+          <details class="prd-writing-compact-feedback prd-speaking-compact-feedback" data-speaking-compact-container data-writing-compact-container hidden>
+            <summary>Nhận xét tổng quan dự phòng (AI)</summary>
+            <div class="prd-writing-compact-content" data-speaking-compact-field="tong_quan" data-writing-compact-field="tong_quan"></div>
+          </details>
           <div class="prd-speaking-status-spotlight">
             <span>Phạm vi điểm</span>
             <strong th:text="${resultDetail.payload().taskScoreStateLabelVi()}">
@@ -588,6 +634,10 @@
             <img th:src="@{/images/baekho/baekho_master_64.png}" alt="" aria-hidden="true">
             <p>Tiêu chí này chưa có occurrence đủ bằng chứng trong câu đang chọn.</p>
           </div>
+          <details class="prd-writing-compact-feedback prd-speaking-compact-feedback" data-speaking-compact-container data-writing-compact-container hidden>
+            <summary>Điểm mạnh tổng hợp dự phòng (AI)</summary>
+            <div class="prd-writing-compact-content" data-speaking-compact-field="diem_manh" data-writing-compact-field="diem_manh"></div>
+          </details>
           <p class="prd-speaking-empty"
              th:if="${#lists.isEmpty(resultDetail.payload().diagnosticGroups())
                       && !resultDetail.payload().hasStrengthFindings()}">
@@ -728,6 +778,10 @@
             <img th:src="@{/images/baekho/baekho_master_64.png}" alt="" aria-hidden="true">
             <p>Tiêu chí này chưa có occurrence đủ bằng chứng trong câu đang chọn.</p>
           </div>
+          <details class="prd-writing-compact-feedback prd-speaking-compact-feedback" data-speaking-compact-container data-writing-compact-container hidden>
+            <summary>Điểm cần cải thiện tổng hợp dự phòng (AI)</summary>
+            <div class="prd-writing-compact-content" data-speaking-compact-field="can_cai_thien" data-writing-compact-field="can_cai_thien"></div>
+          </details>
           <p class="prd-speaking-empty"
              th:if="${#lists.isEmpty(resultDetail.payload().diagnosticGroups())
                       && !resultDetail.payload().hasNeedsImprovementFindings()}">
@@ -821,6 +875,10 @@
                th:unless="${resultDetail.payload().upgrade().learnerDerivedUpgrade().available()}">
               Chưa có bài nói nâng cấp đủ điều kiện cho câu đang chọn.
             </p>
+            <details class="prd-writing-compact-feedback prd-speaking-compact-feedback" data-speaking-compact-container data-writing-compact-container hidden>
+              <summary>Bài nói nâng cấp dự phòng (AI)</summary>
+              <div class="prd-speaking-upgraded-answer prd-writing-compact-content" data-speaking-compact-field="bai_nang_cap" data-writing-compact-field="bai_nang_cap"></div>
+            </details>
             <p class="prd-speaking-source-note"
                th:if="${resultDetail.payload().upgrade().learnerDerivedUpgrade().available()}">
               Nguồn: bản nâng cấp được tạo từ chính bản chép lời đã khóa.
@@ -910,8 +968,29 @@
   <section class="prd-boundary-card prd-speaking-empty"
            th:if="${resultDetail.payload().activeQuestionId() == null}">
     Không có nhiệm vụ Nói hỗ trợ trang chi tiết trong bài làm bất biến này.
-  </section>
 </main>
+<dialog id="prTechJsonDialog" class="pr-tech-dialog" aria-labelledby="prTechModalTitle">
+  <div class="pr-tech-dialog-box">
+    <div class="pr-tech-dialog-header">
+      <div>
+        <h3 id="prTechModalTitle">Dữ liệu kỹ thuật AI đã nhận</h3>
+        <p>Phần này chỉ để đối chiếu phản hồi đã lưu; không phải điểm hoặc nhận xét đã được xác minh.</p>
+      </div>
+      <button type="button" class="pr-tech-dialog-close" id="prTechModalClose" aria-label="Đóng">
+        <svg th:replace="~{practice/fragments/icons :: close}"></svg>
+      </button>
+    </div>
+    <div class="pr-tech-dialog-actions">
+      <button type="button" class="pr-tech-copy-btn" id="prTechCopyBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <span id="prTechCopyLabel">Sao chép JSON</span>
+      </button>
+    </div>
+    <div class="pr-tech-dialog-content">
+      <pre class="pr-tech-dialog-pre" id="prTechPre" th:text="${resultDetail.payload().technicalAiJson()}">{}</pre>
+    </div>
+  </div>
+</dialog>
 <script th:src="@{/js/practice-result.js(v='pre14-e16')}"></script>
 </body>
 </html>

@@ -112,7 +112,7 @@ class ReadingListeningTypedClientContractTest {
         String serialized = objectMapper.valueToTree(responseFormat).toString();
 
         assertThat(client.promptVersion())
-                .isEqualTo("v9-objective-lecturer-strategy");
+                .isEqualTo("v10-evidence-specific-lecturer-strategy");
         assertThat(client.schemaVersion()).isEqualTo("v4");
         assertThat(serialized)
                 .contains(
@@ -151,6 +151,34 @@ class ReadingListeningTypedClientContractTest {
                 valid.replace("[\"e1\"]", "[]"),
                 context,
                 List.of())).isNull();
+        assertThat(client.cleanAndValidateJson(
+                valid.replace(
+                        "Bằng chứng xác nhận đáp án.",
+                        "Đáp án được đối chiếu trực tiếp với vùng nguồn đã đánh dấu."),
+                context,
+                List.of())).isNull();
+    }
+
+    @Test
+    void incompleteProviderStrategyRecoversWithQuestionOptionAndExactSourceDetail()
+            throws Exception {
+        ExplanationContext context = singleChoiceContext(
+                ObjectiveExplanationStrategyRegistry.Code.ELIMINATE_ALL_INCORRECT);
+        String incomplete = withPrimaryTranslation(wrap(
+                context,
+                exactReadingEvidence(),
+                "[]",
+                "{}"));
+        ReadingListeningExplanationClient client = new ReadingListeningExplanationClient(
+                TestPracticeStructuredGenerationPort.available(
+                        "test-provider", "test-model", objectMapper.readTree(incomplete)),
+                objectMapper);
+
+        String recovered = client.generate(context, List.of());
+
+        assertThat(recovered)
+                .contains("Phương án “A”", "본문")
+                .doesNotContain("đáp án chính thức", "đối chiếu với vùng nguồn");
     }
 
     @Test
@@ -247,7 +275,7 @@ class ReadingListeningTypedClientContractTest {
                         .KEYWORD_PARAPHRASE_BRIDGE,
                 ObjectiveExplanationStrategyRegistry
                         .CURRENT_REGISTRY_VERSION);
-        String fillJson = wrap(
+        String fillJson = withPrimaryTranslation(wrap(
                 fill,
                 exactReadingEvidence(),
                 "[]",
@@ -259,7 +287,7 @@ class ReadingListeningTypedClientContractTest {
                   "grammarConstraintVi":"Vị trí danh từ",
                   "registerConstraintVi":"Trung tính",
                   "evidenceIds":["e1"]}]}
-                """);
+                """));
 
         assertThat(client.cleanAndValidateJson(
                 fillJson, fill, List.of())).isNotNull();
@@ -269,7 +297,7 @@ class ReadingListeningTypedClientContractTest {
                         .FULL_SOURCE_INLINE_HIGHLIGHT,
                 ObjectiveExplanationStrategyRegistry
                         .CURRENT_REGISTRY_VERSION);
-        String tfngJson = wrap(
+        String tfngJson = withPrimaryTranslation(wrap(
                 tfng,
                 exactTranscriptEvidence(),
                 "[]",
@@ -281,10 +309,72 @@ class ReadingListeningTypedClientContractTest {
                   "whyNotGiven":{"claimId":"ng","textVi":"Thiếu thời điểm để kết luận.","evidenceIds":["e1"]},
                   "missingInformation":{"claimId":"missing","textVi":"Nguồn không cho biết thời điểm.","evidenceIds":["e1"]}
                 }
-                """);
+                """));
 
         assertThat(client.cleanAndValidateJson(
                 tfngJson, tfng, List.of())).isNotNull();
+    }
+
+    @Test
+    void questionEvidenceTranslationTableRequiresTranslationForPrimaryEvidence()
+            throws Exception {
+        ReadingListeningExplanationClient client = client();
+        ExplanationContext context = context(
+                CanonicalQuestionType.SINGLE_CHOICE,
+                new QuestionContent(
+                        QuestionContent.SCHEMA_VERSION,
+                        List.of(
+                                new QuestionContent.Option("opt_1", "A"),
+                                new QuestionContent.Option("opt_2", "B")),
+                        List.of()),
+                new AnswerSpec(
+                        AnswerSpec.SCHEMA_VERSION,
+                        CanonicalQuestionType.SINGLE_CHOICE,
+                        List.of("opt_1"), null, List.of(),
+                        ScoringPolicyCode.ALL_OR_NOTHING),
+                AssessmentStimulus.readingPassage("본문 근거", "TEACHER"),
+                ObjectiveExplanationStrategyRegistry.Code
+                        .QUESTION_EVIDENCE_TRANSLATION_TABLE,
+                ObjectiveExplanationStrategyRegistry.CURRENT_REGISTRY_VERSION);
+        String typed = wrap(
+                context,
+                exactReadingEvidence(),
+                "[]",
+                """
+                {"contextClaims":[{"claimId":"context-1",
+                  "textVi":"Nguồn có từ 본문.","evidenceIds":["e1"]}],
+                 "answerClaim":{"claimId":"answer-1",
+                  "textVi":"Từ 본문 là chi tiết cần đối chiếu.",
+                  "evidenceIds":["e1"]}}
+                """);
+
+        assertThat(client.cleanAndValidateJson(typed, context, List.of()))
+                .isNull();
+        String translated = typed.replace(
+                "\"relevantTranslations\":[]",
+                "\"relevantTranslations\":[{\"evidenceId\":\"e1\",\"translationVi\":\"Nội dung chính\"}]");
+        assertThat(client.cleanAndValidateJson(translated, context, List.of()))
+                .isNotNull();
+
+        String incompleteWithTranslation = wrap(
+                context, exactReadingEvidence(), "[]", "{}").replace(
+                        "\"relevantTranslations\":[]",
+                        "\"relevantTranslations\":[{\"evidenceId\":\"e1\",\"translationVi\":\"Nội dung chính\"}]");
+        ReadingListeningExplanationClient recoveringClient =
+                new ReadingListeningExplanationClient(
+                        TestPracticeStructuredGenerationPort.available(
+                                "test-provider", "test-model",
+                                objectMapper.readTree(incompleteWithTranslation)),
+                        objectMapper);
+        assertThat(recoveringClient.generate(context, List.of()))
+                .contains("Nội dung chính");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> responseFormat = ReflectionTestUtils.invokeMethod(
+                client, "responseFormat", context, List.of());
+        assertThat(objectMapper.valueToTree(responseFormat).toString())
+                .contains("\"relevantTranslations\":{\"type\":\"array\",\"items\"")
+                .contains("\"minItems\":1");
     }
 
     @Test
@@ -384,6 +474,12 @@ class ReadingListeningTypedClientContractTest {
                         textEvidence,
                         imageEvidence,
                         strategyBlock);
+    }
+
+    private static String withPrimaryTranslation(String payload) {
+        return payload.replace(
+                "\"relevantTranslations\":[]",
+                "\"relevantTranslations\":[{\"evidenceId\":\"e1\",\"translationVi\":\"Nội dung nguồn tương ứng.\"}]");
     }
 
     private static String exactReadingEvidence() {

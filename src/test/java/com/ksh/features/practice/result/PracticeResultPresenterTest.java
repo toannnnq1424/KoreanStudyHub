@@ -53,6 +53,7 @@ import com.ksh.features.practice.dto.PracticeDtos.SpeakingCriterionResult;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingMediaView;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingResultPayload;
+import com.ksh.features.practice.dto.PracticeDtos.SpeakingTaskDetail;
 import com.ksh.features.practice.dto.PracticeDtos.SpeakingTextSegment;
 import com.ksh.features.practice.dto.PracticeDtos.WritingDetailPayload;
 import com.ksh.features.practice.dto.PracticeDtos.WritingResultPayload;
@@ -1316,6 +1317,8 @@ class PracticeResultPresenterTest {
         assertThat(task.score().available()).isFalse();
         assertThat(task.officialCriteria()).isEmpty();
         assertThat(task.analysisLenses()).isEmpty();
+        assertThat(task.summary())
+                .contains("AI chưa tạo được đánh giá có thể kiểm chứng");
     }
 
     @Test
@@ -1376,6 +1379,8 @@ class PracticeResultPresenterTest {
         assertThat(task.score().available()).isFalse();
         assertThat(task.officialCriteria()).isEmpty();
         assertThat(task.analysisLenses()).isEmpty();
+        assertThat(task.summary())
+                .contains("AI chưa tạo được đánh giá có thể kiểm chứng");
     }
 
     @Test
@@ -1655,20 +1660,30 @@ class PracticeResultPresenterTest {
         PracticeAttempt attempt = mock(PracticeAttempt.class);
         when(attempt.getAiFeedbackJson()).thenReturn("{\"153\":{\"summary_vi\":\"Không đủ contract\"}}");
         WritingResultPresenter presenter = writingPresenter();
-
-        PracticeResultPresenter.Presentation result = presenter.present(context(
+        PracticeResultContext writingContext = context(
                 "WRITING",
                 List.of(question),
                 Map.of("153", "Bài viết đã nộp"),
-                attempt));
+                attempt);
+
+        PracticeResultPresenter.Presentation result = presenter.present(writingContext);
         WritingResultPayload payload = (WritingResultPayload) result.payload();
 
         assertThat(result.feedback().state()).isEqualTo("FAILED");
         assertThat(result.answers().unscorable()).isEqualTo(1);
         assertThat(payload.tasks().get(0).score().available()).isFalse();
-        assertThat(payload.tasks().get(0).summary()).isNull();
+        assertThat(payload.tasks().get(0).summary())
+                .contains("AI chưa tạo được đánh giá có thể kiểm chứng");
         assertThat(payload.tasks().get(0).officialCriteria()).isEmpty();
         assertThat(payload.tasks().get(0).analysisLenses()).isEmpty();
+
+        WritingDetailPayload detail = (WritingDetailPayload) presenter.presentDetail(
+                writingContext, overview("WRITING", result), 153L);
+        assertThat(detail.tasks()).singleElement().satisfies(task -> {
+            assertThat(task.feedback().state()).isEqualTo("FAILED");
+            assertThat(task.summary())
+                    .contains("AI chưa tạo được đánh giá có thể kiểm chứng");
+        });
     }
 
     @Test
@@ -2485,6 +2500,10 @@ class PracticeResultPresenterTest {
         assertThat(detail.diagnosticAvailability()).isEqualTo("NO_VALIDATED_EVIDENCE");
         assertThat(detail.evidence().transcriptText()).isEmpty();
         assertThat(detail.evidence().transcriptAvailability()).isEqualTo("UNAVAILABLE");
+        assertThat(detail.tasks()).singleElement()
+                .extracting(SpeakingTaskDetail::summary)
+                .asString()
+                .contains("Không có điểm hoặc nhận xét tiêu chí nào được suy đoán");
         assertThat(detail.scoreCriteria()).allSatisfy(criterion -> {
             assertThat(criterion.score()).isNull();
             assertThat(criterion.maxScore()).isNull();
@@ -2879,6 +2898,28 @@ class PracticeResultPresenterTest {
                         });
         return writingDetailFromEvaluation(
                 learnerAnswer, normalized);
+    }
+
+    @Test
+    void partialVerifiedWritingKeepsInlineFindingsWithoutATotalScore() throws Exception {
+        String answer = "문법 오류가 있습니다.";
+        String normalized = WritingContractTestFixtures.normalizedFeedback(
+                objectMapper, "Q53", answer, envelope -> {
+                    WritingContractTestFixtures.addEvidence(envelope, "good", answer, "문법", 0);
+                    WritingContractTestFixtures.addFinding(envelope, "good-finding", "IMPROVEMENT", "REPLACE",
+                            "W_GRAMMAR_ERRORS", "MORPHOLOGY_PARTICLES", "W_LANGUAGE_EXPRESSION",
+                            "good", List.of(), "Cần sửa ngữ pháp", "문법을 고칩니다", "MINOR");
+                    WritingContractTestFixtures.replaceIds(
+                            WritingContractTestFixtures.rubric(envelope, "W_LANGUAGE_EXPRESSION"),
+                            "findingIds", "good-finding");
+                    envelope.withArray("evidenceLedger").addObject()
+                            .put("evidenceId", "bad").put("exactText", "không tồn tại").put("occurrenceIndex", 1);
+                });
+        WritingDetailPayload detail = writingDetailFromEvaluation(answer, normalized);
+        assertThat(detail.feedback().state()).isEqualTo("PARTIAL");
+        assertThat(detail.diagnosticAvailability()).isEqualTo("AVAILABLE");
+        assertThat(detail.diagnosticGroups()).anyMatch(group -> !group.needsImprovement().isEmpty());
+        assertThat(detail.tasks().get(0).score().earnedPoints()).isNull();
     }
 
     private WritingDetailPayload writingDetailFromEvaluation(
