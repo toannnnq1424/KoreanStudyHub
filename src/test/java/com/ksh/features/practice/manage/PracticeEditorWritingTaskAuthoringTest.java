@@ -11,6 +11,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PracticeEditorWritingTaskAuthoringTest {
 
     @Test
+    void objectivePreviewPopulatesTheOriginalStrategyLayoutFromValidatedArtifact()
+            throws Exception {
+        String template = Files.readString(Path.of(
+                "src/main/resources/templates/practice/manage/editor.html"));
+
+        assertTrue(template.contains("objectiveArtifactPreviewData"));
+        assertTrue(template.contains("Bằng chứng được đối chiếu với câu hỏi."));
+        assertTrue(template.contains("Bản đã duyệt"));
+        assertFalse(template.contains("objective-preview__verified-artifact"));
+    }
+
+    @Test
     void essayTaskSelectorOnlyOffersTheFourPersistableWritingTasks() throws Exception {
         String template = Files.readString(Path.of("src/main/resources/templates/practice/manage/editor.html"));
 

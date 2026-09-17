@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -60,7 +61,7 @@ public class PracticeAiControlPlaneController {
 
     @GetMapping("/profiles/new")
     public String newProfile(Model model) {
-        model.addAttribute("form", ProfileForm.empty());
+        model.addAttribute("form", adminService.newProfileForm());
         populateProfileForm(model, "create");
         return "admin/settings-practice-ai-profile-form";
     }
@@ -119,7 +120,14 @@ public class PracticeAiControlPlaneController {
             }
             return REDIRECT;
         } catch (RuntimeException exception) {
-            result.reject("profile", safeCode(exception));
+            String code = profileSaveCode(exception);
+            if ("PROFILE_CODE_DUPLICATE".equals(code)) {
+                result.rejectValue(
+                        "profileCode", code,
+                        "Mã profile này đã tồn tại. Hãy dùng mã khác.");
+            } else {
+                result.reject("profile", code);
+            }
             populateProfileForm(model, form.id() == null ? "create" : "edit");
             return "admin/settings-practice-ai-profile-form";
         }
@@ -224,6 +232,8 @@ public class PracticeAiControlPlaneController {
             result.reject("purpose", "BINDING_PURPOSE_MISMATCH");
         }
         if (result.hasErrors()) {
+            model.addAttribute("form", form);
+            model.addAttribute(BindingResult.MODEL_KEY_PREFIX + "form", result);
             model.addAttribute("profiles", adminService.profiles());
             model.addAttribute("purpose", purpose);
             model.addAttribute("requiredCapabilities",
@@ -237,7 +247,9 @@ public class PracticeAiControlPlaneController {
             redirect.addFlashAttribute(ATTR_FLASH_SUCCESS, "Practice AI binding saved");
             return REDIRECT;
         } catch (RuntimeException exception) {
+            model.addAttribute("form", form);
             result.reject("binding", safeCode(exception));
+            model.addAttribute(BindingResult.MODEL_KEY_PREFIX + "form", result);
             model.addAttribute("profiles", adminService.profiles());
             model.addAttribute("purpose", purpose);
             model.addAttribute("requiredCapabilities",
@@ -333,6 +345,24 @@ public class PracticeAiControlPlaneController {
         return value != null && value.matches("[A-Z][A-Z0-9_]{1,63}")
                 ? value
                 : "PRACTICE_AI_CONTROL_PLANE_ERROR";
+    }
+
+    private static String profileSaveCode(RuntimeException exception) {
+        String code = safeCode(exception);
+        if (!"PRACTICE_AI_CONTROL_PLANE_ERROR".equals(code)) {
+            return code;
+        }
+        Throwable cursor = exception;
+        while (cursor != null) {
+            if (cursor instanceof DataIntegrityViolationException) {
+                return "PROFILE_CODE_DUPLICATE";
+            }
+            cursor = cursor.getCause();
+        }
+        // Do not leak database/secret details into the admin form. This is a
+        // profile-specific validation failure, not a mysterious control-plane
+        // failure, and gives the form a meaningful safe error state.
+        return "PROFILE_SAVE_REJECTED";
     }
 
     private static boolean isDirectAudioProfile(ProfileForm form) {

@@ -790,6 +790,8 @@ class PracticeFunctionalUiContractTest {
                 "prd-writing-overview-task-label",
                 "Đã đối chiếu ",
                 "task.feedback().label()",
+                "prd-writing-evaluation-fallback",
+                "Hệ thống không suy đoán điểm hoặc nhận xét tiêu chí",
                 "data-writing-diagnostic-filter",
                 "data-writing-upgrade-filter",
                 "data-writing-upgrade-finding-ids",

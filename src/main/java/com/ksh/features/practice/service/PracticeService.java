@@ -395,10 +395,11 @@ public class PracticeService {
                         "ALREADY_QUEUED",
                         "Yêu cầu chấm lại đang được xử lý.");
             }
-            if (job.manualRetryLimitReached()) {
+            boolean sameTarget = java.util.Objects.equals(job.getTargetQuestionId(), questionId);
+            if (sameTarget && job.manualRetryLimitReached()) {
                 return new ReEvaluationRequestResult(
                         "RETRY_LIMIT_REACHED",
-                        "Đã đạt giới hạn hai lần yêu cầu chấm lại cho lượt làm bài này.");
+                        "Đã đạt giới hạn hai lần yêu cầu chấm lại cho câu hỏi này.");
             }
             if (job.getLastRetryRequestedAt() != null
                     && job.getLastRetryRequestedAt()
@@ -2873,9 +2874,14 @@ public class PracticeService {
                     feedbackMap.set(String.valueOf(q.questionId()), node);
                     continue;
                 }
-                String singleFeedback = evaluateWriting(snapshot.userId(), q.prompt(), answer,
-                        isReEvaluate, q.writingTaskType(), questionImageReference(q));
-                com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(q.questionId(), singleFeedback);
+                com.fasterxml.jackson.databind.node.ObjectNode node =
+                        isUnansweredWritingAnswer(q, answer)
+                                ? deterministicUnansweredWritingFeedback(q, answer)
+                                : readWritingFeedbackObject(
+                                        q.questionId(),
+                                        evaluateWriting(snapshot.userId(), q.prompt(), answer,
+                                                isReEvaluate, q.writingTaskType(),
+                                                questionImageReference(q)));
 
                 WritingEvaluationResult evaluation =
                         readGeneratedWritingScore(node, q);
@@ -2935,26 +2941,26 @@ public class PracticeService {
                     null);
         }
 
-        String targetAnswer = snapshot.answers().getOrDefault(String.valueOf(snapshot.targetQuestion().questionId()), "").trim();
-        String targetFeedback = evaluateWriting(
-                snapshot.userId(),
-                snapshot.targetQuestion().prompt(),
-                targetAnswer,
-                true,
-                snapshot.targetQuestion().writingTaskType(),
-                questionImageReference(snapshot.targetQuestion()));
-        com.fasterxml.jackson.databind.node.ObjectNode targetNode =
-                readWritingFeedbackObject(snapshot.targetQuestion().questionId(), targetFeedback);
+        String targetAnswer = snapshot.answers().getOrDefault(
+                String.valueOf(snapshot.targetQuestion().questionId()), "").trim();
+        String targetFeedback = null;
+        com.fasterxml.jackson.databind.node.ObjectNode targetNode;
+        if (isUnansweredWritingAnswer(snapshot.targetQuestion(), targetAnswer)) {
+            targetNode = deterministicUnansweredWritingFeedback(
+                    snapshot.targetQuestion(), targetAnswer);
+        } else {
+            targetFeedback = evaluateWriting(
+                    snapshot.userId(),
+                    snapshot.targetQuestion().prompt(),
+                    targetAnswer,
+                    true,
+                    snapshot.targetQuestion().writingTaskType(),
+                    questionImageReference(snapshot.targetQuestion()));
+            targetNode = readWritingFeedbackObject(
+                    snapshot.targetQuestion().questionId(), targetFeedback);
+        }
         WritingEvaluationResult targetScore =
                 readStoredWritingScore(targetNode, snapshot.targetQuestion());
-        if (!targetScore.scoreAvailableFlag()) {
-            return new WritingGradingResult(
-                    null,
-                    null,
-                    snapshot.expectedAnswersJson(),
-                    snapshot.expectedAiFeedbackJson(),
-                    targetFeedback);
-        }
         feedbackMap.set(String.valueOf(snapshot.targetQuestion().questionId()), targetNode);
 
         WritingScoreAggregate aggregate = aggregateWritingScore(snapshot.questions(), snapshot.answers(), feedbackMap);
@@ -2969,7 +2975,7 @@ public class PracticeService {
                 aggregate.totalPoints(),
                 snapshot.expectedAnswersJson(),
                 feedbackJson,
-                null);
+                targetFeedback);
     }
 
     private String evaluateWriting(Long userId,
@@ -2991,42 +2997,89 @@ public class PracticeService {
         List<QuestionSnapshot> essayQuestions = snapshot.questions().stream()
                 .filter(q -> PracticeQuestion.TYPE_ESSAY.equals(q.questionType()))
                 .toList();
-        JsonNode root = readExistingWritingFeedbackRoot(snapshot.expectedAiFeedbackJson());
-        com.fasterxml.jackson.databind.node.ObjectNode feedbackMap = objectMapper.createObjectNode();
-
-        if (!root.isObject()) {
-            throw unsupportedPerQuestionFeedback();
-        }
-
-        com.fasterxml.jackson.databind.node.ObjectNode rootObject = (com.fasterxml.jackson.databind.node.ObjectNode) root;
-        feedbackMap = rootObject.deepCopy();
+        com.fasterxml.jackson.databind.node.ObjectNode feedbackMap =
+                existingWritingFeedbackMapOrEmpty(snapshot.expectedAiFeedbackJson());
         for (QuestionSnapshot q : essayQuestions) {
             if (q.questionId().equals(snapshot.targetQuestion().questionId())) {
                 continue;
             }
             JsonNode entry = feedbackMap.get(String.valueOf(q.questionId()));
             if (entry == null || entry.isNull() || !entry.isObject()) {
-                throw unsupportedPerQuestionFeedback();
+                String answer = snapshot.answers().getOrDefault(
+                        String.valueOf(q.questionId()), "").trim();
+                com.fasterxml.jackson.databind.node.ObjectNode fallbackNode =
+                        isUnansweredWritingAnswer(q, answer)
+                                ? deterministicUnansweredWritingFeedback(q, answer)
+                                : deterministicPendingWritingFeedback(q, answer);
+                feedbackMap.set(String.valueOf(q.questionId()), fallbackNode);
+                continue;
             }
             readStoredWritingScore(entry, q);
         }
         return feedbackMap;
     }
 
-    private JsonNode readExistingWritingFeedbackRoot(String feedbackJson) {
+    private com.fasterxml.jackson.databind.node.ObjectNode deterministicPendingWritingFeedback(
+            QuestionSnapshot question,
+            String answer) {
+        com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(
+                question.questionId(),
+                evaluationClient.unavailableResponse(question.writingTaskType(), answer));
+        readStoredWritingScore(node, question);
+        return node;
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode existingWritingFeedbackMapOrEmpty(
+            String feedbackJson) {
         if (feedbackJson == null || feedbackJson.isBlank()) {
-            throw unsupportedPerQuestionFeedback();
+            return objectMapper.createObjectNode();
         }
         try {
             JsonNode root = objectMapper.readTree(feedbackJson);
-            if (root == null || !root.isObject()) {
-                throw unsupportedPerQuestionFeedback();
+            if (root != null && root.isObject()) {
+                return ((com.fasterxml.jackson.databind.node.ObjectNode) root)
+                        .deepCopy();
             }
-            return root;
-        } catch (PracticeAttemptConflictException ex) {
-            throw ex;
         } catch (Exception ex) {
-            throw unsupportedPerQuestionFeedback();
+            // A missing or malformed former result can be rebuilt only for
+            // questions proved unanswered below. Non-empty answers remain
+            // fail-closed so their prior scoring is never fabricated.
+        }
+        return objectMapper.createObjectNode();
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode deterministicUnansweredWritingFeedback(
+            QuestionSnapshot question,
+            String answer) {
+        com.fasterxml.jackson.databind.node.ObjectNode node = readWritingFeedbackObject(
+                question.questionId(),
+                evaluationClient.unansweredResponse(question.writingTaskType(), answer));
+        readGeneratedWritingScore(node, question);
+        return node;
+    }
+
+    private boolean isUnansweredWritingAnswer(QuestionSnapshot question, String answer) {
+        if (answer == null || answer.isBlank()) {
+            return true;
+        }
+        if (question.writingTaskType() != WritingTaskType.Q51
+                && question.writingTaskType() != WritingTaskType.Q52) {
+            return false;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(answer);
+            JsonNode answers = root == null ? null : root.path("answers");
+            if (answers == null || !answers.isArray() || answers.isEmpty()) {
+                return false;
+            }
+            for (JsonNode blank : answers) {
+                if (!blank.path("text").asText("").isBlank()) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception ignored) {
+            return false;
         }
     }
 
@@ -3207,6 +3260,14 @@ public class PracticeService {
             return false;
         }
         if (!value.scoreAvailableFlag()) {
+            if ("EVALUATED_PARTIAL".equals(value.evaluationStatus())
+                    && "PROVIDER".equals(value.evaluationSource())
+                    && WritingEvaluationNormalizer.EVALUATION_ENGINE.equals(value.engine())
+                    && value.completeness() != null
+                    && value.completeness().status() == com.ksh.features.practice.ai.contract
+                            .PracticeAiResultCompleteness.Status.PARTIAL_NON_SCORE) {
+                return true;
+            }
             boolean unavailable =
                     "EVALUATION_UNAVAILABLE".equals(
                             value.evaluationStatus())
@@ -3380,6 +3441,11 @@ public class PracticeService {
         }
         verifySnapshotVersion(attempt, snapshot);
         if (result.score() == null) {
+            if ((attempt.getAiFeedbackJson() == null || attempt.getAiFeedbackJson().isBlank())
+                    && result.feedbackJson() != null && !result.feedbackJson().isBlank()) {
+                attempt.setAiFeedbackJson(result.feedbackJson());
+                flushAttempt(attempt);
+            }
             return attempt.getId();
         }
         attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());
@@ -3405,6 +3471,11 @@ public class PracticeService {
         }
         verifyQuestionSnapshotVersion(attempt, snapshot);
         if (result.score() == null) {
+            if ((attempt.getAiFeedbackJson() == null || attempt.getAiFeedbackJson().isBlank())
+                    && result.feedbackJson() != null && !result.feedbackJson().isBlank()) {
+                attempt.setAiFeedbackJson(result.feedbackJson());
+                flushAttempt(attempt);
+            }
             return attempt.getId();
         }
         attempt.markGraded(result.score(), result.totalPoints(), result.answersJson(), result.feedbackJson());

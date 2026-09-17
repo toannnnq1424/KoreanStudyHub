@@ -123,7 +123,11 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 notAnswered++;
             }
             JsonNode feedbackNode = feedbackNode(feedbackRoot, question.getQuestionId(), questions.size() == 1);
-            WritingTaskResult task = isEssay(question)
+            // Q51/Q52 can be historically scored from the locked answer key.
+            // When a current Writing run already contains a per-question
+            // backend-safe result (including INVALID_LEARNER_RESPONSE), use
+            // the typed path so an unanswered task never appears as PENDING.
+            WritingTaskResult task = shouldUseTypedWritingTask(question, feedbackNode)
                     ? task(
                             question,
                             answer,
@@ -152,7 +156,9 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         ResultScoreSummary displayScore = feedback.ready()
                 ? context.score()
                 : context.score().unavailableView();
-        return new Presentation(displayScore, distribution, feedback, new WritingResultPayload(tasks));
+        return new Presentation(displayScore, distribution, feedback,
+                new WritingResultPayload(
+                        tasks, technicalAiJson(storedFeedback, context.attempt())));
     }
 
     @Override
@@ -237,6 +243,9 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         DiagnosticAvailability diagnosticAvailability =
                 DiagnosticAvailability.noDetailTask();
         if (activeTask != null) {
+            // Catalog visibility does not depend on an AI finding or grant any
+            // score/evidence authority when evaluation is pending or invalid.
+            diagnosticGroups = diagnosticGroups(List.of(), activeTask, structuredBlankAnswers);
             JsonNode selectedNode = strictQuestionFeedbackNode(
                     feedbackRoot, activeTask.questionId());
             // Exact inline annotations are assembled from the validated
@@ -259,7 +268,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             } else if (activeTask.clozeTask()
                     && structuredBlankAnswers.isEmpty()) {
                 diagnosticAvailability = DiagnosticAvailability.blankIdentityUnavailable();
-            } else if (!activeTask.feedback().ready()) {
+            } else if (!hasReadableFeedback(activeTask)) {
                 diagnosticAvailability = DiagnosticAvailability.feedbackUnavailable();
             } else {
                 JsonNode currentQuestionNode = strictQuestionFeedbackNode(
@@ -292,10 +301,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                             annotations,
                             findingIds,
                             structuredBlankAnswers);
-                    if (annotations == null
-                            || annotations.values().stream().anyMatch(
-                            annotation -> !findingIds.contains(
-                                    annotation.findingId()))) {
+                    if (annotations == null) {
                         resolved.clear();
                     }
                     diagnosticGroups = diagnosticGroups(
@@ -336,7 +342,33 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 diagnosticGroups,
                 upgrade,
                 structuredBlankAnswers,
-                teacherSample);
+                teacherSample,
+                writing.technicalAiJson());
+    }
+
+    private String technicalAiJson(String raw, PracticeAttempt attempt) {
+        if (raw == null || raw.isBlank()) {
+            try {
+                Map<String, Object> fallback = new LinkedHashMap<>();
+                fallback.put("resultCompleteness", "UNAVAILABLE");
+                fallback.put("reasonCode", attempt == null
+                        ? "AI_RESPONSE_NOT_RECORDED"
+                        : firstPresent(attempt.getAnalysisErrorCode(),
+                                "AI_RESPONSE_NOT_RECORDED"));
+                fallback.put("analysisStatus", attempt == null
+                        ? "UNKNOWN" : attempt.getAnalysisStatus());
+                fallback.put("providerRawResponseAvailable", false);
+                return objectMapper.writeValueAsString(fallback);
+            } catch (Exception ignored) {
+                return "{\"resultCompleteness\":\"UNAVAILABLE\"}";
+            }
+        }
+        // This is staff/attempt-owner diagnostic material, never executable
+        // markup. Keep a bounded copy so a bad provider response cannot make a
+        // result page unrenderable.
+        return raw.length() <= 131_072
+                ? raw
+                : raw.substring(0, 131_072) + "\n…[đã cắt bớt]";
     }
 
     private List<WritingBlankAnswerView> structuredBlankAnswers(
@@ -729,7 +761,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         if (task == null
                 || task.clozeTask()
                 || task.feedback() == null
-                || !task.feedback().ready()
+                || !hasReadableFeedback(task)
                 || !currentTaskContractMatches(task, feedbackNode)) {
             return fallback;
         }
@@ -923,6 +955,13 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                     0,
                     task.answered() ? 1 : 0);
         }
+        String safeSummary = preservesClosedState
+                ? firstPresent(
+                        task.summary(),
+                        "AI chưa tạo được đánh giá có thể hiển thị cho nhiệm vụ này. "
+                                + "Hãy chấm lại để nhận kết quả đầy đủ.")
+                : "Phản hồi đã lưu không khớp contract hiện hành; "
+                        + "không có điểm hoặc nhận xét tiêu chí nào được suy đoán.";
         return new WritingTaskResult(
                 task.questionId(),
                 task.questionVersionId(),
@@ -933,7 +972,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 task.learnerAnswer(),
                 task.score() == null ? null : task.score().unavailableView(),
                 closedFeedback,
-                null,
+                safeSummary,
                 List.of(),
                 List.of(),
                 task.detailAvailable(),
@@ -1208,8 +1247,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 || !finding.path("operation").asText()
                 .equals(annotation.operation())
                 || !evidence.equals(annotation.evidence())
-                || !WritingEvidenceLedgerVerifier.sha256(source)
-                .equals(annotation.sourceHash())
+                || !matchesSourceHash(source, annotation.sourceHash())
                 || start == null || end == null
                 || start < 0 || end <= start || end > source.length()
                 || !source.startsWith(evidence, start)
@@ -1459,7 +1497,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
             JsonNode feedbackNode
     ) {
         WritingFeedbackView feedback = task.feedback() != null
-                && task.feedback().ready()
+                && hasReadableFeedback(task)
                 && currentTaskContractMatches(task, feedbackNode)
                 ? feedbackMapper.map(feedbackNode)
                 : null;
@@ -1651,6 +1689,14 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         }
     }
 
+    private boolean shouldUseTypedWritingTask(
+            PracticeQuestionVersion question,
+            JsonNode feedbackNode) {
+        return question != null
+                && question.getWritingTaskType() != null
+                && (isEssay(question) || (feedbackNode != null && !feedbackNode.isMissingNode()));
+    }
+
     private WritingTaskResult task(
             PracticeQuestionVersion question,
             String learnerAnswer,
@@ -1661,14 +1707,21 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         WritingScoringRubric rubric = WritingScoringPolicy.rubricFor(taskType);
         boolean answered = learnerAnswer != null && !learnerAnswer.isBlank();
         JsonNode usableFeedbackNode = answered ? feedbackNode : null;
+        String effectiveLearnerAnswer = learnerAnswer;
+        if (usableFeedbackNode != null && usableFeedbackNode.path("student_text").isTextual()
+                && !usableFeedbackNode.path("student_text").asText().isBlank()
+                && matchesSourceHash(learnerAnswer, usableFeedbackNode.path("source_hash").asText())) {
+            effectiveLearnerAnswer = usableFeedbackNode.path("student_text").asText();
+        }
         WritingFeedbackView feedback = feedbackMapper.map(usableFeedbackNode);
         WritingFeedbackContractParser.EntryResult contract =
                 contractParser.parseStoredEntry(usableFeedbackNode);
         WritingEvaluationResult evaluation = contract.value();
         boolean scoreContractReady = currentScoreContractMatches(
-                taskType, learnerAnswer, usableFeedbackNode, evaluation);
+                taskType, effectiveLearnerAnswer, usableFeedbackNode, evaluation);
         List<ResultRubricCriterion> parsedCriteria = criteria(
-                rubric, usableFeedbackNode, scoreContractReady);
+                rubric, usableFeedbackNode, scoreContractReady
+                        || partialContractMatches(taskType, effectiveLearnerAnswer, usableFeedbackNode));
         ResultScoreSummary score = taskScore(
                 scoreContractReady ? evaluation : null, parsedCriteria, rubric);
         ResultFeedbackAvailability availability = taskFeedback(
@@ -1681,15 +1734,29 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 score,
                 analysisStatus);
         List<ResultRubricCriterion> visibleCriteria = availability.ready()
+                || partialContractMatches(taskType, effectiveLearnerAnswer, usableFeedbackNode)
                 ? parsedCriteria
                 : List.of();
         List<WritingAnalysisLens> lenses = isCloze(taskType)
                 ? List.of()
                 : longFormLenses(
                         taskType,
-                        learnerAnswer,
+                        effectiveLearnerAnswer,
                         visibleCriteria,
-                        availability.ready() ? feedback : null);
+                        (availability.ready() || "PARTIAL".equals(availability.state())) ? feedback : null);
+
+        String visibleSummary = (availability.ready() || "PARTIAL".equals(availability.state()))
+                ? firstPresent(feedback == null ? null : feedback.summaryVi(),
+                        feedback == null ? null : feedback.summary())
+                : presentationFallbackSummary(usableFeedbackNode, feedback);
+        if ((visibleSummary == null || visibleSummary.isBlank())
+                && answered
+                && ("FAILED".equals(availability.state())
+                || "UNAVAILABLE".equals(availability.state()))) {
+            visibleSummary = "AI chưa tạo được đánh giá có thể kiểm chứng cho nhiệm vụ này. "
+                    + "Không có điểm hoặc nhận xét tiêu chí nào được suy đoán; "
+                    + "hãy chấm lại để nhận kết quả đầy đủ.";
+        }
 
         return new WritingTaskResult(
                 question.getQuestionId(),
@@ -1698,18 +1765,31 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 taskType,
                 taskLabel(question.getQuestionNo(), taskType),
                 question.getPrompt(),
-                learnerAnswer,
+                effectiveLearnerAnswer,
                 score,
                 availability,
-                availability.ready()
-                        ? firstPresent(feedback == null ? null : feedback.summaryVi(),
-                                feedback == null ? null : feedback.summary())
-                        : null,
+                visibleSummary,
                 visibleCriteria,
                 lenses,
                 "ESSAY".equals(question.getQuestionType()),
                 questionLanguageTag(question),
                 taskPerformanceLevel(score, availability));
+    }
+
+    /** A safe local status summary is visible, but never promoted into score,
+     * rubric, evidence or diagnostic UI when the detailed contract failed. */
+    private static String presentationFallbackSummary(
+            JsonNode feedbackNode,
+            WritingFeedbackView feedback) {
+        if (feedbackNode != null && feedbackNode.isObject()) {
+            JsonNode fallback = feedbackNode.path("presentation_fallback");
+            if (fallback.isObject()) {
+                String overview = fallback.path("tong_quan").asText("").trim();
+                if (!overview.isBlank()) return overview;
+            }
+        }
+        return firstPresent(feedback == null ? null : feedback.summaryVi(),
+                feedback == null ? null : feedback.summary());
     }
 
     private String questionLanguageTag(PracticeQuestionVersion question) {
@@ -2218,9 +2298,39 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
         }
         WritingFeedbackContractParser.EntryResult contract =
                 contractParser.parseStoredEntry(feedbackNode);
-        return currentScoreContractMatches(
+        return partialContractMatches(task.taskType(), task.learnerAnswer(), feedbackNode)
+                || currentScoreContractMatches(
                 task.taskType(), task.learnerAnswer(),
                 feedbackNode, contract.value());
+    }
+
+    private static boolean hasReadableFeedback(WritingTaskResult task) {
+        return task.feedback() != null && (task.feedback().ready()
+                || "PARTIAL".equals(task.feedback().state()));
+    }
+
+    private static boolean matchesSourceHash(String text, String expectedHash) {
+        if (expectedHash == null || expectedHash.isBlank()) {
+            return false;
+        }
+        String rawNorm = Normalizer.normalize(text == null ? "" : text, Normalizer.Form.NFC);
+        if (WritingEvidenceLedgerVerifier.sha256(rawNorm).equals(expectedHash)) {
+            return true;
+        }
+        String trimmedNorm = Normalizer.normalize(text == null ? "" : text.trim(), Normalizer.Form.NFC);
+        return WritingEvidenceLedgerVerifier.sha256(trimmedNorm).equals(expectedHash);
+    }
+
+    private static boolean partialContractMatches(String taskType, String answer, JsonNode node) {
+        return node != null && node.isObject()
+                && "EVALUATED_PARTIAL".equals(node.path("evaluation_status").asText())
+                && "PARTIAL_NON_SCORE".equals(node.path("result_completeness").path("status").asText())
+                && node.path("score_available").isBoolean() && !node.path("score_available").asBoolean()
+                && taskType.equals(node.path("task_type").asText())
+                && CURRENT_EVALUATION_ENGINE.equals(node.path("engine").asText())
+                && WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID.equals(node.path("policy_bundle_id").asText())
+                && WritingEvidenceLedgerVerifier.CONTRACT_VERSION.equals(node.path("ledger_contract_version").asText())
+                && matchesSourceHash(answer, node.path("source_hash").asText());
     }
 
     private static boolean currentScoreContractMatches(
@@ -2254,11 +2364,7 @@ final class WritingResultPresenter implements PracticeResultPresenter, PracticeR
                 text(feedbackNode, "task_requirement_version"))
                 && WritingEvidenceLedgerVerifier.SOURCE_NORMALIZATION.equals(
                 text(feedbackNode, "source_normalization"))
-                && WritingEvidenceLedgerVerifier.sha256(
-                Normalizer.normalize(
-                        learnerAnswer == null ? "" : learnerAnswer,
-                        Normalizer.Form.NFC)).equals(
-                text(feedbackNode, "source_hash"))
+                && matchesSourceHash(learnerAnswer, text(feedbackNode, "source_hash"))
                 && WritingAssessmentPolicyBundle
                         .hasExactCurrentScoreProvenance(evaluation)
                 && evaluation.rawScore() != null

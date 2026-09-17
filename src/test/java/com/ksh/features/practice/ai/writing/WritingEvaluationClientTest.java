@@ -77,6 +77,29 @@ class WritingEvaluationClientTest {
     }
 
     @Test
+    void unansweredResponseNeverUsesProviderForQ51ToQ53() throws Exception {
+        WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
+        TestPracticeStructuredGenerationPort port =
+                structuredPort("{}", new AtomicInteger());
+        WritingEvaluationClient client = new WritingEvaluationClient(
+                properties("valid-key", "model"), objectMapper, normalizer, ruleEngine,
+                cacheService, port
+        );
+
+        for (WritingTaskType taskType : List.of(
+                WritingTaskType.Q51, WritingTaskType.Q52, WritingTaskType.Q53)) {
+            JsonNode root = objectMapper.readTree(
+                    client.unansweredResponse(taskType, ""));
+            assertEquals(taskType.name(), root.path("task_type").asText());
+            assertEquals(0.0, root.path("raw_score").asDouble());
+            assertTrue(root.path("score_available").asBoolean(false));
+        }
+
+        assertThat(port.calls()).isZero();
+        verifyNoInteractions(cacheService);
+    }
+
+    @Test
     void deterministicNoHangulReturnsInvalidRawZeroWithoutProviderCacheOrMock() throws Exception {
         WritingEvaluationCacheService cacheService = mock(WritingEvaluationCacheService.class);
         TestPracticeStructuredGenerationPort port =
@@ -160,7 +183,7 @@ class WritingEvaluationClientTest {
         assertNotNull(WritingPromptRules.PROMPT_VERSION);
         assertNotNull(WritingPromptRules.RUBRIC_VERSION);
         assertNotNull(WritingPromptRules.EVALUATION_SCHEMA_VERSION);
-        assertEquals("v7.3", WritingPromptRules.PROMPT_VERSION);
+        assertEquals("v8.1", WritingPromptRules.PROMPT_VERSION);
         assertEquals("v5.2", WritingPromptRules.RUBRIC_VERSION);
         assertEquals("v6.1", WritingPromptRules.EVALUATION_SCHEMA_VERSION);
     }
@@ -300,6 +323,12 @@ class WritingEvaluationClientTest {
                 client, "unifiedSchema");
         Map<String, Object> properties =
                 (Map<String, Object>) schema.get("properties");
+        Map<String, Object> evidenceSchema = (Map<String, Object>)
+                ((Map<String, Object>) properties.get("evidenceLedger")).get("items");
+        assertThat((List<String>) evidenceSchema.get("required"))
+                .containsExactly("evidenceId", "exactText", "occurrenceIndex");
+        assertThat(((Map<String, Object>) evidenceSchema.get("properties")).keySet())
+                .containsExactlyInAnyOrder("evidenceId", "exactText", "occurrenceIndex");
         Map<String, Object> strengths =
                 (Map<String, Object>) properties.get("findings");
         Map<String, Object> finding =

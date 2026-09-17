@@ -60,6 +60,10 @@ class PracticeAim7PdfAuthoringStaticContractTest {
     @Test
     void strictSchemaOwnsAllObjectVocabulariesAndNoEvaluationFields() {
         assertAllObjectSchemasClosed(PracticePdfAuthoringJsonContract.schema(), "/");
+        assertEveryStrictObjectRequiresEveryProperty(
+                PracticePdfAuthoringJsonContract.schema(), "/");
+        assertNoProviderUnsupportedKeywords(
+                PracticePdfAuthoringJsonContract.schema(), "/");
         Set<String> outputVocabulary = Set.of(
                 PracticePdfAuthoringJsonContract.ROOT_FIELDS,
                 PracticePdfAuthoringJsonContract.GROUP_FIELDS,
@@ -88,7 +92,7 @@ class PracticeAim7PdfAuthoringStaticContractTest {
                         "id=\"basic-source-type\"",
                         "id=\"basic-operation\"",
                         "/practice/manage/pdf-authoring/candidates",
-                        "window.location.assign(payload.reviewUrl)",
+                        "window.location.assign(reviewUrl)",
                         "Không lưu PDF")
                 .doesNotContain(
                         "advanced-authoring", "import-sessions",
@@ -144,6 +148,41 @@ class PracticeAim7PdfAuthoringStaticContractTest {
             int index = 0;
             for (Object child : values) {
                 assertAllObjectSchemasClosed(child, path + "/" + index++);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void assertEveryStrictObjectRequiresEveryProperty(
+            Object value, String path) {
+        if (value instanceof Map<?, ?> map) {
+            if (map.get("properties") instanceof Map<?, ?> properties) {
+                assertThat((List<String>) map.get("required"))
+                        .as("strict schema requires every property at %s", path)
+                        .containsExactlyInAnyOrderElementsOf(
+                                (Set<String>) properties.keySet());
+            }
+            map.forEach((key, child) -> assertEveryStrictObjectRequiresEveryProperty(
+                    child, path + "/" + key));
+        } else if (value instanceof Iterable<?> values) {
+            for (Object child : values) {
+                assertEveryStrictObjectRequiresEveryProperty(child, path + "[]");
+            }
+        }
+    }
+
+    private static void assertNoProviderUnsupportedKeywords(Object value, String path) {
+        if (value instanceof Map<?, ?> map) {
+            assertThat(map.keySet().stream().map(String::valueOf).toList())
+                    .as("provider-safe strict schema at %s", path)
+                    .doesNotContain("$schema", "const", "pattern", "minLength", "maxLength",
+                            "minimum", "maximum", "exclusiveMinimum",
+                            "minItems", "maxItems");
+            map.forEach((key, child) -> assertNoProviderUnsupportedKeywords(
+                    child, path + "/" + key));
+        } else if (value instanceof Iterable<?> values) {
+            for (Object child : values) {
+                assertNoProviderUnsupportedKeywords(child, path + "[]");
             }
         }
     }

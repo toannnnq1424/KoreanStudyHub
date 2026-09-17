@@ -29,6 +29,12 @@ import java.util.Set;
 @Service
 public class PracticePdfAuthoringOutputValidator {
 
+    private static final Set<String> OPTIONAL_STRICT_NULL_FIELDS = Set.of(
+            "essayTaskType", "explanationVi", "pageNumber", "start", "end",
+            "imageReference", "audioReference", "speakingDelivery",
+            "writingResponse", "writingBlankAuthority", "reason",
+            "sourceQuestionNumber", "points", "confidence");
+
     private static final Set<String> ROOT_REQUIRED =
             PracticePdfAuthoringJsonContract.ROOT_FIELDS;
     private static final Set<String> GROUP_REQUIRED =
@@ -36,8 +42,8 @@ public class PracticePdfAuthoringOutputValidator {
     private static final Set<String> STIMULUS_REQUIRED =
             PracticePdfAuthoringJsonContract.STIMULUS_FIELDS;
     private static final Set<String> QUESTION_REQUIRED = Set.of(
-            "sourceQuestionId", "questionType", "prompt", "points",
-            "questionContent", "answerSpec", "sourceRefs", "confidence");
+            "sourceQuestionId", "questionType", "prompt",
+            "questionContent", "answerSpec", "sourceRefs");
     private static final Set<String> WARNING_REQUIRED =
             PracticePdfAuthoringJsonContract.WARNING_FIELDS;
     private static final Set<String> SOURCE_REF_REQUIRED = Set.of("kind", "sourceId");
@@ -82,6 +88,7 @@ public class PracticePdfAuthoringOutputValidator {
     public ValidatedOutput validate(
             JsonNode raw,
             PracticePdfAuthoringRequest request) {
+        raw = removeStrictSchemaNulls(raw);
         requireObject(raw, "");
         rejectForbiddenKeys(raw, "");
         requireVocabulary(raw, PracticePdfAuthoringJsonContract.ROOT_FIELDS,
@@ -103,16 +110,104 @@ public class PracticePdfAuthoringOutputValidator {
                 evidenceById(request.evidence());
         Set<String> groupIds = new HashSet<>();
         Set<String> questionIds = new HashSet<>();
-        JsonNode groups = requireArray(raw, "groups", 1, 100, "");
+        Set<Integer> sourceQuestionNumbers = new HashSet<>();
+        JsonNode groups = raw.path("groups");
+        if (!groups.isArray() || groups.isEmpty()) {
+            fail("PDF_AUTHORING_SCHEMA_INVALID",
+                    "AI không trả nhóm câu hỏi nào tại /groups.");
+        }
+        if (groups.size() > 100) {
+            fail("PDF_AUTHORING_SCHEMA_INVALID",
+                    "Mảng JSON vượt giới hạn tại /groups.");
+        }
         for (int groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
             validateGroup(groups.get(groupIndex), groupIndex, request,
-                    evidence, groupIds, questionIds);
+                    evidence, groupIds, questionIds, sourceQuestionNumbers);
         }
+        Set<Integer> expectedNumbers = request.requestedSourceQuestionNumbers();
+        if (!expectedNumbers.isEmpty() && !expectedNumbers.equals(sourceQuestionNumbers)) {
+            fail("PDF_AUTHORING_SCOPE_MISMATCH",
+                    "AI phải tạo đúng các câu đã yêu cầu trong phạm vi: "
+                            + expectedNumbers + ".");
+        }
+        validateRequestedGroupScopes(groups, request);
         JsonNode warnings = requireArray(raw, "warnings", 0, 200, "");
         for (int warningIndex = 0; warningIndex < warnings.size(); warningIndex++) {
             validateWarning(warnings.get(warningIndex), warningIndex, evidence);
         }
         return new ValidatedOutput((ObjectNode) raw.deepCopy());
+    }
+
+    private void validateRequestedGroupScopes(
+            JsonNode outputGroups,
+            PracticePdfAuthoringRequest request
+    ) {
+        List<PracticePdfAuthoringRequest.RequestedSourceQuestionGroup> expected =
+                request.requestedSourceQuestionGroups();
+        if (expected.isEmpty()) {
+            return;
+        }
+        if (outputGroups.size() != expected.size()) {
+            fail("PDF_AUTHORING_GROUP_SCOPE_MISMATCH",
+                    "AI phải tạo đúng " + expected.size()
+                            + " nhóm theo yêu cầu giảng viên.");
+        }
+        for (int groupIndex = 0; groupIndex < expected.size(); groupIndex++) {
+            Set<Integer> actual = new HashSet<>();
+            JsonNode questions = outputGroups.get(groupIndex).path("questions");
+            for (JsonNode question : questions) {
+                JsonNode number = question.path("sourceQuestionNumber");
+                if (!number.canConvertToInt()) {
+                    fail("PDF_AUTHORING_GROUP_SCOPE_MISMATCH",
+                            "Mỗi câu trong nhóm đã yêu cầu phải giữ sourceQuestionNumber.");
+                }
+                actual.add(number.asInt());
+            }
+            PracticePdfAuthoringRequest.RequestedSourceQuestionGroup scope =
+                    expected.get(groupIndex);
+            if (!scope.sourceQuestionNumbers().equals(actual)) {
+                fail("PDF_AUTHORING_GROUP_SCOPE_MISMATCH",
+                        "Nhóm " + scope.groupOrder()
+                                + " phải chứa đúng các câu nguồn "
+                                + scope.sourceQuestionNumbers() + ".");
+            }
+        }
+    }
+
+    /**
+     * Provider strict-schema mode requires optional vocabulary to be emitted as
+     * explicit null. The domain validator deliberately models those fields as
+     * absent, so normalize only null object members before applying its rules.
+     */
+    private static JsonNode removeStrictSchemaNulls(JsonNode node) {
+        if (node == null) return null;
+        if (node.isObject()) {
+            ObjectNode object = (ObjectNode) node.deepCopy();
+            java.util.Iterator<Map.Entry<String, JsonNode>> fields = object.fields();
+            List<String> nullFields = new java.util.ArrayList<>();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                if (field.getValue().isNull()
+                        && OPTIONAL_STRICT_NULL_FIELDS.contains(field.getKey())) {
+                    nullFields.add(field.getKey());
+                } else {
+                    object.set(field.getKey(), removeStrictSchemaNulls(field.getValue()));
+                }
+            }
+            object.remove(nullFields);
+            return object;
+        }
+        if (node.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode array =
+                    (com.fasterxml.jackson.databind.node.ArrayNode) node.deepCopy();
+            for (int index = 0; index < array.size(); index++) {
+                if (!array.get(index).isNull()) {
+                    array.set(index, removeStrictSchemaNulls(array.get(index)));
+                }
+            }
+            return array;
+        }
+        return node;
     }
 
     private void validateGroup(
@@ -121,7 +216,8 @@ public class PracticePdfAuthoringOutputValidator {
             PracticePdfAuthoringRequest request,
             Map<String, PracticePdfAuthoringRequest.SourceEvidence> evidence,
             Set<String> groupIds,
-            Set<String> questionIds) {
+            Set<String> questionIds,
+            Set<Integer> sourceQuestionNumbers) {
         String path = "/groups/" + groupIndex;
         requireObject(group, path);
         requireVocabulary(group, PracticePdfAuthoringJsonContract.GROUP_FIELDS,
@@ -139,7 +235,8 @@ public class PracticePdfAuthoringOutputValidator {
         JsonNode questions = requireArray(group, "questions", 1, 200, path);
         for (int questionIndex = 0; questionIndex < questions.size(); questionIndex++) {
             validateQuestion(questions.get(questionIndex), groupIndex,
-                    questionIndex, request, evidence, questionIds);
+                    questionIndex, request, evidence, questionIds,
+                    sourceQuestionNumbers);
         }
     }
 
@@ -185,7 +282,8 @@ public class PracticePdfAuthoringOutputValidator {
             int questionIndex,
             PracticePdfAuthoringRequest request,
             Map<String, PracticePdfAuthoringRequest.SourceEvidence> evidence,
-            Set<String> questionIds) {
+            Set<String> questionIds,
+            Set<Integer> sourceQuestionNumbers) {
         String path = "/groups/" + groupIndex + "/questions/" + questionIndex;
         requireObject(question, path);
         requireVocabulary(question,
@@ -194,6 +292,14 @@ public class PracticePdfAuthoringOutputValidator {
         String questionId = requireStableId(question, "sourceQuestionId", path);
         if (!questionIds.add(questionId)) {
             fail("PDF_AUTHORING_SCHEMA_INVALID", "sourceQuestionId bị trùng.");
+        }
+        if (question.has("sourceQuestionNumber")) {
+            JsonNode number = question.path("sourceQuestionNumber");
+            if (!number.canConvertToInt() || number.asInt() < 1 || number.asInt() > 200
+                    || !sourceQuestionNumbers.add(number.asInt())) {
+                fail("PDF_AUTHORING_SCHEMA_INVALID",
+                        "sourceQuestionNumber phải là số câu nguồn duy nhất trong 1..200.");
+            }
         }
         String rawType = requireText(question, "questionType", 1, 40, path);
         CanonicalQuestionType type;
@@ -215,13 +321,18 @@ public class PracticePdfAuthoringOutputValidator {
                     "Question type không phù hợp target skill.");
         }
         requireText(question, "prompt", 1, 100_000, path);
-        requireNumber(question, "points", 0, path);
+        // Points are code-owned by the target's authoring policy and confidence
+        // is advisory only. Do not let a provider's null/omitted metadata reject
+        // an otherwise valid, source-grounded question.
+        if (question.has("points")) {
+            requireNumber(question, "points", 0, path);
+        }
         if (question.has("explanationVi")) {
             requireText(question, "explanationVi", 0, 100_000, path);
         }
-        JsonNode confidence = question.path("confidence");
-        if (!confidence.isNumber() || confidence.asDouble() < 0
-                || confidence.asDouble() > 1) {
+        JsonNode confidence = question.get("confidence");
+        if (confidence != null && (!confidence.isNumber() || confidence.asDouble() < 0
+                || confidence.asDouble() > 1)) {
             fail("PDF_AUTHORING_SCHEMA_INVALID", "Confidence phải nằm trong 0..1.");
         }
         validateSourceRefs(requireArray(question, "sourceRefs", 1, 200, path),
@@ -442,9 +553,18 @@ public class PracticePdfAuthoringOutputValidator {
                 throw new IllegalArgumentException("question type mismatch");
             }
         } catch (Exception exception) {
+            String reason = canonicalFailureReason(exception);
             fail("PDF_AUTHORING_SCHEMA_INVALID",
-                    "questionContent hoặc answerSpec không đúng canonical contract.");
+                    "questionContent hoặc answerSpec không đúng canonical contract"
+                            + (reason.isBlank() ? "." : ": " + reason));
         }
+    }
+
+    private static String canonicalFailureReason(Exception exception) {
+        String reason = exception.getMessage();
+        if (reason == null) return "";
+        reason = reason.replaceAll("[\\r\\n\\t]+", " ").trim();
+        return reason.length() <= 240 ? reason : reason.substring(0, 240) + "…";
     }
 
     private void validateWritingAndSpeaking(

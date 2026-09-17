@@ -24,20 +24,26 @@ public class SpeakingFeedbackContractParser {
         if (typed == null || !typed.isObject()
                 || !typed.has("evaluationStatus")) {
             return normalizer.contractFailure(
-                    "SPEAKING_FEEDBACK_CURRENT_CONTRACT_REQUIRED");
+                    "SPEAKING_FEEDBACK_CURRENT_CONTRACT_REQUIRED",
+                    normalizer.extractPresentationFallback(typed));
         }
         try {
             SpeakingEvaluationResult parsed = objectMapper.treeToValue(
                     typed, SpeakingEvaluationResult.class);
             if (!parsed.currentEvidenceContract()
                     || !rawTypedRubricValuesAreSafe(typed)) {
+                java.util.Map<String, String> fallback = parsed.presentationFallback().isEmpty()
+                        ? normalizer.extractPresentationFallback(typed)
+                        : parsed.presentationFallback();
                 return normalizer.contractFailure(
-                        "SPEAKING_FEEDBACK_CURRENT_CONTRACT_INVALID");
+                        "SPEAKING_FEEDBACK_CURRENT_CONTRACT_INVALID",
+                        fallback);
             }
             return parsed;
         } catch (Exception exception) {
             return normalizer.contractFailure(
-                    "SPEAKING_FEEDBACK_JSON_INVALID");
+                    "SPEAKING_FEEDBACK_JSON_INVALID",
+                    normalizer.extractPresentationFallback(typed));
         }
     }
 

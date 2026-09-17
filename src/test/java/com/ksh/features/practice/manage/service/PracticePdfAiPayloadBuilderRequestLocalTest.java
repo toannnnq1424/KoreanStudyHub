@@ -130,6 +130,39 @@ class PracticePdfAiPayloadBuilderRequestLocalTest {
                 .doesNotContain("session", "storage", "objectKey");
     }
 
+    @Test
+    void rejectsExtractRangeWhenTheSubmittedTextDoesNotContainThoseQuestions() {
+        PracticePdfAiPayloadBuilder builder =
+                new PracticePdfAiPayloadBuilder(new PracticePdfAiLimits(50, 100_000));
+
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> builder.buildBasicText(
+                        "Yêu cầu: tạo câu 1-4 và 48-50.",
+                        SourceOperation.EXTRACT,
+                        "Trích xuất câu 1-4 và 48-50",
+                        TARGET));
+
+        assertThat(failure.getMessage())
+                .contains("Nguồn chưa chứa đủ nội dung", "48", "50");
+    }
+
+    @Test
+    void acceptsExtractRangeOnlyWhenEachRequestedPrintedQuestionIsInTheSource() {
+        PracticePdfAiPayloadBuilder builder =
+                new PracticePdfAiPayloadBuilder(new PracticePdfAiLimits(50, 100_000));
+
+        PracticePdfAuthoringRequest request = builder.buildBasicText(
+                "1. 첫 번째 문제\n2. 두 번째 문제\n3. 세 번째 문제\n4. 네 번째 문제\n"
+                        + "48. 마흔여덟 번째 문제\n49. 마흔아홉 번째 문제\n50. 마지막 문제",
+                SourceOperation.EXTRACT,
+                "Trích xuất câu 1-4 và 48-50",
+                TARGET);
+
+        assertThat(request.requestedSourceQuestionNumbers())
+                .containsExactly(1, 2, 3, 4, 48, 49, 50);
+    }
+
     private static byte[] pdf(String... pages) throws Exception {
         try (PDDocument document = new PDDocument();
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {

@@ -4,7 +4,7 @@ import java.util.stream.Collectors;
 
 public final class SpeakingPromptRules {
     public static final String PROMPT_VERSION =
-            "speaking-eval-v8-criterion-feedback-discipline";
+            "speaking-eval-v8.1-deep-scan";
     public static final String RUBRIC_VERSION = "speaking-rubric-v2-transcript-language-profile";
     public static final String SCHEMA_VERSION =
             "speaking-schema-v4-authoritative-utf16-ledger";
@@ -34,6 +34,8 @@ public final class SpeakingPromptRules {
                 acousticEvidenceProhibition(),
                 actuallyHeardVsInterpretedIntentRules(),
                 spamOffTopicGuardrail(),
+                deepScanCriterionRules(),
+                compactFallbackContract(),
                 textFallbackRule(textFallback),
                 outputJsonSection());
     }
@@ -324,18 +326,43 @@ public final class SpeakingPromptRules {
                 """;
     }
 
+    static String deepScanCriterionRules() {
+        return """
+                [DÒ KỸ TỪNG CÂU, TỪNG ĐOẠN - BẮT TRỌN VẸN TIÊU CHÍ]
+                Không đánh giá hời hợt hoặc chỉ lướt qua bề mặt. Phải quét kỹ từng câu và từng đoạn trong bản chép lời (actually_heard_transcript).
+                - Bắt trọn vẹn mọi điểm mạnh có thật: từ vựng phù hợp chủ đề, tiểu từ chính xác, liên kết câu mượt mà, cấu trúc ngữ pháp đạt chuẩn, cách dùng từ tự nhiên.
+                - Bắt trọn vẹn mọi điểm cần cải thiện: lỗi chia thì, trợ từ sai, dùng từ chưa tự nhiên, diễn đạt lủng củng, lặp từ không cần thiết.
+                - Phải tạo evidence ledger đầy đủ với exact_text, offsets và occurrence chính xác.
+                - Không được bỏ sót các câu nói dài, câu phức hoặc đoạn văn chuẩn mẫu.
+                """;
+    }
+
+    static String compactFallbackContract() {
+        return """
+                [DỰ PHÒNG TRÌNH BÀY TỐI THIỂU - BẮT BUỘC]
+                Output JSON PHẢI luôn bao gồm một trường root "compactFallback" dạng object với đúng 4 trường chuỗi:
+                1. "xxx_tongquan": Chuỗi nhận xét tổng quan bài nói bằng tiếng Việt (2-4 câu, tóm tắt mức độ hoàn thành nhiệm vụ, cách phát triển ý, tự nhiên).
+                2. "xxx_diemmanh": Chuỗi tổng hợp các điểm mạnh tiêu biểu của bài nói bằng tiếng Việt (gạch đầu dòng hoặc đoạn văn, nêu rõ ưu điểm về từ vựng, ngữ pháp, ý tưởng, liên kết).
+                3. "xxx_cancaithien": Chuỗi phân tích các điểm cần cải thiện, diễn đạt chưa tự nhiên, lỗi dùng từ hoặc ngữ pháp bằng tiếng Việt kèm hướng khắc phục cụ thể.
+                4. "xxx_bainangcap": Văn bản tiếng Hàn bài nói hoàn chỉnh đã được nâng cấp, trau chuốt tự nhiên, giữ nguyên ý định người học và phù hợp văn nói chuẩn.
+                Không được bỏ sót bất kỳ trường nào trong 4 trường trên. Không được đặt giá trị rỗng hay null cho 4 trường này.
+                """;
+    }
+
     static String outputJsonSection() {
         return """
                 [JSON OUTPUT]
                 Chỉ xuất JSON nghiêm ngặt mà bộ phân tích JSON tiêu chuẩn đọc được.
                 Dùng chính xác tên trường snake_case trong JSON schema được cung cấp.
                 Phải có ít nhất:
+                compactFallback,
                 evaluation_status, score_available, interpreted_intent=null, intent_confidence=null,
                 overall_score=null, level_label=null, overall_summary, task_achievement_summary,
                 rubric_scores, criterion_feedback, transcript_annotations, upgraded_answer,
                 sample_answer, confidence_notes, action_plan, evidence, recommendations,
                 error_category, retryable. Dữ liệu nguồn backend, danh tính bản chép lời, danh tính model/version và media
                 là trường có thẩm quyền của ứng dụng; model không được bịa. score_available phải là false.
+                compactFallback: {xxx_tongquan, xxx_diemmanh, xxx_cancaithien, xxx_bainangcap}.
                 Mỗi rubric_scores: criterion, score, max_score, feedback, evidence_ids.
                 Mỗi criterion_feedback: criterion_id, display_name, score, max_score, level_label, summary,
                 strengths, needs_improvement, subcriteria.

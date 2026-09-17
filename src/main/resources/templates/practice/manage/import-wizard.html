@@ -37,21 +37,24 @@
         <form id="basic-authoring-form" class="import-form">
           <div class="import-form-grid">
             <label>
-              Nguồn
+              Hình thức nguồn
               <select id="basic-source-type">
-                <option value="TEXT">Text</option>
-                <option value="PDF">PDF</option>
+                <option value="PDF" selected>📄 Tệp PDF</option>
+                <option value="TEXT">📝 Dán văn bản (Text)</option>
               </select>
             </label>
             <label>
-              Thao tác
+              Thao tác (Operation)
               <select id="basic-operation">
-                <option value="EXTRACT">EXTRACT</option>
-                <option value="GENERATE">GENERATE</option>
+                <option value="GENERATE" selected>GENERATE (Tạo câu hỏi mới từ nguồn)</option>
+                <option value="EXTRACT">EXTRACT (Trích xuất câu hỏi có sẵn từ nguồn)</option>
               </select>
+              <small id="basic-operation-hint" class="import-field-hint">
+                Tạo câu hỏi mới dựa trên ngữ cảnh/tài liệu nguồn theo yêu cầu giảng viên.
+              </small>
             </label>
             <label class="import-target-field">
-              Phần đích
+              Phần đích (Target)
               <select id="basic-target-section">
                 <option th:each="section : ${pdfImportContext.sections}"
                         th:attr="data-test-no=${section.testNo},data-skill=${section.skill},data-lesson-code=${section.lessonCode}"
@@ -63,17 +66,13 @@
             </label>
           </div>
 
-          <label id="basic-text-block">
-            Nội dung Text không đáng tin cậy
-            <textarea id="basic-source-text" rows="10" maxlength="1000000"
-                      placeholder="Dán bài đọc, transcript, câu hỏi hoặc nội dung nguồn tại đây..."></textarea>
-          </label>
-
-          <div id="basic-pdf-block" class="import-pdf-grid" hidden>
+          <div id="basic-pdf-block" class="import-pdf-grid">
             <label class="import-file-field">
-              Tệp PDF
+              Tệp PDF nguồn
               <input id="basic-pdf-file" type="file" accept="application/pdf,.pdf">
-              <small>Tối đa 20 MiB. Server xác minh type, PDF header, số trang và digest; không tạo session hoặc object.</small>
+              <small>
+                <strong>Cách AI đọc PDF:</strong> Hệ thống trích xuất văn bản từ các trang PDF đã chọn bằng Apache PDFBox và gửi văn bản tới AI. File PDF scan dạng hình ảnh cần có lớp text (OCR). Dung lượng tối đa 20 MiB.
+              </small>
             </label>
             <label>
               Trang đầu
@@ -85,10 +84,18 @@
             </label>
           </div>
 
+          <label id="basic-text-block" hidden>
+            Nội dung Text nguồn
+            <textarea id="basic-source-text" rows="10" maxlength="1000000"
+                      placeholder="Dán bài đọc, transcript, đề thi hoặc nội dung nguồn tại đây..."></textarea>
+            <small class="import-field-hint">Dán văn bản tiếng Hàn cần AI phân tích hoặc trích xuất.</small>
+          </label>
+
           <label>
-            Yêu cầu của giảng viên
+            Yêu cầu của giảng viên (Prompt chỉ dẫn)
             <textarea id="basic-lecturer-request" rows="3" maxlength="10000"
-                      placeholder="Ví dụ: tạo 5 câu đọc hiểu, ưu tiên từ vựng TOPIK II..."></textarea>
+                      placeholder="Ví dụ: Tạo 2 nhóm gồm 4 câu hỏi đọc hiểu mức TOPIK II, tập trung vào từ vựng chủ đề môi trường..."></textarea>
+            <small class="import-field-hint">Chỉ dẫn cụ thể cho AI về số câu hỏi, độ khó hoặc trọng tâm kiến thức.</small>
           </label>
 
           <div id="basic-authoring-status" role="status" aria-live="polite"></div>
@@ -99,8 +106,8 @@
       </section>
 
       <aside class="import-boundary-note">
-        <h2>Ranh giới an toàn</h2>
-        <p>Chỉ purpose <code>PRACTICE_PDF_AUTHORING</code> được dùng. Nội dung nguồn là dữ liệu không đáng tin cậy; output phải qua JSON schema, validation, review và explicit apply.</p>
+        <h2>Ranh giới an toàn & Cơ chế hoạt động</h2>
+        <p>Hệ thống trích xuất text từ PDF nguồn (request-local), gửi đến AI qua purpose <code>PRACTICE_PDF_AUTHORING</code> với strict JSON Schema. Candidate tạo ra sẽ được chuyển vào màn hình rà soát để giảng viên duyệt từng câu trước khi áp dụng vào bản nháp.</p>
       </aside>
     </div>
   </main>
@@ -145,6 +152,9 @@
   const sourceType = document.getElementById('basic-source-type');
   const textBlock = document.getElementById('basic-text-block');
   const pdfBlock = document.getElementById('basic-pdf-block');
+  const pdfFileInput = document.getElementById('basic-pdf-file');
+  const operationSelect = document.getElementById('basic-operation');
+  const operationHint = document.getElementById('basic-operation-hint');
   const status = document.getElementById('basic-authoring-status');
   const submit = document.getElementById('basic-authoring-submit');
 
@@ -153,6 +163,27 @@
     textBlock.hidden = pdf;
     pdfBlock.hidden = !pdf;
   }
+
+  function updateOperationHint() {
+    if (!operationHint) return;
+    if (operationSelect.value === 'EXTRACT') {
+      operationHint.textContent = 'Trích xuất nguyên văn các câu hỏi, đoạn văn và đáp án có sẵn trong đề thi/tài liệu nguồn (Yêu cầu tài liệu nguồn phải chứa đầy đủ câu hỏi).';
+    } else {
+      operationHint.textContent = 'Tạo câu hỏi mới dựa trên ngữ cảnh/tài liệu nguồn theo yêu cầu của giảng viên.';
+    }
+  }
+
+  pdfFileInput?.addEventListener('change', () => {
+    if (pdfFileInput.files.length > 0) {
+      sourceType.value = 'PDF';
+      updateSourceFields();
+    }
+  });
+
+  operationSelect?.addEventListener('change', updateOperationHint);
+  sourceType.addEventListener('change', updateSourceFields);
+  updateSourceFields();
+  updateOperationHint();
 
   function selectedTarget() {
     const option = document.getElementById('basic-target-section').selectedOptions[0];
@@ -168,27 +199,36 @@
     status.dataset.state = state;
   }
 
-  sourceType.addEventListener('change', updateSourceFields);
-  updateSourceFields();
-
   form.addEventListener('submit', async event => {
     event.preventDefault();
     const target = selectedTarget();
+    const operation = operationSelect.value;
+    const lecturerRequest = document.getElementById('basic-lecturer-request').value.trim();
+
     const data = new FormData();
     data.append('sourceType', sourceType.value);
-    data.append('operation', document.getElementById('basic-operation').value);
-    data.append('lecturerRequest', document.getElementById('basic-lecturer-request').value);
+    data.append('operation', operation);
+    data.append('lecturerRequest', lecturerRequest);
     data.append('draftId', String(BASIC_DRAFT_ID));
     data.append('testNo', String(target.testNo));
     data.append('skill', target.skill);
     data.append('lessonCode', target.lessonCode);
 
     if (sourceType.value === 'TEXT') {
-      data.append('sourceText', document.getElementById('basic-source-text').value);
+      const sourceText = document.getElementById('basic-source-text').value.trim();
+      if (!sourceText) {
+        showStatus('Vui lòng nhập hoặc dán nội dung văn bản nguồn.', 'error');
+        return;
+      }
+      if (operation === 'EXTRACT' && sourceText.length < 80) {
+        showStatus('Nội dung văn bản quá ngắn để trích xuất câu hỏi (EXTRACT). Nếu bạn muốn AI tự tạo câu hỏi từ chỉ dẫn này, hãy chọn Thao tác GENERATE.', 'error');
+        return;
+      }
+      data.append('sourceText', sourceText);
     } else {
-      const file = document.getElementById('basic-pdf-file').files[0];
+      const file = pdfFileInput.files[0];
       if (!file || file.type !== 'application/pdf' || !file.name.toLowerCase().endsWith('.pdf')) {
-        showStatus('Vui lòng chọn đúng tệp PDF.', 'error');
+        showStatus('Vui lòng chọn đúng tệp PDF nguồn.', 'error');
         return;
       }
       if (file.size > MAX_PDF_BYTES) {
@@ -209,19 +249,38 @@
       const response = await fetch('/practice/manage/pdf-authoring/candidates', {
         method: 'POST', headers: { [header]: token }, body: data
       });
-      const payload = await response.json().catch(() => ({}));
+      const rawPayload = await response.text();
+      let payload;
+      try {
+        payload = rawPayload ? JSON.parse(rawPayload) : {};
+      } catch (_) {
+        throw new Error('Máy chủ trả phản hồi không phải JSON (HTTP '
+          + response.status + '). Candidate chưa được mở để rà soát.');
+      }
       if (!response.ok) {
         if (payload.code === 'PRACTICE_PDF_AUTHORING_UNAVAILABLE') {
-          throw new Error('PDF không bị cấm. AI cho “Biên soạn từ PDF” chưa sẵn sàng. Hãy liên hệ quản trị viên để bật nhà cung cấp, gán model và kiểm tra lại mục đích này.');
+          throw new Error(payload.error || 'AI cho “Biên soạn từ PDF” không thể xử lý yêu cầu lúc này.');
         }
         throw new Error(payload.error || payload.code || 'Không thể tạo candidate.');
       }
-      if (typeof payload.reviewUrl !== 'string'
-          || !payload.reviewUrl.startsWith('/practice/manage/authoring-candidates/')) {
-        throw new Error('Candidate response không hợp lệ.');
+      const candidateId = typeof payload.candidateId === 'string'
+        && /^[A-Za-z0-9-]{1,80}$/.test(payload.candidateId)
+        ? payload.candidateId : null;
+      // Current API returns reviewUrl. Keep the redirect compatible with a
+      // valid candidate response from an already-running server that returns
+      // only candidateId while DevTools is reloading application classes.
+      const reviewUrl = typeof payload.reviewUrl === 'string'
+        && payload.reviewUrl.startsWith('/practice/manage/authoring-candidates/')
+        ? payload.reviewUrl
+        : candidateId
+          ? '/practice/manage/authoring-candidates/' + encodeURIComponent(candidateId)
+          : null;
+      if (!reviewUrl) {
+        throw new Error(payload.error || payload.code
+          || 'Máy chủ không trả candidateId để mở màn rà soát.');
       }
       showStatus('Candidate đã tạo. Đang mở màn rà soát...');
-      window.location.assign(payload.reviewUrl);
+      window.location.assign(reviewUrl);
     } catch (error) {
       showStatus(error instanceof Error ? error.message : 'Không thể tạo candidate.', 'error');
       submit.disabled = false;

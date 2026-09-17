@@ -136,7 +136,7 @@ class PracticePdfRetirementStaticContractTest {
         assertThat(orchestrator).contains(
                 "PracticeAiPurpose.PRACTICE_PDF_AUTHORING",
                 "identity.bindingRevision() < 0",
-                "PracticePdfAuthoringJsonContract.schema()")
+                "PracticePdfAuthoringJsonContract.schema(authoring.target().skill())")
                 .doesNotContain("PracticeAiRequestAudit");
         assertThat(jsonContract).contains(
                 "enumString(\"TEXT_SPAN\", \"PAGE\")")
@@ -167,7 +167,7 @@ class PracticePdfRetirementStaticContractTest {
                 "id=\"basic-source-type\"",
                 "id=\"basic-target-section\"",
                 "/practice/manage/pdf-authoring/candidates",
-                "window.location.assign(payload.reviewUrl)")
+                "window.location.assign(reviewUrl)")
                 .doesNotContain(
                         "import-sessions", "advanced-authoring", "recentSessions",
                         "pdfjsLib", "cdnjs", "payload-preview", "annotations");

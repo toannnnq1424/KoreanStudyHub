@@ -247,6 +247,21 @@ public class PracticeAiControlPlaneAdminService {
         return profile.getId();
     }
 
+    @Transactional(readOnly = true)
+    public ProfileForm newProfileForm() {
+        java.util.Set<String> existingCodes = profileRepository.findAllOrdered()
+                .stream()
+                .map(PracticeAiProviderProfile::getProfileCode)
+                .collect(java.util.stream.Collectors.toSet());
+        String base = "PRACTICE_PROVIDER";
+        String code = base;
+        int suffix = 2;
+        while (existingCodes.contains(code)) {
+            code = base + "_" + suffix++;
+        }
+        return ProfileForm.empty(code);
+    }
+
     @Transactional
     public boolean toggleProfile(Long id, Long actorId) {
         return profileRepository.findByIdForUpdate(id).map(profile -> {

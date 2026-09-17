@@ -243,6 +243,9 @@ public class PracticeAttemptEvaluationJob {
                                    String evaluationContractIdentity,
                                    Long requestedBy,
                                    LocalDateTime now, LocalDateTime expiresAt) {
+        if (!java.util.Objects.equals(this.targetQuestionId, targetQuestionId)) {
+            this.manualRetryCount = 0;
+        }
         if (manualRetryLimitReached()) {
             throw new IllegalStateException(
                     "Evaluation manual retry limit is exhausted.");

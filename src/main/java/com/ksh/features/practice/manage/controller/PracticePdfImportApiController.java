@@ -111,8 +111,7 @@ public class PracticePdfImportApiController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
                     "code", "PRACTICE_PDF_AUTHORING_UNAVAILABLE",
                     "causeCode", exception.category(),
-                    "error", "PDF không bị chặn. AI cho Biên soạn từ PDF chưa sẵn sàng; "
-                            + "hãy liên hệ quản trị viên để bật profile và gán model."));
+                    "error", authoringFailureMessage(exception.category())));
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(Map.of(
                     "code", "PDF_AUTHORING_REQUEST_INVALID",
@@ -123,6 +122,31 @@ public class PracticePdfImportApiController {
                     "code", "PDF_AUTHORING_FAILED",
                     "error", "Không thể tạo authoring candidate lúc này."));
         }
+    }
+
+    private static String authoringFailureMessage(String causeCode) {
+        return switch (causeCode == null ? "" : causeCode) {
+            case "PROVIDER_HTTP_REQUEST_REJECTED" ->
+                    "PDF không bị chặn. Nhà cung cấp AI từ chối định dạng yêu cầu; "
+                            + "hệ thống sẽ cần kiểm tra schema hoặc khả năng model đã gán.";
+            case "PROVIDER_HTTP_AUTHENTICATION_FAILED" ->
+                    "PDF không bị chặn. Nhà cung cấp AI từ chối xác thực; "
+                            + "quản trị viên cần kiểm tra API key của profile đã gán.";
+            case "PROVIDER_HTTP_ENDPOINT_OR_MODEL_NOT_FOUND" ->
+                    "PDF không bị chặn. Endpoint hoặc model của nhà cung cấp AI không tồn tại; "
+                            + "quản trị viên cần kiểm tra Base URL và model đã gán.";
+            case "PROVIDER_HTTP_RATE_LIMITED" ->
+                    "PDF không bị chặn. Nhà cung cấp AI đang giới hạn yêu cầu hoặc hết hạn mức; "
+                            + "hãy thử lại sau hoặc kiểm tra quota.";
+            case "PROVIDER_HTTP_TIMEOUT", "PROVIDER_TRANSPORT_ERROR" ->
+                    "PDF không bị chặn. Không kết nối được tới nhà cung cấp AI trong thời gian cho phép; "
+                            + "hãy thử lại sau.";
+            case "PROVIDER_HTTP_REQUEST_TOO_LARGE", "PROVIDER_REQUEST_TOO_LARGE" ->
+                    "PDF không bị chặn. Nội dung gửi tới AI vượt giới hạn của nhà cung cấp; "
+                            + "hãy rút ngắn nguồn hoặc phạm vi trang.";
+            default -> "PDF không bị chặn. AI cho Biên soạn từ PDF không thể xử lý yêu cầu lúc này; "
+                    + "hãy kiểm tra profile, model hoặc thử lại sau.";
+        };
     }
 
     @GetMapping("/assets")

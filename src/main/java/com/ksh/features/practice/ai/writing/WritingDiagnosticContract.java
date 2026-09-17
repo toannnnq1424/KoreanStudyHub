@@ -287,7 +287,7 @@ public final class WritingDiagnosticContract {
         };
     }
 
-    private static boolean isClozeTask(String taskType) {
+    public static boolean isClozeTask(String taskType) {
         return "Q51".equals(taskType)
                 || "Q52".equals(taskType)
                 || "Q51_52".equals(taskType);

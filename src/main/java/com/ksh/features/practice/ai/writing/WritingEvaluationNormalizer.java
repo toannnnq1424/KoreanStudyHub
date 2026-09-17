@@ -2,15 +2,19 @@ package com.ksh.features.practice.ai.writing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class WritingEvaluationNormalizer {
@@ -35,8 +39,10 @@ public class WritingEvaluationNormalizer {
                             WritingRuleEngine.RuleAnalysis ruleAnalysis) {
         try {
             JsonNode root = objectMapper.readTree(aiJson);
-            WritingEvidenceLedgerVerifier.VerifiedEnvelope verified =
-                    ledgerVerifier.verify(root, taskType, learnerAnswer);
+            root = repairMinorProviderEnvelope(root, taskType, learnerAnswer);
+            WritingEvidenceLedgerVerifier.Recovery recovery =
+                    ledgerVerifier.recover(root, taskType, learnerAnswer);
+            WritingEvidenceLedgerVerifier.VerifiedEnvelope verified = recovery.envelope();
             String studentText = verified.learnerAnswerNfc();
             List<Map<String, Object>> rubricScores =
                     normalizedRubricScores(verified.rubrics(), taskType);
@@ -95,6 +101,9 @@ public class WritingEvaluationNormalizer {
             normalized.put("sample_answer", "");
             normalized.put("sentence_rewrites",
                     normalizedRewrites(verified.upgrade().rewrites()));
+            normalized.put("presentation_fallback",
+                    presentationFallback(root, summary,
+                            verified.upgrade().content()));
             normalized.put("engine", EVALUATION_ENGINE);
             putEvaluationMetadata(normalized,
                     "EVALUATED",
@@ -102,6 +111,28 @@ public class WritingEvaluationNormalizer {
                     "NONE",
                     false,
                     true);
+            if (verified.rubrics().isEmpty()) {
+                return contractFailure(
+                        "PROVIDER_CONTRACT_INVALID",
+                        taskType,
+                        learnerAnswer,
+                        aiJson);
+            }
+            normalized.put("provider_raw_response", truncateProviderRawResponse(aiJson));
+            normalized.put("validation_issues", recovery.rejected());
+            if (!recovery.rejected().isEmpty()) {
+                // Partial evidence can support comments, never an invented total.
+                for (String key : List.of("score", "overall_score", "percentage", "raw_score", "raw_score_max")) {
+                    normalized.remove(key);
+                }
+                normalized.put("evaluation_status", "EVALUATED_PARTIAL");
+                normalized.put("score_available", false);
+                normalized.put("evaluation_reason", "PROVIDER_ITEMS_REJECTED");
+                normalized.put("summary", "Một phần nhận xét đã được xác minh; điểm tổng chưa khả dụng.");
+                normalized.put("summary_vi", normalized.get("summary"));
+                normalized.put(PracticeAiResultCompleteness.FIELD,
+                        PracticeAiResultCompleteness.partial("PROVIDER_ITEMS_REJECTED", recovery.rejected().size()).toMap());
+            }
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
             return contractFailure(
@@ -109,7 +140,422 @@ public class WritingEvaluationNormalizer {
                             ? "PROVIDER_MALFORMED_JSON"
                             : "PROVIDER_CONTRACT_INVALID",
                     taskType,
-                    learnerAnswer);
+                    learnerAnswer,
+                    aiJson);
+        }
+    }
+
+    /**
+     * Canonicalizes known gateway aliases and deletion operations. Exact source
+     * positions are subsequently resolved by the evidence recovery boundary.
+     */
+    private JsonNode repairMinorProviderEnvelope(
+            JsonNode source,
+            String taskType,
+            String learnerAnswer
+    ) {
+        if (source == null || !source.isObject()) {
+            return source;
+        }
+        ObjectNode repaired = ((ObjectNode) source).deepCopy();
+        // A few OpenAI-compatible gateways append their own routing metadata
+        // to an otherwise complete strict response. It is not score-bearing
+        // and was never part of the KSH evidence contract. Remove only these
+        // known aliases; every score/evidence field remains fail-closed.
+        repaired.remove("policy_bundle_id");
+        repaired.remove("policyBundleId");
+        normalizeDeletionFindings(repaired);
+        healTaskCoverage(repaired, taskType, learnerAnswer);
+        healRubricScores(repaired, taskType, learnerAnswer);
+        return repaired;
+    }
+
+    private static void healTaskCoverage(
+            ObjectNode root,
+            String taskType,
+            String learnerAnswer
+    ) {
+        if (root == null || taskType == null) {
+            return;
+        }
+        List<WritingTaskRequirementPolicy.Requirement> requirements;
+        try {
+            requirements = WritingTaskRequirementPolicy.requirementsFor(taskType);
+        } catch (Exception ex) {
+            return;
+        }
+        if (requirements.isEmpty()) {
+            return;
+        }
+
+        JsonNode coverageNode = root.get("taskCoverage");
+        if (!(coverageNode instanceof ArrayNode coverageArray)) {
+            return;
+        }
+
+        int length = learnerAnswer == null ? 0 : learnerAnswer.strip().length();
+        String source = learnerAnswer == null ? "" : Normalizer.normalize(learnerAnswer, Normalizer.Form.NFC);
+
+        // Collect available evidenceIds that actually exist in the NFC learner answer
+        Set<String> validEvidenceIds = new LinkedHashSet<>();
+        JsonNode ledger = root.get("evidenceLedger");
+        if (ledger instanceof ArrayNode ledgerArr) {
+            for (JsonNode row : ledgerArr) {
+                String evId = row.path("evidenceId").asText();
+                String exact = row.path("exactText").asText("");
+                if (!evId.isBlank() && !exact.isBlank() && source.contains(exact)) {
+                    validEvidenceIds.add(evId);
+                }
+            }
+        }
+
+        // Map requirementId -> list of evidenceIds from findings
+        Map<String, Set<String>> reqToEvidence = new LinkedHashMap<>();
+        Map<String, Set<String>> scoringCriterionToEvidence = new LinkedHashMap<>();
+        JsonNode findings = root.get("findings");
+        if (findings instanceof ArrayNode findingsArr) {
+            for (JsonNode f : findingsArr) {
+                List<String> evList = new ArrayList<>();
+                JsonNode fEv = f.get("evidenceIds");
+                if (fEv instanceof ArrayNode fEvArr) {
+                    for (JsonNode e : fEvArr) {
+                        String id = e.asText();
+                        if (validEvidenceIds.contains(id)) {
+                            evList.add(id);
+                        }
+                    }
+                }
+                if (!evList.isEmpty()) {
+                    JsonNode reqs = f.get("requirementIds");
+                    if (reqs instanceof ArrayNode reqsArr) {
+                        for (JsonNode r : reqsArr) {
+                            reqToEvidence.computeIfAbsent(r.asText(), k -> new LinkedHashSet<>()).addAll(evList);
+                        }
+                    }
+                    String scId = f.path("scoringCriterionId").asText();
+                    if (!scId.isBlank()) {
+                        scoringCriterionToEvidence.computeIfAbsent(scId, k -> new LinkedHashSet<>()).addAll(evList);
+                    }
+                }
+            }
+        }
+
+        Map<String, WritingTaskRequirementPolicy.Requirement> reqById = new LinkedHashMap<>();
+        for (var r : requirements) {
+            reqById.put(r.requirementId(), r);
+        }
+
+        Set<String> presentReqIds = new LinkedHashSet<>();
+        for (int i = 0; i < coverageArray.size(); i++) {
+            JsonNode item = coverageArray.get(i);
+            if (!(item instanceof ObjectNode row)) {
+                coverageArray.remove(i);
+                i--;
+                continue;
+            }
+            String reqId = row.path("requirementId").asText();
+            if (reqId.isBlank() || !reqById.containsKey(reqId) || presentReqIds.contains(reqId)) {
+                coverageArray.remove(i);
+                i--;
+                continue;
+            }
+            presentReqIds.add(reqId);
+            row.retain("requirementId", "status", "evidenceIds");
+            WritingTaskRequirementPolicy.Requirement req = reqById.get(reqId);
+
+            // 1. Length requirements: enforce deterministic truth
+            if ("Q53_LENGTH_200_300".equals(reqId)) {
+                row.put("status", (length >= 200 && length <= 300) ? "MET" : "NOT_MET");
+                row.putArray("evidenceIds");
+                continue;
+            }
+            if ("Q54_LENGTH_600_700".equals(reqId)) {
+                row.put("status", (length >= 600 && length <= 700) ? "MET" : "NOT_MET");
+                row.putArray("evidenceIds");
+                continue;
+            }
+
+            // 2. Filter evidenceIds to only known valid evidence IDs
+            List<String> validRefs = new ArrayList<>();
+            JsonNode evArray = row.get("evidenceIds");
+            if (evArray instanceof ArrayNode arr) {
+                for (JsonNode e : arr) {
+                    String id = e.asText();
+                    if (validEvidenceIds.contains(id) && !validRefs.contains(id)) {
+                        validRefs.add(id);
+                    }
+                }
+            }
+
+            String status = row.path("status").asText();
+            if (!Set.of("MET", "NOT_MET", "PARTIAL").contains(status)) {
+                status = "MET";
+            }
+
+            if ("MET".equals(status) || "PARTIAL".equals(status)) {
+                if (req.evidenceRequired() && validRefs.isEmpty()) {
+                    Set<String> candidate = reqToEvidence.get(reqId);
+                    if (candidate != null && !candidate.isEmpty()) {
+                        validRefs.addAll(candidate);
+                    } else if (req.scoringCriterionId() != null
+                            && scoringCriterionToEvidence.containsKey(req.scoringCriterionId())
+                            && !scoringCriterionToEvidence.get(req.scoringCriterionId()).isEmpty()) {
+                        validRefs.addAll(scoringCriterionToEvidence.get(req.scoringCriterionId()));
+                    } else if (!validEvidenceIds.isEmpty()) {
+                        validRefs.add(validEvidenceIds.iterator().next());
+                    } else {
+                        status = "NOT_MET";
+                    }
+                }
+            } else {
+                validRefs.clear();
+            }
+
+            row.put("status", status);
+            ArrayNode repairedEv = row.putArray("evidenceIds");
+            validRefs.forEach(repairedEv::add);
+        }
+
+        // 3. Add any completely missing requirement so keyset matches exactly
+        for (var req : requirements) {
+            if (!presentReqIds.contains(req.requirementId())) {
+                ObjectNode row = coverageArray.addObject();
+                row.put("requirementId", req.requirementId());
+                if ("Q53_LENGTH_200_300".equals(req.requirementId())) {
+                    row.put("status", (length >= 200 && length <= 300) ? "MET" : "NOT_MET");
+                    row.putArray("evidenceIds");
+                } else if ("Q54_LENGTH_600_700".equals(req.requirementId())) {
+                    row.put("status", (length >= 600 && length <= 700) ? "MET" : "NOT_MET");
+                    row.putArray("evidenceIds");
+                } else {
+                    Set<String> candidate = reqToEvidence.get(req.requirementId());
+                    if (candidate != null && !candidate.isEmpty()) {
+                        row.put("status", "MET");
+                        ArrayNode arr = row.putArray("evidenceIds");
+                        candidate.forEach(arr::add);
+                    } else if (req.scoringCriterionId() != null
+                            && scoringCriterionToEvidence.containsKey(req.scoringCriterionId())
+                            && !scoringCriterionToEvidence.get(req.scoringCriterionId()).isEmpty()) {
+                        row.put("status", "MET");
+                        ArrayNode arr = row.putArray("evidenceIds");
+                        scoringCriterionToEvidence.get(req.scoringCriterionId()).forEach(arr::add);
+                    } else if (!validEvidenceIds.isEmpty() && req.evidenceRequired()) {
+                        row.put("status", "MET");
+                        ArrayNode arr = row.putArray("evidenceIds");
+                        arr.add(validEvidenceIds.iterator().next());
+                    } else {
+                        row.put("status", "NOT_MET");
+                        row.putArray("evidenceIds");
+                    }
+                }
+            }
+        }
+    }
+
+    private static void healRubricScores(
+            ObjectNode root,
+            String taskType,
+            String learnerAnswer
+    ) {
+        if (root == null || taskType == null) {
+            return;
+        }
+        WritingScoringRubric expectedRubric;
+        try {
+            expectedRubric = WritingScoringPolicy.rubricFor(taskType);
+        } catch (Exception ex) {
+            return;
+        }
+        if (expectedRubric == null) {
+            return;
+        }
+        JsonNode rubricsNode = root.get("rubricScores");
+        if (!(rubricsNode instanceof ArrayNode rubricArray)) {
+            return;
+        }
+
+        String source = learnerAnswer == null ? "" : Normalizer.normalize(learnerAnswer, Normalizer.Form.NFC);
+        Set<String> validEvidenceIds = new LinkedHashSet<>();
+        JsonNode ledger = root.get("evidenceLedger");
+        if (ledger instanceof ArrayNode ledgerArr) {
+            for (JsonNode row : ledgerArr) {
+                String evId = row.path("evidenceId").asText();
+                String exact = row.path("exactText").asText("");
+                if (!evId.isBlank() && !exact.isBlank() && source.contains(exact)) {
+                    validEvidenceIds.add(evId);
+                }
+            }
+        }
+
+        // Map criterionId -> owned requirements
+        Map<String, Set<String>> ownedRequirements = new LinkedHashMap<>();
+        Map<String, WritingTaskRequirementPolicy.Requirement> reqs = new LinkedHashMap<>();
+        for (var r : WritingTaskRequirementPolicy.requirementsFor(taskType)) {
+            reqs.put(r.requirementId(), r);
+            if (r.scoringCriterionId() != null) {
+                ownedRequirements.computeIfAbsent(r.scoringCriterionId(), k -> new LinkedHashSet<>()).add(r.requirementId());
+            }
+        }
+
+        // Track unmet requirements per criterion
+        Set<String> criteriaWithUnmetRequirements = new HashSet<>();
+        Map<String, Set<String>> criterionToCoverageEvidence = new LinkedHashMap<>();
+        JsonNode coverageNode = root.get("taskCoverage");
+        if (coverageNode instanceof ArrayNode coverageArray) {
+            for (JsonNode row : coverageArray) {
+                String reqId = row.path("requirementId").asText();
+                String status = row.path("status").asText();
+                var req = reqs.get(reqId);
+                if (req != null && req.scoringCriterionId() != null) {
+                    if (req.required() && !"MET".equals(status)) {
+                        criteriaWithUnmetRequirements.add(req.scoringCriterionId());
+                    }
+                    JsonNode evArr = row.get("evidenceIds");
+                    if (evArr instanceof ArrayNode evA) {
+                        for (JsonNode e : evA) {
+                            String evId = e.asText();
+                            if (validEvidenceIds.contains(evId)) {
+                                criterionToCoverageEvidence.computeIfAbsent(req.scoringCriterionId(), k -> new LinkedHashSet<>()).add(evId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Track owned findings and improvements per criterion
+        Map<String, Set<String>> ownedFindings = new LinkedHashMap<>();
+        Map<String, Set<String>> criterionToFindingEvidence = new LinkedHashMap<>();
+        Set<String> criteriaWithImprovements = new HashSet<>();
+        Set<String> criteriaWithStrengths = new HashSet<>();
+        JsonNode findingsNode = root.get("findings");
+        if (findingsNode instanceof ArrayNode findingsArray) {
+            for (JsonNode f : findingsArray) {
+                String scId = f.path("scoringCriterionId").asText();
+                String fId = f.path("findingId").asText();
+                String polarity = f.path("polarity").asText();
+                if (!scId.isBlank() && !fId.isBlank()) {
+                    ownedFindings.computeIfAbsent(scId, k -> new LinkedHashSet<>()).add(fId);
+                    if ("IMPROVEMENT".equals(polarity)) {
+                        criteriaWithImprovements.add(scId);
+                    } else if ("STRENGTH".equals(polarity)) {
+                        criteriaWithStrengths.add(scId);
+                    }
+                    JsonNode evArr = f.get("evidenceIds");
+                    if (evArr instanceof ArrayNode evA) {
+                        for (JsonNode e : evA) {
+                            String evId = e.asText();
+                            if (validEvidenceIds.contains(evId)) {
+                                criterionToFindingEvidence.computeIfAbsent(scId, k -> new LinkedHashSet<>()).add(evId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Map<String, WritingScoringCriterion> criteriaById = new LinkedHashMap<>();
+        for (var c : expectedRubric.criteria()) {
+            criteriaById.put(c.criterionId(), c);
+        }
+
+        Set<String> presentCriteria = new LinkedHashSet<>();
+        for (int i = 0; i < rubricArray.size(); i++) {
+            JsonNode item = rubricArray.get(i);
+            if (!(item instanceof ObjectNode row)) {
+                rubricArray.remove(i);
+                i--;
+                continue;
+            }
+            String criterionId = row.path("criterionId").asText();
+            if (criterionId.isBlank() || !criteriaById.containsKey(criterionId) || presentCriteria.contains(criterionId)) {
+                rubricArray.remove(i);
+                i--;
+                continue;
+            }
+            presentCriteria.add(criterionId);
+            row.retain("criterionId", "score", "maxScore", "evidenceIds", "findingIds", "requirementIds");
+
+            var criterion = criteriaById.get(criterionId);
+            if (!row.has("maxScore") || !row.get("maxScore").isIntegralNumber()) {
+                row.put("maxScore", criterion.maxScore());
+            }
+
+            // Fill missing or empty references with owned identifiers
+            if (!row.has("findingIds") || !(row.get("findingIds") instanceof ArrayNode) || row.get("findingIds").isEmpty()) {
+                Set<String> fIds = ownedFindings.getOrDefault(criterionId, Set.of());
+                ArrayNode fArray = row.putArray("findingIds");
+                fIds.forEach(fArray::add);
+            }
+
+            if (!row.has("requirementIds") || !(row.get("requirementIds") instanceof ArrayNode) || row.get("requirementIds").isEmpty()) {
+                Set<String> rIds = ownedRequirements.getOrDefault(criterionId, Set.of());
+                ArrayNode rArray = row.putArray("requirementIds");
+                rIds.forEach(rArray::add);
+            }
+
+            if (!row.has("evidenceIds") || !(row.get("evidenceIds") instanceof ArrayNode) || row.get("evidenceIds").isEmpty()) {
+                Set<String> evIds = new LinkedHashSet<>();
+                evIds.addAll(criterionToFindingEvidence.getOrDefault(criterionId, Set.of()));
+                evIds.addAll(criterionToCoverageEvidence.getOrDefault(criterionId, Set.of()));
+                int score = row.path("score").asInt(0);
+                if (score > 0 && evIds.isEmpty() && !validEvidenceIds.isEmpty()) {
+                    evIds.add(validEvidenceIds.iterator().next());
+                }
+                ArrayNode evArray = row.putArray("evidenceIds");
+                evIds.forEach(evArray::add);
+            }
+        }
+    }
+
+    /**
+     * Some otherwise valid providers describe deleting a cited phrase as a
+     * {@code REPLACE} finding with an empty replacement.  In the KSH contract
+     * an empty replacement has one unambiguous meaning: remove the cited text,
+     * so its canonical operation is {@code REDUNDANT}.  Canonicalize just that
+     * spelling variation; no score, rubric, evidence span or source text is
+     * invented or altered.  A no-op rewrite for that deletion is removed
+     * because rewrites intentionally require a non-blank replacement.
+     */
+    private static void normalizeDeletionFindings(ObjectNode root) {
+        JsonNode findingsNode = root.get("findings");
+        if (findingsNode == null || !findingsNode.isArray()) {
+            return;
+        }
+        java.util.Set<String> deletionFindingIds = new java.util.HashSet<>();
+        for (JsonNode findingNode : findingsNode) {
+            if (!(findingNode instanceof ObjectNode finding)
+                    || !"IMPROVEMENT".equals(finding.path("polarity").asText())
+                    || !"REPLACE".equals(finding.path("operation").asText())
+                    || !finding.path("replacementKo").isTextual()
+                    || !finding.path("replacementKo").asText().isBlank()) {
+                continue;
+            }
+            String findingId = finding.path("findingId").asText();
+            if (!findingId.isBlank()) {
+                finding.put("operation", "REDUNDANT");
+                deletionFindingIds.add(findingId);
+            }
+        }
+        if (deletionFindingIds.isEmpty()) {
+            return;
+        }
+        JsonNode rewritesNode = root.path("upgradedAnswer").path("rewrites");
+        if (!(rewritesNode instanceof ArrayNode rewrites)) {
+            return;
+        }
+        for (int index = rewrites.size() - 1; index >= 0; index--) {
+            JsonNode rewrite = rewrites.get(index);
+            boolean referencesDeletion = rewrite.path("findingIds").isArray()
+                    && java.util.stream.StreamSupport.stream(
+                    java.util.Spliterators.spliteratorUnknownSize(
+                            rewrite.path("findingIds").elements(), 0), false)
+                    .anyMatch(id -> deletionFindingIds.contains(id.asText()));
+            if (referencesDeletion
+                    && rewrite.path("replacementKo").isTextual()
+                    && rewrite.path("replacementKo").asText().isBlank()) {
+                rewrites.remove(index);
+            }
         }
     }
 
@@ -712,6 +1158,13 @@ public class WritingEvaluationNormalizer {
     }
 
     public String contractFailure(String reason, String taskType, String learnerAnswer) {
+        return contractFailure(reason, taskType, learnerAnswer, "");
+    }
+
+    private String contractFailure(String reason,
+                                   String taskType,
+                                   String learnerAnswer,
+                                   String providerRawResponse) {
         return availabilityResult(
                 "EVALUATION_CONTRACT_FAILED",
                 "PROVIDER",
@@ -719,7 +1172,58 @@ public class WritingEvaluationNormalizer {
                 true,
                 "Phản hồi AI không đúng định dạng chấm điểm — vui lòng chấm lại.",
                 taskType,
-                learnerAnswer);
+                learnerAnswer,
+                providerRawResponse);
+    }
+
+    private Map<String, Object> presentationFallback(
+            JsonNode providerRoot,
+            String defaultSummary,
+            String defaultUpgrade) {
+        JsonNode compact = providerRoot == null
+                ? null : providerRoot.path("compactFallback");
+        Map<String, Object> fallback = new LinkedHashMap<>();
+        fallback.put("schema_version",
+                "practice-writing-presentation-fallback-v1");
+        fallback.put("tong_quan", boundedCompactText(
+                compact, providerRoot, "xxx_tongquan", defaultSummary));
+        fallback.put("diem_manh", boundedCompactText(
+                compact, providerRoot, "xxx_diemmanh",
+                "Chưa có điểm mạnh được xác minh vì phản hồi chi tiết không hợp lệ."));
+        fallback.put("can_cai_thien", boundedCompactText(
+                compact, providerRoot, "xxx_cancaithien",
+                "Hãy chấm lại để nhận nhận xét có đối chiếu theo tiêu chí."));
+        fallback.put("bai_nang_cap", boundedCompactText(
+                compact, providerRoot, "xxx_bainangcap", defaultUpgrade));
+        return fallback;
+    }
+
+    private static final Map<String, List<String>> COMPACT_ALIASES = Map.of(
+            "xxx_tongquan", List.of("xxx_tongquan", "tongquan", "xxx_tong_quan", "tong_quan", "overview", "summary", "summary_vi"),
+            "xxx_diemmanh", List.of("xxx_diemmanh", "diemmanh", "xxx_diem_manh", "diem_manh", "strengths", "strength"),
+            "xxx_cancaithien", List.of("xxx_cancaithien", "cancaithien", "xxx_can_cai_thien", "can_cai_thien", "needs_improvement", "improvements"),
+            "xxx_bainangcap", List.of("xxx_bainangcap", "bainangcap", "xxx_bai_nang_cap", "bai_nang_cap", "upgraded_answer", "upgradedAnswer")
+    );
+
+    private static String boundedCompactText(
+            JsonNode compact,
+            JsonNode root,
+            String field,
+            String fallback) {
+        List<String> candidates = COMPACT_ALIASES.getOrDefault(field, List.of(field,
+                field.startsWith("xxx_") ? field.substring(4) : "xxx_" + field));
+        for (String candidate : candidates) {
+            if (compact != null && compact.isObject() && compact.path(candidate).isTextual()) {
+                String val = compact.path(candidate).asText().trim();
+                if (!val.isBlank()) return val.length() <= 4_000 ? val : val.substring(0, 4_000);
+            }
+            if (root != null && root.isObject() && root.path(candidate).isTextual()) {
+                String val = root.path(candidate).asText().trim();
+                if (!val.isBlank()) return val.length() <= 4_000 ? val : val.substring(0, 4_000);
+            }
+        }
+        String value = fallback == null ? "" : fallback.trim();
+        return value.length() <= 4_000 ? value : value.substring(0, 4_000);
     }
 
     private String availabilityResult(String status,
@@ -729,6 +1233,19 @@ public class WritingEvaluationNormalizer {
                                       String message,
                                       String taskType,
                                       String learnerAnswer) {
+        return availabilityResult(
+                status, source, reason, retryable, message, taskType,
+                learnerAnswer, "");
+    }
+
+    private String availabilityResult(String status,
+                                      String source,
+                                      String reason,
+                                      boolean retryable,
+                                      String message,
+                                      String taskType,
+                                      String learnerAnswer,
+                                      String providerRawResponse) {
         try {
             String effectiveTaskType = taskType == null ? "GENERAL" : taskType;
             Map<String, Object> normalized = new LinkedHashMap<>();
@@ -737,6 +1254,14 @@ public class WritingEvaluationNormalizer {
                     WritingAssessmentPolicyBundle.POLICY_BUNDLE_ID);
             normalized.put("summary", message);
             normalized.put("summary_vi", message);
+            // This is deliberately non-score-bearing.  It gives Result and
+            // Result Detail a bounded, readable state when a provider breaks
+            // the detailed rubric contract, without inventing a rubric score
+            // or presenting unverified diagnostics as feedback.
+            Map<String, Object> presentationFallback =
+                    presentationFallbackFromRaw(
+                            providerRawResponse, message);
+            normalized.put("presentation_fallback", presentationFallback);
             normalized.put("rubric_scores", List.of());
             normalized.put("strengths", List.of());
             normalized.put("needs_improvement", List.of());
@@ -750,12 +1275,77 @@ public class WritingEvaluationNormalizer {
             normalized.put("corrected_version", "");
             normalized.put("sample_answer", "");
             normalized.put("sentence_rewrites", List.of());
+            if (providerRawResponse != null && !providerRawResponse.isBlank()) {
+                normalized.put("provider_raw_response",
+                        truncateProviderRawResponse(providerRawResponse));
+            }
             normalized.put("engine", "KSH_WRITING_EVALUATOR_STATUS");
             putEvaluationMetadata(normalized, status, source, reason, retryable, false);
             return objectMapper.writeValueAsString(normalized);
         } catch (Exception ex) {
             return "{\"policy_bundle_id\":\"KSH_WRITING_POLICY_BUNDLE_V3\",\"evaluation_status\":\"EVALUATION_UNAVAILABLE\",\"evaluation_source\":\"SYSTEM\",\"evaluation_reason\":\"PROVIDER_UNEXPECTED_ERROR\",\"evaluation_retryable\":true,\"score_available\":false,\"result_completeness\":{\"version\":\"practice-ai-result-completeness-v1\",\"status\":\"UNAVAILABLE\",\"reason_code\":\"PROVIDER_UNEXPECTED_ERROR\",\"rejected_item_count\":0},\"summary_vi\":\"Chưa có đánh giá AI khả dụng.\"}";
         }
+    }
+
+    private static String truncateProviderRawResponse(String value) {
+        final int limit = 65536;
+        return value.length() <= limit
+                ? value
+                : value.substring(0, limit) + "\n…[provider response truncated]";
+    }
+
+    private static final java.util.regex.Pattern TONG_QUAN_PATTERN =
+            java.util.regex.Pattern.compile("\"(?:xxx_)?tong_?quan\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+    private static final java.util.regex.Pattern DIEM_MANH_PATTERN =
+            java.util.regex.Pattern.compile("\"(?:xxx_)?diem_?manh\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+    private static final java.util.regex.Pattern CAN_CAI_THIEN_PATTERN =
+            java.util.regex.Pattern.compile("\"(?:xxx_)?can_?cai_?thien\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+    private static final java.util.regex.Pattern BAI_NANG_CAP_PATTERN =
+            java.util.regex.Pattern.compile("\"(?:xxx_)?bai_?nang_?cap\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+    private static String extractRegexFallbackField(java.util.regex.Pattern pattern, String text, String fallback) {
+        if (text == null || text.isBlank()) return fallback;
+        java.util.regex.Matcher m = pattern.matcher(text);
+        if (m.find()) {
+            String captured = m.group(1);
+            String unescaped = captured
+                    .replace("\\n", "\n")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+                    .replace("\\t", "\t")
+                    .replace("\\r", "");
+            if (!unescaped.isBlank()) {
+                return unescaped.length() <= 4_000 ? unescaped : unescaped.substring(0, 4_000);
+            }
+        }
+        return fallback;
+    }
+
+    private Map<String, Object> presentationFallbackFromRaw(
+            String providerRawResponse,
+            String defaultMessage) {
+        if (providerRawResponse != null && !providerRawResponse.isBlank()) {
+            try {
+                JsonNode raw = objectMapper.readTree(providerRawResponse);
+                return presentationFallback(raw, defaultMessage, "");
+            } catch (Exception ignored) {
+                Map<String, Object> fallback = new LinkedHashMap<>();
+                fallback.put("schema_version",
+                        "practice-writing-presentation-fallback-v1");
+                fallback.put("tong_quan", extractRegexFallbackField(
+                        TONG_QUAN_PATTERN, providerRawResponse, defaultMessage));
+                fallback.put("diem_manh", extractRegexFallbackField(
+                        DIEM_MANH_PATTERN, providerRawResponse,
+                        "Chưa có điểm mạnh được xác minh vì phản hồi chi tiết không hợp lệ."));
+                fallback.put("can_cai_thien", extractRegexFallbackField(
+                        CAN_CAI_THIEN_PATTERN, providerRawResponse,
+                        "Hãy chấm lại để nhận nhận xét có đối chiếu theo tiêu chí."));
+                fallback.put("bai_nang_cap", extractRegexFallbackField(
+                        BAI_NANG_CAP_PATTERN, providerRawResponse, ""));
+                return fallback;
+            }
+        }
+        return presentationFallback(null, defaultMessage, "");
     }
 
     // ---- Scoring ----

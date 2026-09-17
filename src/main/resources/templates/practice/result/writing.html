@@ -139,6 +139,12 @@
           </p>
           <p th:case="*">Chưa có đủ dữ liệu đã kiểm tra để hiển thị điểm nhiệm vụ.</p>
         </th:block>
+        <aside class="pr-writing-fallback-note"
+               th:if="${task.summary() != null and !task.summary().isBlank()}">
+          <strong>Thông tin tạm thời</strong>
+          <p th:text="${task.summary()}">Đánh giá AI đang cần được chấm lại.</p>
+          <small>Đây không phải điểm hay nhận xét tiêu chí đã xác minh.</small>
+        </aside>
         <span class="pr-writing-state-scale" th:if="${task.score().scaleLabel() != null}"
               th:text="${task.score().scaleLabel()}">Thang điểm 30</span>
       </section>

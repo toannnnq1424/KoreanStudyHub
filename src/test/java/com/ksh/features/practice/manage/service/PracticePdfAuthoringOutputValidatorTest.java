@@ -105,6 +105,33 @@ class PracticePdfAuthoringOutputValidatorTest {
     }
 
     @Test
+    void acceptsNullProviderPointsAndConfidenceBecauseTheyAreCodeOwnedOrAdvisory() {
+        PracticePdfAuthoringRequest request = request("READING", SourceOperation.EXTRACT);
+        ObjectNode output = root(request);
+        ObjectNode question = (ObjectNode) output.at("/groups/0/questions/0");
+        question.putNull("points");
+        question.putNull("confidence");
+
+        ObjectNode validated = validator.validate(output, request).root();
+
+        assertThat(validated.at("/groups/0/questions/0/points").isMissingNode()).isTrue();
+        assertThat(validated.at("/groups/0/questions/0/confidence").isMissingNode()).isTrue();
+    }
+
+    @Test
+    void languageTagIsAcceptedOnlyForQuestionContentV3() {
+        PracticePdfAuthoringRequest request = request("READING", SourceOperation.EXTRACT);
+        ObjectNode v1 = root(request);
+        ObjectNode content = (ObjectNode) v1.at("/groups/0/questions/0/questionContent");
+        content.put("schemaVersion", "question-content-v1");
+        content.remove("languageTag");
+        validator.validate(v1, request);
+
+        content.putNull("languageTag");
+        assertSchemaFailure(v1, request, "PDF_AUTHORING_SCHEMA_INVALID");
+    }
+
+    @Test
     void rejectsEvaluationSubmissionAndResultFieldsRecursively() {
         PracticePdfAuthoringRequest request = request("READING", SourceOperation.EXTRACT);
         for (String forbidden : List.of(
@@ -157,6 +184,98 @@ class PracticePdfAuthoringOutputValidatorTest {
         assertSchemaFailure(wrongDigest, request, "PDF_AUTHORING_SCHEMA_INVALID");
     }
 
+    @Test
+    void requiresTheExactLecturerRequestedSourceQuestionRange() {
+        PracticePdfAuthoringRequest request = request(
+                "READING", SourceOperation.EXTRACT, "Trích câu 1-4 và 48-50.");
+        ObjectNode output = root(request);
+        ArrayNode questions = (ArrayNode) output.at("/groups/0/questions");
+        questions.removeAll();
+        for (int number : List.of(1, 2, 3, 4, 48, 49, 50)) {
+            ObjectNode question = singleChoiceQuestion();
+            question.put("sourceQuestionId", "source-question-" + number);
+            question.put("sourceQuestionNumber", number);
+            questions.add(question);
+        }
+
+        validator.validate(output, request);
+
+        questions.remove(6);
+        assertSchemaFailure(output, request, "PDF_AUTHORING_SCOPE_MISMATCH");
+    }
+
+    @Test
+    void requiresEachLecturerRequestedQuestionRangeToStayInItsOwnGroup() {
+        PracticePdfAuthoringRequest request = request(
+                "READING", SourceOperation.EXTRACT,
+                "Gen 2 nhóm gồm nhóm 1 câu 1-2 và nhóm 2 câu 48-50.");
+        ObjectNode output = root(request);
+        ArrayNode firstQuestions = (ArrayNode) output.at("/groups/0/questions");
+        firstQuestions.removeAll();
+        firstQuestions.add(numberedQuestion(1)).add(numberedQuestion(2));
+        ObjectNode second = addGroup(output, "group-2");
+        second.putArray("questions")
+                .add(numberedQuestion(48))
+                .add(numberedQuestion(49))
+                .add(numberedQuestion(50));
+
+        validator.validate(output, request);
+
+        firstQuestions.removeAll()
+                .add(numberedQuestion(1))
+                .add(numberedQuestion(48));
+        second.withArray("questions").removeAll()
+                .add(numberedQuestion(2))
+                .add(numberedQuestion(49))
+                .add(numberedQuestion(50));
+        assertSchemaFailure(output, request, "PDF_AUTHORING_GROUP_SCOPE_MISMATCH");
+    }
+
+    @Test
+    void readingProviderSchemaDoesNotOfferWritingOrSpeakingQuestionTypes() throws Exception {
+        String readingSchema = mapper.writeValueAsString(
+                PracticePdfAuthoringJsonContract.schema("READING"));
+
+        assertThat(readingSchema)
+                .contains("SINGLE_CHOICE", "MATCHING")
+                .doesNotContain("\"ESSAY\"", "\"SPEAKING\"",
+                        "question-content-v2");
+
+        String speakingSchema = mapper.writeValueAsString(
+                PracticePdfAuthoringJsonContract.schema("SPEAKING"));
+        assertThat(speakingSchema)
+                .contains("question-content-v2", "question-content-v3")
+                .doesNotContain("question-content-v1");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void readingProviderSchemaLocksQuestionAndAnswerSpecToTheSameType() {
+        Map<String, Object> schema = PracticePdfAuthoringJsonContract.schema("READING");
+        Map<String, Object> rootProperties = (Map<String, Object>) schema.get("properties");
+        Map<String, Object> groups = (Map<String, Object>) rootProperties.get("groups");
+        Map<String, Object> group = (Map<String, Object>) groups.get("items");
+        Map<String, Object> groupProperties = (Map<String, Object>) group.get("properties");
+        Map<String, Object> questions = (Map<String, Object>) groupProperties.get("questions");
+        Map<String, Object> questionItems = (Map<String, Object>) questions.get("items");
+        List<Map<String, Object>> branches = (List<Map<String, Object>>) questionItems.get("anyOf");
+
+        assertThat(branches).hasSize(5);
+        for (Map<String, Object> branch : branches) {
+            Map<String, Object> properties = (Map<String, Object>) branch.get("properties");
+            Map<String, Object> questionType =
+                    (Map<String, Object>) properties.get("questionType");
+            Map<String, Object> answerSpec =
+                    (Map<String, Object>) properties.get("answerSpec");
+            Map<String, Object> answerProperties =
+                    (Map<String, Object>) answerSpec.get("properties");
+            Map<String, Object> answerType =
+                    (Map<String, Object>) answerProperties.get("questionType");
+
+            assertThat(answerType.get("enum")).isEqualTo(questionType.get("enum"));
+        }
+    }
+
     private void assertSchemaFailure(
             ObjectNode output,
             PracticePdfAuthoringRequest request,
@@ -172,8 +291,15 @@ class PracticePdfAuthoringOutputValidatorTest {
         root.put("schemaVersion", PracticePdfAuthoringJsonContract.SCHEMA_VERSION);
         root.put("operation", request.operation().name());
         root.put("sourceDigest", request.sourceDigest());
-        ObjectNode group = root.putArray("groups").addObject();
-        group.put("sourceGroupId", "group-1");
+        ObjectNode group = addGroup(root, "group-1");
+        group.putArray("questions").add(singleChoiceQuestion());
+        root.putArray("warnings");
+        return root;
+    }
+
+    private ObjectNode addGroup(ObjectNode root, String groupId) {
+        ObjectNode group = root.withArray("groups").addObject();
+        group.put("sourceGroupId", groupId);
         group.put("label", "Nhóm câu hỏi");
         group.put("instruction", "Làm bài.");
         ObjectNode stimulus = group.putObject("stimulus");
@@ -182,9 +308,14 @@ class PracticePdfAuthoringOutputValidatorTest {
         stimulus.put("transcriptText", "");
         stimulus.putArray("sourceRefs");
         group.putArray("sourceRefs").add(sourceRef());
-        group.putArray("questions").add(singleChoiceQuestion());
-        root.putArray("warnings");
-        return root;
+        return group;
+    }
+
+    private ObjectNode numberedQuestion(int sourceQuestionNumber) {
+        ObjectNode question = singleChoiceQuestion();
+        question.put("sourceQuestionId", "source-question-" + sourceQuestionNumber);
+        question.put("sourceQuestionNumber", sourceQuestionNumber);
+        return question;
     }
 
     private ObjectNode singleChoiceQuestion() {
@@ -363,13 +494,20 @@ class PracticePdfAuthoringOutputValidatorTest {
     private static PracticePdfAuthoringRequest request(
             String skill,
             SourceOperation operation) {
+        return request(skill, operation, "");
+    }
+
+    private static PracticePdfAuthoringRequest request(
+            String skill,
+            SourceOperation operation,
+            String lecturerRequest) {
         return new PracticePdfAuthoringRequest(
                 PracticePdfAuthoringRequest.SourceType.TEXT,
                 operation,
                 "source.txt",
                 "sha256:" + "6".repeat(64),
                 new TargetRoute(91L, 1, skill, skill.substring(0, 1) + "1"),
-                "",
+                lecturerRequest,
                 List.of(new PracticePdfAuthoringRequest.SourceEvidence(
                         "TEXT_SPAN", "source-1", null,
                         SOURCE.length(), SOURCE)),

@@ -268,7 +268,7 @@ class AdminSettingsInformationArchitectureStaticContractTest {
                 .contains("PDF không bị chặn");
         assertThat(pdfImport)
                 .contains("payload.code === 'PRACTICE_PDF_AUTHORING_UNAVAILABLE'")
-                .contains("PDF không bị cấm", "liên hệ quản trị viên");
+                .contains("payload.error || 'AI cho “Biên soạn từ PDF”");
     }
 
     @Test

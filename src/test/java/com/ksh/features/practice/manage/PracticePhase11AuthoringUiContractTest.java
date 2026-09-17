@@ -534,7 +534,8 @@ class PracticePhase11AuthoringUiContractTest {
         assertTrue(wizard.contains("Tối đa 20 MiB"));
         assertTrue(wizard.contains("Không lưu PDF"));
         assertTrue(wizard.contains("candidate review"));
-        assertTrue(wizard.contains("window.location.assign(payload.reviewUrl)"));
+        assertTrue(wizard.contains("const reviewUrl = typeof payload.reviewUrl"));
+        assertTrue(wizard.contains("window.location.assign(reviewUrl)"));
         assertTrue(wizard.contains("@media (max-width:760px)"));
         assertFalse(wizard.contains("import-sessions"));
         assertFalse(wizard.contains("advanced-authoring"));

@@ -34,6 +34,29 @@ import static org.mockito.Mockito.when;
 class PracticeControlPlaneStructuredGenerationAdapterTest {
 
     @Test
+    void gpt5UsesCompletionBudgetWithoutUnsupportedSamplingParameters() {
+        for (String model : List.of("gpt-5.6-luna", "codex/gpt-5.6-luna")) {
+            Map<String, Object> body = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    PracticeControlPlaneStructuredGenerationAdapter.class, "wireBody",
+                    request(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, List.of()),
+                    model, "{}", null);
+            assertThat(body).containsEntry("model", model)
+                    .containsKey("max_completion_tokens")
+                    .doesNotContainKeys("max_tokens", "temperature", "top_p");
+        }
+    }
+
+    @Test
+    void otherProvidersKeepExistingSamplingContract() {
+        Map<String, Object> body = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                PracticeControlPlaneStructuredGenerationAdapter.class, "wireBody",
+                request(PracticeAiPurpose.PRACTICE_WRITING_EVALUATION, List.of()),
+                "other-model", "{}", null);
+        assertThat(body).containsKeys("max_tokens", "temperature", "top_p")
+                .doesNotContainKey("max_completion_tokens");
+    }
+
+    @Test
     void identityPreservesFirstZeroBasedBindingRevision() {
         PracticeAiResolvedBinding binding = binding(
                 PracticeAiPurpose.PRACTICE_PDF_AUTHORING, true, 0, 0L);
@@ -193,6 +216,30 @@ class PracticeControlPlaneStructuredGenerationAdapterTest {
         verify(resolver, times(1)).resolve(
                 PracticeAiPurpose.PRACTICE_WRITING_EVALUATION);
         verify(audits).success(43L);
+    }
+
+    @Test
+    void preservesSafeHttpFailureCategoryAfterRetriesAreExhausted() {
+        PracticeAiResolvedBinding binding = binding(
+                PracticeAiPurpose.PRACTICE_PDF_AUTHORING, true, 0);
+        PracticeAiBindingResolver resolver = mock(PracticeAiBindingResolver.class);
+        PracticeAiExecutionAuditService audits = mock(PracticeAiExecutionAuditService.class);
+        PracticeAiProviderTransport transport = (resolved, path, contentType, accept, body, headers) ->
+                new PracticeAiProviderTransport.ProviderResponse(
+                        401, new byte[0], "application/json", "fake-auth");
+        when(resolver.resolve(PracticeAiPurpose.PRACTICE_PDF_AUTHORING))
+                .thenReturn(binding);
+        when(audits.start(any(), any(), any(), any())).thenReturn(44L);
+        doNothing().when(resolver).assertCurrent(binding.snapshot());
+        PracticeControlPlaneStructuredGenerationAdapter adapter = adapter(
+                resolver, audits, transport);
+
+        assertThatThrownBy(() -> adapter.generate(request(
+                PracticeAiPurpose.PRACTICE_PDF_AUTHORING, List.of())))
+                .isInstanceOf(PracticeAiContractException.class)
+                .extracting(error -> ((PracticeAiContractException) error).category())
+                .isEqualTo("PROVIDER_HTTP_AUTHENTICATION_FAILED");
+        verify(audits).failure(44L, "PROVIDER_HTTP_AUTHENTICATION_FAILED");
     }
 
     @Test

@@ -39,8 +39,12 @@ public final class PracticeAiSettingsDtos {
             boolean enabled
     ) {
         public static ProfileForm empty() {
+            return empty("PRACTICE_PROVIDER");
+        }
+
+        public static ProfileForm empty(String profileCode) {
             return new ProfileForm(
-                    null, null, "PRACTICE_PRIMARY", "",
+                    null, null, profileCode, "",
                     "OPENAI_COMPATIBLE", "STATIC_BEARER", "", "", false);
         }
     }

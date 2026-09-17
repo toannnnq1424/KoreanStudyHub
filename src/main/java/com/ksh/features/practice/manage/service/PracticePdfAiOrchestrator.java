@@ -96,6 +96,14 @@ public class PracticePdfAiOrchestrator {
                 "testNo", authoring.target().testNo(),
                 "lessonCode", authoring.target().lessonCode()));
         input.put("lecturerRequirements", authoring.lecturerRequest());
+        input.put("requestedSourceQuestionNumbers",
+                authoring.requestedSourceQuestionNumbers());
+        input.put("requestedSourceQuestionGroups",
+                authoring.requestedSourceQuestionGroups().stream()
+                        .map(group -> Map.of(
+                                "groupOrder", group.groupOrder(),
+                                "sourceQuestionNumbers", group.sourceQuestionNumbers()))
+                        .toList());
         input.put("untrustedSource", authoring.sourceContext());
         input.put("sourceDigest", authoring.sourceDigest());
         input.put("requestEvidenceIds", authoring.evidence().stream()
@@ -128,7 +136,7 @@ public class PracticePdfAiOrchestrator {
                 developerInstruction(adminPrompt.content()),
                 input,
                 PracticePdfAuthoringJsonContract.RESPONSE_SCHEMA_NAME,
-                PracticePdfAuthoringJsonContract.schema(),
+                PracticePdfAuthoringJsonContract.schema(authoring.target().skill()),
                 authoring.images(),
                 16_384,
                 idempotencyKey(authoring, identity, adminPrompt.digest()));
@@ -181,6 +189,39 @@ public class PracticePdfAiOrchestrator {
                 server cung cấp. Mỗi câu phải có canonical questionContent và
                 answerSpec; Writing dùng đúng Q51-Q54, Q51/Q52 có hai blank cùng
                 accepted answers typed; Speaking chỉ manual_text + text_only + none.
+                groups phải là JSON array không rỗng và mỗi group.questions cũng
+                phải là JSON array không rỗng. Không được trả groups: [] hoặc
+                questions: [] dù nguồn ngắn hay khó đọc; thay vào đó hãy tạo số
+                câu trong giới hạn lecturerRequirements và gắn sourceRefs thật.
+                Nếu operation=EXTRACT mà nguồn không có đủ nội dung câu hỏi,
+                đáp án hoặc span chứng cứ để trích, không được bịa: trả warning
+                code SOURCE_INSUFFICIENT_FOR_EXTRACT. Nếu
+                requestedSourceQuestionNumbers không rỗng, mỗi câu phải có
+                sourceQuestionNumber và tập số đó phải khớp chính xác request,
+                không được thiếu hay thêm câu ngoài phạm vi.
+                Nếu requestedSourceQuestionGroups không rỗng, phải trả đúng số
+                group theo thứ tự đó và mỗi group chỉ chứa đúng các
+                sourceQuestionNumber của group tương ứng. Với target READING
+                hoặc LISTENING, questionType/answerSpec.questionType chỉ được là
+                SINGLE_CHOICE, MULTIPLE_ANSWER, TRUE_FALSE_NOT_GIVEN,
+                FILL_BLANK hoặc MATCHING — tuyệt đối không ESSAY/SPEAKING.
+                questionType và answerSpec.questionType phải giống hệt nhau.
+                Canonical matrix cho Reading/Listening: SINGLE_CHOICE có ít
+                nhất 2 options, có đúng 1 correctOptionIds và
+                ALL_OR_NOTHING; MULTIPLE_ANSWER có ít nhất 2 options, ít nhất
+                2 correctOptionIds và ALL_OR_NOTHING; TRUE_FALSE_NOT_GIVEN có
+                correctValue là TRUE/FALSE/NOT_GIVEN, correctOptionIds rỗng và
+                ALL_OR_NOTHING; FILL_BLANK có blanks trong questionContent và
+                answerSpec.blanks khớp từng blankId, mỗi blank có ít nhất một
+                acceptedValues, dùng NORMALIZED_EXACT; MATCHING có options,
+                blanks và answerSpec.blanks khớp từng blankId, dùng
+                NORMALIZED_EXACT. Với Reading/Listening, questionContent không
+                được có writingResponse hoặc speakingDelivery; answerSpec không
+                được có writingBlankAuthority. Không bịa id: mọi
+                correctOptionIds/blankId phải tham chiếu id đã có trong
+                questionContent.
+                languageTag chỉ được phép xuất hiện trong questionContent có
+                schemaVersion question-content-v3; v1/v2 tuyệt đối không có key này.
                 Mọi sourceRef phải thuộc requestEvidenceIds và khớp page/span.
                 Không được trả target, storage key, URL tùy ý, publication action,
                 learner submission/result hay bất kỳ score, scoreSummary,

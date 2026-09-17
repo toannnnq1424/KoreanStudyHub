@@ -20,6 +20,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Builds bounded immutable authoring requests without a PDF session or object. */
 @Service
@@ -27,6 +30,11 @@ public class PracticePdfAiPayloadBuilder {
 
     static final long MAX_PDF_BYTES = 20L * 1024L * 1024L;
     private static final byte[] PDF_HEADER = "%PDF-".getBytes(StandardCharsets.US_ASCII);
+    private static final Pattern PRINTED_QUESTION_NUMBER = Pattern.compile(
+            "(?m)(?:^|\\n)\\s*(?:câu\\s*)?(\\d{1,3})\\s*(?:[.)\\]]|번|:|[-–])",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern QUESTION_RANGE_PATTERN = Pattern.compile(
+            "(?m)(?:^|\\n)\\s*(?:※\\s*)?\\[\\s*(\\d{1,3})\\s*[~～–-]\\s*(\\d{1,3})\\s*\\]");
 
     private final PracticePdfAiLimits limits;
 
@@ -47,6 +55,7 @@ public class PracticePdfAiPayloadBuilder {
             throw new IllegalArgumentException(
                     "Nội dung Text vượt ngân sách ký tự an toàn.");
         }
+        requireExtractScopeIsPresent(normalized, operation, lecturerRequest);
         PracticePdfAuthoringRequest.SourceEvidence evidence =
                 new PracticePdfAuthoringRequest.SourceEvidence(
                         "TEXT_SPAN", "text-1", null,
@@ -90,6 +99,12 @@ public class PracticePdfAiPayloadBuilder {
                 requirePageRange(startPage, endPage, totalPages);
                 List<PracticePdfAuthoringRequest.SourceEvidence> evidence =
                         extractEvidence(document, startPage, endPage);
+                requireExtractScopeIsPresent(
+                        evidence.stream()
+                                .map(PracticePdfAuthoringRequest.SourceEvidence::untrustedText)
+                                .reduce("", (left, right) -> left + "\n" + right),
+                        operation,
+                        lecturerRequest);
                 String sourceName = safeSourceName(file.getOriginalFilename());
                 return new PracticePdfAuthoringRequest(
                         PracticePdfAuthoringRequest.SourceType.PDF,
@@ -155,6 +170,65 @@ public class PracticePdfAiPayloadBuilder {
             throw new IllegalArgumentException(
                     "Phạm vi trang PDF vượt ngân sách xử lý an toàn.");
         }
+    }
+
+    /**
+     * Extraction must be traceable to the submitted source.  A range request
+     * alone (for example “câu 1-4 và 48-50”) is an instruction, not source
+     * evidence; fail before dispatching an AI request rather than generating
+     * unrelated questions that a lecturer later has to discard.
+     */
+    private static void requireExtractScopeIsPresent(
+            String sourceText,
+            SourceOperation operation,
+            String lecturerRequest
+    ) {
+        if (operation != SourceOperation.EXTRACT) {
+            return;
+        }
+        Set<Integer> requested = PracticePdfAuthoringRequest
+                .parseRequestedSourceQuestionNumbers(lecturerRequest);
+        if (requested.isEmpty()) {
+            return;
+        }
+        java.util.TreeSet<Integer> found = new java.util.TreeSet<>();
+        String text = sourceText == null ? "" : sourceText;
+        Matcher rangeMatcher = QUESTION_RANGE_PATTERN.matcher(text);
+        while (rangeMatcher.find()) {
+            try {
+                int start = Integer.parseInt(rangeMatcher.group(1));
+                int end = Integer.parseInt(rangeMatcher.group(2));
+                for (int n = start; n <= end; n++) {
+                    if (requested.contains(n)) {
+                        found.add(n);
+                    }
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        Matcher matcher = PRINTED_QUESTION_NUMBER.matcher(text);
+        while (matcher.find()) {
+            try {
+                int number = Integer.parseInt(matcher.group(1));
+                if (requested.contains(number)) {
+                    found.add(number);
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        if (found.containsAll(requested)) {
+            return;
+        }
+        java.util.TreeSet<Integer> missing = new java.util.TreeSet<>(requested);
+        missing.removeAll(found);
+        throw new IllegalArgumentException(
+                "Nguồn chưa chứa đủ nội dung cho các câu yêu cầu: "
+                        + displayQuestionNumbers(missing)
+                        + ". Với thao tác Trích xuất, hãy tải đúng PDF/trang "
+                        + "hoặc dán nguyên văn các câu đó.");
+    }
+
+    private static String displayQuestionNumbers(Set<Integer> numbers) {
+        return numbers.stream().map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     private static void requirePdfMetadata(MultipartFile file) {

@@ -2,6 +2,7 @@ package com.ksh.features.practice.ai.readinglistening;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ksh.features.practice.ai.contract.PracticeAiResultCompleteness;
 import com.ksh.features.practice.assessment.CanonicalQuestionType;
@@ -33,7 +34,7 @@ public class ReadingListeningExplanationClient {
 
     private static final Logger log = LoggerFactory.getLogger(ReadingListeningExplanationClient.class);
     public static final String EXPLANATION_PROMPT_VERSION =
-            "v9-objective-lecturer-strategy";
+            "v10-evidence-specific-lecturer-strategy";
     public static final String EXPLANATION_SCHEMA_VERSION = "v4";
     public static final String PREVIOUS_EXPLANATION_SCHEMA_VERSION = "v3";
     public static final String LEGACY_EXPLANATION_SCHEMA_VERSION = "v2";
@@ -143,6 +144,269 @@ public class ReadingListeningExplanationClient {
                     context.questionType(), exception.getClass().getSimpleName());
             return null;
         }
+    }
+
+    /**
+     * Converts a strict-JSON provider response into a conservative draft when
+     * its strategy payload is incomplete. It deliberately reuses only source
+     * evidence supplied by the provider and canonical answer identifiers from
+     * the immutable question; otherwise it returns {@code null}.
+     */
+    private String recoverTypedStrategyDraft(
+            String aiJson,
+            ExplanationContext context,
+            List<ExplanationImageEvidence> images) {
+        try {
+            JsonNode parsed = objectMapper.readTree(aiJson);
+            if (!(parsed instanceof ObjectNode parsedRoot)
+                    || !(parsedRoot.path("explanation") instanceof ObjectNode original)) {
+                return null;
+            }
+            ObjectNode recovered = objectMapper.createObjectNode();
+            recovered.put("schemaVersion", EXPLANATION_SCHEMA_VERSION);
+            recovered.put("strategyRegistryVersion",
+                    context.explanationStrategy().registryVersion());
+            recovered.put("strategyCode", context.explanationStrategy().strategyCode());
+            recovered.put("strategyVersion", context.explanationStrategy().strategyVersion());
+            recovered.put("questionType", context.questionType().name());
+
+            ObjectNode explanation = objectMapper.createObjectNode();
+            explanation.set("textEvidenceRefs", original.path("textEvidenceRefs").isArray()
+                    ? original.path("textEvidenceRefs").deepCopy()
+                    : objectMapper.createArrayNode());
+            explanation.set("imageEvidenceRefs", original.path("imageEvidenceRefs").isArray()
+                    ? original.path("imageEvidenceRefs").deepCopy()
+                    : objectMapper.createArrayNode());
+            // Keep provider translations while repairing only an incomplete
+            // strategy block. The table renderer needs the translation tied
+            // to its primary evidence; discarding an otherwise valid one made
+            // a recoverable provider response fail after transport succeeded.
+            explanation.set("relevantTranslations",
+                    original.path("relevantTranslations").isArray()
+                            ? original.path("relevantTranslations").deepCopy()
+                            : objectMapper.createArrayNode());
+            repairTextEvidenceOffsets(explanation, context);
+            RecoveryEvidence evidence = firstRecoveryEvidence(explanation);
+            if (evidence == null) {
+                return null;
+            }
+            explanation.set("strategyBlock", recoveredStrategyBlock(
+                    context, evidence));
+            recovered.set("explanation", explanation);
+            String value = objectMapper.writeValueAsString(recovered);
+            String validated = cleanAndValidateJson(value, context, images);
+            if (validated != null) {
+                log.info("[ReadingListeningAI] recovered incomplete provider strategy type={} strategy={}",
+                        context.questionType(),
+                        context.explanationStrategy().strategyCode());
+            }
+            return validated;
+        } catch (Exception exception) {
+            log.warn("[ReadingListeningAI] provider recovery failed type={} exception={}",
+                    context.questionType(), exception.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private ObjectNode recoveredStrategyBlock(
+            ExplanationContext context,
+            RecoveryEvidence evidence) {
+        ObjectNode block = objectMapper.createObjectNode();
+        ArrayNode evidenceIds = objectMapper.createArrayNode().add(evidence.id());
+        String question = concise(context.prompt());
+        String quote = concise(evidence.quoteKo());
+        String sourceAnchor = "Đoạn nguồn nêu “" + quote + "”";
+        switch (context.questionType()) {
+            case SINGLE_CHOICE, MULTIPLE_ANSWER -> {
+                switch (context.explanationStrategy().generationFamily()) {
+                    case EVIDENCE -> block.set("evidenceClaims", objectMapper.createArrayNode()
+                            .add(recoveredClaim("claim-1",
+                                    sourceAnchor + "; đây là chi tiết dùng để trả lời câu hỏi “"
+                                            + question + "”.",
+                                    evidenceIds)));
+                    case FULL_CONTEXT -> {
+                        block.set("contextClaims", objectMapper.createArrayNode()
+                                .add(recoveredClaim("context-1",
+                                        sourceAnchor + "; nó tạo ngữ cảnh trực tiếp cho câu hỏi “"
+                                                + question + "”.",
+                                        evidenceIds)));
+                        block.set("answerClaim", recoveredClaim("answer-1",
+                                "Khi đặt câu hỏi “" + question + "” cạnh chi tiết “"
+                                        + quote + "”, chỉ phương án được chọn đáp ứng thông tin nguồn.",
+                                evidenceIds));
+                    }
+                    case OPTION_ELIMINATION -> block.set("optionRationales",
+                            recoveredOptionRationales(context, evidenceIds, quote));
+                    case EVIDENCE_AND_ELIMINATION -> {
+                        block.set("contextClaims", objectMapper.createArrayNode()
+                                .add(recoveredClaim("context-1",
+                                        sourceAnchor + "; nó tạo ngữ cảnh trực tiếp cho câu hỏi “"
+                                                + question + "”.",
+                                        evidenceIds)));
+                        block.set("answerClaim", recoveredClaim("answer-1",
+                                "Chi tiết “" + quote + "” là căn cứ để giữ phương án phù hợp với câu hỏi “"
+                                        + question + "”.",
+                                evidenceIds));
+                        block.set("optionRationales",
+                                recoveredOptionRationales(context, evidenceIds, quote));
+                    }
+                    default -> throw new IllegalArgumentException("Unsupported option strategy");
+                }
+            }
+            case MATCHING -> {
+                ArrayNode rows = objectMapper.createArrayNode();
+                for (QuestionContent.Blank blank : context.questionContent().blanks()) {
+                    String accepted = context.answerSpec().blanks().stream()
+                            .filter(answer -> blank.id().equals(answer.blankId()))
+                            .flatMap(answer -> answer.acceptedValues().stream())
+                            .findFirst().orElse(null);
+                    if (accepted == null) throw new IllegalArgumentException("Missing canonical matching answer");
+                    ObjectNode row = objectMapper.createObjectNode();
+                    row.put("claimId", "target-" + blank.id());
+                    row.put("targetId", blank.id());
+                    row.put("candidateOptionId", accepted);
+                    row.put("reasonVi", "Mục “" + concise(blank.prompt()) + "” ghép với “"
+                            + concise(optionText(context, accepted)) + "” vì đoạn nguồn nêu “"
+                            + quote + "”.");
+                    row.set("evidenceIds", evidenceIds.deepCopy());
+                    rows.add(row);
+                }
+                block.set("targetExplanations", rows);
+            }
+            case FILL_BLANK -> {
+                ArrayNode rows = objectMapper.createArrayNode();
+                for (QuestionContent.Blank blank : context.questionContent().blanks()) {
+                    ObjectNode row = objectMapper.createObjectNode();
+                    row.put("claimId", "blank-" + blank.id());
+                    row.put("blankId", blank.id());
+                    row.put("contextExplanationVi", "Ô “" + concise(blank.prompt())
+                            + "” được xác định từ đoạn nguồn “" + quote + "”.");
+                    row.put("semanticConstraintVi", "");
+                    row.put("grammarConstraintVi", "");
+                    row.put("registerConstraintVi", "");
+                    row.set("evidenceIds", evidenceIds.deepCopy());
+                    rows.add(row);
+                }
+                block.set("blankExplanations", rows);
+            }
+            case TRUE_FALSE_NOT_GIVEN -> {
+                block.set("claim", recoveredClaim("claim-1",
+                        "Mệnh đề “" + question + "” được xét dựa trên đoạn “" + quote + "”.", evidenceIds));
+                block.set("whyTrue", recoveredClaim("true-1",
+                        "TRUE chỉ phù hợp khi đoạn “" + quote
+                                + "” xác nhận đầy đủ các chi tiết của mệnh đề.", evidenceIds));
+                block.set("whyFalse", recoveredClaim("false-1",
+                        "FALSE chỉ phù hợp khi đoạn “" + quote
+                                + "” nêu chi tiết trái với mệnh đề.", evidenceIds));
+                block.set("whyNotGiven", recoveredClaim("not-given-1",
+                        "NOT GIVEN áp dụng khi đoạn “" + quote
+                                + "” chưa cho chi tiết cần để kết luận mệnh đề.", evidenceIds));
+                block.set("missingInformation", recoveredClaim("missing-1",
+                        "Không thể thêm điều kiện ngoài đoạn “" + quote
+                                + "” để suy ra phần còn thiếu của mệnh đề.", evidenceIds));
+            }
+            case ESSAY, SPEAKING -> throw new IllegalArgumentException("Unsupported subjective type");
+        }
+        return block;
+    }
+
+    private ObjectNode recoveredClaim(
+            String claimId,
+            String textVi,
+            ArrayNode evidenceIds) {
+        ObjectNode claim = objectMapper.createObjectNode();
+        claim.put("claimId", claimId);
+        claim.put("textVi", textVi);
+        claim.set("evidenceIds", evidenceIds.deepCopy());
+        return claim;
+    }
+
+    private ArrayNode recoveredOptionRationales(
+            ExplanationContext context,
+            ArrayNode evidenceIds,
+            String evidenceQuote) {
+        Set<String> correct = new LinkedHashSet<>(context.answerSpec().correctOptionIds());
+        ArrayNode rows = objectMapper.createArrayNode();
+        for (QuestionContent.Option option : context.questionContent().options()) {
+            ObjectNode row = objectMapper.createObjectNode();
+            row.put("claimId", "option-" + option.id());
+            row.put("optionId", option.id());
+            row.put("reasonVi", correct.contains(option.id())
+                    ? "Phương án “" + concise(option.text())
+                            + "” phù hợp với chi tiết “" + evidenceQuote
+                            + "” trong nguồn."
+                    : "Phương án “" + concise(option.text())
+                            + "” không có căn cứ trực tiếp trong chi tiết “"
+                            + evidenceQuote + "” của nguồn.");
+            row.set("evidenceIds", evidenceIds.deepCopy());
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private static void repairTextEvidenceOffsets(
+            ObjectNode explanation,
+            ExplanationContext context) {
+        JsonNode references = explanation.path("textEvidenceRefs");
+        if (!(references instanceof ArrayNode rows)
+                || !context.stimulus().hasUsableEvidence()) {
+            return;
+        }
+        String source = context.stimulus().evidenceText();
+        for (JsonNode item : rows) {
+            if (!(item instanceof ObjectNode row)) continue;
+            String quote = row.path("exactQuoteKo").asText("");
+            int start = row.path("startOffset").canConvertToInt()
+                    ? row.path("startOffset").intValue() : -1;
+            int end = row.path("endOffset").canConvertToInt()
+                    ? row.path("endOffset").intValue() : -1;
+            if (quote.isBlank() || (start >= 0 && end > start
+                    && end <= source.length()
+                    && source.substring(start, end).equals(quote))) {
+                continue;
+            }
+            List<Integer> occurrences = new ArrayList<>();
+            for (int index = source.indexOf(quote); index >= 0;
+                 index = source.indexOf(quote, index + Math.max(1, quote.length()))) {
+                occurrences.add(index);
+            }
+            // A repeated quote has no trustworthy offset without the model's
+            // original location. Let strict validation reject it rather than
+            // silently attaching the explanation to a different occurrence.
+            if (occurrences.size() != 1) continue;
+            row.put("startOffset", occurrences.get(0));
+            row.put("endOffset", occurrences.get(0) + quote.length());
+        }
+    }
+
+    private static RecoveryEvidence firstRecoveryEvidence(ObjectNode explanation) {
+        JsonNode values = explanation.path("textEvidenceRefs");
+        if (!values.isArray()) return null;
+        for (JsonNode value : values) {
+            String id = value.path("evidenceId").asText("").trim();
+            String quote = value.path("exactQuoteKo").asText("").trim();
+            if (!id.isEmpty() && !quote.isEmpty()) {
+                return new RecoveryEvidence(id, quote);
+            }
+        }
+        return null;
+    }
+
+    private record RecoveryEvidence(String id, String quoteKo) {
+    }
+
+    private static String optionText(ExplanationContext context, String optionId) {
+        return context.questionContent().options().stream()
+                .filter(option -> option.id().equals(optionId))
+                .map(QuestionContent.Option::text)
+                .findFirst()
+                .orElse(optionId);
+    }
+
+    private static String concise(String value) {
+        String normalized = value == null ? "" : value.trim().replaceAll("\\s+", " ");
+        if (normalized.isEmpty()) return "nội dung nguồn";
+        return normalized.length() <= 180 ? normalized : normalized.substring(0, 177) + "…";
     }
 
     public String model() {
@@ -276,10 +540,14 @@ public class ReadingListeningExplanationClient {
                         4096,
                         "");
         JsonNode output = structuredGeneration.generate(request).output();
-        String cleaned = cleanAndValidateJson(
-                objectMapper.writeValueAsString(output),
-                context,
-                images);
+        String raw = objectMapper.writeValueAsString(output);
+        String cleaned = cleanAndValidateJson(raw, context, images);
+        if (cleaned == null || cleaned.isBlank()) {
+            // A provider's small presentation drift must not erase an
+            // evidence-grounded lecturer draft. The recovery path only uses
+            // immutable answer/evidence authority and never invents a span.
+            cleaned = recoverTypedStrategyDraft(raw, context, images);
+        }
         if (cleaned == null || cleaned.isBlank()) {
             throw new ExplanationProviderException(
                     "INVALID_PROVIDER_RESPONSE",
@@ -317,6 +585,7 @@ public class ReadingListeningExplanationClient {
                             "Reading/Listening provider generation is not available for type "
                                     + questionType);
         };
+        String strategyRule = strategySpecificRule(strategyCode);
         return """
                 Bạn là giáo viên giải thích đáp án Reading/Listening cho học viên Việt Nam học tiếng Hàn.
                 Explanation này thuộc nội dung câu hỏi đã xuất bản và dùng chung cho mọi học viên.
@@ -329,9 +598,40 @@ public class ReadingListeningExplanationClient {
                 relevantTranslations là danh sách theo từng evidenceId; mỗi mục chỉ dịch evidence đã liên kết và ngữ cảnh tối thiểu.
                 Không thay đổi, nhắc lại hay đề xuất answerSpec. Không tạo construct/taxonomy/chip.
                 Mọi nhận định tiếng Việt phải nằm trong typed claim và dẫn ít nhất một evidenceId.
+                Không bỏ field khi không chắc cách diễn đạt: dùng evidenceId đã tạo, dùng optionId/blankId/targetId đúng nguyên văn từ input,
+                và viết nhận định ngắn. Không dùng nhãn A/B/C tự suy ra thay cho stable ID; không tự đổi offset hoặc cắt exactQuoteKo.
+                Chất lượng lời giải là bắt buộc: mỗi nhận định phải nêu chi tiết thực tế của câu hỏi/phương án hoặc mệnh đề VÀ chi tiết
+                trong exactQuoteKo mà nó đang dùng. Với phương án đúng, giải thích điểm phù hợp; với phương án không chọn, chỉ ra chi tiết
+                không được span nguồn hỗ trợ hoặc mâu thuẫn với span. Với MATCHING/FILL_BLANK, nêu nội dung target/ô trống và lựa chọn/ràng buộc
+                tương ứng. Không viết các câu khuôn mẫu như “đáp án chính thức”, “đối chiếu với vùng nguồn”, “có bằng chứng”, “xem bằng chứng”,
+                hoặc chỉ nói phương án “không khớp” mà không nhắc nội dung cụ thể. Mỗi reasonVi/textVi nên là 1–2 câu ngắn, hữu ích cho người học.
                 Trả JSON schema v4 đúng strategy discriminator do giảng viên đã chọn; không tự đổi strategy.
                 Quy tắc theo loại câu hỏi: %s
-                """.formatted(typeRule);
+                Yêu cầu riêng của chiến lược đã chọn: %s
+                """.formatted(typeRule, strategyRule);
+    }
+
+    private static String strategySpecificRule(
+            ObjectiveExplanationStrategyRegistry.Code strategyCode) {
+        return switch (strategyCode) {
+            case FULL_SOURCE_INLINE_HIGHLIGHT ->
+                    "FULL_SOURCE_INLINE_HIGHLIGHT: contextClaims phải lần lượt giải thích các chi tiết nguồn được tô sáng; "
+                            + "relevantTranslations phải dịch evidence đầu tiên. Không dùng một claim chung chung thay cho nội dung span.";
+            case QUESTION_EVIDENCE_TRANSLATION_TABLE ->
+                    "QUESTION_EVIDENCE_TRANSLATION_TABLE: relevantTranslations phải có ít nhất một mục cho evidenceId đầu tiên "
+                            + "trong textEvidenceRefs; translationVi là bản dịch tiếng Việt của chính exactQuoteKo đó, không viết placeholder.";
+            case EVIDENCE_AND_ELIMINATION ->
+                    "EVIDENCE_AND_ELIMINATION: nêu chi tiết span xác nhận đáp án và, với từng phương án không chọn, "
+                            + "nêu đúng chi tiết khiến phương án đó sai; dịch evidence đầu tiên trong relevantTranslations.";
+            case KEYWORD_PARAPHRASE_BRIDGE ->
+                    "KEYWORD_PARAPHRASE_BRIDGE: contextClaims phải chỉ ra cụm từ khóa trong câu hỏi/phương án và cụm diễn đạt tương đương "
+                            + "hoặc chi tiết đối chiếu trong nguồn; answerClaim kết luận từ cầu nối cụ thể đó, không dùng câu mẫu; "
+                            + "dịch evidence đầu tiên trong relevantTranslations.";
+            case BILINGUAL_STEP_BY_STEP ->
+                    "BILINGUAL_STEP_BY_STEP: viết contextClaims theo tiến trình ngắn 'Bước 1', 'Bước 2' (và 'Bước 3' nếu cần): "
+                            + "đọc chi tiết nguồn, đối chiếu với câu hỏi, rồi kết luận; dịch evidence đầu tiên trong relevantTranslations.";
+            default -> "Bám sát mô tả chiến lược và evidence authority trong request.";
+        };
     }
 
     private Map<String, Object> responseFormat(
@@ -419,9 +719,8 @@ public class ReadingListeningExplanationClient {
                     List.of("optionRationales"),
                     Map.of(
                             "optionRationales",
-                            Map.of(
-                                    "type", "array",
-                                    "items", optionRationale)));
+                            exactCoverageArraySchema(
+                                    optionIds.size(), optionRationale)));
             case FULL_CONTEXT -> objectSchema(
                     List.of("contextClaims", "answerClaim"),
                     Map.of(
@@ -436,9 +735,8 @@ public class ReadingListeningExplanationClient {
                             "contextClaims", claimArraySchema(),
                             "answerClaim", claimSchema(),
                             "optionRationales",
-                            Map.of(
-                                    "type", "array",
-                                    "items", optionRationale)));
+                            exactCoverageArraySchema(
+                                    optionIds.size(), optionRationale)));
             case TFNG_RELATION, FILL_CONSTRAINTS ->
                     throw new IllegalArgumentException(
                     "Invalid single-choice explanation strategy");
@@ -473,7 +771,7 @@ public class ReadingListeningExplanationClient {
                         List.of("blankExplanations"),
                         Map.of(
                                 "blankExplanations",
-                                Map.of("type", "array", "items", blank))));
+                                exactCoverageArraySchema(blankIds.size(), blank))));
         return objectSchema(new ArrayList<>(properties.keySet()), properties);
     }
 
@@ -504,7 +802,7 @@ public class ReadingListeningExplanationClient {
                         List.of("targetExplanations"),
                         Map.of(
                                 "targetExplanations",
-                                Map.of("type", "array", "items", target))));
+                                exactCoverageArraySchema(targetIds.size(), target))));
         return objectSchema(new ArrayList<>(properties.keySet()), properties);
     }
 
@@ -548,13 +846,19 @@ public class ReadingListeningExplanationClient {
             imageArray.put("maxItems", 0);
         }
         properties.put("imageEvidenceRefs", imageArray);
-        properties.put("relevantTranslations", Map.of(
-                "type", "array",
-                "items", objectSchema(
-                        List.of("evidenceId", "translationVi"),
-                        Map.of(
-                                "evidenceId", Map.of("type", "string"),
-                                "translationVi", Map.of("type", "string")))));
+        Map<String, Object> translations = new LinkedHashMap<>();
+        translations.put("type", "array");
+        translations.put("items", objectSchema(
+                List.of("evidenceId", "translationVi"),
+                Map.of(
+                        "evidenceId", Map.of("type", "string"),
+                        "translationVi", Map.of("type", "string"))));
+        // This renderer has a dedicated translation row. Letting the model
+        // omit it made a technically valid envelope look empty to lecturers.
+        if (requiresPrimaryTranslation(context)) {
+            translations.put("minItems", 1);
+        }
+        properties.put("relevantTranslations", translations);
         return properties;
     }
 
@@ -648,6 +952,22 @@ public class ReadingListeningExplanationClient {
                 "items", Map.of("type", "string"));
     }
 
+    /**
+     * The semantic validator requires one rationale for every stable option,
+     * blank, or matching target.  Mirror that cardinality in the provider
+     * schema so a strict-schema provider cannot return a superficially valid
+     * but incomplete strategy block.
+     */
+    private static Map<String, Object> exactCoverageArraySchema(
+            int expectedSize,
+            Map<String, Object> itemSchema) {
+        return Map.of(
+                "type", "array",
+                "minItems", expectedSize,
+                "maxItems", expectedSize,
+                "items", itemSchema);
+    }
+
     private static Map<String, Object> objectSchema(
             List<String> required,
             Map<String, Object> properties) {
@@ -681,6 +1001,10 @@ public class ReadingListeningExplanationClient {
         }
         validateRelevantTranslations(
                 array(explanation, "relevantTranslations"), evidenceIds);
+        requirePrimaryTranslationWhenRendered(
+                context,
+                array(explanation, "textEvidenceRefs"),
+                array(explanation, "relevantTranslations"));
 
         JsonNode strategyBlock = object(explanation, "strategyBlock");
         switch (context.questionType()) {
@@ -696,6 +1020,39 @@ public class ReadingListeningExplanationClient {
             case ESSAY, SPEAKING -> throw new IllegalArgumentException(
                     "subjective type is not supported");
         }
+    }
+
+    private static boolean requiresPrimaryTranslation(ExplanationContext context) {
+        // Only the table renderer has a mandatory translation row. The other
+        // layouts can use a translation when the provider supplies one, but
+        // must never discard an otherwise evidence-valid explanation merely
+        // because that optional teaching aid is absent.
+        return context.explanationStrategy().code()
+                == ObjectiveExplanationStrategyRegistry.Code
+                        .QUESTION_EVIDENCE_TRANSLATION_TABLE;
+    }
+
+    private static void requirePrimaryTranslationWhenRendered(
+            ExplanationContext context,
+            JsonNode textEvidence,
+            JsonNode translations) {
+        if (!requiresPrimaryTranslation(context)) {
+            return;
+        }
+        if (textEvidence == null || !textEvidence.isArray()
+                || textEvidence.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "translation-table explanation requires text evidence");
+        }
+        String primaryEvidenceId = text(textEvidence.get(0), "evidenceId");
+        for (JsonNode translation : translations) {
+            if (primaryEvidenceId.equals(text(translation, "evidenceId"))
+                    && !text(translation, "translationVi").isBlank()) {
+                return;
+            }
+        }
+        throw new IllegalArgumentException(
+                "translation-table explanation requires the primary evidence translation");
     }
 
     private static void validateSingleChoiceStrategy(
@@ -777,7 +1134,7 @@ public class ReadingListeningExplanationClient {
                 throw new IllegalArgumentException(
                         "option rationale references a foreign option");
             }
-            text(node, "reasonVi");
+            requireUsefulExplanationText(node, "reasonVi");
             requireEvidenceReferences(stringList(node, "evidenceIds"), evidenceIds);
         }
         if (!seen.equals(expected)) {
@@ -807,7 +1164,7 @@ public class ReadingListeningExplanationClient {
                 throw new IllegalArgumentException(
                         "blank explanation references a foreign blank");
             }
-            text(node, "contextExplanationVi");
+            requireUsefulExplanationText(node, "contextExplanationVi");
             textAllowBlank(node, "semanticConstraintVi");
             textAllowBlank(node, "grammarConstraintVi");
             textAllowBlank(node, "registerConstraintVi");
@@ -852,7 +1209,7 @@ public class ReadingListeningExplanationClient {
                 throw new IllegalArgumentException(
                         "matching explanation contradicts canonical target authority");
             }
-            text(node, "reasonVi");
+            requireUsefulExplanationText(node, "reasonVi");
             requireEvidenceReferences(
                     stringList(node, "evidenceIds"), evidenceIds);
         }
@@ -922,9 +1279,32 @@ public class ReadingListeningExplanationClient {
             Set<String> claimIds) {
         requireFields(claim, Set.of("claimId", "textVi", "evidenceIds"));
         requireUniqueClaimId(claim, claimIds);
-        text(claim, "textVi");
+        requireUsefulExplanationText(claim, "textVi");
         requireEvidenceReferences(
                 stringList(claim, "evidenceIds"), evidenceIds);
+    }
+
+    /**
+     * A typed JSON object can still be pedagogically empty. Reject the
+     * boilerplate previously emitted by the recovery path so it is replaced
+     * with a source- and option-specific draft instead of being published.
+     */
+    private static void requireUsefulExplanationText(JsonNode node, String field) {
+        String value = text(node, field);
+        String normalized = value.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("\\s+", " ");
+        List<String> boilerplate = List.of(
+                "đáp án chính thức và được đối chiếu",
+                "không khớp đáp án chính thức khi đối chiếu",
+                "được đối chiếu trực tiếp với vùng nguồn",
+                "vùng nguồn này là ngữ cảnh trực tiếp",
+                "đáp án chính thức được kiểm tra theo bằng chứng nguồn",
+                "ghép nối được đối chiếu với bằng chứng nguồn",
+                "đáp án ô trống được đối chiếu với vùng nguồn",
+                "mệnh đề được đối chiếu với vùng nguồn");
+        if (boilerplate.stream().anyMatch(normalized::contains)) {
+            throw new IllegalArgumentException("explanation text is generic boilerplate");
+        }
     }
 
     private static void requireUniqueClaimId(

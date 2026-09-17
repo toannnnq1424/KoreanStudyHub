@@ -163,6 +163,33 @@ class PracticePdfImportApiControllerTest {
     }
 
     @Test
+    void providerAuthenticationFailureDoesNotPretendTheEnabledPurposeIsUnavailable() {
+        TargetRoute target = new TargetRoute(91L, 1, "READING", "R1");
+        PracticePdfAuthoringRequest authoring = request(
+                PracticePdfAuthoringRequest.SourceType.TEXT,
+                SourceOperation.EXTRACT, target);
+        when(targetService.requireExactTarget(
+                91L, 1, "READING", "R1", 1L)).thenReturn(target);
+        when(payloadBuilder.buildBasicText(
+                "Nguồn câu hỏi", SourceOperation.EXTRACT, "", target))
+                .thenReturn(authoring);
+        when(aiOrchestrator.generate(authoring)).thenThrow(
+                new PracticeAiContractException("PROVIDER_HTTP_AUTHENTICATION_FAILED", false));
+
+        ResponseEntity<?> response = controller.createBasicCandidate(
+                "TEXT", "EXTRACT", "Nguồn câu hỏi", null, "",
+                91L, 1, "READING", "R1", null, null, lecturer);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body).containsEntry(
+                "causeCode", "PROVIDER_HTTP_AUTHENTICATION_FAILED");
+        assertThat(body.get("error").toString())
+                .contains("từ chối xác thực")
+                .doesNotContain("chưa sẵn sàng");
+    }
+
+    @Test
     void revokedTargetStopsBeforeSourceOrProviderProcessing() {
         doThrow(new AccessDeniedException("revoked"))
                 .when(targetService)

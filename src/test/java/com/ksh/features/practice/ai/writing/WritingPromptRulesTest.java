@@ -13,7 +13,8 @@ class WritingPromptRulesTest {
                         "upgradedAnswer.content", "upgradedAnswer.rewrites",
                         "replacementKo phải sửa đúng lỗi",
                         "Không bịa dữ kiện hoặc lập luận mới",
-                        "UTF-16 startOffset/endOffset",
+                        "Backend tìm",
+                        "startOffset/endOffset UTF-16",
                         "taskCoverage", "evidenceLedger")
                 .doesNotContain(
                         "upgraded_answer",

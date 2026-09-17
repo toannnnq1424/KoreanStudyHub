@@ -148,9 +148,13 @@ public class PracticeAttemptEvaluationJobTransactions {
         } else if (outcome.retryable()
                 && !job.attemptsExhausted()
                 && !job.expired(now)) {
-            // Retry evidence belongs to the durable job. Keep submit feedback
-            // empty and preserve any previously graded re-evaluation result so
-            // Result/Detail remain PENDING while the job is retryable.
+            // Persist current normalized feedback (including compact fallback)
+            // so the learner and diagnostic UI do not appear blank while the job retries.
+            if ((!preserveExisting || attempt.getAiFeedbackJson() == null || attempt.getAiFeedbackJson().isBlank())
+                    && outcome.feedbackJson() != null
+                    && !outcome.feedbackJson().isBlank()) {
+                attempt.setAiFeedbackJson(outcome.feedbackJson());
+            }
             attempt.markAnalysisQueued(now);
             job.markFailure(
                     outcome.errorCode(),
@@ -169,7 +173,17 @@ public class PracticeAttemptEvaluationJobTransactions {
                         outcome.errorCode(),
                         preserveExisting,
                         now);
+                if ((!preserveExisting || attempt.getAiFeedbackJson() == null || attempt.getAiFeedbackJson().isBlank())
+                        && outcome.feedbackJson() != null
+                        && !outcome.feedbackJson().isBlank()) {
+                    attempt.setAiFeedbackJson(outcome.feedbackJson());
+                }
             } else {
+                if ((!preserveExisting || attempt.getAiFeedbackJson() == null || attempt.getAiFeedbackJson().isBlank())
+                        && outcome.feedbackJson() != null
+                        && !outcome.feedbackJson().isBlank()) {
+                    attempt.setAiFeedbackJson(outcome.feedbackJson());
+                }
                 attempt.markAnalysisFailed(
                         outcome.errorCode(), now);
             }

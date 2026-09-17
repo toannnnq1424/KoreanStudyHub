@@ -1459,8 +1459,8 @@ class PracticeServiceTest {
         setEntityId(q, 10L);
         when(questionRepository.findBySetIdOrderByDisplayOrderAsc(any())).thenReturn(List.of(q));
 
-        // Stub evaluate to return a contract-valid JSON with raw_score = 0.0 (spam/empty)
-        when(evaluationClient.evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any()))
+        // Empty answers are resolved locally into the same typed zero-score envelope.
+        when(evaluationClient.unansweredResponse(eq(WritingTaskType.Q54), eq("")))
                 .thenReturn(currentWritingInvalid(
                         WritingTaskType.Q54, "BLANK_ANSWER"));
 
@@ -1468,6 +1468,7 @@ class PracticeServiceTest {
 
         // Verify that score is saved as exactly ZERO (0.0) in attempt
         assertEquals(BigDecimal.ZERO, attempt.getScore(), "Empty score must be persisted as exactly 0");
+        verify(evaluationClient, never()).evaluate(anyLong(), anyString(), anyString(), anyBoolean(), any());
     }
 
 
@@ -3027,6 +3028,29 @@ class PracticeServiceTest {
         assertFalse(feedback.get("103").isTextual());
         verify(evaluationClient, times(1)).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), eq(WritingTaskType.Q53));
         verify(evaluationClient, never()).evaluate(eq(2L), eq("Q1"), anyString(), anyBoolean(), any());
+    }
+
+    @Test
+    void testWritingQuestionReEvaluateRebuildsBlankNonTargetWhenFormerFeedbackIsMissing()
+            throws Exception {
+        PracticeAttempt attempt = arrangeWritingQuestionReEvaluationAttempt(
+                "{\"101\":\"3\",\"102\":\"\",\"103\":\"A2\"}",
+                null,
+                true);
+        when(evaluationClient.unansweredResponse(eq(WritingTaskType.Q51), eq("")))
+                .thenReturn(currentWritingFeedback(WritingTaskType.Q51, "0", "blank"));
+        when(evaluationClient.evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), any()))
+                .thenReturn(currentWritingFeedback(WritingTaskType.Q53, "24", "new"));
+
+        Long result = practiceService.reEvaluateQuestion(99L, 103L, 2L);
+
+        assertEquals(99L, result);
+        JsonNode feedback = objectMapper.readTree(attempt.getAiFeedbackJson());
+        assertEquals(0.0, feedback.path("102").path("raw_score").asDouble());
+        assertEquals(24.0, feedback.path("103").path("raw_score").asDouble());
+        verify(evaluationClient).unansweredResponse(WritingTaskType.Q51, "");
+        verify(evaluationClient, never()).evaluate(eq(2L), eq("Q1"), anyString(), anyBoolean(), any());
+        verify(evaluationClient).evaluate(eq(2L), eq("Q2"), eq("A2"), eq(true), eq(WritingTaskType.Q53));
     }
 
     @Test

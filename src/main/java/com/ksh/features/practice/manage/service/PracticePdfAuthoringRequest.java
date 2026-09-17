@@ -7,6 +7,10 @@ import com.ksh.features.practice.manage.authoringcandidate.PracticeAuthoringCand
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * One bounded, target-authorized PDF/Text authoring request. Source content is
@@ -24,6 +28,21 @@ public record PracticePdfAuthoringRequest(
         Map<String, Object> sourceContext,
         List<PracticeStructuredGenerationRequest.ImageEvidence> images
 ) {
+
+    /*
+     * A lecturer often asks to extract a precise printed-question range (for
+     * example "câu 1-4 và 48-50").  Keep that scope code-owned rather than
+     * asking a provider to infer it from prose after the fact.
+     */
+    private static final Pattern QUESTION_SCOPE = Pattern.compile(
+            "(?iu)\\b(?:câu|question(?:s)?)\\s+([0-9][0-9\\s,;vàandtođến\\-–]*)");
+    private static final Pattern QUESTION_GROUP_HEADING = Pattern.compile(
+            "(?iu)\\b(?:nhóm|group)\\s*(\\d+)?\\s*"
+                    + "(?:gồm|bao\\s+gồm|có)?\\s*"
+                    + "(?:câu|question(?:s)?)\\s*");
+    private static final Pattern QUESTION_RANGE = Pattern.compile(
+            "(?u)(\\d+)\\s*(?:-|–|đến|to)\\s*(\\d+)");
+    private static final Pattern QUESTION_NUMBER = Pattern.compile("\\d+");
 
     public PracticePdfAuthoringRequest {
         sourceType = Objects.requireNonNull(sourceType, "sourceType");
@@ -95,6 +114,101 @@ public record PracticePdfAuthoringRequest(
                         raw.replace("\r\n", "\n").replace('\r', '\n'),
                         java.text.Normalizer.Form.NFC)
                 .trim();
+    }
+
+    /** Numbers explicitly requested by the lecturer, never numbers guessed
+     * from source content. An empty set means no numbered scope was stated. */
+    public Set<Integer> requestedSourceQuestionNumbers() {
+        return parseRequestedSourceQuestionNumbers(lecturerRequest);
+    }
+
+    /**
+     * An optional group plan explicitly stated by the lecturer, in its stated
+     * order. For example: “nhóm 1 câu 1-2 và nhóm 2 câu 48-50”. This is
+     * source scope, not a suggestion for the provider to reinterpret.
+     */
+    public List<RequestedSourceQuestionGroup> requestedSourceQuestionGroups() {
+        return parseRequestedSourceQuestionGroups(lecturerRequest);
+    }
+
+    static Set<Integer> parseRequestedSourceQuestionNumbers(String rawLecturerRequest) {
+        TreeSet<Integer> result = new TreeSet<>();
+        Matcher clause = QUESTION_SCOPE.matcher(normalize(rawLecturerRequest));
+        while (clause.find()) {
+            result.addAll(parseQuestionExpression(clause.group(1)));
+        }
+        return java.util.Collections.unmodifiableSet(
+                new java.util.LinkedHashSet<>(result));
+    }
+
+    static List<RequestedSourceQuestionGroup> parseRequestedSourceQuestionGroups(
+            String rawLecturerRequest
+    ) {
+        java.util.ArrayList<RequestedSourceQuestionGroup> result =
+                new java.util.ArrayList<>();
+        String normalized = normalize(rawLecturerRequest);
+        Matcher clause = QUESTION_GROUP_HEADING.matcher(normalized);
+        int implicitOrder = 1;
+        while (clause.find()) {
+            int groupOrder = clause.group(1) == null || clause.group(1).isBlank()
+                    ? implicitOrder
+                    : Integer.parseInt(clause.group(1));
+            int expressionEnd = normalized.length();
+            Matcher nextHeading = QUESTION_GROUP_HEADING.matcher(normalized);
+            if (nextHeading.find(clause.end())) {
+                expressionEnd = nextHeading.start();
+            }
+            Set<Integer> numbers = parseQuestionExpression(
+                    normalized.substring(clause.end(), expressionEnd));
+            if (groupOrder < 1 || groupOrder > 100 || numbers.isEmpty()) {
+                throw new IllegalArgumentException("Phạm vi nhóm câu không hợp lệ.");
+            }
+            result.add(new RequestedSourceQuestionGroup(groupOrder, numbers));
+            implicitOrder++;
+        }
+        return List.copyOf(result);
+    }
+
+    private static Set<Integer> parseQuestionExpression(String expression) {
+        TreeSet<Integer> result = new TreeSet<>();
+        Matcher ranges = QUESTION_RANGE.matcher(expression == null ? "" : expression);
+        String withoutRanges = expression == null ? "" : expression;
+        while (ranges.find()) {
+            int from = Integer.parseInt(ranges.group(1));
+            int to = Integer.parseInt(ranges.group(2));
+            int low = Math.min(from, to);
+            int high = Math.max(from, to);
+            if (low < 1 || high > 200 || high - low > 100) {
+                throw new IllegalArgumentException("Phạm vi số câu không hợp lệ.");
+            }
+            for (int number = low; number <= high; number++) result.add(number);
+        }
+        withoutRanges = QUESTION_RANGE.matcher(withoutRanges).replaceAll(" ");
+        Matcher numbers = QUESTION_NUMBER.matcher(withoutRanges);
+        while (numbers.find()) {
+            int number = Integer.parseInt(numbers.group());
+            if (number < 1 || number > 200) {
+                throw new IllegalArgumentException("Phạm vi số câu không hợp lệ.");
+            }
+            result.add(number);
+        }
+        return java.util.Collections.unmodifiableSet(
+                new java.util.LinkedHashSet<>(result));
+    }
+
+    public record RequestedSourceQuestionGroup(
+            int groupOrder,
+            Set<Integer> sourceQuestionNumbers
+    ) {
+        public RequestedSourceQuestionGroup {
+            sourceQuestionNumbers = sourceQuestionNumbers == null
+                    ? Set.of()
+                    : java.util.Collections.unmodifiableSet(
+                            new TreeSet<>(sourceQuestionNumbers));
+            if (groupOrder < 1 || sourceQuestionNumbers.isEmpty()) {
+                throw new IllegalArgumentException("Requested question group is invalid");
+            }
+        }
     }
 
     private static Map<String, Object> immutableMap(Map<String, ?> raw) {

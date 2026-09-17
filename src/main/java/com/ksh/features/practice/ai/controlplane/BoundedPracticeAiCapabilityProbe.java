@@ -73,8 +73,16 @@ public class BoundedPracticeAiCapabilityProbe implements PracticeAiCapabilityPro
                         "ok", Map.of("type", "boolean", "const", true)));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", binding.snapshot().model());
-        body.put("temperature", 0.0);
-        body.put("max_tokens", 64);
+        String model = binding.snapshot().model();
+        String modelFamily = model.substring(model.lastIndexOf('/') + 1)
+                .toLowerCase(java.util.Locale.ROOT);
+        if (modelFamily.startsWith("gpt-5")) {
+            // Budget includes reasoning tokens as well as the small JSON answer.
+            body.put("max_completion_tokens", 2048);
+        } else {
+            body.put("temperature", 0.0);
+            body.put("max_tokens", 64);
+        }
         body.put("messages", List.of(
                 Map.of("role", "system", "content",
                         "Return the exact capability-test JSON. Do not include prose."),

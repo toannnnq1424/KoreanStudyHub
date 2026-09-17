@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  if (location.pathname.startsWith('/practice') || document.querySelector('[data-vocab-drawer]')) return;
+  if (document.querySelector('[data-vocab-drawer]')) return;
 
   const CREATE_DECK_VALUE = '__create_new_deck__';
   const hangul = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/;
@@ -152,20 +152,44 @@
     }
   }
 
-  document.addEventListener('mouseup', function () {
+  document.addEventListener('mousedown', function (e) {
+    if (e.target !== action && !panel.contains(e.target)) {
+      action.hidden = true;
+    }
+  });
+
+  document.addEventListener('mouseup', function (e) {
+    if (e.target === action || panel.contains(e.target)) return;
     window.setTimeout(function () {
-      const selection = window.getSelection();
-      const text = (selection ? selection.toString() : '').trim()
+      const activeEl = document.activeElement;
+      const activeTag = activeEl && activeEl.tagName;
+      let rawText = '';
+      let rect = null;
+
+      if (activeEl && (activeTag === 'INPUT' || activeTag === 'TEXTAREA')) {
+        const start = typeof activeEl.selectionStart === 'number' ? activeEl.selectionStart : 0;
+        const end = typeof activeEl.selectionEnd === 'number' ? activeEl.selectionEnd : 0;
+        if (end > start) {
+          rawText = activeEl.value.substring(start, end);
+          rect = activeEl.getBoundingClientRect();
+        }
+      }
+
+      if (!rawText) {
+        const selection = window.getSelection();
+        rawText = selection ? selection.toString() : '';
+        const range = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+        if (range) {
+          rect = range.getBoundingClientRect();
+        }
+      }
+
+      const text = (rawText || '').trim()
         .replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '');
-      const activeTag = document.activeElement && document.activeElement.tagName;
-      if (!text || text.length > 120 || !hangul.test(text)
-          || ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag)) {
+      if (!text || text.length > 120 || !hangul.test(text) || !rect) {
         action.hidden = true;
         return;
       }
-      const range = selection.rangeCount ? selection.getRangeAt(0) : null;
-      if (!range) return;
-      const rect = range.getBoundingClientRect();
       selected = text;
       action.style.left = Math.max(10, Math.min(innerWidth - 145, rect.left)) + 'px';
       action.style.top = Math.max(64, rect.top - 45) + 'px';
