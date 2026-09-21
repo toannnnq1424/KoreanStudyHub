@@ -5,7 +5,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
 </head>
-<body>
+<body class="assignment-grading-page">
 <header th:replace="~{fragments/app-header :: appHeader('classes')}"></header>
 
 <span id="flash-data"
@@ -22,7 +22,7 @@
       <h1 class="detail-title">Chấm điểm</h1>
     </div>
 
-    <section class="detail-panel">
+    <section class="detail-panel asgn-grading-workspace">
       <!-- Student submission info -->
       <div class="asgn-submission-card" th:if="${submission != null}">
         <div class="asgn-meta">
@@ -40,6 +40,11 @@
             <b>Thời gian nộp:</b>
             <span th:text="${#temporals.format(submission.submittedAt, 'dd/MM/yyyy HH:mm')}"></span>
           </span>
+        </div>
+        <div class="asgn-upload-field" th:if="${submission.attachmentUrl != null}">
+          <h3>Tệp bài làm</h3>
+          <a class="btn btn-outline" th:href="${submission.attachmentUrl}">Tải ảnh / PDF bài nộp</a>
+          <p>Xem tệp cùng nội dung văn bản trước khi chấm điểm.</p>
         </div>
 
         <div class="asgn-content-box">

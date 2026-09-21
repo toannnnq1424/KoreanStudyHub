@@ -172,9 +172,8 @@ public class ClassesService {
                     userId, statuses, semesterFilter, subjectFilter, queryFilter, pageable);
         } else if (role == Role.LEADER) {
             List<Long> subjectIds = accessPolicy.leaderSubjectIds(userId);
-            page = subjectIds.isEmpty() ? Page.empty(pageable)
-                    : classRepository.searchLeaderClasses(
-                            subjectIds, statuses, semesterFilter, subjectFilter,
+            page = classRepository.searchLeaderClasses(
+                            userId, subjectIds.isEmpty() ? List.of(-1L) : subjectIds, statuses, semesterFilter, subjectFilter,
                             queryFilter, pageable);
         } else if (role == Role.ADMIN) {
             page = classRepository.searchAdministrativeClasses(
@@ -228,6 +227,16 @@ public class ClassesService {
                 .sorted((left, right) -> Integer.compare(
                         AcademicSemester.parse(right).orderKey(),
                         AcademicSemester.parse(left).orderKey()))
+                .toList();
+    }
+
+    /** Only semesters in which the actor owns or co-teaches a class. */
+    @Transactional(readOnly = true)
+    public List<String> participatingSemesters(Long actorId) {
+        return classRepository.findAllById(classRepository.findClassIdsForLecturer(actorId)).stream()
+                .map(ClassEntity::getSemester).filter(java.util.Objects::nonNull)
+                .filter(value -> !value.isBlank()).distinct()
+                .sorted((a, b) -> AcademicSemester.parse(b).compareTo(AcademicSemester.parse(a)))
                 .toList();
     }
 

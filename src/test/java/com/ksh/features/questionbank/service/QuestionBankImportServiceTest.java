@@ -90,4 +90,30 @@ class QuestionBankImportServiceTest {
                 List.of("Đáp án A", "Đáp án B"), "A");
         return new ParsedFile("bank.xlsx", List.of(row));
     }
+
+    @Test
+    void mixedWorkbookKeepsOnlyValidRowsAndAllowsConfirmation() {
+        when(parser.parse(file)).thenReturn(new ParsedFile("bank.xlsx", List.of(
+                parsed("KOR311").rows().get(0), parsed("KOR321").rows().get(0))));
+        var session = service.previewUpload(7L, Role.LECTURER, file);
+        assertThat(session.toPreview().confirmable()).isTrue();
+        assertThat(session.toPreview().acceptedRows()).isEqualTo(1);
+        assertThat(session.toPreview().errorRows()).isEqualTo(1);
+        assertThat(session.getItems()).hasSize(1);
+        when(sessionStore.claim(session.getId(), 7L)).thenReturn(Optional.of(session));
+        when(itemRepository.save(any())).thenAnswer(invocation -> {
+            var item = (com.ksh.features.questionbank.entity.QuestionBankItem) invocation.getArgument(0);
+            ReflectionTestUtils.setField(item, "id", 99L);
+            return item;
+        });
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            var result = service.confirm(7L, Role.LECTURER, session.getId());
+            assertThat(result.createdCount()).isEqualTo(1);
+            verify(itemRepository, org.mockito.Mockito.times(1)).save(any());
+            verify(optionRepository, org.mockito.Mockito.times(2)).save(any());
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
 }

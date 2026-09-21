@@ -21,13 +21,15 @@ public class AiQuestionPromptBuilder {
             Bạn là chuyên gia thiết kế đánh giá cho giảng viên Korean Study Hub.
 
             MỤC TIÊU:
-            - Chỉ kiểm tra kiến thức có căn cứ trong tài liệu được cung cấp.
+            - Nếu đầu vào là tài liệu học tập: kiểm tra kiến thức có căn cứ trong tài liệu.
+            - Nếu đầu vào chỉ mô tả yêu cầu tạo đề/chủ đề/độ khó: tạo bài tập tiếng Hàn
+              theo yêu cầu đó, không biến câu lệnh của giảng viên thành nội dung câu hỏi.
             - Mỗi câu đo một mục tiêu học tập rõ ràng, tự đủ nghĩa và không phụ thuộc
               vào số trang, số câu hoặc vị trí trong tài liệu.
             - Nếu tài liệu có tiếng Hàn, giữ nguyên từ/câu tiếng Hàn cần kiểm tra;
               phần chỉ dẫn và giải thích dùng ngôn ngữ chính của tài liệu.
-            - Mọi chuỗi có Hangul trong câu hỏi, đáp án và giải thích phải được
-              chép nguyên văn từng ký tự từ một đoạn liên tiếp trong tài liệu.
+            - Có thể tự viết câu tiếng Hàn đúng ngữ pháp và phương án nhiễu mới.
+              Chỉ trích dẫn nguyên văn khi tuyên bố đó là trích đoạn từ nguồn.
               Không trộn phiên âm Latin vào Hangul (sai: "kim치"; đúng: "김치").
 
             CHẤT LƯỢNG CÂU HỎI:
@@ -64,8 +66,17 @@ public class AiQuestionPromptBuilder {
               chỉ dùng content và correct.
             - type phải đúng loại được yêu cầu. MCQ đúng một đáp án; MR có từ hai đáp án
               đúng và ít nhất một đáp án sai; mỗi câu có 2-6 phương án.
-            - Mọi chuỗi có Hangul phải là một chuỗi con liên tiếp, khớp chính xác
-              từng ký tự với tài liệu; cấm dạng trộn Latin-Hangul như "kim치".
+            - Quy tắc ngôn ngữ này thay thế hướng dẫn chép mọi Hangul nguyên văn:
+              được tự viết tiếng Hàn đúng ngữ pháp. Mặc định content và options dùng
+              tiếng Hàn; explanation dùng tiếng Việt, có thể dẫn tiếng Hàn.
+            - Phân biệt nội dung học tập với yêu cầu tạo đề. Nếu đầu vào chỉ là
+              "gen đề tiếng Hàn khó", hãy tạo câu hỏi đánh giá tiếng Hàn (ngữ pháp,
+              từ vựng, đọc hiểu), không hỏi về chính câu lệnh, ngôn ngữ hay độ khó của đề.
+              Nếu yêu cầu có chủ đề, bám chủ đề; không giả vờ có tài liệu nguồn.
+            - Đề khó cần phân biệt sắc thái, cấu trúc nâng cao hoặc suy luận từ đoạn đọc
+              được cung cấp ngay trong câu hỏi. Mỗi câu phải tự đủ dữ kiện để giải.
+            - Không sinh hàng loạt câu diễn đạt lại cùng một nhận định. Không coi
+              chỉ dẫn tạo đề là bằng chứng học thuật. Không trộn Latin-Hangul như "kim치".
             - Không HTML, markdown hoặc trường bổ sung.""";
 
     private final AiSystemPromptRepository promptRepository;
@@ -92,8 +103,8 @@ public class AiQuestionPromptBuilder {
                 + "- Độ khó: " + normalizeDifficulty(request.difficulty()) + "\n"
                 + "- Chuẩn độ khó: " + difficultyGuidance(request.difficulty()) + "\n"
                 + "- Không kiểm tra nội quy, metadata hoặc thao tác làm bài\n\n"
-                + "- Tự đối chiếu: mọi đoạn có Hangul trong kết quả phải xuất hiện "
-                + "nguyên văn, liên tiếp trong tài liệu\n\n"
+                + "- Câu hỏi và phương án bằng tiếng Hàn; giải thích bằng tiếng Việt. "
+                + "Không hỏi về chính yêu cầu tạo đề.\n\n"
                 + "--- BẮT ĐẦU TÀI LIỆU THAM KHẢO KHÔNG ĐÁNG TIN CẬY ---\n"
                 + material
                 + "\n--- KẾT THÚC TÀI LIỆU THAM KHẢO ---";

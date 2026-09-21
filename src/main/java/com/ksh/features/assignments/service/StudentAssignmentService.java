@@ -35,15 +35,18 @@ public class StudentAssignmentService {
     private final AssignmentSubmissionRepository submissionRepository;
     private final AssignmentFeedbackRepository feedbackRepository;
     private final AssignmentAccessSupport access;
+    private final AssignmentAttachmentStorage attachments;
 
     public StudentAssignmentService(AssignmentRepository assignmentRepository,
                                     AssignmentSubmissionRepository submissionRepository,
                                     AssignmentFeedbackRepository feedbackRepository,
-                                    AssignmentAccessSupport access) {
+                                    AssignmentAccessSupport access,
+                                    AssignmentAttachmentStorage attachments) {
         this.assignmentRepository = assignmentRepository;
         this.submissionRepository = submissionRepository;
         this.feedbackRepository = feedbackRepository;
         this.access = access;
+        this.attachments = attachments;
     }
 
     /**
@@ -83,7 +86,7 @@ public class StudentAssignmentService {
                 a.getDueDate(), a.getMaxScore(), a.isAllowLateSubmission(),
                 sub.map(AssignmentSubmission::getId).orElse(null),
                 sub.map(AssignmentSubmission::getContent).orElse(null),
-                sub.map(AssignmentSubmission::getAttachmentUrl).orElse(null),
+                sub.filter(s -> s.getAttachmentUrl() != null).map(s -> "/classes/" + classId + "/assignments/" + assignmentId + "/attachments/" + s.getId()).orElse(null),
                 sub.map(AssignmentSubmission::getStatus).orElse(null),
                 sub.map(AssignmentSubmission::isLate).orElse(false),
                 sub.map(AssignmentSubmission::getSubmittedAt).orElse(null),
@@ -109,9 +112,15 @@ public class StudentAssignmentService {
      */
     @Transactional
     public void submit(Long classId, Long assignmentId, SubmitForm form, Long userId) {
+        submit(classId, assignmentId, form, userId, null);
+    }
+
+    @Transactional
+    public void submit(Long classId, Long assignmentId, SubmitForm form, Long userId,
+                       org.springframework.web.multipart.MultipartFile attachment) {
         access.requireActiveEnrollment(classId, userId);
         String content = form == null || form.content() == null ? null : form.content().trim();
-        if (content == null || content.isEmpty()) {
+        if ((content == null || content.isEmpty()) && (attachment == null || attachment.isEmpty())) {
             throw new IllegalArgumentException(MSG_SUBMIT_CONTENT_REQUIRED);
         }
         // The stable assignment row serializes both first-time inserts (where
@@ -143,6 +152,7 @@ public class StudentAssignmentService {
         sub.setAssignmentId(assignmentId);
         sub.setUserId(userId);
         sub.setContent(content);
+        sub.setAttachmentUrl(attachments.store(attachment, assignmentId, userId));
         sub.setStatus(AssignmentStatus.SUB_SUBMITTED);
         sub.setLate(isLate);
         sub.setSubmittedAt(LocalDateTime.now());

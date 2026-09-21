@@ -37,6 +37,19 @@ public class LessonAttachment {
     @Column(name = "class_id")
     private Long classId;
 
+    @Column(name = "anchor_section_id")
+    private Long anchorSectionId;
+    @Column(name = "anchor_lesson_id")
+    private Long anchorLessonId;
+
+    public Long getAnchorSectionId() { return anchorSectionId; }
+    public Long getAnchorLessonId() { return anchorLessonId; }
+    public void anchorTo(Long sectionId, Long lessonId) {
+        if (classId == null) throw new IllegalStateException("Only class materials may have anchors");
+        anchorSectionId = sectionId;
+        anchorLessonId = lessonId;
+    }
+
     @Column(name = "original_filename", nullable = false, length = 255)
     private String originalFilename;
 

@@ -380,7 +380,8 @@ public class LessonTemplateController {
         model.addAttribute("librarySubjectOptions",
                 templateService.subjectOptions(user.getId(), user.getRole()));
         model.addAttribute("resourceOnly",
-                user.getRole() == Role.LECTURER && form.getId() != null);
+                form.getId() != null && !templateService.managesSubject(
+                        user.getId(), user.getRole(), form.getSubjectId()));
     }
 
     private static String redirectTemplates(Long subjectId) {

@@ -136,7 +136,7 @@ public class LecturerAssignmentController {
     public String editForm(@PathVariable Long classId,
                            @PathVariable Long assignmentId,
                            @AuthenticationPrincipal KshUserDetails user,
-                           Model model) {
+                           Model model, RedirectAttributes ra) {
         ClassEntity clazz = loadClass(classId, user.getId(), user.getRole());
         try {
             // Preserve flashed form values from a prior failed POST.
@@ -144,6 +144,9 @@ public class LecturerAssignmentController {
                 model.addAttribute(ATTR_ASSIGNMENT_FORM,
                         assignmentService.getFormForEdit(classId, assignmentId, user.getId(), user.getRole()));
             }
+        } catch (IllegalStateException e) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, "Chỉ có thể chỉnh sửa bài tập ở trạng thái nháp.");
+            return "redirect:" + assignmentBaseUrl(classId);
         } catch (EntityNotFoundException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }

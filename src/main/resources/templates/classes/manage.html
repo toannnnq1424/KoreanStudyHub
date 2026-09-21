@@ -18,14 +18,17 @@
   <span id="flash-data" th:attr="data-flash-success=${flashSuccess},data-flash-error=${flashError}" hidden></span>
 
   <section class="cw-controls" aria-label="Bộ lọc và thống kê lớp học">
-    <nav class="cw-semester-tabs" aria-label="Chọn học kỳ">
-      <span class="cw-tabs-label">Học kỳ</span>
-      <a th:href="@{/lecturer/classes(tab=${selectedTab},subjectCode=${selectedSubjectCode},q=${classQuery})}" th:classappend="${selectedSemester == ''} ? 'active'">Tất cả</a>
-      <a th:each="term : ${semesterOptions}" th:text="${term}"
-         th:href="@{/lecturer/classes(tab=${selectedTab},semester=${term},subjectCode=${selectedSubjectCode},q=${classQuery})}"
-         th:attr="data-semester=${term},aria-current=${selectedSemester == term} ? 'page' : null"
-         th:classappend="${selectedSemester == term} ? 'active'"></a>
-    </nav>
+    <form class="cw-semester-tabs" method="get" th:action="@{/lecturer/classes}" aria-label="Chọn học kỳ">
+      <input type="hidden" name="tab" th:value="${selectedTab}">
+      <input type="hidden" name="subjectCode" th:value="${selectedSubjectCode}">
+      <input type="hidden" name="q" th:value="${classQuery}">
+      <label class="cw-tabs-label" for="participatingSemester">Học kỳ</label>
+      <select id="participatingSemester" name="semester">
+        <option value="">Tất cả</option>
+        <option th:each="term : ${semesterOptions}" th:value="${term}" th:text="${term}" th:selected="${selectedSemester == term}"></option>
+      </select>
+      <button type="submit" class="btn-ghost">Áp dụng</button>
+    </form>
     <div class="cw-controls-bottom">
       <th:block th:replace="~{fragments/class-workspace :: overview(${classOverview})}"></th:block>
       <form class="cw-search-form" method="get" th:action="@{/lecturer/classes}" role="search">

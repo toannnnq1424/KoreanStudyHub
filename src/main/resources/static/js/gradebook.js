@@ -16,8 +16,10 @@
     const activeKeys = custom.checked ? selected : new Set(visibleHeaders().map((h) => h.dataset.columnKey));
     root.querySelectorAll('tbody tr').forEach((row) => {
       const values = [...row.querySelectorAll('td[data-column-key]')]
-        .filter((cell) => !cell.hidden && activeKeys.has(cell.dataset.columnKey) && cell.dataset.normalized !== '')
-        .map((cell) => Number(cell.dataset.normalized));
+        .filter((cell) => !cell.hidden && activeKeys.has(cell.dataset.columnKey)
+          && typeof cell.dataset.normalized === 'string' && cell.dataset.normalized.trim() !== '')
+        .map((cell) => Number(cell.dataset.normalized))
+        .filter(Number.isFinite);
       row.querySelector('[data-average]').textContent = values.length
         ? (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2).replace(/\.00$/, '')
         : '—';

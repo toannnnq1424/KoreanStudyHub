@@ -104,12 +104,15 @@ public class StudentAssignmentController {
                          @PathVariable Long assignmentId,
                          @AuthenticationPrincipal KshUserDetails user,
                          @RequestParam(required = false) String content,
+                         @RequestParam(required = false) org.springframework.web.multipart.MultipartFile attachment,
                          RedirectAttributes ra) {
         try {
-            assignmentService.submit(classId, assignmentId, new SubmitForm(content), user.getId());
+            assignmentService.submit(classId, assignmentId, new SubmitForm(content), user.getId(), attachment);
             ra.addFlashAttribute(ATTR_FLASH_SUCCESS, MSG_SUBMIT_SUCCESS);
         } catch (EntityNotFoundException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        } catch (java.io.UncheckedIOException e) {
+            ra.addFlashAttribute(ATTR_FLASH_ERROR, "Không thể lưu tệp. Bài chưa được nộp; vui lòng thử lại.");
         } catch (IllegalStateException | IllegalArgumentException e) {
             // Both user-facing rejection types (not-published, late-not-allowed, after-graded)
             // must surface as a flash error toast, not a 500.

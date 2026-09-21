@@ -40,7 +40,7 @@ public class AssignmentSubmission {
     @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
-    /** Attachment URL — left null in MVP (file upload out-of-scope). */
+    /** Private object-storage key; mapped to an authorized download endpoint in view DTOs. */
     @Column(name = "attachment_url", length = 500)
     private String attachmentUrl;
 

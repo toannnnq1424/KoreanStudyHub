@@ -127,11 +127,21 @@ public class LibraryService {
      */
     @Transactional(readOnly = true)
     public LibraryAssetDetail detail(Long ownerId, Long assetId) {
+        return detail(ownerId, assetId, true);
+    }
+
+    /** Preview needs owned file metadata, not the cross-module usage report. */
+    @Transactional(readOnly = true)
+    public LibraryAssetDetail previewDetail(Long ownerId, Long assetId) {
+        return detail(ownerId, assetId, false);
+    }
+
+    private LibraryAssetDetail detail(Long ownerId, Long assetId, boolean includeUsage) {
         Long scopedOwnerId = requireOwnerId(ownerId);
         LibraryAsset asset = getOwnedAsset(scopedOwnerId, assetId);
         LibraryAssetRow row = toRow(asset, false);
         List<AssetUsageProjection> projections =
-                assetRepository.findUsagesByOwnerIdAndAssetId(scopedOwnerId, asset.getId());
+                includeUsage ? assetRepository.findUsagesByOwnerIdAndAssetId(scopedOwnerId, asset.getId()) : List.of();
         List<LibraryAssetUsage> usages = projections == null ? List.of()
                 : projections.stream().map(LibraryService::toUsage).toList();
         String base = "/lecturer/library/assets/" + asset.getId();

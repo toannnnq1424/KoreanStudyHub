@@ -46,7 +46,7 @@ public class QuestionBankImportService {
     private static final String MSG_SESSION_EXPIRED =
             "Phiên import đã hết hạn hoặc không tồn tại. Vui lòng tải file lên lại";
     private static final String MSG_BLOCKING_ERRORS =
-            "Bản xem trước còn lỗi chặn nên chưa thể xác nhận import";
+            "Không có câu hỏi hợp lệ để import. Vui lòng sửa file và xem trước lại";
     private static final String MSG_EMPTY_SUBJECT =
             "Chưa có mã môn đang hoạt động để import câu hỏi";
     private static final int MAX_PREVIEW_LENGTH = 80;

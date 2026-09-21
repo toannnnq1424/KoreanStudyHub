@@ -85,8 +85,10 @@
   </section>
 
   <div class="library-list-container" th:if="${!librarySubjectStats.isEmpty()}">
+    <section th:each="group : ${librarySubjectGroups}" th:if="${!group.subjects().isEmpty()}">
+    <h2 th:text="${group.title()}">Kho bài giảng</h2>
     <div class="library-subject-cards">
-      <a class="library-subject-card" th:each="subject : ${librarySubjectStats}"
+      <a class="library-subject-card" th:each="subject : ${group.subjects()}"
          th:href="@{/lecturer/library/templates(subjectId=${subject.id()})}"
          th:attr="data-search-text=${subject.code() + ' ' + subject.name()},
                   data-subject-code=${subject.code()},
@@ -115,13 +117,14 @@
         </div>
       </a>
     </div>
+    </section>
   </div>
 
   <div class="content-empty" th:if="${librarySubjectStats.isEmpty()}">
     <h3>Chưa có mã môn nào</h3>
     <p>Hiện tại bạn chưa có mã môn nào để quản lý bài giảng.</p>
   </div>
-  <div class="content-empty library-filter-empty" hidden data-library-filter-empty>
+  <div class="content-empty library-filter-empty" hidden style="display:none" data-library-filter-empty>
     <h3>Không tìm thấy môn học phù hợp</h3>
     <p>Thử đổi từ khóa hoặc xóa các bộ lọc đang chọn.</p>
   </div>
@@ -149,7 +152,10 @@
         card.hidden = !matches;
         if (matches) visible += 1;
       });
-      if (emptyState) emptyState.hidden = visible !== 0 || cards.length === 0;
+      if (emptyState) {
+        emptyState.hidden = visible !== 0 || cards.length === 0;
+        emptyState.style.display = emptyState.hidden ? 'none' : '';
+      }
     };
 
     [searchInput, statusFilter, subjectFilter].forEach(control => {

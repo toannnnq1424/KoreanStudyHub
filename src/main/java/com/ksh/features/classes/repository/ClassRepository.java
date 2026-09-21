@@ -189,7 +189,8 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
     @Query("""
             SELECT c FROM ClassEntity c, Subject s
             WHERE c.subjectId = s.id
-              AND c.subjectId IN :subjectIds
+              AND (c.subjectId IN :subjectIds OR c.lecturerId = :actorId
+                   OR c.id IN (SELECT cc.classId FROM ClassCoLecturer cc WHERE cc.lecturerId = :actorId))
               AND c.status IN :statuses
               AND (:semester = '' OR c.semester = :semester)
               AND (:subjectCode = '' OR LOWER(s.code) = LOWER(:subjectCode))
@@ -202,6 +203,7 @@ public interface ClassRepository extends JpaRepository<ClassEntity, Long> {
               s.code ASC, c.name ASC
             """)
     Page<ClassEntity> searchLeaderClasses(
+            @Param("actorId") Long actorId,
             @Param("subjectIds") Collection<Long> subjectIds,
             @Param("statuses") Collection<String> statuses,
             @Param("semester") String semester,

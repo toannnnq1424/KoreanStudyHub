@@ -34,7 +34,9 @@ public class ClassRoleAccessPolicy {
                     || coLecturerRepository.existsByClassIdAndLecturerId(clazz.getId(), userId);
         }
         if (role == Role.LEADER) {
-            return leaderSubjectResolver.resolveAll(userId).stream()
+            return userId.equals(clazz.getLecturerId())
+                    || coLecturerRepository.existsByClassIdAndLecturerId(clazz.getId(), userId)
+                    || leaderSubjectResolver.resolveAll(userId).stream()
                     .anyMatch(subject -> subject.getId().equals(clazz.getSubjectId()));
         }
         return false;

@@ -25,7 +25,7 @@
     <div class="form-group">
       <label for="dueDate" class="form-label">Hạn nộp bài</label>
       <input id="dueDate" name="dueDate" type="datetime-local" class="form-input"
-             th:value="${f.dueDate != null} ? ${#temporals.format(f.dueDate, 'yyyy-MM-dd''T''HH:mm')} : ''">
+             th:value="${f.dueDate != null ? #temporals.format(f.dueDate, &quot;yyyy-MM-dd'T'HH:mm&quot;) : ''}">
     </div>
   </div>
 
