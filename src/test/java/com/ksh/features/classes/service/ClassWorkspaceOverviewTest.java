@@ -36,6 +36,16 @@ import static org.mockito.Mockito.when;
 
 /** Regression coverage for filter-scoped statistics outside the current result page. */
 class ClassWorkspaceOverviewTest {
+    @Test void semesterOptionsOnlyComeFromParticipatingClasses() {
+        var own = org.mockito.Mockito.mock(ClassEntity.class);
+        var coTaught = org.mockito.Mockito.mock(ClassEntity.class);
+        when(own.getSemester()).thenReturn("SU26");
+        when(coTaught.getSemester()).thenReturn("FA25");
+        when(classes.findClassIdsForLecturer(7L)).thenReturn(List.of(1L, 2L));
+        when(classes.findAllById(List.of(1L, 2L))).thenReturn(List.of(own, coTaught));
+        assertThat(service.participatingSemesters(7L)).containsExactly("SU26", "FA25");
+        verify(classes, never()).findDistinctSemesterCodes();
+    }
 
     private static final List<String> ALL_STATES = List.of(
             ClassEntity.STATUS_PENDING, ClassEntity.STATUS_REJECTED,
@@ -77,7 +87,7 @@ class ClassWorkspaceOverviewTest {
     @Test
     void leader_overview_is_limited_to_all_assigned_subjects() {
         when(access.leaderSubjectIds(7L)).thenReturn(List.of(6L, 12L));
-        when(classes.searchLeaderClasses(List.of(6L, 12L), ALL_STATES, "", "", "",
+        when(classes.searchLeaderClasses(7L, List.of(6L, 12L), ALL_STATES, "", "", "",
                 Pageable.unpaged())).thenReturn(new PageImpl<>(List.of(clazz(9L, ClassEntity.STATUS_ACTIVE))));
         when(enrollments.countDistinctStudentsInClasses(List.of(9L))).thenReturn(4L);
         when(classes.countDistinctTeachingUsers(List.of(9L))).thenReturn(2L);
@@ -91,12 +101,15 @@ class ClassWorkspaceOverviewTest {
 
     @Test
     void unassigned_leader_and_student_cannot_obtain_administrative_statistics() {
+        when(classes.searchLeaderClasses(7L, List.of(-1L), ALL_STATES, "", "", "", Pageable.unpaged()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
         when(access.leaderSubjectIds(7L)).thenReturn(List.of());
 
         assertThat(service.overview(7L, Role.LEADER, "", "", "")).isEqualTo(ClassOverview.empty());
         assertThat(service.overview(99L, Role.STUDENT, "", "", "")).isEqualTo(ClassOverview.empty());
 
-        verifyNoInteractions(classes, enrollments);
+        verifyNoInteractions(enrollments);
+        verify(classes, never()).searchAdministrativeClasses(any(), any(), any(), any(), any());
     }
 
     @Test

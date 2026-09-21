@@ -33,7 +33,8 @@ class PersonalLibraryClassTargetServiceTest {
         when(asset.getKind()).thenReturn(LibraryAsset.KIND_DOCUMENT);
         when(libraryService.requireOwnedStorageKey(7L, asset))
                 .thenReturn("library/7/private.pdf");
-        when(classRepository.findAllByLecturerIdOrderByCreatedAtDesc(7L))
+        when(classRepository.findClassIdsForLecturer(7L)).thenReturn(List.of(1L));
+        when(classRepository.findAllById(List.of(1L)))
                 .thenReturn(List.of(clazz));
         when(clazz.getId()).thenReturn(1L);
         when(clazz.getName()).thenReturn("Lớp riêng");
@@ -46,7 +47,7 @@ class PersonalLibraryClassTargetServiceTest {
             assertThat(classTarget.sections()).isEmpty();
         });
         verify(classRepository, never()).findAllByOrderByCreatedAtDesc();
-        verify(classRepository).findAllByLecturerIdOrderByCreatedAtDesc(7L);
+        verify(classRepository).findClassIdsForLecturer(7L);
         verify(classRepository, never()).save(clazz);
     }
 
@@ -60,7 +61,8 @@ class PersonalLibraryClassTargetServiceTest {
         when(libraryService.requireOwnedStorageKey(7L, asset))
                 .thenReturn("library/7/private.pdf");
 
-        when(classRepository.findAllByLecturerIdOrderByCreatedAtDesc(7L))
+        when(classRepository.findClassIdsForLecturer(7L)).thenReturn(List.of(1L));
+        when(classRepository.findAllById(List.of(1L)))
                 .thenReturn(List.of(clazz));
         when(clazz.getStatus()).thenReturn(ClassEntity.STATUS_REJECTED);
 

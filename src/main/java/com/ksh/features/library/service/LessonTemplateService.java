@@ -175,9 +175,9 @@ public class LessonTemplateService {
         Page<LessonTemplate> result = templateRepository.searchSubject(
                 subject.getId(), qNorm, pr);
         Map<Long, String> uploaderNames = uploaderNames(result.getContent());
-        boolean scopedLeader = role == Role.LEADER;
+        boolean scopedLeader = subjectResolver.manages(ownerId, role, subject.getId());
         boolean canAddResources = scopedLeader
-                || (role == Role.LECTURER && !subject.isLibraryLocked());
+                || ((role == Role.LECTURER || role == Role.LEADER) && !subject.isLibraryLocked());
         Page<LessonTemplateRow> rows = result.map(t -> toRow(t, subject.getCode(),
                 scopedLeader,
                 scopedLeader,
@@ -204,7 +204,7 @@ public class LessonTemplateService {
                 chapters,
                 templateCount,
                 subject.isLibraryLocked(),
-                role == Role.LEADER);
+                scopedLeader);
     }
 
     @Transactional(readOnly = true)
@@ -264,7 +264,7 @@ public class LessonTemplateService {
         LessonTemplate template = templateRepository.findById(templateId)
                 .orElseThrow(() -> new EntityNotFoundException(MSG_TEMPLATE_NOT_FOUND));
         Subject subject = subjectResolver.require(ownerId, role, template.getSubjectId());
-        boolean leaderEditor = role == Role.LEADER;
+        boolean leaderEditor = subjectResolver.manages(ownerId, role, subject.getId());
         if (!leaderEditor) {
             requireLecturerResourceOpen(role, subject);
         }
@@ -413,7 +413,9 @@ public class LessonTemplateService {
         Map<Long, MaterialOption> options = new LinkedHashMap<>();
         materialOptions(actorId).forEach(option -> options.put(option.id(), option));
         if (role == Role.LEADER && templateId != null) {
-            LessonTemplate template = getStructureManageable(actorId, role, templateId);
+            LessonTemplate template = templateRepository.findById(templateId)
+                    .orElseThrow(() -> new EntityNotFoundException(MSG_TEMPLATE_NOT_FOUND));
+            if (!subjectResolver.manages(actorId, role, template.getSubjectId())) return List.copyOf(options.values());
             for (Long id : existingAssetIds(template)) {
                 assetRepository.findById(id).ifPresent(asset -> options.put(id,
                         new MaterialOption(id, asset.getTitle(), asset.getKind(), asset.getMimeType())));
@@ -427,6 +429,10 @@ public class LessonTemplateService {
         Subject subject = subjectResolver.require(ownerId, role, subjectId);
         return new SubjectContext(subject.getId(), subject.getCode(), subject.getName(),
                 subject.getDescription());
+    }
+
+    public boolean managesSubject(Long actorId, Role role, Long subjectId) {
+        return subjectResolver.manages(actorId, role, subjectId);
     }
 
     @Transactional(readOnly = true)
@@ -465,8 +471,9 @@ public class LessonTemplateService {
 
     @Transactional
     public LessonTemplateRow saveForm(Long ownerId, Role role, LessonTemplateForm form) {
-        if (role == Role.LECTURER) {
-            return appendLecturerResources(ownerId, form);
+        if (role == Role.LECTURER || (role == Role.LEADER
+                && !subjectResolver.manages(ownerId, role, form.getSubjectId()))) {
+            return appendLecturerResources(ownerId, role, form);
         }
         Subject subject = requireLeaderSubject(ownerId, role, form.getSubjectId());
         int chapterNumber = requirePositive(form.getChapterNumber(), "Số chương phải từ 1 trở lên");
@@ -556,7 +563,7 @@ public class LessonTemplateService {
      * posted field is deliberately ignored so a crafted request cannot rename
      * a lesson, move it, replace its body or remove another author's files.
      */
-    private LessonTemplateRow appendLecturerResources(Long lecturerId,
+    private LessonTemplateRow appendLecturerResources(Long lecturerId, Role role,
                                                        LessonTemplateForm form) {
         if (form.getId() == null) {
             throw new AccessDeniedException(
@@ -565,7 +572,7 @@ public class LessonTemplateService {
         LessonTemplate template = templateRepository.findById(form.getId())
                 .orElseThrow(() -> new EntityNotFoundException(MSG_TEMPLATE_NOT_FOUND));
         Subject subject = subjectResolver.require(
-                lecturerId, Role.LECTURER, template.getSubjectId());
+                lecturerId, role, template.getSubjectId());
         requireTemplateSubject(template, form.getSubjectId());
         requireLecturerResourceOpen(Role.LECTURER, subject);
         ingestSupplementaryUploads(lecturerId, form);
@@ -1088,7 +1095,7 @@ public class LessonTemplateService {
     public boolean setSubjectLibraryLocked(Long userId, Role role, Long subjectId,
                                            boolean locked) {
         Subject subject = subjectResolver.require(userId, role, subjectId);
-        requireScopedLeader(role);
+        requireSubjectManager(userId, role, subject.getId());
         subject.setLibraryLocked(locked);
         // The legacy structure flag is retired. This single lock now governs
         // only whether lecturers may append resources to canonical lessons.
@@ -1126,12 +1133,12 @@ public class LessonTemplateService {
 
     private Subject requireLeaderSubject(Long userId, Role role, Long subjectId) {
         Subject subject = subjectResolver.require(userId, role, subjectId);
-        requireScopedLeader(role);
+        requireSubjectManager(userId, role, subject.getId());
         return subject;
     }
 
     private static void requireLecturerResourceOpen(Role role, Subject subject) {
-        if (role != Role.LECTURER) {
+        if (role != Role.LECTURER && role != Role.LEADER) {
             throw new AccessDeniedException(
                     "Chỉ giảng viên được thêm tài nguyên vào bài học");
         }
@@ -1141,8 +1148,8 @@ public class LessonTemplateService {
         }
     }
 
-    private static void requireScopedLeader(Role role) {
-        if (role != Role.LEADER) {
+    private void requireSubjectManager(Long actorId, Role role, Long subjectId) {
+        if (!subjectResolver.manages(actorId, role, subjectId)) {
             throw new AccessDeniedException(
                     "Chỉ trưởng môn phụ trách mã môn mới được thực hiện thao tác này");
         }

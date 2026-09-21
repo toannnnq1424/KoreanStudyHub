@@ -39,7 +39,7 @@ class PersonalLibraryAssetPreviewServiceTest {
     void pdf_preview_is_browser_inline_and_never_reads_the_whole_object() throws Exception {
         LibraryAssetDetail detail = detail(
                 "outline.pdf", "application/pdf", "PDF", "pdf", 512L);
-        when(libraryService.detail(7L, 11L)).thenReturn(detail);
+        when(libraryService.previewDetail(7L, 11L)).thenReturn(detail);
 
         var preview = service.load(7L, 11L);
 
@@ -68,7 +68,7 @@ class PersonalLibraryAssetPreviewServiceTest {
                 "scores.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "XLSX", "excel", bytes.length);
-        when(libraryService.detail(7L, 11L)).thenReturn(detail);
+        when(libraryService.previewDetail(7L, 11L)).thenReturn(detail);
         when(libraryService.contentHandle(7L, 11L)).thenReturn(
                 new OwnedAssetContent("library/7/scores.xlsx", "scores.xlsx",
                         detail.mimeType(), bytes.length));
@@ -92,7 +92,7 @@ class PersonalLibraryAssetPreviewServiceTest {
                 "scores.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "XLSX", "excel", 1024L);
-        when(libraryService.detail(7L, 11L)).thenReturn(detail);
+        when(libraryService.previewDetail(7L, 11L)).thenReturn(detail);
         when(libraryService.contentHandle(7L, 11L)).thenReturn(
                 new OwnedAssetContent("library/7/scores.xlsx", "scores.xlsx",
                         detail.mimeType(), 1024L));
@@ -113,7 +113,7 @@ class PersonalLibraryAssetPreviewServiceTest {
                 "scores.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "XLSX", "excel", staleDatabaseSize);
-        when(libraryService.detail(7L, 11L)).thenReturn(detail);
+        when(libraryService.previewDetail(7L, 11L)).thenReturn(detail);
         when(libraryService.contentHandle(7L, 11L)).thenReturn(
                 new OwnedAssetContent("library/7/scores.xlsx", "scores.xlsx",
                         detail.mimeType(), staleDatabaseSize));
@@ -134,7 +134,7 @@ class PersonalLibraryAssetPreviewServiceTest {
                 "scores.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "XLSX", "excel", 1024L);
-        when(libraryService.detail(7L, 11L)).thenReturn(detail);
+        when(libraryService.previewDetail(7L, 11L)).thenReturn(detail);
         when(libraryService.contentHandle(7L, 11L)).thenReturn(
                 new OwnedAssetContent("library/7/scores.xlsx", "scores.xlsx",
                         detail.mimeType(), 1024L));
@@ -154,7 +154,7 @@ class PersonalLibraryAssetPreviewServiceTest {
                 "scores.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "XLSX", "excel", 1024L);
-        when(libraryService.detail(7L, 11L)).thenReturn(detail);
+        when(libraryService.previewDetail(7L, 11L)).thenReturn(detail);
         when(libraryService.contentHandle(7L, 11L)).thenReturn(
                 new OwnedAssetContent("library/7/scores.xlsx", "scores.xlsx",
                         detail.mimeType(), 1024L));

@@ -77,4 +77,12 @@ class ClassRoleAccessPolicyTest {
         when(clazz.getSubjectId()).thenReturn(subjectId);
         return clazz;
     }
+
+    @Test void leaderRetainsCoTeachingAccessOutsideManagedSubjects() {
+        ClassEntity clazz = classEntity(42L, 99L);
+        when(clazz.getId()).thenReturn(5L);
+        when(coLecturerRepository.existsByClassIdAndLecturerId(5L, 7L)).thenReturn(true);
+        assertThat(policy.canAccess(clazz, 7L, Role.LEADER)).isTrue();
+        assertThat(policy.canManageClass(clazz, 7L, Role.LEADER)).isFalse();
+    }
 }

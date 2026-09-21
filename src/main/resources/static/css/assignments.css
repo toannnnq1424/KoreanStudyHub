@@ -257,6 +257,29 @@
   border: 1px solid var(--color-border, #e5e7eb);
 }
 
+.asgn-upload-field { padding: 20px; border: 1px dashed #a5bddf; border-radius: 12px; background: #f7faff; }
+.asgn-upload-field p { color: #64748b; font-size: 13px; line-height: 1.6; }
+.asgn-upload-field input { max-width: 100%; }
+.asgn-upload-field input::file-selector-button { padding: 10px 16px; margin-right: 12px; border: 1px solid #cad8ec; border-radius: 8px; background: white; color: #28579b; cursor: pointer; }
+.assignment-grading-page .asgn-grading-workspace { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 28px; align-items: start; background: transparent; border: 0; padding: 0; }
+.assignment-grading-page .asgn-submission-card, .assignment-grading-page .asgn-grade-form { margin: 0; padding: 24px; border: 1px solid #e1e8f1; border-radius: 14px; background: white; min-width: 0; }
+.assignment-grading-page .asgn-grade-form { position: sticky; top: 88px; }
+.assignment-grading-page .asgn-meta { display: grid; gap: 10px; padding-bottom: 20px; border-bottom: 1px solid #e5eaf1; }
+.assignment-grading-page .asgn-content-text { min-height: 220px; line-height: 1.85; overflow-wrap: anywhere; font-size: 16px; }
+.student-assignment-page .asgn-textarea { min-height: 280px; line-height: 1.8; font-size: 16px; }
+.student-assignment-page .student-assignment-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; align-content: start; align-items: start; }
+.student-assignment-main > .asgn-detail-header, .student-assignment-main > .asgn-summary-card { grid-column: 1 / -1; }
+.student-assignment-main > .asgn-requirement-card { grid-column: 1; grid-row: 3; }
+.student-assignment-main > .asgn-submit-card, .student-assignment-main > .asgn-submission-card { grid-column: 2; grid-row: 3; }
+.student-assignment-main > .asgn-result-card { grid-column: 2; }
+.student-assignment-main > .asgn-detail-card { margin-top: 0; }
+@media (max-width: 1100px) { .student-assignment-page .student-assignment-main { display: flex; flex-direction: column; } .student-assignment-main > * { width: 100%; } }
+@media (max-width: 1000px) { .assignment-grading-page .asgn-grading-workspace { grid-template-columns: 1fr; } .assignment-grading-page .asgn-grade-form { position: static; } }
+
+/* Author display:grid/flex must not override native filter visibility. */
+[data-assignment-row][hidden], [data-assignment-empty][hidden],
+[data-assignment-detail][hidden], .asgn-detail-actions [hidden] { display: none !important; }
+
 /* Feedback score display */
 .asgn-feedback-card {
   text-align: center;

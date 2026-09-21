@@ -27,7 +27,9 @@
         <article class="class-material-row" th:each="material : ${classMaterials}">
           <span class="class-material-icon" aria-hidden="true">FILE</span>
           <span class="class-material-copy">
-            <strong th:text="${material.title()}">Tài liệu</strong>
+          <strong th:text="${material.title()}">Tài liệu</strong>
+          <small th:text="${'Vị trí: ' + material.anchorLabel()}"></small>
+          <small th:text="${'Người chia sẻ: ' + material.sharedBy()}"></small>
             <small>
               <span th:text="${material.originalFilename()}">file.pdf</span>
               <span aria-hidden="true"> · </span><span th:text="${material.sizeLabel()}">0 KB</span>

@@ -104,6 +104,7 @@ public final class AssignmentDtos {
             String studentName,
             String studentEmail,
             String content,
+            String attachmentUrl,
             String status,
             boolean isLate,
             LocalDateTime submittedAt,

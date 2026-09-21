@@ -62,7 +62,7 @@ public class PersonalLibraryAssetPreviewService {
     }
 
     public LibraryAssetPreview load(Long ownerId, Long assetId) {
-        LibraryAssetDetail detail = libraryService.detail(ownerId, assetId);
+        LibraryAssetDetail detail = libraryService.previewDetail(ownerId, assetId);
         String previewKind = classify(detail);
         if ("PDF".equals(previewKind) || "IMAGE".equals(previewKind)
                 || "VIDEO".equals(previewKind)) {

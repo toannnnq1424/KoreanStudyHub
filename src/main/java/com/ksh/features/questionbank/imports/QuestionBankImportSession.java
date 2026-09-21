@@ -83,7 +83,7 @@ public final class QuestionBankImportSession {
     public Preview toPreview() {
         int acceptedRows = items.size();
         int errorRows = (int) rows.stream().filter(PreviewRow::blocking).count();
-        return new Preview(id, fileName, rows.size(), acceptedRows, errorRows, errorRows == 0 && acceptedRows > 0, rows);
+        return new Preview(id, fileName, rows.size(), acceptedRows, errorRows, acceptedRows > 0, rows);
     }
 
     public boolean isExpired(Instant now) {

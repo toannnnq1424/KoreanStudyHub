@@ -41,7 +41,7 @@ public class PersonalLibraryClassTargetService {
         if (role == Role.ADMIN) {
             candidates = classRepository.findAllByOrderByCreatedAtDesc();
         } else if (role == Role.LECTURER || role == Role.LEADER) {
-            candidates = classRepository.findAllByLecturerIdOrderByCreatedAtDesc(actorId);
+            candidates = classRepository.findAllById(classRepository.findClassIdsForLecturer(actorId));
         } else {
             throw new AccessDeniedException("Bạn không có quyền chia sẻ tài liệu vào lớp");
         }

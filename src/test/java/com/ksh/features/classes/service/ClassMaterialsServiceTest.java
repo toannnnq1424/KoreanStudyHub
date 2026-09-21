@@ -41,6 +41,31 @@ class ClassMaterialsServiceTest {
 
     private ClassMaterialsService service;
 
+    @Test void anchorCannotPointOutsideTheClass() {
+        var sections = org.mockito.Mockito.mock(com.ksh.features.lessons.repository.SectionRepository.class);
+        ReflectionTestUtils.setField(service, "sectionRepository", sections);
+        var material = LessonAttachment.forClassMaterial(5L, "a.pdf", "library/7/a.pdf", "application/pdf", 1, 7L, 11L);
+        when(attachmentRepository.findByIdAndClassId(19L, 5L)).thenReturn(Optional.of(material));
+        when(sections.findByIdAndClassId(99L, 5L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.setAnchor(5L, 19L, 99L, null, 7L, Role.LEADER))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(material.getClassId()).isEqualTo(5L);
+        assertThat(material.getAnchorSectionId()).isNull();
+    }
+
+    @Test void missingAnchorKeepsClassMaterialVisible() {
+        var sections = org.mockito.Mockito.mock(com.ksh.features.lessons.repository.SectionRepository.class);
+        ReflectionTestUtils.setField(service, "sectionRepository", sections);
+        var material = LessonAttachment.forClassMaterial(5L, "a.pdf", "library/7/a.pdf", "application/pdf", 1, 7L, 11L);
+        material.anchorTo(99L, 100L);
+        when(sections.findByIdAndClassId(99L, 5L)).thenReturn(Optional.empty());
+        when(attachmentRepository.findByClassIdOrderByUploadedAtDescIdDesc(5L)).thenReturn(List.of(material));
+        var rows = service.listForTeaching(5L, 7L, Role.LEADER);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).anchorLabel()).isEqualTo("Tài liệu chung của lớp");
+        assertThat(material.getClassId()).isEqualTo(5L);
+    }
+
     @BeforeEach
     void setUp() {
         service = new ClassMaterialsService(classesService, classRepository,
@@ -49,7 +74,7 @@ class ClassMaterialsServiceTest {
 
     @Test
     void share_creates_direct_class_reference_without_a_lesson_or_blob_copy() {
-        when(classesService.getOwnerManaged(5L, 7L, Role.LECTURER)).thenReturn(clazz);
+        when(classesService.getEditable(5L, 7L, Role.LECTURER)).thenReturn(clazz);
         when(clazz.getStatus()).thenReturn(ClassEntity.STATUS_ACTIVE);
         when(libraryService.getOwnedAssetForUpdate(7L, 11L)).thenReturn(asset);
         when(asset.getKind()).thenReturn(LibraryAsset.KIND_DOCUMENT);
@@ -77,7 +102,7 @@ class ClassMaterialsServiceTest {
 
     @Test
     void duplicate_class_share_is_rejected() {
-        when(classesService.getOwnerManaged(5L, 7L, Role.LECTURER)).thenReturn(clazz);
+        when(classesService.getEditable(5L, 7L, Role.LECTURER)).thenReturn(clazz);
         when(clazz.getStatus()).thenReturn(ClassEntity.STATUS_ACTIVE);
         when(libraryService.getOwnedAssetForUpdate(7L, 11L)).thenReturn(asset);
         when(asset.getKind()).thenReturn(LibraryAsset.KIND_DOCUMENT);

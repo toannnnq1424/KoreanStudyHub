@@ -35,6 +35,16 @@ public class LibraryController {
         var subjectStats = lessonTemplateService.getLibrarySubjectStats(
                 userDetails.getId(), userDetails.getRole());
         model.addAttribute("librarySubjectStats", subjectStats);
+        var managed = subjectStats.stream().filter(subject -> subjectResolver.manages(
+                userDetails.getId(), userDetails.getRole(), subject.id())).toList();
+        var teaching = subjectStats.stream().filter(subject -> !subjectResolver.manages(
+                userDetails.getId(), userDetails.getRole(), subject.id())).toList();
+        model.addAttribute("librarySubjectGroups", java.util.List.of(
+                new SubjectGroup("Mã môn tôi quản lý", managed),
+                new SubjectGroup("Kho bài giảng · Quyền giảng viên", teaching)));
         return "library/list-library";
     }
+
+    public record SubjectGroup(String title,
+            java.util.List<com.ksh.features.library.dto.LibraryDtos.SubjectLibraryStats> subjects) {}
 }

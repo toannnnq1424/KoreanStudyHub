@@ -181,7 +181,25 @@ public class ClassDetailController {
                 user.getId(), user.getRole());
         model.addAttribute("classMaterials",
                 classMaterialsService.listForTeaching(id, user.getId(), user.getRole()));
+        model.addAttribute("materialAnchorOptions", classMaterialsService.anchorOptions(id, user.getId(), user.getRole()));
         return "classes/detail-materials";
+    }
+
+    @PostMapping("/classes/{id}/materials/{materialId}/anchor")
+    public String anchorMaterial(@PathVariable Long id, @PathVariable Long materialId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "") String anchor,
+            @AuthenticationPrincipal KshUserDetails user, RedirectAttributes ra) {
+        try {
+            String[] parts = anchor.split(":", -1);
+            Long sectionId = anchor.isBlank() ? null : Long.valueOf(parts[0]);
+            Long lessonId = parts.length == 2 && !parts[1].isBlank() ? Long.valueOf(parts[1]) : null;
+            if (!anchor.isBlank() && parts.length != 2) throw new IllegalArgumentException("Điểm neo không hợp lệ");
+            classMaterialsService.setAnchor(id, materialId, sectionId, lessonId, user.getId(), user.getRole());
+            ra.addFlashAttribute(ATTR_FLASH_SUCCESS, "Đã cập nhật vị trí tài liệu; tệp vẫn thuộc lớp");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("flashError", "Điểm neo không hợp lệ hoặc không còn tồn tại");
+        }
+        return "redirect:/lecturer/classes/" + id + "/materials";
     }
 
     /** Removes the class reference while retaining the personal-library file. */

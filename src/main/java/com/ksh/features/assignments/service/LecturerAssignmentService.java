@@ -181,7 +181,8 @@ public class LecturerAssignmentService {
         return new SubmissionDetail(
                 sub.getId(), assignmentId,
                 access.resolveUserName(sub.getUserId()), access.resolveUserEmail(sub.getUserId()),
-                sub.getContent(), sub.getStatus(), sub.isLate(), sub.getSubmittedAt(),
+                sub.getContent(), sub.getAttachmentUrl() == null ? null : "/lecturer/classes/" + classId + "/assignments/" + assignmentId + "/attachments/" + sub.getId(),
+                sub.getStatus(), sub.isLate(), sub.getSubmittedAt(),
                 fb.map(AssignmentFeedback::getScore).orElse(null),
                 fb.map(AssignmentFeedback::getFeedback).orElse(null),
                 a.getMaxScore());

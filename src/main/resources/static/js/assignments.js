@@ -30,6 +30,12 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     bindConfirmForms();
+    const attachment = document.getElementById('attachment');
+    if (attachment) attachment.addEventListener('change', function () {
+      const file = attachment.files && attachment.files[0];
+      attachment.setCustomValidity(file && file.size > 10 * 1024 * 1024 ? 'Tệp bài nộp tối đa 10 MB' : '');
+      attachment.reportValidity();
+    });
   });
 }());
 document.addEventListener('DOMContentLoaded', () => {

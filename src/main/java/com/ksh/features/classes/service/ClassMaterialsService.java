@@ -38,6 +38,13 @@ public class ClassMaterialsService {
     private final LibraryAssetRepository assetRepository;
     private final LibraryService libraryService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.lessons.repository.SectionRepository sectionRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.lessons.repository.LessonRepository lessonRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.auth.repository.UserRepository userRepository;
+
     public ClassMaterialsService(ClassesService classesService,
                                  ClassRepository classRepository,
                                  EnrollmentRepository enrollmentRepository,
@@ -56,7 +63,7 @@ public class ClassMaterialsService {
     @Transactional
     public ClassMaterialRow shareFromLibrary(Long classId, Long assetId,
                                              Long actorId, Role role) {
-        ClassEntity clazz = classesService.getOwnerManaged(classId, actorId, role);
+        ClassEntity clazz = classesService.getEditable(classId, actorId, role);
         if (!ClassEntity.STATUS_ACTIVE.equals(clazz.getStatus())) {
             throw new IllegalStateException(MSG_CLASS_NOT_LIVE);
         }
@@ -92,7 +99,7 @@ public class ClassMaterialsService {
     /** Removes only the class reference; the personal-library object remains intact. */
     @Transactional
     public void remove(Long classId, Long materialId, Long actorId, Role role) {
-        classesService.getOwnerManaged(classId, actorId, role);
+        classesService.getEditable(classId, actorId, role);
         LessonAttachment attachment = attachmentRepository.findByIdAndClassId(materialId, classId)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy tài liệu lớp"));
         attachmentRepository.delete(attachment);
@@ -141,18 +148,68 @@ public class ClassMaterialsService {
                 .toList();
     }
 
-    private static ClassMaterialRow toRow(LessonAttachment attachment, String title) {
+    private ClassMaterialRow toRow(LessonAttachment attachment, String title) {
+        String sharedBy = userRepository == null ? "Giảng viên" : userRepository.findById(attachment.getUploadedBy())
+                .map(com.ksh.entities.User::getFullName).orElse("Tài khoản không còn khả dụng");
+        String anchor = "Tài liệu chung của lớp";
+        if (attachment.getAnchorSectionId() != null && sectionRepository != null) {
+            var section = sectionRepository.findByIdAndClassId(attachment.getAnchorSectionId(), attachment.getClassId());
+            if (section.isPresent()) {
+                if (attachment.getAnchorLessonId() == null) anchor = section.get().getTitle();
+                else {
+                    var lesson = lessonRepository.findById(attachment.getAnchorLessonId())
+                            .filter(row -> section.get().getId().equals(row.getSectionId()));
+                    if (lesson.isPresent()) anchor = section.get().getTitle() + " / " + lesson.get().getTitle();
+                }
+            }
+        }
         return new ClassMaterialRow(
                 attachment.getId(), title, attachment.getOriginalFilename(),
                 attachment.getMimeType(), attachment.getSizeBytes(),
                 attachment.getUploadedAt(),
                 "/api/classes/" + attachment.getClassId()
-                        + "/materials/" + attachment.getId() + "/download");
+                        + "/materials/" + attachment.getId() + "/download", sharedBy, anchor);
     }
+
+    @Transactional
+    public void setAnchor(Long classId, Long materialId, Long sectionId, Long lessonId, Long actorId, Role role) {
+        classesService.getEditable(classId, actorId, role);
+        var material = attachmentRepository.findByIdAndClassId(materialId, classId)
+                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy tài liệu lớp"));
+        if (sectionId == null && lessonId != null) throw new IllegalArgumentException("Hãy chọn chương của bài học");
+        if (sectionId != null) {
+            sectionRepository.findByIdAndClassId(sectionId, classId)
+                    .orElseThrow(() -> new IllegalArgumentException("Chương không thuộc lớp"));
+            if (lessonId != null) lessonRepository.findById(lessonId)
+                    .filter(row -> sectionId.equals(row.getSectionId()))
+                    .orElseThrow(() -> new IllegalArgumentException("Bài không thuộc chương"));
+        }
+        material.anchorTo(sectionId, lessonId);
+        attachmentRepository.save(material);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AnchorOption> anchorOptions(Long classId, Long actorId, Role role) {
+        classesService.getEditable(classId, actorId, role);
+        var options = new java.util.ArrayList<AnchorOption>();
+        for (var section : sectionRepository.findByClassIdOrderByDisplayOrderAsc(classId)) {
+            options.add(new AnchorOption(section.getId() + ":", section.getTitle()));
+            for (var lesson : lessonRepository.findBySectionIdOrderByDisplayOrderAsc(section.getId())) {
+                options.add(new AnchorOption(section.getId() + ":" + lesson.getId(), section.getTitle() + " / " + lesson.getTitle()));
+            }
+        }
+        return List.copyOf(options);
+    }
+
+    public record AnchorOption(String value, String label) {}
 
     public record ClassMaterialRow(Long id, String title, String originalFilename,
                                    String mimeType, long sizeBytes,
-                                   LocalDateTime sharedAt, String downloadUrl) {
+                                   LocalDateTime sharedAt, String downloadUrl, String sharedBy, String anchorLabel) {
+        public ClassMaterialRow(Long id, String title, String originalFilename, String mimeType,
+                long sizeBytes, LocalDateTime sharedAt, String downloadUrl) {
+            this(id, title, originalFilename, mimeType, sizeBytes, sharedAt, downloadUrl, "Giảng viên", "Tài liệu chung của lớp");
+        }
         public String sizeLabel() {
             if (sizeBytes < 1024) return sizeBytes + " B";
             if (sizeBytes < 1024 * 1024) return String.format("%.1f KB", sizeBytes / 1024.0);

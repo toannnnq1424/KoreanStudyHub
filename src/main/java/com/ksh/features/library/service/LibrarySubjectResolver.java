@@ -34,14 +34,7 @@ public class LibrarySubjectResolver {
         if (actor.getRole() != role) {
             throw new AccessDeniedException("Bạn chưa được gán mã môn");
         }
-        if (role == Role.LEADER) {
-            List<Subject> assigned = leaderResolver.resolveAll(userId);
-            if (assigned.isEmpty()) {
-                throw new AccessDeniedException("Bạn chưa được gán mã môn");
-            }
-            return assigned;
-        }
-        if (role != Role.LECTURER && role != Role.ADMIN) {
+        if (role != Role.LECTURER && role != Role.LEADER && role != Role.ADMIN) {
             throw new AccessDeniedException("Bạn không có quyền truy cập kho học liệu");
         }
         return subjectRepository.findByActiveTrueOrderByNameAsc().stream()
@@ -52,6 +45,11 @@ public class LibrarySubjectResolver {
 
     public Subject require(Long userId, Role role) {
         return require(userId, role, null);
+    }
+
+    public boolean manages(Long userId, Role role, Long subjectId) {
+        return role == Role.LEADER && subjectId != null && leaderResolver.resolveAll(userId).stream()
+                .anyMatch(subject -> subjectId.equals(subject.getId()));
     }
 
     public Subject require(Long userId, Role role, Long requestedSubjectId) {

@@ -124,8 +124,8 @@
     summary.innerHTML = [
       badge('Tổng dòng: ' + data.totalRows, ''),
       badge('Hợp lệ: ' + data.acceptedRows, 'is-ready'),
-      badge('Lỗi chặn: ' + data.errorRows, data.errorRows > 0 ? 'is-error' : ''),
-      badge(data.confirmable ? 'Có thể xác nhận import' : 'Cần sửa file trước khi xác nhận', data.confirmable ? 'is-ready' : 'is-error')
+      badge('Bỏ qua dòng lỗi: ' + data.errorRows, data.errorRows > 0 ? 'is-error' : ''),
+      badge(data.confirmable ? 'Chỉ import ' + data.acceptedRows + ' câu hợp lệ' : 'Không có câu hợp lệ; cần sửa file', data.confirmable ? 'is-ready' : 'is-error')
     ].join('');
 
     rowsBody.innerHTML = (data.rows || []).map(function (row) {
@@ -163,7 +163,7 @@
         if (!result.ok) {
           throw new Error(result.error || 'Không thể xác nhận import');
         }
-        window.KshToast.success('Đã import ' + result.data.createdCount + ' câu hỏi vào ngân hàng mã môn');
+        window.KshToast.success('Đã import ' + result.data.createdCount + ' câu hỏi; bỏ qua ' + (preview.totalRows - result.data.createdCount) + ' dòng lỗi');
         window.location.reload();
       })
       .catch(function (error) {
