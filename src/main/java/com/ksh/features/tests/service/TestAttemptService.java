@@ -143,7 +143,9 @@ public class TestAttemptService {
             }
         }
         ensureStartable(test, LocalDateTime.now());
-        TestAttempt attempt = attemptRepository.save(new TestAttempt(testId, userId));
+        TestAttempt pending = new TestAttempt(testId, userId);
+        pending.setQuestionDefinitionId(test.questionDefinitionId());
+        TestAttempt attempt = attemptRepository.save(pending);
         return takeViewBuilder.build(test, attempt);
     }
 
@@ -234,7 +236,7 @@ public class TestAttemptService {
         }
 
         List<Question> questions = questionRepository
-                .findByTestIdOrderBySortOrderAscIdAsc(test.getId());
+                .findByTestIdOrderBySortOrderAscIdAsc(attempt.questionDefinitionId(test));
         BigDecimal totalPoints = questions.stream()
                 .map(Question::getPoints)
                 .map(TestAttemptService::nonNull)
@@ -263,7 +265,7 @@ public class TestAttemptService {
         LocalDateTime submittedAt = LocalDateTime.now();
         boolean timedOut = ExamDeadline.isPastDeadline(test, attempt, submittedAt);
         List<Question> questions = questionRepository
-                .findByTestIdOrderBySortOrderAscIdAsc(test.getId());
+                .findByTestIdOrderBySortOrderAscIdAsc(attempt.questionDefinitionId(test));
         Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(questions);
         // A payload received after the authoritative deadline cannot earn points.
         // Persist empty responses so the review remains complete and auditable.

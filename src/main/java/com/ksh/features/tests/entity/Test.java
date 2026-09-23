@@ -61,6 +61,13 @@ public class Test {
     public Long getSourceTestId() { return sourceTestId; }
     public void setSourceTestId(Long sourceTestId) { this.sourceTestId = sourceTestId; }
 
+    @Column(name = "shared_question_source_id")
+    private Long sharedQuestionSourceId;
+
+    public Long getSharedQuestionSourceId() { return sharedQuestionSourceId; }
+    public void setSharedQuestionSourceId(Long id) { this.sharedQuestionSourceId = id; }
+    public Long questionDefinitionId() { return sharedQuestionSourceId == null ? id : sharedQuestionSourceId; }
+
     @Column(name = "subject_id")
     private Long subjectId;
 

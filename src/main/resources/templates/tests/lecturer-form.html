@@ -183,7 +183,7 @@
           </select>
           <small class="lf-hint" th:if="${mode == 'create' and selectedClassId == null}">Chỉ chọn khi muốn tạo ngay một bài test cục bộ cho lớp; nếu để trống, đề không thuộc lớp nào.</small>
           <small class="lf-hint" th:if="${mode == 'create' and selectedClassId != null}">Đang tạo từ lớp này; đề vẫn xuất hiện trong kho “Quản lý bài test”.</small>
-          <small class="lf-hint" th:if="${mode == 'edit' and selectedClassId == null}">Đề Test Bank độc lập không thuộc lớp nào; việc phân phối sẽ tạo các bản sao riêng cho từng lớp.</small>
+          <small class="lf-hint" th:if="${mode == 'edit' and selectedClassId == null}">Đề dùng chung có thể chia sẻ cho nhiều lớp. Câu hỏi dùng chung; bài làm và điểm được lưu riêng theo lớp.</small>
           <small class="lf-hint" th:if="${mode == 'edit' and selectedClassId != null}">Đây là bài test cục bộ của lớp; phạm vi lớp không đổi khi chỉnh sửa.</small>
           <small class="lf-err" id="lfClassErr"></small>
         </div>

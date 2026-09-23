@@ -32,6 +32,14 @@ public class TestAttempt {
     @Column(name = "test_id", nullable = false)
     private Long testId;
 
+    @Column(name = "question_definition_id")
+    private Long questionDefinitionId;
+
+    public void setQuestionDefinitionId(Long id) { this.questionDefinitionId = id; }
+    public Long questionDefinitionId(Test test) {
+        return questionDefinitionId == null ? test.questionDefinitionId() : questionDefinitionId;
+    }
+
     @Column(name = "user_id", nullable = false)
     private Long userId;
 

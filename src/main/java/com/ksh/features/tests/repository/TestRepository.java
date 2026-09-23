@@ -20,6 +20,7 @@ import java.util.Optional;
 public interface TestRepository extends JpaRepository<Test, Long> {
 
     List<Test> findBySourceTestIdOrderByClassIdAsc(Long sourceTestId);
+    boolean existsBySharedQuestionSourceId(Long sourceTestId);
 
     /** Serializes mutations that can change an exam's question-bank shape. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
