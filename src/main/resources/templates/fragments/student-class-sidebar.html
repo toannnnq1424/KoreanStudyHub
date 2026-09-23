@@ -56,20 +56,20 @@
       </li>
       <li>
         <a class="student-lessons-nav-item"
-           th:classappend="${active == 'assignments'} ? ' is-active'"
-           th:attrappend="aria-current=${active == 'assignments'} ? 'page'"
-           th:href="@{|/classes/${classId}/assignments|}">
-          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          Bài tập
-        </a>
-      </li>
-      <li>
-        <a class="student-lessons-nav-item"
            th:classappend="${active == 'lessons'} ? ' is-active'"
            th:attrappend="aria-current=${active == 'lessons'} ? 'page'"
            th:href="@{|/my/classes/${classId}/lessons|}">
           <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
           Bài giảng
+        </a>
+      </li>
+      <li>
+        <a class="student-lessons-nav-item"
+           th:classappend="${active == 'assignments'} ? ' is-active'"
+           th:attrappend="aria-current=${active == 'assignments'} ? 'page'"
+           th:href="@{|/classes/${classId}/assignments|}">
+          <svg class="ico ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Bài tập
         </a>
       </li>
       <li>
