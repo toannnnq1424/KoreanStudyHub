@@ -55,6 +55,12 @@ public class Test {
     @Column(name = "class_id")
     private Long classId;
 
+    @Column(name = "source_test_id")
+    private Long sourceTestId;
+
+    public Long getSourceTestId() { return sourceTestId; }
+    public void setSourceTestId(Long sourceTestId) { this.sourceTestId = sourceTestId; }
+
     @Column(name = "subject_id")
     private Long subjectId;
 

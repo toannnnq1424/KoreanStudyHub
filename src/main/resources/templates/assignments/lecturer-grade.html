@@ -43,11 +43,12 @@
         </div>
         <div class="asgn-upload-field" th:if="${submission.attachmentUrl != null}">
           <h3>Tệp bài làm</h3>
+          <iframe class="asgn-file-preview" th:src="${submission.attachmentUrl + '/preview'}" title="Xem bài làm đính kèm"></iframe>
           <a class="btn btn-outline" th:href="${submission.attachmentUrl}">Tải ảnh / PDF bài nộp</a>
           <p>Xem tệp cùng nội dung văn bản trước khi chấm điểm.</p>
         </div>
 
-        <div class="asgn-content-box">
+        <div class="asgn-content-box" th:if="${!#strings.isEmpty(submission.content)}">
           <h3>Nội dung bài nộp</h3>
           <div class="asgn-content-text"
                th:text="${submission.content != null} ? ${submission.content} : '(Chưa có nội dung)'">

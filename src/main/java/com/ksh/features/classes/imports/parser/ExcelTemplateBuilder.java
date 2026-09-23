@@ -71,6 +71,10 @@ public class ExcelTemplateBuilder {
      * @throws IOException if the workbook fails to serialize
      */
     public byte[] build() throws IOException {
+        return build(java.util.List.of(SAMPLE_ROWS));
+    }
+
+    public byte[] build(java.util.List<String[]> rows) throws IOException {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
@@ -88,10 +92,10 @@ public class ExcelTemplateBuilder {
                 c.setCellStyle(headerStyle);
             }
 
-            for (int r = 0; r < SAMPLE_ROWS.length; r++) {
+            for (int r = 0; r < rows.size(); r++) {
                 Row row = sheet.createRow(r + 1);
-                for (int c = 0; c < SAMPLE_ROWS[r].length; c++) {
-                    row.createCell(c).setCellValue(SAMPLE_ROWS[r][c]);
+                for (int c = 0; c < rows.get(r).length; c++) {
+                    row.createCell(c).setCellValue(rows.get(r)[c]);
                 }
             }
 

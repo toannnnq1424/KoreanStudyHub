@@ -58,6 +58,7 @@ public class LeaderSubjectResolver {
                 .filter(id -> id != null)
                 .flatMap(subjectRepository::findById)
                 .filter(Subject::isActive)
+                .filter(primary -> primary.getLeaderUserId() == null || userId.equals(primary.getLeaderUserId()))
                 .filter(primary -> resolved.stream()
                         .noneMatch(current -> current.getId().equals(primary.getId())))
                 .ifPresent(resolved::add);

@@ -10,7 +10,12 @@
 .tst-btn-primary:hover { background: #1d4ed8; }
 .tst-btn-primary:disabled { opacity: .6; cursor: default; }
 
-.lf-page { max-width: 900px; margin: 0 auto; padding: 24px 16px 80px; }
+.lf-page { width: 100%; max-width: 1180px; box-sizing: border-box; margin: 0 auto; padding: 28px 24px 80px; }
+.lf-distributed { padding: 20px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px; }
+.lf-distributed h2 { font-size: 18px; margin: 0; }
+.lf-distributed p { color: #64748b; }
+.lf-distributed-row { display: flex; flex-wrap: wrap; gap: 16px; padding: 14px 0; }
+.lf-distributed-row strong { flex: 1; min-width: 180px; }
 
 /* Create mode collapses the class-detail grid to a single centred column
    (no class exists yet, so no sidebar). */

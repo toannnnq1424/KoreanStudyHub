@@ -33,6 +33,11 @@ import java.util.Optional;
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    @Query("SELECT u FROM User u WHERE u.role = com.ksh.security.Role.STUDENT "
+            + "AND u.active = true AND u.locked = false "
+            + "AND NOT EXISTS (SELECT e.id FROM Enrollment e WHERE e.user.id = u.id AND e.classId = :classId AND e.status = 'ACTIVE') ORDER BY u.id")
+    List<User> findImportCandidates(@Param("classId") Long classId, Pageable pageable);
+
     /**
      * Reads the durable version only while the account remains login-capable.
      * Native SQL deliberately includes the soft-delete predicate rather than

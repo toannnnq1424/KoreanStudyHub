@@ -144,6 +144,12 @@ public class StudentLessonDetailService {
         String pdfDownloadUrl = buildPdfDownloadUrl(lesson);
         String pdfViewerUrl = buildPdfViewerUrl(lesson);
         String videoUrl = buildStudentVideoUrl(lesson);
+        var additional = lessonAttachmentRepository.findByClassIdOrderByUploadedAtDescIdDesc(classId).stream()
+                .filter(a -> section.getId().equals(a.getAnchorSectionId()))
+                .filter(a -> a.getAnchorLessonId() == null || lessonId.equals(a.getAnchorLessonId()))
+                .map(a -> new LessonAttachmentRow(a.getId(), a.getOriginalFilename(), a.getSizeBytes(),
+                        a.getMimeType(), "/api/classes/" + classId + "/materials/" + a.getId() + "/download", null))
+                .toList();
 
         return new LessonDetailView(
                 clazz.getId(),
@@ -160,7 +166,7 @@ public class StudentLessonDetailService {
                 pdfViewerUrl,
                 videoUrl,
                 lesson.getVideoSummary(),
-                lesson.getVideoProvider());
+                lesson.getVideoProvider(), additional);
     }
 
     /** Returns the canonical PDF stream URL when type=PDF; null otherwise. */

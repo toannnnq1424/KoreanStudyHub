@@ -267,13 +267,13 @@
 .assignment-grading-page .asgn-meta { display: grid; gap: 10px; padding-bottom: 20px; border-bottom: 1px solid #e5eaf1; }
 .assignment-grading-page .asgn-content-text { min-height: 220px; line-height: 1.85; overflow-wrap: anywhere; font-size: 16px; }
 .student-assignment-page .asgn-textarea { min-height: 280px; line-height: 1.8; font-size: 16px; }
-.student-assignment-page .student-assignment-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; align-content: start; align-items: start; }
+.assignment-detail-page .student-assignment-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; align-content: start; align-items: start; }
 .student-assignment-main > .asgn-detail-header, .student-assignment-main > .asgn-summary-card { grid-column: 1 / -1; }
 .student-assignment-main > .asgn-requirement-card { grid-column: 1; grid-row: 3; }
 .student-assignment-main > .asgn-submit-card, .student-assignment-main > .asgn-submission-card { grid-column: 2; grid-row: 3; }
 .student-assignment-main > .asgn-result-card { grid-column: 2; }
 .student-assignment-main > .asgn-detail-card { margin-top: 0; }
-@media (max-width: 1100px) { .student-assignment-page .student-assignment-main { display: flex; flex-direction: column; } .student-assignment-main > * { width: 100%; } }
+@media (max-width: 1100px) { .assignment-detail-page .student-assignment-main { display: flex; flex-direction: column; } .student-assignment-main > * { width: 100%; } }
 @media (max-width: 1000px) { .assignment-grading-page .asgn-grading-workspace { grid-template-columns: 1fr; } .assignment-grading-page .asgn-grade-form { position: static; } }
 
 /* Author display:grid/flex must not override native filter visibility. */
@@ -764,3 +764,17 @@
     min-height: 72px;
   }
 }
+.asgn-file-preview { display:block; width:100%; height:560px; border:1px solid #dce5f0; border-radius:10px; background:#f8fafc; margin:16px 0; }
+.assignment-catalog-page .student-assignment-main { display:block; }
+.assignment-catalog-page .asgn-catalog-toolbar--student { grid-template-columns:minmax(200px,1fr) 180px 160px; border-radius:12px; margin-bottom:24px; }
+.assignment-catalog-page .asgn-student-workspace { border:0; background:transparent; }
+.assignment-catalog-page .asgn-student-list { display:grid; gap:12px; }
+.assignment-catalog-page .asgn-student-item { border:1px solid #e2e8f0; border-radius:12px; background:white; padding:22px; }
+.assignment-catalog-page .asgn-item-titleline h2 { white-space:normal; line-height:1.5; }
+.assignment-catalog-page .asgn-progress { display:none; }
+.assignment-grading-page .asgn-upload-field { background:transparent; border:0; padding:0; }
+@media(max-width:700px) { .assignment-catalog-page .asgn-catalog-toolbar--student { grid-template-columns:1fr; } .asgn-file-preview {height:400px;} }
+.asgn-score-summary {display:flex;flex-direction:column;gap:5px;padding:12px 18px;border-left:3px solid #4285df;min-width:140px;color:#52627b;}
+.asgn-score-summary strong {font-size:23px;color:#2459a3;white-space:nowrap;}
+.asgn-score-summary small {font-size:12px;color:#78869a;}
+.assignment-detail-page .asgn-detail-header,.assignment-detail-page .asgn-summary-card {width:100%;max-width:none;}

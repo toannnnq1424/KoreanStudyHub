@@ -78,6 +78,21 @@
        (no full-page reload). The orchestrator fetches the same ?tab= URL,
        lifts this #tabPanel out of the response, and replaces the innerHTML. -->
   <div id="tabPanel">
+    <div class="lf-immutable-notice" th:if="${mode == 'edit' and test.status() == 'DRAFT'}">
+      <strong>Đề đang ở bản nháp</strong>
+      <span>Hoàn thiện câu hỏi, chọn trạng thái Đã phát hành và lưu để chia sẻ đề cho các lớp cùng môn.</span>
+    </div>
+    <a class="tst-btn" th:if="${mode == 'edit' and test.status() == 'PUBLISHED'}"
+       th:href="@{|/lecturer/tests/${test.id()}/distribute|}">Chia sẻ cho lớp</a>
+    <section class="lf-distributed" th:if="${distributedClasses != null and !#lists.isEmpty(distributedClasses)}">
+      <h2>Lớp sử dụng đề này</h2>
+      <p>Bài làm và điểm được theo dõi riêng cho từng lớp.</p>
+      <div th:each="delivery : ${distributedClasses}" class="lf-distributed-row">
+        <strong th:text="${delivery.className()}">Lớp</strong>
+        <a th:href="@{|/lecturer/tests/${delivery.testId()}/edit?tab=monitor|}">Theo dõi lớp</a>
+        <a th:href="@{|/lecturer/tests/${delivery.testId()}/edit?tab=submissions|}">Bài nộp</a>
+      </div>
+    </section>
 
   <!-- ═══ Tab: Thông tin chung — question-builder form ═════════════════
        Rendered in create mode (no tabs) and on the edit "info" tab. The

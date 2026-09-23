@@ -67,6 +67,11 @@
   </section>
 
   <section class="tst-catalog-surface" aria-label="Danh sách bài test">
+    <nav class="tst-bank-scopes" aria-label="Phạm vi kho bài test">
+      <a th:href="@{/lecturer/tests}" th:attr="aria-current=${examFilter.classId() == null ? 'page' : null}">Đề nguồn</a>
+      <a th:href="@{/lecturer/tests(classId=-1)}" th:attr="aria-current=${examFilter.classId() == -1 ? 'page' : null}">Đề không gắn lớp</a>
+      <a th:href="@{/lecturer/tests(classId=-2)}" th:attr="aria-current=${examFilter.classId() == -2 ? 'page' : null}">Đề theo lớp</a>
+    </nav>
     <form method="get" class="tst-catalog-filters">
       <label class="tst-search-control" for="testSearch">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -99,6 +104,8 @@
         <span class="sr-only">Lọc theo lớp</span>
         <select id="testClass" name="classId">
           <option value="">Mọi lớp</option>
+          <option value="-1" th:selected="${examFilter.classId() == -1}">Đề không gắn lớp</option>
+          <option value="-2" th:selected="${examFilter.classId() == -2}">Tất cả đề theo lớp</option>
           <option th:each="clazz : ${ledClasses}" th:value="${clazz.id()}"
                   th:text="${clazz.name()}" th:selected="${examFilter.classId() == clazz.id()}">Lớp</option>
         </select>

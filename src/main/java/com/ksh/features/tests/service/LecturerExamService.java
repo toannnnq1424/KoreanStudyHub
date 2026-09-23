@@ -116,6 +116,20 @@ public class LecturerExamService {
     }
 
     /** Complete test-bank counters under the same canonical management scope. */
+    public record DistributedClass(Long testId, Long classId, String className) {}
+
+    @Transactional(readOnly = true)
+    public List<DistributedClass> distributedClasses(Long sourceId, Long userId) {
+        var source = accessResolver.requireManageable(sourceId, userId);
+        var allowed = accessResolver.manageableClasses(userId, accessResolver.managementRole(userId));
+        var names = new HashMap<Long, String>();
+        allowed.forEach(c -> names.put(c.getId(), c.getName()));
+        return testRepository.findBySourceTestIdOrderByClassIdAsc(source.getId()).stream()
+                .filter(t -> names.containsKey(t.getClassId()))
+                .map(t -> new DistributedClass(t.getId(), t.getClassId(), names.get(t.getClassId())))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public LecturerTestMetrics metricsFor(Long userId) {
         Role role = accessResolver.managementRole(userId);
@@ -492,6 +506,7 @@ public class LecturerExamService {
         snapshot.setTitle(source.getTitle());
         snapshot.setDescription(source.getDescription());
         snapshot.setClassId(classId);
+        snapshot.setSourceTestId(source.getSourceTestId() == null ? source.getId() : source.getSourceTestId());
         snapshot.setSubjectId(source.getSubjectId());
         snapshot.setDurationMinutes(source.getDurationMinutes());
         snapshot.setPassingScore(source.getPassingScore());

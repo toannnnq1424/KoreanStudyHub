@@ -105,8 +105,8 @@ public final class LecturerTestDtos {
 
         public static ExamFilter of(String keyword, String status, String type, Long classId,
                                     List<ClassOption> allowedClasses) {
-            Long safeClassId = classId != null && allowedClasses.stream()
-                    .anyMatch(option -> option.id().equals(classId)) ? classId : null;
+            Long safeClassId = classId != null && (classId == -1L || classId == -2L || allowedClasses.stream()
+                    .anyMatch(option -> option.id().equals(classId))) ? classId : null;
             return new ExamFilter(keyword == null ? "" : keyword.trim(),
                     status != null && STATUSES.contains(status) ? status : null,
                     type != null && TYPES.contains(type) ? type : null, safeClassId);

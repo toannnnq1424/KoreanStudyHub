@@ -239,6 +239,7 @@ public class LecturerTestController {
         model.addAttribute(ATTR_TEST_SUBJECTS, examService.subjectOptions(userId));
         model.addAttribute(ATTR_SELECTED_SUBJECT_ID, form.subjectId());
         model.addAttribute(ATTR_SELECTED_CLASS_ID, form.classId());
+        model.addAttribute("distributedClasses", examService.distributedClasses(id, userId));
         model.addAttribute(ATTR_MODE, MODE_EDIT);
         model.addAttribute(ATTR_TEST, monitorService.header(id, userId));
         model.addAttribute(ATTR_ACTIVE_DETAIL_TAB, activeTab);

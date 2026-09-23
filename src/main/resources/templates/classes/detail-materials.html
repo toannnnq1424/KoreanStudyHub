@@ -16,7 +16,7 @@
       <div>
         <p class="class-materials-eyebrow">Tài nguyên lớp học</p>
         <h1 class="detail-title">Tài liệu</h1>
-        <p>Các tài liệu riêng đã chia sẻ trực tiếp vào lớp, tách biệt khỏi Bài giảng.</p>
+        <p>Tài liệu bổ sung cho lớp. Gắn vào chương hoặc bài để sinh viên tìm thấy ngay khi học.</p>
       </div>
       <a class="class-materials-library-link"
          th:href="@{/lecturer/library/assets}">Mở kho tài liệu cá nhân</a>
@@ -46,8 +46,8 @@
           <form method="post" th:action="@{|/lecturer/classes/${clazz.id}/materials/${material.id()}/anchor|}">
             <label>Chương / bài (không bắt buộc)
               <select name="anchor">
-                <option value="">Tài liệu chung của lớp</option>
-                <option th:each="option : ${materialAnchorOptions}" th:value="${option.value()}" th:text="${option.label()}"></option>
+                <option value="" th:selected="${material.anchorValue() == ''}">Tài liệu chung của lớp</option>
+                <option th:each="option : ${materialAnchorOptions}" th:value="${option.value()}" th:text="${option.label()}" th:selected="${material.anchorValue() == option.value()}"></option>
               </select>
             </label>
             <button type="submit">Lưu vị trí</button>

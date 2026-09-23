@@ -25,7 +25,7 @@ public class UserImportTemplateBuilder {
     };
     private static final String[][] SAMPLES = {
             {"student01@example.edu.vn", "Nguyễn Minh Anh", "STUDENT", "", "0901000001"},
-            {"lecturer01@example.edu.vn", "Trần Thu Hà", "LECTURER", "KOR20", "0901000002"}
+            {"lecturer01@example.edu.vn", "Trần Thu Hà", "LECTURER", "", "0901000002"}
     };
 
     public byte[] build() throws IOException {

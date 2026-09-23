@@ -194,7 +194,7 @@
           <section class="student-lesson-detail-attachments"
                    th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
             <h3 class="student-lesson-detail-attachments-title"
-                th:text="'Tài liệu đính kèm (' + ${#lists.size(lessonDetail.attachments())} + ')'">Tài liệu đính kèm</h3>
+                th:text="'Từ kho bài giảng (' + ${#lists.size(lessonDetail.attachments())} + ')'">Từ kho bài giảng</h3>
             <ul class="student-lesson-detail-attachment-list">
               <li th:each="att : ${lessonDetail.attachments()}" class="student-lesson-detail-attachment-item">
                 <span class="student-lesson-detail-attachment-ext"
@@ -213,7 +213,19 @@
             </ul>
           </section>
           <p class="student-lesson-detail-empty"
-             th:if="${#lists.isEmpty(lessonDetail.attachments())}">Bài giảng này chưa có tài liệu đính kèm.</p>
+             th:if="${#lists.isEmpty(lessonDetail.attachments())}">Kho bài giảng chưa có tài liệu đính kèm.</p>
+          <section class="student-lesson-detail-attachments">
+            <h3 class="student-lesson-detail-attachments-title">Tài liệu chia sẻ thêm cho lớp</h3>
+            <p class="student-lesson-detail-empty" th:if="${#lists.isEmpty(lessonDetail.additionalAttachments())}">Chưa có tài liệu bổ sung cho chương / bài này.</p>
+            <ul class="student-lesson-detail-attachment-list">
+              <li th:each="att : ${lessonDetail.additionalAttachments()}" class="student-lesson-detail-attachment-item">
+                <span class="student-lesson-detail-attachment-ext" th:text="${att.extension()}">FILE</span>
+                <a class="student-lesson-detail-attachment-name" th:href="${att.downloadUrl()}" th:text="${att.filename()}">Tài liệu</a>
+                <span class="student-lesson-detail-attachment-size" th:text="${att.formattedSize()}"></span>
+                <a class="student-lesson-detail-attachment-download" th:href="${att.downloadUrl()}" download>Tải xuống</a>
+              </li>
+            </ul>
+          </section>
         </div>
 
       </th:block>

@@ -215,6 +215,16 @@ public class StudentLessonsDtos {
             String pdfViewerUrl,
             String videoUrl,
             String videoSummary,
-            String videoProvider
-    ) { }
+            String videoProvider,
+            List<LessonAttachmentRow> additionalAttachments
+    ) {
+        public LessonDetailView(Long classId, String className, Long lessonId, String lessonTitle,
+                Long sectionId, String sectionTitle, String contentRichtext, LocalDateTime publishedAt,
+                List<LessonAttachmentRow> attachments, String contentType, String pdfDownloadUrl,
+                String pdfViewerUrl, String videoUrl, String videoSummary, String videoProvider) {
+            this(classId, className, lessonId, lessonTitle, sectionId, sectionTitle, contentRichtext,
+                    publishedAt, attachments, contentType, pdfDownloadUrl, pdfViewerUrl, videoUrl,
+                    videoSummary, videoProvider, List.of());
+        }
+    }
 }

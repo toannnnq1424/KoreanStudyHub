@@ -45,6 +45,26 @@ class LecturerExamServiceScopeTest {
     @InjectMocks private LecturerExamService service;
 
     @org.junit.jupiter.api.Test
+    void distributedClassLinksNeverExposeAnUnmanagedClass() {
+        Test source = org.mockito.Mockito.mock(Test.class);
+        when(source.getId()).thenReturn(55L);
+        when(accessResolver.requireManageable(55L, 7L)).thenReturn(source);
+        when(accessResolver.managementRole(7L)).thenReturn(Role.LECTURER);
+        ClassEntity permitted = org.mockito.Mockito.mock(ClassEntity.class);
+        when(permitted.getId()).thenReturn(101L);
+        when(permitted.getName()).thenReturn("Lớp được phân quyền");
+        when(accessResolver.manageableClasses(7L, Role.LECTURER)).thenReturn(List.of(permitted));
+        Test allowed = org.mockito.Mockito.mock(Test.class);
+        when(allowed.getClassId()).thenReturn(101L);
+        when(allowed.getId()).thenReturn(56L);
+        Test denied = org.mockito.Mockito.mock(Test.class);
+        when(denied.getClassId()).thenReturn(202L);
+        when(testRepository.findBySourceTestIdOrderByClassIdAsc(55L)).thenReturn(List.of(allowed, denied));
+        assertThat(service.distributedClasses(55L, 7L)).singleElement()
+                .satisfies(link -> assertThat(link.testId()).isEqualTo(56L));
+    }
+
+    @org.junit.jupiter.api.Test
     void editingIndependentSourceCannotAttachItToAClass() {
         Test independent = new Test(7L, Test.TYPE_MOCK);
         independent.setSubjectId(10L);

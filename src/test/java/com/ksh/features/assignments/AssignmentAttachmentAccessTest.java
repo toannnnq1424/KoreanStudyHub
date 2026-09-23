@@ -28,6 +28,7 @@ class AssignmentAttachmentAccessTest {
         submission(); when(user.getRole()).thenReturn(Role.STUDENT); when(user.getId()).thenReturn(8L);
         assertThat(controller.download(1L,2L,4L,user).getStatusCode().value()).isEqualTo(404);
         verifyNoInteractions(storage);
+        assertThat(controller.preview(1L,2L,4L,user).getStatusCode().value()).isEqualTo(404);
     }
     @Test void lecturerMustHaveClassAccess() {
         when(user.getRole()).thenReturn(Role.LECTURER); when(user.getId()).thenReturn(8L);
@@ -47,5 +48,6 @@ class AssignmentAttachmentAccessTest {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getHeaders().getCacheControl()).contains("no-store");
         assertThat(response.getHeaders().getContentDisposition().getType()).isEqualTo("attachment");
+        assertThat(controller.preview(1L,2L,4L,user).getHeaders().getContentDisposition().getType()).isEqualTo("inline");
     }
 }

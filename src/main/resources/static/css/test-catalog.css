@@ -508,3 +508,7 @@ body.tst-drawer-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .tst-drawer-backdrop, .tst-drawer-panel, .tst-catalog-row { transition: none; }
 }
+
+.tst-bank-scopes { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px; border-bottom: 1px solid #e2e8f0; }
+.tst-bank-scopes a { padding: 10px 16px; color: #52617a; border-radius: 8px; text-decoration: none; }
+.tst-bank-scopes a[aria-current="page"] { background: #eaf1ff; color: #245edb; font-weight: 700; }

@@ -25,7 +25,9 @@
       <label class="cw-tabs-label" for="participatingSemester">Học kỳ</label>
       <select id="participatingSemester" name="semester">
         <option value="">Tất cả</option>
-        <option th:each="term : ${semesterOptions}" th:value="${term}" th:text="${term}" th:selected="${selectedSemester == term}"></option>
+        <option th:each="term : ${semesterOptions}" th:value="${term}"
+                th:text="${term + ' · Học kỳ ' + (#strings.startsWith(term, 'SP') ? 'Xuân' : (#strings.startsWith(term, 'SU') ? 'Hè' : 'Thu')) + ' 20' + #strings.substring(term, 2)}"
+                th:selected="${selectedSemester == term}"></option>
       </select>
       <button type="submit" class="btn-ghost">Áp dụng</button>
     </form>
