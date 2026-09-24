@@ -33,7 +33,7 @@ public class AuthController {
 
     // ── Flash messages (Vietnamese UI text) ───────────────────────
     private static final String MSG_LOGIN_FAILED =
-            "Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.";
+            "Đăng nhập thất bại. Email chưa được đăng ký, mật khẩu không đúng hoặc tài khoản đã bị khóa.";
     private static final String MSG_OAUTH_UNREGISTERED =
             "Email Google này chưa được đăng ký trong hệ thống. Vui lòng liên hệ quản trị viên.";
     private static final String MSG_LOGOUT_SUCCESS =

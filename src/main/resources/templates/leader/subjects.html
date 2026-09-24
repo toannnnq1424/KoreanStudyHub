@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Trưởng môn | Môn học quản lý', ~{::link.page-css})}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/app-shell.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/class-detail.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/detail-page.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/admin.css}">
+  <link class="page-css" rel="stylesheet" th:href="@{/css/leader-subject.css}">
+</head>
+<body class="leader-page leader-managed-subjects-page">
+<header th:replace="~{fragments/app-header :: appHeader('leader')}"></header>
+<div class="class-detail-layout leader-workspace">
+  <aside th:replace="~{fragments/leader-sidebar :: leaderSidebar('subjects')}"></aside>
+  <main class="col leader-main">
+    <div class="leader-page-heading">
+      <span>
+        <h1 class="detail-title">Môn học quản lý</h1>
+        <p class="detail-sub">Các môn học đang được giao cho bạn phụ trách.</p>
+      </span>
+    </div>
+    <div th:if="${managedSubjects.isEmpty()}" class="leader-empty-state" role="status">
+      Bạn chưa được gán môn học. Liên hệ quản trị viên để được chỉ định trưởng môn.
+    </div>
+    <section th:unless="${managedSubjects.isEmpty()}" class="leader-content-section" aria-label="Danh sách môn học quản lý">
+      <div class="leader-section-heading">
+        <h2>Danh sách môn học</h2>
+        <span th:text="${managedSubjects.size()} + ' môn học'">0 môn học</span>
+      </div>
+      <ul class="leader-managed-subject-list">
+        <li th:each="subject : ${managedSubjects}">
+          <a class="leader-managed-subject-link" th:href="@{/leader/subjects/{id}(id=${subject.id()})}">
+            <code class="leader-subject-code" th:text="${subject.code()}">CODE</code>
+            <strong th:text="${subject.name()}">Tên môn học</strong>
+            <span aria-hidden="true">→</span>
+          </a>
+        </li>
+      </ul>
+    </section>
+  </main>
+</div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

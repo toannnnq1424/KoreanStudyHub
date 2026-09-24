@@ -2,7 +2,7 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <!--
   Fragment: leaderSidebar(activeTab)
-    activeTab : 'dashboard' | 'approvals' | 'assign' | 'report' | 'question-bank'
+    activeTab : 'dashboard' | 'subjects' | 'assign' | 'report' | 'question-bank'
 -->
 <aside th:fragment="leaderSidebar(activeTab)" class="col">
   <div class="side">
@@ -10,7 +10,8 @@
       <div class="class-name">Trưởng môn</div>
       <div class="class-ma" th:if="${leaderSubject != null}"
            th:text="${leaderSubject.code() + ' — ' + leaderSubject.name()}">BM</div>
-      <div class="class-ma" th:if="${leaderSubject == null}">Chưa gán môn học</div>
+      <div class="class-ma" th:if="${managedSubjectCount != null}" th:text="${managedSubjectCount + ' môn đang phụ trách'}"></div>
+      <div class="class-ma" th:if="${leaderSubject == null and managedSubjectCount == null}">Chưa gán môn học</div>
     </div>
 
     <div class="side-sep"></div>
@@ -22,6 +23,13 @@
            th:classappend="${activeTab == 'dashboard'} ? 'active' : ''">
           <svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
           Dashboard
+        </a>
+      </li>
+      <li>
+        <a th:href="@{/leader/subjects}"
+           th:classappend="${activeTab == 'subjects'} ? 'active' : ''">
+          <svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8"/></svg>
+          Môn phụ trách
         </a>
       </li>
       <li>

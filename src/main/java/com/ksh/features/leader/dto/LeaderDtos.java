@@ -15,6 +15,9 @@ public final class LeaderDtos {
     public record SubjectSummary(Long id, String code, String name) {
     }
 
+    public record ManagedSubject(Long id, String code, String name, String description) {
+    }
+
     public record DashboardKpis(
             long classCount,
             long lecturerCount,
