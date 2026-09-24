@@ -68,6 +68,8 @@ public class ImportStudentsController {
 
     private final ImportStudentsService importService;
     private final ExcelTemplateBuilder templateBuilder;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.classes.imports.service.ClassImportTemplateService classTemplateService;
 
     public ImportStudentsController(ImportStudentsService importService,
                                     ExcelTemplateBuilder templateBuilder) {
@@ -127,13 +129,17 @@ public class ImportStudentsController {
      * the source.
      */
     @GetMapping("/template")
-    public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classId) {
+    public ResponseEntity<byte[]> downloadTemplate(@PathVariable Long classId,
+            @AuthenticationPrincipal KshUserDetails user) {
         try {
-            byte[] bytes = templateBuilder.build();
+            byte[] bytes = classTemplateService.build(classId, user.getId(), user.getRole());
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(XLSX_MIME_TYPE));
             headers.setContentDispositionFormData(CONTENT_DISPOSITION_ATTACHMENT, TEMPLATE_FILENAME);
             return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().contentType(MediaType.TEXT_PLAIN)
+                    .body(ex.getMessage().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (IOException ex) {
             log.error("Failed to generate import template for class {}", classId, ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

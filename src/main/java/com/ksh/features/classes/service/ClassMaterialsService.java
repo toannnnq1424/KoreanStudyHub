@@ -152,14 +152,21 @@ public class ClassMaterialsService {
         String sharedBy = userRepository == null ? "Giảng viên" : userRepository.findById(attachment.getUploadedBy())
                 .map(com.ksh.entities.User::getFullName).orElse("Tài khoản không còn khả dụng");
         String anchor = "Tài liệu chung của lớp";
+        String anchorValue = "";
         if (attachment.getAnchorSectionId() != null && sectionRepository != null) {
             var section = sectionRepository.findByIdAndClassId(attachment.getAnchorSectionId(), attachment.getClassId());
             if (section.isPresent()) {
-                if (attachment.getAnchorLessonId() == null) anchor = section.get().getTitle();
+                if (attachment.getAnchorLessonId() == null) {
+                    anchor = section.get().getTitle();
+                    anchorValue = attachment.getAnchorSectionId() + ":";
+                }
                 else {
                     var lesson = lessonRepository.findById(attachment.getAnchorLessonId())
                             .filter(row -> section.get().getId().equals(row.getSectionId()));
-                    if (lesson.isPresent()) anchor = section.get().getTitle() + " / " + lesson.get().getTitle();
+                    if (lesson.isPresent()) {
+                        anchor = section.get().getTitle() + " / " + lesson.get().getTitle();
+                        anchorValue = attachment.getAnchorSectionId() + ":" + attachment.getAnchorLessonId();
+                    }
                 }
             }
         }
@@ -168,7 +175,8 @@ public class ClassMaterialsService {
                 attachment.getMimeType(), attachment.getSizeBytes(),
                 attachment.getUploadedAt(),
                 "/api/classes/" + attachment.getClassId()
-                        + "/materials/" + attachment.getId() + "/download", sharedBy, anchor);
+                        + "/materials/" + attachment.getId() + "/download", sharedBy, anchor,
+                anchorValue);
     }
 
     @Transactional
@@ -205,10 +213,10 @@ public class ClassMaterialsService {
 
     public record ClassMaterialRow(Long id, String title, String originalFilename,
                                    String mimeType, long sizeBytes,
-                                   LocalDateTime sharedAt, String downloadUrl, String sharedBy, String anchorLabel) {
+                                   LocalDateTime sharedAt, String downloadUrl, String sharedBy, String anchorLabel, String anchorValue) {
         public ClassMaterialRow(Long id, String title, String originalFilename, String mimeType,
                 long sizeBytes, LocalDateTime sharedAt, String downloadUrl) {
-            this(id, title, originalFilename, mimeType, sizeBytes, sharedAt, downloadUrl, "Giảng viên", "Tài liệu chung của lớp");
+            this(id, title, originalFilename, mimeType, sizeBytes, sharedAt, downloadUrl, "Giảng viên", "Tài liệu chung của lớp", "");
         }
         public String sizeLabel() {
             if (sizeBytes < 1024) return sizeBytes + " B";

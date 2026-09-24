@@ -41,7 +41,7 @@ public class TakeViewBuilder {
 
     /** Builds the taking view for a live attempt. */
     public TakeView build(Test test, TestAttempt attempt) {
-        List<TakeQuestionView> views = buildQuestions(test, attempt.getId(), true);
+        List<TakeQuestionView> views = buildQuestions(test, attempt.getId(), true, attempt.questionDefinitionId(test));
         long remaining = ExamDeadline.remainingSeconds(test, attempt, LocalDateTime.now());
         return new TakeView(attempt.getId(), test.getId(), test.getClassId(), test.getTitle(),
                 HtmlSanitizer.sanitize(test.getDescription()), test.getTimeMode(), remaining,
@@ -55,7 +55,7 @@ public class TakeViewBuilder {
      */
     public PreviewView buildPreview(Test test) {
         // Preview skips shuffle so the lecturer sees the authored order.
-        List<TakeQuestionView> views = buildQuestions(test, null, false);
+        List<TakeQuestionView> views = buildQuestions(test, null, false, test.questionDefinitionId());
         return new PreviewView(test.getId(), test.getTitle(),
                 HtmlSanitizer.sanitize(test.getDescription()),
                 test.getTimeMode(), test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
@@ -69,9 +69,9 @@ public class TakeViewBuilder {
         return YouTubeEmbedUrl.toEmbedUrl(test.getMediaUrl());
     }
 
-    private List<TakeQuestionView> buildQuestions(Test test, Long attemptId, boolean allowShuffle) {
+    private List<TakeQuestionView> buildQuestions(Test test, Long attemptId, boolean allowShuffle, Long definitionId) {
         List<Question> questions = questionRepository
-                .findByTestIdOrderBySortOrderAscIdAsc(test.getId());
+                .findByTestIdOrderBySortOrderAscIdAsc(definitionId);
         Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(questions);
 
         List<Question> ordered = new ArrayList<>(questions);

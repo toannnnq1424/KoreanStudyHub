@@ -19,6 +19,9 @@ import java.util.Optional;
  */
 public interface TestRepository extends JpaRepository<Test, Long> {
 
+    List<Test> findBySourceTestIdOrderByClassIdAsc(Long sourceTestId);
+    boolean existsBySharedQuestionSourceId(Long sourceTestId);
+
     /** Serializes mutations that can change an exam's question-bank shape. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from Test t where t.id = :id")
@@ -49,7 +52,10 @@ public interface TestRepository extends JpaRepository<Test, Long> {
             + " OR :admin = true OR (:includeCreated = true AND t.createdBy = :userId)"
             + " OR t.classId IN :classIds OR t.subjectId IN :subjectIds)"
             + " AND (:admin = false OR t.type <> 'PRACTICE')"
-            + " AND (:classId IS NULL OR t.classId = :classId)"
+            + " AND (:classId IS NULL OR t.classId = :classId"
+            + " OR (:classId = -1 AND t.classId IS NULL)"
+            + " OR (:classId = -2 AND t.classId IS NOT NULL))"
+            + " AND (:classId IS NOT NULL OR t.sourceTestId IS NULL)"
             + " AND (:status IS NULL OR t.status = :status)"
             + " AND (:type IS NULL OR t.type = :type)"
             + " AND LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")

@@ -139,7 +139,7 @@ public class ClassesController {
         model.addAttribute("archivedClassCount", statusCounts.archived());
         model.addAttribute("pendingJoinRequests", quickJoinRequests.forOwnedClasses(
                 page.getContent().stream().map(ClassRow::id).toList(), user.getId()));
-        model.addAttribute("semesterOptions", classesService.participatingSemesters(user.getId()));
+        model.addAttribute("semesterOptions", classesService.participatingSemesters(user.getId(), user.getRole()));
         model.addAttribute("subjectOptions", subjectRepository.findByActiveTrueOrderByNameAsc());
         model.addAttribute("selectedSemester", semester == null ? "" : semester.toUpperCase());
         model.addAttribute("selectedSubjectCode", subjectCode == null ? "" : subjectCode);

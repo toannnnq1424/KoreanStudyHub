@@ -21,7 +21,7 @@
     <p class="td-kicker">Test Bank · <span th:text="${distribution.subjectCode()}">KOR311</span></p>
     <h1 class="tst-page-title">Phân phối bài test</h1>
     <p class="td-summary">
-      Chọn một hoặc nhiều lớp ACTIVE cùng mã môn để nhận bản sao độc lập của
+      Chọn một hoặc nhiều lớp đang hoạt động cùng mã môn để sử dụng chung đề
       <strong th:text="${distribution.title()}">Bài test</strong>.
     </p>
   </header>
@@ -30,7 +30,7 @@
         th:action="@{|/lecturer/tests/${distribution.testId()}/distribute|}">
     <fieldset class="td-fieldset" th:disabled="${#lists.isEmpty(distribution.targetClasses())}">
       <legend>Lớp nhận bài test</legend>
-      <p class="td-hint">Bài test, câu hỏi và đáp án được snapshot; chỉnh sửa sau này không ảnh hưởng bản nguồn.</p>
+      <p class="td-hint">Các lớp dùng chung câu hỏi và đáp án, không sao chép ngân hàng câu hỏi. Bài làm và điểm vẫn riêng theo lớp. Nội dung đề được khóa sau khi chia sẻ để bảo toàn kết quả.</p>
 
       <div class="td-targets" th:if="${!#lists.isEmpty(distribution.targetClasses())}">
         <label class="td-target" th:each="clazz : ${distribution.targetClasses()}"

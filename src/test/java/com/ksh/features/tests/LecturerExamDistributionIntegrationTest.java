@@ -108,11 +108,11 @@ class LecturerExamDistributionIntegrationTest {
                 .findByTestIdOrderBySortOrderAscIdAsc(sourceTestId);
         List<Question> copiedQuestions = questionRepository
                 .findByTestIdOrderBySortOrderAscIdAsc(copyId);
-        assertThat(copiedQuestions).hasSameSizeAs(sourceQuestions);
-        assertThat(copiedQuestions).extracting(Question::getId)
-                .doesNotContainAnyElementsOf(sourceQuestions.stream().map(Question::getId).toList());
+        assertThat(copiedQuestions).isEmpty();
+        assertThat(firstCopies.getContent().get(0).questionDefinitionId()).isEqualTo(sourceTestId);
+        assertThat(secondCopies.getContent().get(0).questionDefinitionId()).isEqualTo(sourceTestId);
         List<QuestionOption> copiedOptions = optionRepository
-                .findByQuestionIdOrderBySortOrderAscIdAsc(copiedQuestions.get(0).getId());
+                .findByQuestionIdOrderBySortOrderAscIdAsc(sourceQuestions.get(0).getId());
         assertThat(copiedOptions).extracting(QuestionOption::getContent)
                 .containsExactly("Đúng", "Sai");
     }

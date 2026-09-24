@@ -3,6 +3,7 @@ package com.ksh.features.library.service;
 import com.ksh.entities.ClassEntity;
 import com.ksh.entities.LibraryAsset;
 import com.ksh.features.classes.repository.ClassRepository;
+import com.ksh.features.classes.service.ClassRoleAccessPolicy;
 import com.ksh.security.Role;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,13 +22,14 @@ class PersonalLibraryClassTargetServiceTest {
 
     @Mock private LibraryService libraryService;
     @Mock private ClassRepository classRepository;
+    @Mock private ClassRoleAccessPolicy accessPolicy;
     @Mock private LibraryAsset asset;
     @Mock private ClassEntity clazz;
 
     @Test
     void lecturer_targets_only_owned_active_classes_and_never_loads_lessons() {
         PersonalLibraryClassTargetService service = new PersonalLibraryClassTargetService(
-                libraryService, classRepository);
+                libraryService, classRepository, accessPolicy);
         when(libraryService.getOwnedAsset(7L, 11L)).thenReturn(asset);
         when(asset.getId()).thenReturn(11L);
         when(asset.getKind()).thenReturn(LibraryAsset.KIND_DOCUMENT);
@@ -39,6 +41,7 @@ class PersonalLibraryClassTargetServiceTest {
         when(clazz.getId()).thenReturn(1L);
         when(clazz.getName()).thenReturn("Lớp riêng");
         when(clazz.getStatus()).thenReturn(ClassEntity.STATUS_ACTIVE);
+        when(accessPolicy.canAccess(clazz, 7L, Role.LECTURER)).thenReturn(true);
         var targets = service.targets(7L, Role.LECTURER, 11L);
 
         assertThat(targets.assetId()).isEqualTo(11L);
@@ -52,9 +55,23 @@ class PersonalLibraryClassTargetServiceTest {
     }
 
     @Test
+    void leader_targets_use_subject_policy_and_exclude_foreign_classes() {
+        var service = new PersonalLibraryClassTargetService(libraryService, classRepository, accessPolicy);
+        when(libraryService.getOwnedAsset(7L, 11L)).thenReturn(asset);
+        when(asset.getKind()).thenReturn(LibraryAsset.KIND_DOCUMENT);
+        when(asset.getId()).thenReturn(11L);
+        when(classRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(clazz));
+        when(clazz.getStatus()).thenReturn(ClassEntity.STATUS_ACTIVE);
+        when(accessPolicy.canAccess(clazz, 7L, Role.LEADER)).thenReturn(false);
+        assertThat(service.targets(7L, Role.LEADER, 11L).classes()).isEmpty();
+        when(accessPolicy.canAccess(clazz, 7L, Role.LEADER)).thenReturn(true);
+        assertThat(service.targets(7L, Role.LEADER, 11L).classes()).hasSize(1);
+    }
+
+    @Test
     void rejected_and_archived_classes_are_not_share_targets() {
         PersonalLibraryClassTargetService service = new PersonalLibraryClassTargetService(
-                libraryService, classRepository);
+                libraryService, classRepository, accessPolicy);
         when(libraryService.getOwnedAsset(7L, 11L)).thenReturn(asset);
         when(asset.getId()).thenReturn(11L);
         when(asset.getKind()).thenReturn(LibraryAsset.KIND_DOCUMENT);

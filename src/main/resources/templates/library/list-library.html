@@ -85,8 +85,8 @@
   </section>
 
   <div class="library-list-container" th:if="${!librarySubjectStats.isEmpty()}">
-    <section th:each="group : ${librarySubjectGroups}" th:if="${!group.subjects().isEmpty()}">
-    <h2 th:text="${group.title()}">Kho bài giảng</h2>
+    <details class="library-role-section" th:each="group : ${librarySubjectGroups}" th:if="${!group.subjects().isEmpty()}">
+    <summary><span th:text="${group.title()}">Kho bài giảng</span> <small th:text="${group.subjects().size() + ' môn'}"></small><span class="library-expand-hint">Nhấn để mở / thu gọn</span></summary>
     <div class="library-subject-cards">
       <a class="library-subject-card" th:each="subject : ${group.subjects()}"
          th:href="@{/lecturer/library/templates(subjectId=${subject.id()})}"
@@ -117,7 +117,7 @@
         </div>
       </a>
     </div>
-    </section>
+    </details>
   </div>
 
   <div class="content-empty" th:if="${librarySubjectStats.isEmpty()}">
@@ -151,6 +151,11 @@
           && (!subject || card.dataset.subjectCode === subject);
         card.hidden = !matches;
         if (matches) visible += 1;
+      });
+      document.querySelectorAll('details.library-role-section').forEach(group => {
+        const hasMatch = [...group.querySelectorAll('.library-subject-card')].some(card => !card.hidden);
+        group.hidden = !hasMatch;
+        if ((query || status || subject) && hasMatch) group.open = true;
       });
       if (emptyState) {
         emptyState.hidden = visible !== 0 || cards.length === 0;

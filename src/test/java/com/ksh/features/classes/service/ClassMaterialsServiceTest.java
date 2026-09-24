@@ -63,7 +63,27 @@ class ClassMaterialsServiceTest {
         var rows = service.listForTeaching(5L, 7L, Role.LEADER);
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).anchorLabel()).isEqualTo("Tài liệu chung của lớp");
+        assertThat(rows.get(0).anchorValue()).isEmpty();
         assertThat(material.getClassId()).isEqualTo(5L);
+    }
+
+    @Test void missingLessonRetainsMaterialWithoutAStaleSelectedAnchor() {
+        var sections = org.mockito.Mockito.mock(com.ksh.features.lessons.repository.SectionRepository.class);
+        var lessons = org.mockito.Mockito.mock(com.ksh.features.lessons.repository.LessonRepository.class);
+        var section = org.mockito.Mockito.mock(com.ksh.entities.Section.class);
+        ReflectionTestUtils.setField(service, "sectionRepository", sections);
+        ReflectionTestUtils.setField(service, "lessonRepository", lessons);
+        var material = LessonAttachment.forClassMaterial(5L, "a.pdf", "library/7/a.pdf", "application/pdf", 1, 7L, 11L);
+        material.anchorTo(99L, 100L);
+        when(sections.findByIdAndClassId(99L, 5L)).thenReturn(Optional.of(section));
+        when(lessons.findById(100L)).thenReturn(Optional.empty());
+        when(attachmentRepository.findByClassIdOrderByUploadedAtDescIdDesc(5L)).thenReturn(List.of(material));
+        var rows = service.listForTeaching(5L, 7L, Role.LEADER);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).anchorLabel()).isEqualTo("Tài liệu chung của lớp");
+        assertThat(rows.get(0).anchorValue()).isEmpty();
+        assertThat(material.getLibraryAssetId()).isEqualTo(11L);
+        assertThat(material.getLessonId()).isNull();
     }
 
     @BeforeEach

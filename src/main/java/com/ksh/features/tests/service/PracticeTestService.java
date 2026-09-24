@@ -79,7 +79,7 @@ public class PracticeTestService {
     @Transactional
     public Long create(Long userId, PracticeForm form) {
         List<Test> sourceTests = resolveSources(userId, form);
-        List<Long> testIds = sourceTests.stream().map(Test::getId).toList();
+        List<Long> testIds = sourceTests.stream().map(Test::questionDefinitionId).distinct().toList();
         List<Question> pool = testIds.isEmpty() ? List.of()
                 : new ArrayList<>(questionRepository.findByTestIdIn(testIds));
         if (pool.isEmpty()) {

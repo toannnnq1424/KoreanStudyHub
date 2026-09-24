@@ -15,7 +15,7 @@ import java.util.UUID;
 public class AssignmentAttachmentStorage {
     public static final int MAX_BYTES = 10 * 1024 * 1024;
     private final ObjectStorage storage;
-    public AssignmentAttachmentStorage(ObjectStorage storage) { this.storage = storage; }
+    public AssignmentAttachmentStorage(@org.springframework.beans.factory.annotation.Qualifier("objectStorage") ObjectStorage storage) { this.storage = storage; }
 
     public String store(MultipartFile file, Long assignmentId, Long userId) {
         if (file == null || file.isEmpty()) return null;

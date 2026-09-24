@@ -191,10 +191,10 @@
 
         <div id="lesson-panel-attachments" class="student-lesson-panel"
              role="tabpanel" aria-labelledby="lesson-tab-attachments" tabindex="0" hidden>
-          <section class="student-lesson-detail-attachments"
-                   th:unless="${#lists.isEmpty(lessonDetail.attachments())}">
+          <section class="student-lesson-detail-attachments">
             <h3 class="student-lesson-detail-attachments-title"
-                th:text="'Tài liệu đính kèm (' + ${#lists.size(lessonDetail.attachments())} + ')'">Tài liệu đính kèm</h3>
+                th:text="'Từ kho bài giảng (' + ${#lists.size(lessonDetail.attachments())} + ')'">Từ kho bài giảng</h3>
+            <p class="student-lesson-detail-empty" th:if="${#lists.isEmpty(lessonDetail.attachments())}">Kho bài giảng chưa có tài liệu đính kèm.</p>
             <ul class="student-lesson-detail-attachment-list">
               <li th:each="att : ${lessonDetail.attachments()}" class="student-lesson-detail-attachment-item">
                 <span class="student-lesson-detail-attachment-ext"
@@ -212,8 +212,18 @@
               </li>
             </ul>
           </section>
-          <p class="student-lesson-detail-empty"
-             th:if="${#lists.isEmpty(lessonDetail.attachments())}">Bài giảng này chưa có tài liệu đính kèm.</p>
+          <section class="student-lesson-detail-attachments">
+            <h3 class="student-lesson-detail-attachments-title">Tài liệu chia sẻ thêm cho lớp</h3>
+            <p class="student-lesson-detail-empty" th:if="${#lists.isEmpty(lessonDetail.additionalAttachments())}">Chưa có tài liệu bổ sung cho chương / bài này.</p>
+            <ul class="student-lesson-detail-attachment-list">
+              <li th:each="att : ${lessonDetail.additionalAttachments()}" class="student-lesson-detail-attachment-item">
+                <span class="student-lesson-detail-attachment-ext" th:text="${att.extension()}">FILE</span>
+                <a class="student-lesson-detail-attachment-name" th:href="${att.downloadUrl()}" th:text="${att.filename()}">Tài liệu</a>
+                <span class="student-lesson-detail-attachment-size" th:text="${att.formattedSize()}"></span>
+                <a class="student-lesson-detail-attachment-download" th:href="${att.downloadUrl()}" download>Tải xuống</a>
+              </li>
+            </ul>
+          </section>
         </div>
 
       </th:block>
@@ -335,9 +345,9 @@
             <span><strong>Mở video bài học</strong><small th:text="${lessonDetail.videoUrl() == null} ? 'Chưa có video' : 'Xem video và tóm tắt'">Xem video</small></span>
           </button>
           <button type="button" data-lesson-tab-target="lesson-tab-attachments"
-                  th:classappend="${#lists.isEmpty(lessonDetail.attachments())} ? ' is-empty' : ''">
+                  th:classappend="${#lists.isEmpty(lessonDetail.attachments()) and #lists.isEmpty(lessonDetail.additionalAttachments())} ? ' is-empty' : ''">
             <span aria-hidden="true">⇩</span>
-            <span><strong>Tài liệu đính kèm</strong><small th:text="${#lists.size(lessonDetail.attachments())} + ' tệp'">0 tệp</small></span>
+            <span><strong>Tài liệu đính kèm</strong><small th:text="${#lists.size(lessonDetail.attachments()) + #lists.size(lessonDetail.additionalAttachments())} + ' tệp'">0 tệp</small></span>
           </button>
         </div>
 

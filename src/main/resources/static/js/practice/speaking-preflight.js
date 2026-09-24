@@ -32,6 +32,39 @@
   var audioContext = null;
   var speakerPlayed = false;
   var sampleReady = false;
+  var recordingTimer = null;
+  var completionTimer = null;
+  var attempt = 0;
+
+  function clearRecordingTimers() {
+    clearTimeout(recordingTimer);
+    clearTimeout(completionTimer);
+    recordingTimer = completionTimer = null;
+  }
+
+  function requestMicrophone() {
+    // Permission prompts can remain unanswered indefinitely. A late grant must
+    // release its tracks instead of reviving a timed-out attempt.
+    return new Promise(function (resolve, reject) {
+      var expired = false;
+      var timer = setTimeout(function () {
+        expired = true;
+        var failure = new Error("Microphone permission timed out");
+        failure.name = "TimeoutError";
+        reject(failure);
+      }, 15000);
+      navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      }).then(function (activeStream) {
+        clearTimeout(timer);
+        if (expired) activeStream.getTracks().forEach(function (track) { track.stop(); });
+        else resolve(activeStream);
+      }, function (failure) {
+        clearTimeout(timer);
+        if (!expired) reject(failure);
+      });
+    });
+  }
 
   function browserReady() {
     return Boolean(window.MediaRecorder && navigator.mediaDevices
@@ -132,6 +165,7 @@
   }
 
   function preferredMimeType() {
+    if (typeof MediaRecorder.isTypeSupported !== "function") return "";
     return ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find(function (type) {
       return MediaRecorder.isTypeSupported(type);
     }) || "";
@@ -164,27 +198,59 @@
   });
 
   recordButton.addEventListener("click", async function () {
+    var currentAttempt = ++attempt;
+    function fail(caught) {
+      if (currentAttempt !== attempt) return;
+      attempt++;
+      clearRecordingTimers();
+      if (recorder && recorder.state !== "inactive") {
+        try { recorder.stop(); } catch (ignored) {}
+      }
+      stopStream();
+      sampleReady = false;
+      recordButton.disabled = false;
+      setRecordLabel("Thử ghi lại");
+      setStatus("Chưa hoàn tất kiểm tra", "");
+      updateStart();
+      var denied = caught && (caught.name === "NotAllowedError" || caught.name === "SecurityError");
+      setError(denied
+        ? "Quyền micro đang bị từ chối. Hãy cho phép micro trong cài đặt trang web rồi thử lại."
+        : caught && caught.name === "TimeoutError"
+          ? "Chưa nhận được phản hồi từ micro. Hãy kiểm tra hộp thoại cấp quyền hoặc thử mở trang bằng Chrome/Edge rồi ghi lại."
+          : "Không thể hoàn tất bản ghi. Hãy kiểm tra micro và thử ghi lại.");
+    }
     setError("");
     sampleReady = false;
     heardConfirm.checked = false;
     updateStart();
-    setRecordLabel("Đang ghi...");
+    setRecordLabel("Đang chờ quyền micro...");
+    setStatus("Đang kết nối micro", "");
+    message.textContent = "Cho phép sử dụng micro trong hộp thoại của trình duyệt (tối đa 15 giây).";
+    playback.hidden = true;
+    sampleAudio.pause();
     recordButton.disabled = true;
     try {
       stopStream();
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-      });
+      var acquired = await requestMicrophone();
+      if (currentAttempt !== attempt) {
+        acquired.getTracks().forEach(function (track) { track.stop(); });
+        return;
+      }
+      stream = acquired;
       var track = stream.getAudioTracks()[0];
       deviceName.textContent = track && track.label ? track.label : "Micro đã được cấp quyền";
       chunks = [];
       var mimeType = preferredMimeType();
       recorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
       recorder.addEventListener("dataavailable", function (event) {
+        if (currentAttempt !== attempt) return;
         if (event.data && event.data.size > 0) chunks.push(event.data);
       });
       recorder.addEventListener("stop", function () {
+        if (currentAttempt !== attempt) return;
+        clearRecordingTimers();
         var blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+        if (!blob.size) { fail(new Error("Empty recording")); return; }
         if (sampleUrl) URL.revokeObjectURL(sampleUrl);
         sampleUrl = URL.createObjectURL(blob);
         sampleAudio.src = sampleUrl;
@@ -200,22 +266,25 @@
         setRecordLabel("Ghi lại mẫu");
         updateStart();
       });
+      recorder.addEventListener("error", function (event) { fail(event.error); });
       recorder.start(200);
-      startMeter(stream);
+      // Visualisation is optional and must never prevent the recording timer.
+      try { startMeter(stream); } catch (ignored) {}
+      setRecordLabel("Đang ghi...");
       setStatus("Đang ghi âm 5 giây", "recording");
       message.textContent = "Hãy đọc câu mẫu với âm lượng tự nhiên.";
-      window.setTimeout(function () {
-        if (recorder && recorder.state === "recording") recorder.stop();
+      recordingTimer = window.setTimeout(function () {
+        if (currentAttempt !== attempt) return;
+        try { if (recorder && recorder.state !== "inactive") recorder.stop(); }
+        catch (caught) { fail(caught); }
       }, 5000);
+      completionTimer = window.setTimeout(function () {
+        var failure = new Error("Recorder did not finish");
+        failure.name = "TimeoutError";
+        fail(failure);
+      }, 10000);
     } catch (caught) {
-      stopStream();
-      recordButton.disabled = false;
-      setRecordLabel("Ghi âm mẫu");
-      setStatus("Kiểm tra thất bại", "");
-      var denied = caught && (caught.name === "NotAllowedError" || caught.name === "SecurityError");
-      setError(denied
-        ? "Quyền micro đang bị từ chối. Hãy cho phép micro trong cài đặt trang web rồi thử lại."
-        : "Không tìm thấy micro có thể sử dụng. Hãy kiểm tra thiết bị rồi thử lại.");
+      fail(caught);
     }
   });
 
@@ -257,6 +326,11 @@
   }
 
   window.addEventListener("pagehide", function () {
+    attempt++;
+    clearRecordingTimers();
+    if (recorder && recorder.state !== "inactive") {
+      try { recorder.stop(); } catch (ignored) {}
+    }
     stopStream();
     if (sampleUrl) URL.revokeObjectURL(sampleUrl);
   });

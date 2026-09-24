@@ -67,6 +67,11 @@
   </section>
 
   <section class="tst-catalog-surface" aria-label="Danh sách bài test">
+    <nav class="tst-bank-scopes" aria-label="Phạm vi kho bài test">
+      <a th:href="@{/lecturer/tests}" th:attr="aria-current=${examFilter.classId() == null ? 'page' : null}">Đề nguồn</a>
+      <a th:href="@{/lecturer/tests(classId=-1)}" th:attr="aria-current=${examFilter.classId() == -1 ? 'page' : null}">Đề không gắn lớp</a>
+      <a th:href="@{/lecturer/tests(classId=-2)}" th:attr="aria-current=${examFilter.classId() == -2 ? 'page' : null}">Đề theo lớp</a>
+    </nav>
     <form method="get" class="tst-catalog-filters">
       <label class="tst-search-control" for="testSearch">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -99,6 +104,8 @@
         <span class="sr-only">Lọc theo lớp</span>
         <select id="testClass" name="classId">
           <option value="">Mọi lớp</option>
+          <option value="-1" th:selected="${examFilter.classId() == -1}">Đề không gắn lớp</option>
+          <option value="-2" th:selected="${examFilter.classId() == -2}">Tất cả đề theo lớp</option>
           <option th:each="clazz : ${ledClasses}" th:value="${clazz.id()}"
                   th:text="${clazz.name()}" th:selected="${examFilter.classId() == clazz.id()}">Lớp</option>
         </select>
@@ -181,6 +188,10 @@
           </td>
           <td class="tst-row-actions">
             <div class="tst-row-actions-inner">
+            <a class="tst-share-action" th:if="${exam.status() == 'PUBLISHED' and exam.type() != 'PRACTICE'}"
+               th:href="@{|/lecturer/tests/${exam.id()}/distribute|}">Chia sẻ</a>
+            <a class="tst-share-action is-draft" th:if="${exam.status() == 'DRAFT' and exam.canManage() and exam.type() != 'PRACTICE'}"
+               th:href="@{|/lecturer/tests/${exam.id()}/edit|}" title="Cần phát hành đề trước khi chia sẻ">Phát hành để chia sẻ</a>
             <button class="tst-icon-action" type="button" data-open-test-detail
                     title="Xem chi tiết" aria-label="Xem chi tiết bài test">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>

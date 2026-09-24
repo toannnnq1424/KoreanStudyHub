@@ -232,6 +232,16 @@ public class ClassesService {
 
     /** Only semesters in which the actor owns or co-teaches a class. */
     @Transactional(readOnly = true)
+    public List<String> participatingSemesters(Long actorId, Role role) {
+        return searchClasses(actorId, role, List.of("ACTIVE", "ARCHIVED", "PENDING", "REJECTED"),
+                "", "", "", Pageable.unpaged()).getContent().stream()
+                .map(ClassEntity::getSemester).filter(java.util.Objects::nonNull)
+                .filter(value -> !value.isBlank()).distinct()
+                .sorted((a, b) -> AcademicSemester.parse(b).compareTo(AcademicSemester.parse(a)))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<String> participatingSemesters(Long actorId) {
         return classRepository.findAllById(classRepository.findClassIdsForLecturer(actorId)).stream()
                 .map(ClassEntity::getSemester).filter(java.util.Objects::nonNull)

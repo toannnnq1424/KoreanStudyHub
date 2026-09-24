@@ -7,7 +7,7 @@
   <link class="page-css" rel="stylesheet" th:href="@{/css/student-lessons.css}">
   <link class="page-css" rel="stylesheet" th:href="@{/css/assignments.css}">
 </head>
-<body class="student-assignment-page">
+<body class="student-assignment-page assignment-detail-page">
 <header th:replace="~{fragments/app-header :: appHeader('my-classes')}"></header>
 
 <span id="flash-data"
@@ -25,9 +25,11 @@
           <h1 th:text="${assignment.title}">Tên bài tập</h1>
           <p>Đọc yêu cầu, kiểm tra hạn nộp và nộp bài để giảng viên chấm điểm.</p>
         </div>
-        <div class="asgn-max-score">
-          <strong th:text="${#numbers.formatDecimal(assignment.maxScore, 1, 0)}">100</strong>
-          <span>điểm tối đa</span>
+        <div class="asgn-score-summary">
+          <span th:if="${assignment.score != null}">Điểm của bạn</span>
+          <strong th:if="${assignment.score != null}" th:text="${#numbers.formatDecimal(assignment.score, 1, 2) + ' / ' + #numbers.formatDecimal(assignment.maxScore, 1, 0)}"></strong>
+          <span th:if="${assignment.score == null}" th:text="${'Thang điểm: ' + #numbers.formatDecimal(assignment.maxScore, 1, 0)}"></span>
+          <small th:if="${assignment.score == null}">Chưa có điểm</small>
         </div>
       </div>
     </header>
@@ -91,7 +93,7 @@
         </div>
       </div>
 
-      <div class="asgn-field-block">
+      <div class="asgn-field-block" th:if="${!#strings.isEmpty(assignment.submissionContent)}">
         <h3>Nội dung bài nộp</h3>
         <div class="asgn-submission-content"
              th:text="${assignment.submissionContent != null and !#strings.isEmpty(assignment.submissionContent) ? assignment.submissionContent : 'Không có nội dung văn bản.'}"></div>
@@ -99,6 +101,8 @@
 
       <div class="asgn-field-block asgn-attachment-block">
         <h3>Tệp đính kèm</h3>
+        <iframe th:if="${assignment.submissionAttachmentUrl != null}" class="asgn-file-preview"
+                th:src="${assignment.submissionAttachmentUrl + '/preview'}" title="Xem tệp bài nộp"></iframe>
         <a th:if="${assignment.submissionAttachmentUrl != null and !#strings.isEmpty(assignment.submissionAttachmentUrl)}"
            th:href="${assignment.submissionAttachmentUrl}" target="_blank" rel="noopener">Mở tệp đính kèm</a>
         <span th:if="${assignment.submissionAttachmentUrl == null or #strings.isEmpty(assignment.submissionAttachmentUrl)}">Không có tệp đính kèm</span>

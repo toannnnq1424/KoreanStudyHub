@@ -17,10 +17,12 @@ class SyllabusImportParserTest {
 
         var rows = new SyllabusImportParser().parse(upload);
 
-        assertThat(rows).hasSize(4);
+        assertThat(rows).hasSize(15);
         assertThat(rows.get(0).chapterNumber()).isEqualTo(1);
         assertThat(rows.get(0).lessonNumber()).isEqualTo(1);
         assertThat(rows.get(3).chapterNumber()).isEqualTo(2);
         assertThat(rows.get(3).lessonNumber()).isEqualTo(4);
+        assertThat(rows.get(14).chapterNumber()).isEqualTo(5);
+        assertThat(rows).extracting(SyllabusImportParser.SyllabusRow::lessonNumber).doesNotHaveDuplicates();
     }
 }

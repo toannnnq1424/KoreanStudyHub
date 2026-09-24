@@ -1350,3 +1350,13 @@
   cursor: grab;
 }
 .library-lesson-row.is-dragging { opacity: .45; }
+.library-role-section { margin:32px 0 44px; padding-top:20px; border-top:1px solid #dbe4ef; }
+.library-role-section h2 { display:flex; align-items:center; gap:12px; margin:0 0 22px; color:#21334f; font-size:21px; }
+.library-role-section h2 small { border-radius:20px; padding:5px 12px; background:#edf3ff; color:#4165a5; font-size:12px; font-weight:600; }
+.library-role-section summary { cursor:pointer; display:flex; align-items:center; gap:12px; padding:18px 20px; background:#f0f5fc; border-radius:12px; font-size:19px; font-weight:700; color:#21334f; }
+.library-role-section summary::before { content:'▸'; }
+.library-role-section[open] summary::before { content:'▾'; }
+.library-role-section summary small {font-size:12px;font-weight:600;color:#64748b;}
+.library-expand-hint {margin-left:auto;font-size:12px;font-weight:400;color:#64748b;}
+.library-role-section[open] .library-subject-cards {margin-top:20px;}
+@media(max-width:600px){.library-expand-hint{display:none;}}

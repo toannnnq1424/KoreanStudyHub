@@ -116,6 +116,20 @@ public class LecturerExamService {
     }
 
     /** Complete test-bank counters under the same canonical management scope. */
+    public record DistributedClass(Long testId, Long classId, String className) {}
+
+    @Transactional(readOnly = true)
+    public List<DistributedClass> distributedClasses(Long sourceId, Long userId) {
+        var source = accessResolver.requireManageable(sourceId, userId);
+        var allowed = accessResolver.manageableClasses(userId, accessResolver.managementRole(userId));
+        var names = new HashMap<Long, String>();
+        allowed.forEach(c -> names.put(c.getId(), c.getName()));
+        return testRepository.findBySourceTestIdOrderByClassIdAsc(source.getId()).stream()
+                .filter(t -> names.containsKey(t.getClassId()))
+                .map(t -> new DistributedClass(t.getId(), t.getClassId(), names.get(t.getClassId())))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public LecturerTestMetrics metricsFor(Long userId) {
         Role role = accessResolver.managementRole(userId);
@@ -208,7 +222,7 @@ public class LecturerExamService {
     public ExamForm getForEdit(Long testId, Long userId) {
         Test test = accessResolver.requireManageable(testId, userId);
         List<Question> questions = questionRepository
-                .findByTestIdOrderBySortOrderAscIdAsc(testId);
+                .findByTestIdOrderBySortOrderAscIdAsc(test.questionDefinitionId());
         Map<Long, List<QuestionOption>> optionsByQuestion = questionBankWriter.loadOptions(questions);
         List<QuestionForm> qForms = new ArrayList<>();
         for (Question q : questions) {
@@ -228,7 +242,7 @@ public class LecturerExamService {
                 test.getDurationMinutes(), test.getStartAt(), test.getEndAt(),
                 test.getPassingScore(), test.isShuffleQuestions(), test.isShuffleOptions(),
                 test.getMediaType(), test.getMediaUrl(), qForms,
-                questionBankWriter.hasStudentActivity(testId));
+                definitionLocked(test));
     }
 
     /**
@@ -252,11 +266,11 @@ public class LecturerExamService {
         boolean creating = form.id() == null;
         Test existing = creating ? null
                 : accessResolver.requireManageableForUpdate(form.id(), userId);
-        if (!creating && questionBankWriter.hasStudentActivity(existing.getId())) {
-            throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
-        }
         if (!creating) {
             requireStableAuthoringScope(existing, form);
+        }
+        if (!creating && definitionLocked(existing)) {
+            throw new IllegalArgumentException(MSG_EXAM_QUESTION_BANK_LOCKED);
         }
         ExamFormValidator.validate(form);
         requireAuthoringScope(userId, form.subjectId(), form.classId());
@@ -333,7 +347,7 @@ public class LecturerExamService {
             throw new IllegalArgumentException(MSG_QB_INSERT_EMPTY);
         }
         // Appending questions changes the bank shape, which is unsafe once graded.
-        if (questionBankWriter.hasStudentActivity(testId)) {
+        if (definitionLocked(test)) {
             throw new IllegalArgumentException(MSG_QB_INSERT_LOCKED);
         }
         List<BankItemSnapshot> snapshots =
@@ -386,10 +400,9 @@ public class LecturerExamService {
     }
 
     /**
-     * Atomically copies one finished PUBLISHED test, including its questions
-     * and options, to one or more ACTIVE classes with the same subject code.
-     * Each copy is an independent published snapshot backed by the existing
-     * tests/questions/question_options tables; no extra mapping table is needed.
+     * Creates class delivery records for a finished PUBLISHED test. Deliveries
+     * retain separate scheduling and attempt IDs but reference a shared question
+     * definition. No question or option rows are copied.
      */
     @Transactional
     public TestDistributionResult distributePublished(Long userId, Role role, Long testId,
@@ -399,7 +412,7 @@ public class LecturerExamService {
         }
         Test source = requireDistributable(testId, userId, role, true);
         Long sourceSubjectId = requireSourceSubjectId(source);
-        List<QuestionForm> questionSnapshot = snapshotQuestions(source.getId());
+        List<QuestionForm> questionSnapshot = snapshotQuestions(source.questionDefinitionId());
         if (questionSnapshot.isEmpty()) {
             throw new IllegalArgumentException("Bài test chưa có câu hỏi để phân phối");
         }
@@ -428,7 +441,7 @@ public class LecturerExamService {
 
             Test snapshot = copyExamFields(source, target.getId(), userId);
             Test saved = testRepository.saveAndFlush(snapshot);
-            questionBankWriter.appendQuestions(saved.getId(), questionSnapshot);
+            // The delivery has a class identity, not a second question bank.
             saved.setTotalQuestions(questionSnapshot.size());
             testRepository.save(saved);
             activityWriter.write(saved.getId(), TestActivity.TYPE_CREATED,
@@ -492,6 +505,8 @@ public class LecturerExamService {
         snapshot.setTitle(source.getTitle());
         snapshot.setDescription(source.getDescription());
         snapshot.setClassId(classId);
+        snapshot.setSharedQuestionSourceId(source.questionDefinitionId());
+        snapshot.setSourceTestId(source.getSourceTestId() == null ? source.getId() : source.getSourceTestId());
         snapshot.setSubjectId(source.getSubjectId());
         snapshot.setDurationMinutes(source.getDurationMinutes());
         snapshot.setPassingScore(source.getPassingScore());
@@ -504,6 +519,12 @@ public class LecturerExamService {
         snapshot.setMediaType(source.getMediaType());
         snapshot.setMediaUrl(source.getMediaUrl());
         return snapshot;
+    }
+
+    private boolean definitionLocked(Test test) {
+        return test.getSharedQuestionSourceId() != null
+                || testRepository.existsBySharedQuestionSourceId(test.getId())
+                || questionBankWriter.hasStudentActivity(test.getId());
     }
 
     /**
@@ -576,7 +597,7 @@ public class LecturerExamService {
 
     /**
      * A Test Bank source and a class-local test are different authoring scopes.
-     * Distribution creates independent class snapshots, so editing the source must
+     * Distribution creates separate class deliveries, so editing the source must
      * never silently move it into one of its recipient classes (or between classes).
      */
     private void requireStableAuthoringScope(Test existing, ExamForm form) {

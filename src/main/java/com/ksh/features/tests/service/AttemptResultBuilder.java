@@ -68,7 +68,7 @@ public class AttemptResultBuilder {
     public ReviewView buildReview(Test test, TestAttempt attempt,
                                   boolean lecturerView, String studentName) {
         List<Question> questions = questionRepository
-                .findByTestIdOrderBySortOrderAscIdAsc(test.getId());
+                .findByTestIdOrderBySortOrderAscIdAsc(attempt.questionDefinitionId(test));
         Map<Long, List<QuestionOption>> optionsByQuestion = loadOptions(questions);
         Map<Long, TestResponse> responsesByQuestion = responseRepository
                 .findByAttemptId(attempt.getId()).stream()

@@ -30,6 +30,21 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     bindConfirmForms();
+    document.querySelectorAll('iframe.asgn-file-preview').forEach(function (frame) {
+      function fitImage() {
+        try {
+          const doc = frame.contentDocument;
+          const image = doc && doc.querySelector('img');
+          if (!image) return; // PDFs keep their native viewer controls.
+          doc.documentElement.style.cssText = 'margin:0;background:#f8fafc;';
+          doc.body.style.cssText = 'margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f8fafc;';
+          image.style.cssText = 'display:block;width:auto;height:auto;max-width:100%;max-height:100vh;object-fit:contain;';
+          frame.style.height = 'min(520px, 65vh)';
+        } catch (ignored) { /* Keep the download link available if preview fails. */ }
+      }
+      frame.addEventListener('load', fitImage);
+      fitImage();
+    });
     const attachment = document.getElementById('attachment');
     if (attachment) attachment.addEventListener('change', function () {
       const file = attachment.files && attachment.files[0];
