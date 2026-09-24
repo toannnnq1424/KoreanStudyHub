@@ -25,10 +25,21 @@ public class QuestionBankImportTemplate {
             "Đáp án đúng"
     };
     private static final String[][] SAMPLE_ROWS = {
-            {null, "MCQ", "Đạo hàm của x^2 là gì?", "Áp dụng quy tắc lũy thừa",
-                    "2x", "x", "x^2", "2", "", "", "A"},
-            {null, "MR", "Chọn các hàm số liên tục trên R", "Có thể chọn nhiều đáp án",
-                    "sin(x)", "|x|", "1/x", "x^2", "", "", "A,B,D"}
+            {null, "MCQ", "학교 có nghĩa là gì?", "학교 nghĩa là trường học.", "Trường học", "Bệnh viện", "Ngân hàng", "Nhà hàng", "", "", "A"},
+            {null, "MCQ", "Chọn lời chào lịch sự.", "안녕하세요 là lời chào lịch sự thông dụng.", "안녕하세요", "미안해", "잘 자", "아니요", "", "", "A"},
+            {null, "MCQ", "Điền: 저는 학생___.", "Danh từ kết hợp 입니다 trong văn phong trang trọng.", "입니다", "합니다", "갑니다", "먹습니다", "", "", "A"},
+            {null, "MCQ", "책 có nghĩa là gì?", "책 là sách.", "Bút", "Sách", "Bàn", "Ghế", "", "", "B"},
+            {null, "MCQ", "오늘 có nghĩa là gì?", "오늘 là hôm nay.", "Hôm qua", "Ngày mai", "Hôm nay", "Tuần sau", "", "", "C"},
+            {null, "MCQ", "Chọn từ nghĩa là nước.", "물 là nước.", "밥", "빵", "우유", "물", "", "", "D"},
+            {null, "MCQ", "Điền: 도서관___ 공부해요.", "에서 chỉ nơi diễn ra hành động.", "에서", "을", "은", "도", "", "", "A"},
+            {null, "MCQ", "Chọn câu diễn đạt cảm ơn trang trọng.", "감사합니다 dùng để cảm ơn.", "안녕히 가세요", "감사합니다", "괜찮아요", "처음 뵙겠습니다", "", "", "B"},
+            {null, "MCQ", "내일 có nghĩa là gì?", "내일 là ngày mai.", "Hôm nay", "Hôm qua", "Ngày mai", "Bây giờ", "", "", "C"},
+            {null, "MCQ", "Chọn động từ nghĩa là học.", "공부하다 nghĩa là học.", "먹다", "자다", "가다", "공부하다", "", "", "D"},
+            {null, "MR", "Chọn các từ chỉ người.", "학생 là sinh viên, 선생님 là giáo viên.", "학생", "선생님", "책", "물", "", "", "A,B"},
+            {null, "MR", "Chọn các từ chỉ thời gian.", "오늘, 내일, 어제 là các mốc ngày.", "오늘", "학교", "내일", "어제", "", "", "A,C,D"},
+            {null, "MR", "Chọn các địa điểm.", "학교, 도서관, 병원 là địa điểm.", "학교", "도서관", "병원", "친구", "", "", "A,B,C"},
+            {null, "MR", "Chọn các động từ.", "먹다 và 읽다 là động từ.", "먹다", "사과", "읽다", "책", "", "", "A,C"},
+            {null, "MR", "Chọn các loại đồ uống.", "물 là nước, 우유 là sữa.", "물", "책", "우유", "학교", "", "", "A,C"},
     };
     private static final String[] GUIDE_LINES = {
             "1. Dòng đầu tiên là tiêu đề, không được xoá hoặc đổi tên cột.",
@@ -36,7 +47,9 @@ public class QuestionBankImportTemplate {
             "3. Loại câu hỏi chỉ chấp nhận MCQ hoặc MR.",
             "4. Cần ít nhất hai đáp án không rỗng; có thể để trống đáp án E/F nếu không dùng.",
             "5. Cột 'Đáp án đúng' dùng chữ cái A-F, ngăn cách bằng dấu phẩy cho câu MR.",
-            "6. MCQ phải có đúng một đáp án đúng; MR cần ít nhất một đáp án đúng."
+            "6. MCQ phải có đúng một đáp án đúng; MR cần ít nhất một đáp án đúng.",
+            "7. 15 câu tiếng Hàn sơ cấp minh hoạ; thay nội dung theo trình độ của môn đang chọn.",
+            "8. Kiểm tra màn hình xem trước trước khi xác nhận; file mẫu không tự phát hành câu hỏi."
     };
     private static final int COLUMN_WIDTH = 256 * 24;
     private static final int CONTENT_WIDTH = 256 * 42;
@@ -57,6 +70,7 @@ public class QuestionBankImportTemplate {
                                 CellStyle headerStyle,
                                 String subjectCode) {
         Sheet sheet = workbook.createSheet(SHEET_ROWS);
+        sheet.createFreezePane(0, 1);
         Row header = sheet.createRow(0);
         for (int i = 0; i < HEADERS.length; i++) {
             Cell cell = header.createCell(i);
