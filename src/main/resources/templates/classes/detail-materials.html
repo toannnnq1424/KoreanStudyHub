@@ -41,6 +41,7 @@
           </small>
         </span>
         <div class="class-material-actions">
+        <a class="class-material-download" th:href="@{/file-viewer/material(classId=${clazz.id},materialId=${material.id()})}" target="_blank" rel="noopener">Xem trước</a>
         <a class="class-material-download" th:href="${material.downloadUrl()}">Tải xuống</a>
         <details>
           <summary>Đổi vị trí</summary>

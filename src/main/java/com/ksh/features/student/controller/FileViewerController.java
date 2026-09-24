@@ -28,6 +28,51 @@ public class FileViewerController {
 
     private final LessonAttachmentsService attachmentsService;
     private final PublicViewTokenService tokenService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.library.service.PersonalLibraryAssetPreviewService previewService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.library.service.StaticPresentationService presentationService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.classes.service.ClassMaterialsService materialsService;
+
+    @GetMapping("/file-viewer/material")
+    @PreAuthorize("isAuthenticated()")
+    public String material(@RequestParam Long classId, @RequestParam Long materialId,
+            @AuthenticationPrincipal KshUserDetails user, Model model) {
+        var handle = materialsService.download(classId, materialId, user.getId(), user.getRole());
+        String url = "/api/classes/" + classId + "/materials/" + materialId + "/download";
+        if (handle.originalFilename().toLowerCase(java.util.Locale.ROOT).matches(".*\\.(pdf|pptx?)")) {
+            model.addAttribute("filename", handle.originalFilename());
+            model.addAttribute("downloadUrl", "/file-viewer/material/slides?classId=" + classId + "&materialId=" + materialId);
+            model.addAttribute("originalDownloadUrl", url);
+            return "student/pdfjs-viewer";
+        }
+        var detail = new com.ksh.features.library.dto.LibraryDtos.LibraryAssetDetail(
+                materialId, handle.originalFilename(), handle.originalFilename(), "DOCUMENT", handle.mimeType(),
+                "Tài liệu", "document", handle.sizeBytes(), null, null, null, url, url, java.util.List.of());
+        model.addAttribute("assetPreview", previewService.loadAuthorized(detail, handle.storageKey()));
+        return "library/asset-preview";
+    }
+
+    @GetMapping("/file-viewer/material/slides")
+    @PreAuthorize("isAuthenticated()")
+    public org.springframework.http.ResponseEntity<byte[]> materialSlides(@RequestParam Long classId, @RequestParam Long materialId,
+            @AuthenticationPrincipal KshUserDetails user) throws java.io.IOException {
+        var handle = materialsService.download(classId, materialId, user.getId(), user.getRole());
+        return org.springframework.http.ResponseEntity.ok().header("Cache-Control", "private, no-store")
+                .header("X-Content-Type-Options", "nosniff").contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(presentationService.pdf(handle.storageKey(), handle.originalFilename()));
+    }
+
+    @GetMapping("/file-viewer/slides/content")
+    @PreAuthorize("isAuthenticated()")
+    public org.springframework.http.ResponseEntity<byte[]> slides(@RequestParam Long lessonId, @RequestParam Long attachmentId,
+            @AuthenticationPrincipal KshUserDetails user) throws java.io.IOException {
+        var handle = attachmentsService.download(lessonId, attachmentId, user.getId(), user.getRole());
+        return org.springframework.http.ResponseEntity.ok().header("Cache-Control", "private, no-store")
+                .header("X-Content-Type-Options", "nosniff").contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(presentationService.pdf(handle.storageKey(), handle.originalFilename()));
+    }
 
     public FileViewerController(LessonAttachmentsService attachmentsService,
                                 PublicViewTokenService tokenService) {
@@ -68,17 +113,12 @@ public class FileViewerController {
         return "student/pdfjs-viewer";
     }
 
-    /**
-     * Lazily mints a public view token and redirects to MS Office Online
-     * Viewer. Authorization is enforced via {@link LessonAttachmentsService}
-     * BEFORE any token is created, so merely listing a lesson never writes a
-     * token — only an actual click does.
-     */
+    /** Authenticated local Office preview; files are never exposed to a public viewer. */
     @GetMapping("/file-viewer/office")
     @PreAuthorize("isAuthenticated()")
     public String viewOffice(@RequestParam Long lessonId,
                              @RequestParam Long attachmentId,
-                             @AuthenticationPrincipal KshUserDetails user) {
+                             @AuthenticationPrincipal KshUserDetails user, Model model) {
         try {
             // Reuse the download authz gate; discard the handle.
             attachmentsService.download(lessonId, attachmentId,
@@ -88,9 +128,18 @@ public class FileViewerController {
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
-        String publicUrl = tokenService.createPublicViewUrl(attachmentId);
-        String embed = "https://view.officeapps.live.com/op/embed.aspx?src="
-                + URLEncoder.encode(publicUrl, StandardCharsets.UTF_8);
-        return "redirect:" + embed;
+        var handle = attachmentsService.download(lessonId, attachmentId, user.getId(), user.getRole());
+        if (handle.originalFilename().toLowerCase(java.util.Locale.ROOT).matches(".*\\.(pdf|pptx?)")) {
+            model.addAttribute("downloadUrl", "/file-viewer/slides/content?lessonId=" + lessonId + "&attachmentId=" + attachmentId);
+            model.addAttribute("originalDownloadUrl", "/api/lessons/" + lessonId + "/attachments/" + attachmentId + "/download");
+            model.addAttribute("filename", handle.originalFilename());
+            return "student/pdfjs-viewer";
+        }
+        String url = "/api/lessons/" + lessonId + "/attachments/" + attachmentId + "/download";
+        var detail = new com.ksh.features.library.dto.LibraryDtos.LibraryAssetDetail(
+                attachmentId, handle.originalFilename(), handle.originalFilename(), "DOCUMENT",
+                handle.mimeType(), "Tài liệu", "document", handle.sizeBytes(), null, null, null, url, url, java.util.List.of());
+        model.addAttribute("assetPreview", previewService.loadAuthorized(detail, handle.storageKey()));
+        return "library/asset-preview";
     }
 }

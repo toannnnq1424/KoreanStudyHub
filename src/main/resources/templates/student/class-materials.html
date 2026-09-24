@@ -38,6 +38,7 @@
                     th:text="${#temporals.format(material.sharedAt(), 'dd/MM/yyyy HH:mm')}">—</time>
             </small>
           </span>
+          <a class="class-material-download" th:href="@{/file-viewer/material(classId=${view.classId()},materialId=${material.id()})}" target="_blank" rel="noopener">Xem trước</a>
           <a class="class-material-download" th:href="${material.downloadUrl()}">Tải xuống</a>
         </article>
       </section>

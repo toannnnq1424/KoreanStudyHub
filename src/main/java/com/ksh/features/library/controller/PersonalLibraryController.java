@@ -131,11 +131,31 @@ public class PersonalLibraryController {
                           @AuthenticationPrincipal KshUserDetails user,
                           Model model) {
         try {
+            var detail = libraryService.previewDetail(user.getId(), id);
+            if (detail.originalFilename().toLowerCase(java.util.Locale.ROOT).matches(".*\\.(pdf|pptx?)")) {
+                model.addAttribute("filename", detail.originalFilename());
+                model.addAttribute("downloadUrl", "/lecturer/library/assets/" + id + "/slides");
+                model.addAttribute("originalDownloadUrl", detail.downloadUrl());
+                return "student/pdfjs-viewer";
+            }
             model.addAttribute("assetPreview", previewService.load(user.getId(), id));
             return "library/asset-preview";
         } catch (IllegalArgumentException | EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.library.service.StaticPresentationService presentationService;
+
+    @GetMapping("/{id}/slides")
+    public ResponseEntity<byte[]> slides(@PathVariable Long id,
+            @AuthenticationPrincipal KshUserDetails user) throws IOException {
+        var handle = libraryService.contentHandle(user.getId(), id);
+        return ResponseEntity.ok().header("Cache-Control", "private, no-store")
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(presentationService.pdf(handle.storageKey(), handle.originalFilename()));
     }
 
     @PostMapping("/upload")

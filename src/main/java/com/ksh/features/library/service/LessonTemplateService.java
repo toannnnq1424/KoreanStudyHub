@@ -826,9 +826,33 @@ public class LessonTemplateService {
         if (templates.isEmpty()) {
             throw new IllegalArgumentException("Mã môn chưa có bài học để phân phối");
         }
+        if (classIds == null || classIds.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn ít nhất một lớp");
+        }
+        // An explicit whole-curriculum distribution replaces the visible tree.
+        // Do not invoke destructive lesson deletion: progress, attachments and
+        // old lesson IDs must remain intact for historical records.
+        List<Long> targets = classIds.stream().filter(java.util.Objects::nonNull).distinct().sorted().toList();
+        for (Long classId : targets) {
+            ClassEntity target = classesService.getEditableForUpdate(classId, userId, role);
+            if (!subjectId.equals(target.getSubjectId()) || !ClassEntity.STATUS_ACTIVE.equals(target.getStatus())) {
+                throw new IllegalArgumentException("Chỉ được phân phối tới lớp cùng mã môn đang sử dụng");
+            }
+        }
+        for (Long classId : targets) {
+            for (Section section : sectionRepository.findByClassIdOrderByDisplayOrderAsc(classId)) {
+                List<Lesson> retired = lessonRepository.findBySectionIdOrderByDisplayOrderAsc(section.getId());
+                retired.forEach(Lesson::markDeleted);
+                lessonRepository.saveAll(retired);
+                section.markDeleted();
+                sectionRepository.save(section);
+            }
+        }
+        lessonRepository.flush();
+        sectionRepository.flush();
         List<LessonCloneResult> results = new ArrayList<>();
         for (LessonTemplate template : templates) {
-            results.addAll(distribute(template.getId(), classIds, userId, role));
+            results.addAll(distribute(template.getId(), targets, userId, role));
         }
         return results;
     }
@@ -1210,7 +1234,7 @@ public class LessonTemplateService {
                                               Map<Long, String> uploaderNames) {
         String displayName = uploaderNames.get(uploaderUserId);
         return displayName == null || displayName.isBlank()
-                ? "Người dùng #" + uploaderUserId
+                ? "Tài khoản không còn khả dụng"
                 : displayName;
     }
 
@@ -1218,22 +1242,37 @@ public class LessonTemplateService {
         List<LessonResourceRow> rows = new ArrayList<>();
         if (template.getPdfLibraryAssetId() != null) {
             assetRepository.findById(template.getPdfLibraryAssetId()).ifPresent(asset ->
-                    rows.add(new LessonResourceRow(null, "PDF", "PDF chính",
-                            asset.getOriginalFilename())));
+                    rows.add(resourceRow(template, asset, null, "PDF", "PDF chính")));
         }
         if (template.getVideoLibraryAssetId() != null) {
             assetRepository.findById(template.getVideoLibraryAssetId()).ifPresent(asset ->
-                    rows.add(new LessonResourceRow(null, "VIDEO", "Video tải lên",
-                            asset.getOriginalFilename())));
+                    rows.add(resourceRow(template, asset, null, "VIDEO", "Video tải lên")));
         } else if (template.getVideoUrl() != null && !template.getVideoUrl().isBlank()) {
             rows.add(new LessonResourceRow(null, "VIDEO_URL", "Video URL", template.getVideoUrl()));
         }
         templateAttachmentRepository.findByTemplateIdOrderByDisplayOrderAsc(template.getId())
-                .forEach(attachment -> rows.add(new LessonResourceRow(
-                        attachment.getLibraryAssetId(),
-                        resourceKind(attachment.getOriginalFilename(), attachment.getMimeType()),
-                        "Tài liệu đính kèm", attachment.getOriginalFilename())));
+                .forEach(attachment -> assetRepository.findById(attachment.getLibraryAssetId()).ifPresent(asset ->
+                        rows.add(resourceRow(template, asset, asset.getId(),
+                                resourceKind(asset.getOriginalFilename(), asset.getMimeType()), "Tài liệu đính kèm"))));
         return List.copyOf(rows);
+    }
+
+    private LessonResourceRow resourceRow(LessonTemplate template, LibraryAsset asset, Long removableId, String kind, String label) {
+        String uploader = userRepository.findById(asset.getOwnerId()).map(User::getFullName).orElse("Tài khoản không còn khả dụng");
+        return new LessonResourceRow(removableId, kind, label, asset.getOriginalFilename(), uploader,
+                "/lecturer/library/templates/" + template.getId() + "/resources/" + asset.getId() + "/preview");
+    }
+
+    @Transactional(readOnly = true)
+    public LibraryAsset authorizedResource(Long templateId, Long assetId, Long actorId, Role role) {
+        LessonTemplate template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new EntityNotFoundException(MSG_TEMPLATE_NOT_FOUND));
+        subjectResolver.require(actorId, role, template.getSubjectId());
+        if (!existingAssetIds(template).contains(assetId)) throw new EntityNotFoundException("Tài nguyên không thuộc bài học");
+        LibraryAsset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new EntityNotFoundException("Tài nguyên không tồn tại"));
+        libraryService.requireReferencedStorageKey(assetId, asset.getStoredPath());
+        return asset;
     }
 
     private static String resourceKind(String filename, String mimeType) {
