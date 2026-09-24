@@ -152,14 +152,21 @@ public class ClassMaterialsService {
         String sharedBy = userRepository == null ? "Giảng viên" : userRepository.findById(attachment.getUploadedBy())
                 .map(com.ksh.entities.User::getFullName).orElse("Tài khoản không còn khả dụng");
         String anchor = "Tài liệu chung của lớp";
+        String anchorValue = "";
         if (attachment.getAnchorSectionId() != null && sectionRepository != null) {
             var section = sectionRepository.findByIdAndClassId(attachment.getAnchorSectionId(), attachment.getClassId());
             if (section.isPresent()) {
-                if (attachment.getAnchorLessonId() == null) anchor = section.get().getTitle();
+                if (attachment.getAnchorLessonId() == null) {
+                    anchor = section.get().getTitle();
+                    anchorValue = attachment.getAnchorSectionId() + ":";
+                }
                 else {
                     var lesson = lessonRepository.findById(attachment.getAnchorLessonId())
                             .filter(row -> section.get().getId().equals(row.getSectionId()));
-                    if (lesson.isPresent()) anchor = section.get().getTitle() + " / " + lesson.get().getTitle();
+                    if (lesson.isPresent()) {
+                        anchor = section.get().getTitle() + " / " + lesson.get().getTitle();
+                        anchorValue = attachment.getAnchorSectionId() + ":" + attachment.getAnchorLessonId();
+                    }
                 }
             }
         }
@@ -169,8 +176,7 @@ public class ClassMaterialsService {
                 attachment.getUploadedAt(),
                 "/api/classes/" + attachment.getClassId()
                         + "/materials/" + attachment.getId() + "/download", sharedBy, anchor,
-                attachment.getAnchorSectionId() == null ? "" : attachment.getAnchorSectionId() + ":"
-                        + (attachment.getAnchorLessonId() == null ? "" : attachment.getAnchorLessonId()));
+                anchorValue);
     }
 
     @Transactional

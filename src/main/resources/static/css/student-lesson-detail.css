@@ -425,3 +425,6 @@
     margin-left: auto;
   }
 }
+#lesson-panel-attachments > .student-lesson-detail-attachments + .student-lesson-detail-attachments { margin-top: 32px; padding-top: 24px; border-top: 1px solid #e3eaf2; }
+#lesson-panel-attachments .student-lesson-detail-attachments-title { margin: 0 0 14px; font-size: 14px; line-height: 1.5; letter-spacing: 0; text-transform: none; }
+#lesson-panel-attachments .student-lesson-detail-empty { margin: 0; padding: 20px; }

@@ -13,6 +13,27 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ClassImportTemplateServiceTest {
+    @Test void exports_every_eligible_row_in_a_multi_student_template() throws Exception {
+        var classes = mock(ClassesService.class);
+        var users = mock(UserRepository.class);
+        var candidates = java.util.stream.IntStream.rangeClosed(1, 25).mapToObj(i -> {
+            var student = mock(User.class);
+            when(student.getEmail()).thenReturn("student" + i + "@school.edu");
+            when(student.getFullName()).thenReturn("Sinh viên " + i);
+            return student;
+        }).toList();
+        when(users.findImportCandidates(eq(43L), any())).thenReturn(candidates);
+        var service = new ClassImportTemplateService(classes, users, new ExcelTemplateBuilder());
+        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(service.build(43L, 7L, Role.LECTURER)))) {
+            var sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getLastRowNum()).isEqualTo(25);
+            for (int i = 1; i <= 25; i++) {
+                assertThat(sheet.getRow(i).getCell(0).getStringCellValue()).isEqualTo(candidates.get(i - 1).getEmail());
+                assertThat(sheet.getRow(i).getCell(2).getStringCellValue()).isEqualTo(candidates.get(i - 1).getFullName());
+            }
+        }
+    }
+
     @Test void exports_existing_eligible_identity_and_checks_class_ownership() throws Exception {
         var classes = mock(ClassesService.class);
         var users = mock(UserRepository.class);
