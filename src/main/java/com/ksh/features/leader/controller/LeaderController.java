@@ -4,8 +4,10 @@ import com.ksh.features.leader.dto.LeaderDtos.AssignView;
 import com.ksh.features.leader.dto.LeaderDtos.DashboardView;
 import com.ksh.features.leader.dto.LeaderDtos.ReportView;
 import com.ksh.features.leader.service.LeaderDashboardService;
+import com.ksh.features.leader.dto.LeaderDtos.ManagedSubject;
 import com.ksh.features.leader.service.LeaderLecturerAssignmentService;
 import com.ksh.features.leader.service.LeaderReportService;
+import com.ksh.features.leader.service.LeaderManagedSubjectService;
 import com.ksh.security.Roles;
 import com.ksh.security.KshUserDetails;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,13 +34,16 @@ public class LeaderController {
     private final LeaderDashboardService dashboardService;
     private final LeaderLecturerAssignmentService assignmentService;
     private final LeaderReportService reportService;
+    private final LeaderManagedSubjectService managedSubjectService;
 
     public LeaderController(LeaderDashboardService dashboardService,
                           LeaderLecturerAssignmentService assignmentService,
-                          LeaderReportService reportService) {
+                          LeaderReportService reportService,
+                          LeaderManagedSubjectService managedSubjectService) {
         this.dashboardService = dashboardService;
         this.assignmentService = assignmentService;
         this.reportService = reportService;
+        this.managedSubjectService = managedSubjectService;
     }
 
     @GetMapping("/approvals")
@@ -72,6 +77,26 @@ public class LeaderController {
         model.addAttribute(ATTR_LEADER_EMPTY, view.emptySubject());
         model.addAttribute(ATTR_ACTIVE_TAB, "dashboard");
         return VIEW_LEADER_DASHBOARD;
+    }
+
+    @GetMapping("/subjects")
+    public String subjects(@AuthenticationPrincipal KshUserDetails user, Model model) {
+        java.util.List<ManagedSubject> subjects = managedSubjectService.list(user.getId());
+        model.addAttribute("managedSubjects", subjects);
+        model.addAttribute("managedSubjectCount", subjects.size());
+        model.addAttribute(ATTR_ACTIVE_TAB, "subjects");
+        return "leader/subjects";
+    }
+
+    @GetMapping("/subjects/{subjectId}")
+    public String subjectDetail(@PathVariable Long subjectId,
+                                @AuthenticationPrincipal KshUserDetails user,
+                                Model model) {
+        ManagedSubject subject = managedSubjectService.require(user.getId(), subjectId);
+        model.addAttribute("managedSubject", subject);
+        model.addAttribute(ATTR_LEADER_SUBJECT, subject);
+        model.addAttribute(ATTR_ACTIVE_TAB, "subjects");
+        return "leader/subject-detail";
     }
 
     @GetMapping("/assign")

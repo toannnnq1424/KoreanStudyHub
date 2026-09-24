@@ -6,6 +6,7 @@ import com.ksh.features.storage.profile.GeneralUploadsObjectStorage;
 import com.ksh.features.storage.profile.StorageProfileObjectStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Configuration;
 
 import java.nio.file.Path;
@@ -40,6 +41,7 @@ public class ObjectStorageConfig {
     }
 
     @Bean
+    @Primary
     public ObjectStorage objectStorage(LocalObjectStorage local,
                                        R2ObjectStorage r2,
                                        SystemSettingsService settingsService,

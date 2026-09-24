@@ -7,6 +7,7 @@ import com.ksh.features.admin.subjects.repository.SubjectRepository;
 import com.ksh.features.auth.repository.UserRepository;
 import com.ksh.features.classes.repository.ClassRepository;
 import com.ksh.features.classes.repository.ClassCoLecturerRepository;
+import org.jsoup.Jsoup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -278,5 +279,103 @@ class LeaderSubjectIntegrationTest {
                 .andExpect(view().name("leader/dashboard"))
                 .andExpect(model().attribute("emptySubject", true))
                 .andExpect(model().attribute("leaderSubject", org.hamcrest.Matchers.nullValue()));
+    }
+    @Test
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
+    void managed_subjects_list_and_detail_are_scoped_to_current_assignments() throws Exception {
+        Subject first = subjectRepository.saveAndFlush(
+                new Subject("UC09 Alpha", "UC09A", "First governed description", true));
+        first.assignLeader(leader.getId());
+        Subject second = subjectRepository.saveAndFlush(
+                new Subject("UC09 Beta", "UC09B", "Second governed description", true));
+        second.assignLeader(leader.getId());
+        Subject outsider = subjectRepository.saveAndFlush(
+                new Subject("UC09 Foreign", "UC09X", "Foreign description", true));
+        Subject inactive = subjectRepository.saveAndFlush(
+                new Subject("UC09 Hidden", "UC09I", "Hidden description", false));
+        inactive.assignLeader(leader.getId());
+        cntt.assignLeader(null);
+        subjectRepository.saveAndFlush(cntt);
+        leader.setSubjectId(outsider.getId());
+        userRepository.saveAndFlush(leader);
+        subjectRepository.flush();
+
+        String list = mockMvc.perform(get("/leader/subjects"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(Jsoup.parse(list).select(".leader-managed-subject-link").eachAttr("href"))
+                .containsExactly("/leader/subjects/" + first.getId(),
+                        "/leader/subjects/" + second.getId());
+        assertThat(Jsoup.parse(list).select(".leader-managed-subject-link code").eachText())
+                .containsExactly("UC09A", "UC09B");
+        assertThat(list).contains("UC09 Alpha", "UC09 Beta")
+                .doesNotContain("UC09 Foreign", "UC09 Hidden");
+
+        mockMvc.perform(get("/leader/subjects/" + first.getId()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("First governed description")))
+                .andExpect(content().string(containsString("UC09A")))
+                .andExpect(content().string(containsString("UC09 Alpha")))
+                .andExpect(content().string(containsString("/leader/subjects")))
+                .andExpect(content().string(containsString(
+                        "/leader/question-bank?subjectId=" + first.getId())))
+                .andExpect(content().string(not(containsString("Second governed description"))));
+        mockMvc.perform(get("/leader/subjects/" + second.getId()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Second governed description")))
+                .andExpect(content().string(containsString(
+                        "/leader/question-bank?subjectId=" + second.getId())))
+                .andExpect(content().string(not(containsString("First governed description"))))
+                .andExpect(content().string(containsString("UC09B")))
+                .andExpect(content().string(containsString("UC09 Beta")));
+    }
+
+    @Test
+    @WithUserDetails(value = "leader@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
+    void managed_subject_detail_rechecks_assignment_and_visibility_on_every_request() throws Exception {
+        Subject foreign = subjectRepository.saveAndFlush(
+                new Subject("UC09 Foreign", "UC09F", "Private foreign description", true));
+        Subject hidden = subjectRepository.saveAndFlush(
+                new Subject("UC09 Hidden", "UC09H", "Private hidden description", false));
+        hidden.assignLeader(leader.getId());
+        leader.setSubjectId(foreign.getId());
+        userRepository.saveAndFlush(leader);
+        subjectRepository.flush();
+
+        mockMvc.perform(get("/leader/subjects/" + foreign.getId()))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(not(containsString("Private foreign description"))));
+        mockMvc.perform(get("/leader/subjects/" + hidden.getId()))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(not(containsString("Private hidden description"))));
+        mockMvc.perform(get("/leader/subjects/" + cntt.getId()))
+                .andExpect(status().isOk());
+        cntt.assignLeader(null);
+        subjectRepository.saveAndFlush(cntt);
+        mockMvc.perform(get("/leader/subjects/" + cntt.getId()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/leader/subjects/999999999"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/leader/subjects"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Bạn chưa được gán môn học")))
+                .andExpect(content().string(not(containsString("UC09 Foreign"))));
+    }
+
+    @Test
+    @WithUserDetails(value = "student@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
+    void managed_subjects_are_not_available_to_students() throws Exception {
+        mockMvc.perform(get("/leader/subjects")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/leader/subjects/" + cntt.getId()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithUserDetails(value = "lecturer@ksh.edu.vn", setupBefore = TestExecutionEvent.TEST_EXECUTION)
+    void managed_subjects_are_not_available_to_lecturers() throws Exception {
+        mockMvc.perform(get("/leader/subjects")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/leader/subjects/" + cntt.getId()))
+                .andExpect(status().isForbidden());
     }
 }

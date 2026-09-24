@@ -57,6 +57,15 @@ class AuthLoginIntegrationTest {
     }
 
     @Test
+    void loginError_hienThiThongBaoThatBaiBenVung() throws Exception {
+        mockMvc.perform(get("/login").param("error", ""))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("role=\"alert\"")))
+                .andExpect(content().string(containsString(
+                        "Email chưa được đăng ký, mật khẩu không đúng hoặc tài khoản đã bị khóa.")));
+    }
+
+    @Test
     void truyCapTrangChu_chuaDangNhap_chuyenHuongVeLogin() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().is3xxRedirection())
