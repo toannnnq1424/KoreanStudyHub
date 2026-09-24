@@ -63,6 +63,14 @@ public class PersonalLibraryAssetPreviewService {
 
     public LibraryAssetPreview load(Long ownerId, Long assetId) {
         LibraryAssetDetail detail = libraryService.previewDetail(ownerId, assetId);
+        if (java.util.Set.of("PDF", "IMAGE", "VIDEO", "UNSUPPORTED").contains(classify(detail))) {
+            return loadAuthorized(detail, null);
+        }
+        return loadAuthorized(detail, libraryService.contentHandle(ownerId, assetId).storageKey());
+    }
+
+    /** Caller must authorize this exact file before invoking the renderer. */
+    public LibraryAssetPreview loadAuthorized(LibraryAssetDetail detail, String storageKey) {
         String previewKind = classify(detail);
         if ("PDF".equals(previewKind) || "IMAGE".equals(previewKind)
                 || "VIDEO".equals(previewKind)) {
@@ -72,12 +80,11 @@ public class PersonalLibraryAssetPreviewService {
             return model(detail, previewKind, null, List.of(), List.of(),
                     "Định dạng này chưa hỗ trợ xem trực tiếp. Bạn vẫn có thể tải tệp xuống.");
         }
-        var handle = libraryService.contentHandle(ownerId, assetId);
         try {
-            if (!objectStorage.exists(handle.storageKey())) {
+            if (!objectStorage.exists(storageKey)) {
                 throw new EntityNotFoundException("Không tìm thấy nội dung tài liệu");
             }
-            try (StoredObject object = objectStorage.open(handle.storageKey())) {
+            try (StoredObject object = objectStorage.open(storageKey)) {
                 long storedLength = object.contentLength();
                 if (storedLength > MAX_PARSED_BYTES) {
                     return model(detail, previewKind, null, List.of(), List.of(),
@@ -104,7 +111,7 @@ public class PersonalLibraryAssetPreviewService {
             return model(detail, previewKind, null, List.of(), List.of(),
                     "Tệp quá lớn để tạo bản xem trước an toàn. Vui lòng tải xuống để xem đầy đủ.");
         } catch (IOException | RuntimeException ex) {
-            log.warn("Could not build safe preview for personal asset {}", assetId, ex);
+            log.warn("Could not build safe preview for asset {}", detail.id(), ex);
             return model(detail, previewKind, null, List.of(), List.of(),
                     "Không thể tạo bản xem trước cho tệp này. Tệp gốc vẫn có thể tải xuống.");
         }
@@ -119,7 +126,8 @@ public class PersonalLibraryAssetPreviewService {
                 Sheet sheet = workbook.getSheetAt(0);
                 sheetName = sheet.getSheetName();
                 DataFormatter formatter = new DataFormatter(Locale.forLanguageTag("vi-VN"));
-                FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+                // Preview saved results; never recalculate arbitrary uploaded formulas.
+                formatter.setUseCachedValuesForFormulaCells(true);
                 int lastRow = Math.min(sheet.getLastRowNum(), MAX_TABLE_ROWS - 1);
                 for (int rowIndex = sheet.getFirstRowNum(); rowIndex <= lastRow; rowIndex++) {
                     Row row = sheet.getRow(rowIndex);
@@ -128,7 +136,7 @@ public class PersonalLibraryAssetPreviewService {
                     List<String> cells = new ArrayList<>();
                     for (int cellIndex = 0; cellIndex < lastCell; cellIndex++) {
                         Cell cell = row.getCell(cellIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-                        String value = cell == null ? "" : formatter.formatCellValue(cell, evaluator);
+                        String value = cell == null ? "" : formatter.formatCellValue(cell);
                         cells.add(limit(value));
                     }
                     if (!cells.isEmpty()) rows.add(List.copyOf(cells));
@@ -316,6 +324,17 @@ public class PersonalLibraryAssetPreviewService {
                 : detail.formatClass().toLowerCase(Locale.ROOT);
         String label = detail.formatLabel() == null ? ""
                 : detail.formatLabel().toUpperCase(Locale.ROOT);
+        // Display labels differ between personal assets and shared attachments.
+        // Detect the actual format independently of those translated labels.
+        String filename = detail.originalFilename() == null ? ""
+                : detail.originalFilename().toLowerCase(Locale.ROOT);
+        if (filename.endsWith(".pdf")) return "PDF";
+        if (filename.endsWith(".xlsx") || filename.endsWith(".xls")
+                || mime.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                || mime.equals("application/vnd.ms-excel")) return "SPREADSHEET";
+        if (filename.endsWith(".docx")) return "DOCUMENT";
+        if (filename.endsWith(".pptx")) return "PRESENTATION";
+        if (filename.endsWith(".csv") || filename.endsWith(".txt")) return "TEXT";
         if ("application/pdf".equals(mime) || "pdf".equals(format)) return "PDF";
         if (mime.startsWith("image/") || "image".equals(format)) return "IMAGE";
         if (mime.startsWith("video/") || "video".equals(format)) return "VIDEO";

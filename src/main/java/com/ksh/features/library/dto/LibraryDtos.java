@@ -255,7 +255,10 @@ public final class LibraryDtos {
     }
 
     /** One persisted resource currently attached to a Library lesson. */
-    public record LessonResourceRow(Long assetId, String kind, String label, String name) {
+    public record LessonResourceRow(Long assetId, String kind, String label, String name, String uploaderName, String previewUrl) {
+        public LessonResourceRow(Long assetId, String kind, String label, String name) {
+            this(assetId, kind, label, name, null, null);
+        }
     }
 
     /** One chapter in the subject tree, containing its ordered lessons. */

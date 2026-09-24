@@ -67,7 +67,7 @@ class PersonalLibraryAssetPreviewServiceTest {
         LibraryAssetDetail detail = detail(
                 "scores.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "XLSX", "excel", bytes.length);
+                "Tài liệu", "document", bytes.length);
         when(libraryService.previewDetail(7L, 11L)).thenReturn(detail);
         when(libraryService.contentHandle(7L, 11L)).thenReturn(
                 new OwnedAssetContent("library/7/scores.xlsx", "scores.xlsx",

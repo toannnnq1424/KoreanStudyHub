@@ -118,10 +118,10 @@
                    th:classappend="${clazz.alreadyDistributed()} ? ' is-distributed'"
                    th:attr="data-search-text=${clazz.name() + ' ' + clazz.code()}">
               <input type="checkbox" name="classIds" th:value="${clazz.id()}"
-                     th:disabled="${clazz.alreadyDistributed()}">
+                     >
               <span>
                 <strong th:text="${clazz.name()}">KOR311 · Lớp A</strong>
-                <small th:text="${clazz.alreadyDistributed() ? clazz.code() + ' · Đã phân phối' : clazz.code()}">KOR311</small>
+                <small th:text="${clazz.alreadyDistributed() ? clazz.code() + ' · Đã nhận — chọn để cập nhật' : clazz.code()}">KOR311</small>
               </span>
             </label>
           </div>
@@ -130,7 +130,7 @@
           </span>
         </fieldset>
         <div class="library-distribution-actions">
-          <span>Chỉ các lớp ACTIVE cùng mã môn và chưa nhận bản phân phối mới có thể chọn.</span>
+          <span>Phân phối sẽ thay toàn bộ khung chương/bài đang hiển thị của lớp bằng khung hiện tại. Khung cũ được lưu lịch sử nhưng không còn hiện hoặc chọn làm vị trí tài liệu. Tài liệu riêng của lớp vẫn được giữ.</span>
           <button type="submit" class="content-create-btn library-distribute-submit" disabled
                   th:attr="data-has-eligible=${!libraryClassOptions.isEmpty()}">Phân phối bài giảng</button>
         </div>
@@ -213,8 +213,7 @@
               <span class="kind-pill" th:text="${item.contentType() == 'PDF'} ? 'PDF'
                       : (${item.contentType() == 'VIDEO'} ? 'Video' : 'Bài đọc')">Bài đọc</span>
               <span th:text="${item.attachmentCount()} + ' file'">0 file</span>
-              <span th:text="${'Tải lên bởi ' + item.uploaderDisplayName()
-                      + ' · ID ' + item.uploaderUserId()}">Tải lên bởi Giảng viên · ID 1</span>
+              <span th:text="${'Người tạo bài: ' + item.uploaderDisplayName()}">Người tạo bài</span>
             </div>
             <div class="library-lesson-actions" th:if="${item.canManage() or item.canAddResources()}">
               <button type="button" class="library-lesson-drag-handle"
@@ -241,8 +240,12 @@
               <ul th:if="${!item.resources().isEmpty()}">
                 <li th:each="resource : ${item.resources()}">
                   <span class="library-resource-kind" th:text="${resource.kind()}">PDF</span>
-                  <span><strong th:text="${resource.label()}">PDF chính</strong>
-                    <small th:text="${resource.name()}">name.pdf</small></span>
+                  <span class="library-resource-info"><strong th:text="${resource.name()}" th:title="${resource.name()}">name.pdf</strong>
+                    <small th:text="${resource.label()}">Tài liệu đính kèm</small>
+                    <small th:if="${resource.uploaderName() != null}" th:text="${'Tải lên bởi: ' + resource.uploaderName()}"></small></span>
+                  <a class="library-icon-action" th:if="${resource.previewUrl() != null}" th:href="${resource.previewUrl()}" target="_blank" rel="noopener" title="Xem trước" aria-label="Xem trước">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </a>
                   <form method="post"
                         th:if="${item.canManage() and resource.assetId() != null}"
                         th:action="@{|/lecturer/library/templates/${item.id()}/resources/${resource.assetId()}/delete|}"

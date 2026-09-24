@@ -39,7 +39,7 @@
       border-radius: 3px; cursor: pointer; font-size: 14px; }
     #fs-toolbar button:hover { background: #666; }
     #fs-toolbar .spacer { flex: 1; }
-    #fs-container { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 20px; }
+    #fs-container { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 20px; }
     #fs-container canvas { box-shadow: 0 4px 24px rgba(0,0,0,.6); }
   </style>
 </head>
@@ -51,7 +51,7 @@
     <button id="fit-width" title="Vừa chiều rộng">Fit</button>
     <span class="spacer"></span>
     <span id="page-info">Trang <input id="page-num" type="number" min="1" value="1"> / <span id="page-count">?</span></span>
-    <button id="fullscreen" title="Toàn màn hình">⛶</button>
+    <button id="fullscreen" title="Trình chiếu tĩnh — không có hiệu ứng hoặc âm thanh">⛶ Trình chiếu</button>
     <button id="download" title="Tải xuống">⬇</button>
   </div>
   <div id="pages-container">
@@ -79,6 +79,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
 
     const downloadUrl = /*[[${downloadUrl}]]*/ '';
+    const originalDownloadUrl = /*[[${originalDownloadUrl}]]*/ null;
     let pdfDoc = null;
     let scale = 1.2;
     let fitWidthMode = false;
@@ -89,8 +90,9 @@
     const container = document.getElementById('pages-container');
     const toolbar = document.getElementById('toolbar');
     const errorDiv = document.getElementById('error-msg');
-    document.getElementById('fallback-link').href = downloadUrl;
-    document.getElementById('download').onclick = () => window.open(downloadUrl, '_blank');
+    document.getElementById('fallback-link').href = originalDownloadUrl || downloadUrl;
+    document.getElementById('fallback-link').textContent = 'Tải tệp gốc';
+    document.getElementById('download').onclick = () => window.open(originalDownloadUrl || downloadUrl, '_blank');
 
     // ── Fit width ─────────────────────────────────────────────────────
     async function fitWidth() {
@@ -231,10 +233,16 @@
     const fsContainer = document.getElementById('fs-container');
     let fsPage = 1;
     let fsScale = 1.3;
+    let fsFit = true;
 
     function renderFsPage(num) {
       fsPage = num;
       pdfDoc.getPage(num).then(page => {
+        if (num !== fsPage) return;
+        if (fsFit) {
+          const original = page.getViewport({ scale: 1 });
+          fsScale = Math.min((fsContainer.clientWidth - 40) / original.width, (fsContainer.clientHeight - 40) / original.height);
+        }
         const vp = page.getViewport({ scale: fsScale });
         const canvas = document.createElement('canvas');
         canvas.width = vp.width;
@@ -247,20 +255,27 @@
     }
 
     document.getElementById('fullscreen').onclick = () => {
+      if (!pdfDoc) return;
+      fsFit = true;
       fsScale = scale;
       fsPage = currentPage || 1;
       fsOverlay.classList.add('active');
+      if (fsOverlay.requestFullscreen) fsOverlay.requestFullscreen().catch(() => {});
       renderFsPage(fsPage);
       document.getElementById('fs-zoom-info').textContent = Math.round(fsScale * 100) + '%';
     };
-    document.getElementById('fs-close').onclick = () => fsOverlay.classList.remove('active');
+    document.getElementById('fs-close').onclick = () => { fsOverlay.classList.remove('active'); if (document.fullscreenElement) document.exitFullscreen(); };
+    document.addEventListener('fullscreenchange', () => { if (fsOverlay.classList.contains('active')) renderFsPage(fsPage); });
+    window.addEventListener('resize', () => { if (pdfDoc && fsOverlay.classList.contains('active')) renderFsPage(fsPage); });
     document.getElementById('fs-prev').onclick = () => { if (fsPage > 1) renderFsPage(fsPage - 1); };
     document.getElementById('fs-next').onclick = () => { if (pdfDoc && fsPage < pdfDoc.numPages) renderFsPage(fsPage + 1); };
     document.getElementById('fs-zoom-in').onclick = () => {
+      fsFit = false;
       fsScale = Math.min(3, fsScale + 0.3); renderFsPage(fsPage);
       document.getElementById('fs-zoom-info').textContent = Math.round(fsScale * 100) + '%';
     };
     document.getElementById('fs-zoom-out').onclick = () => {
+      fsFit = false;
       fsScale = Math.max(0.5, fsScale - 0.3); renderFsPage(fsPage);
       document.getElementById('fs-zoom-info').textContent = Math.round(fsScale * 100) + '%';
     };

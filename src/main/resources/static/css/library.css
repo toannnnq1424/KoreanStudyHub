@@ -876,10 +876,9 @@
 .library-subject-distribution-form .ksh-checklist-options { grid-template-columns: 1fr; }
 .library-class-choice { border-radius: 0; }
 .library-class-choice.is-distributed {
-  opacity: .46;
+  opacity: 1;
   background: #f2f5f6;
-  cursor: not-allowed;
-  filter: grayscale(.35);
+  cursor: pointer;
 }
 
 /* Distribution is a flat workspace, not a stack of nested cards. */
@@ -957,7 +956,7 @@
   background: #edf6fb;
 }
 .library-class-choice.is-distributed {
-  opacity: .48;
+  opacity: 1;
   background: #f7f8f9;
 }
 .library-distribution-actions {
@@ -1073,15 +1072,18 @@
 .library-resource-box ul { display: grid; gap: 0; margin: 0 0 12px; padding: 0; list-style: none; }
 .library-resource-box li {
   display: grid;
-  grid-template-columns: 86px minmax(0, 1fr) max-content;
+  grid-template-columns: 64px minmax(0, 1fr) 36px max-content;
   gap: 12px;
   align-items: center;
-  padding: 9px 0;
+  padding: 14px 8px;
   border-bottom: 1px solid #edf2f4;
 }
 .library-resource-box li:last-child { border-bottom: 0; }
 .library-resource-kind { color: #337da0; font-size: 12px; font-weight: 800; }
-.library-resource-box li > span:last-child { display: grid; min-width: 0; }
+.library-resource-info { display: grid; min-width: 0; gap: 4px; }
+.library-resource-info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.library-resource-kind { background: #edf5fc; border-radius: 8px; padding: 10px 4px; text-align: center; overflow-wrap: anywhere; }
+.library-resource-box li:hover { background: #f6f9fd; }
 .library-resource-box li small { overflow: hidden; color: #748992; text-overflow: ellipsis; white-space: nowrap; }
 .library-add-actions { display: grid; gap: 10px; margin-top: 16px; }
 .library-add-row {

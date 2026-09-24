@@ -66,6 +66,53 @@ public class LessonTemplateController {
 
     private final LessonTemplateService templateService;
     private final SyllabusImportTemplate syllabusImportTemplate;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.library.service.PersonalLibraryAssetPreviewService resourcePreview;
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("objectStorage")
+    private com.ksh.features.storage.ObjectStorage resourceStorage;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.ksh.features.library.service.StaticPresentationService slidesService;
+
+    @GetMapping("/{id}/resources/{assetId}/slides")
+    public org.springframework.http.ResponseEntity<byte[]> slidesContent(@PathVariable Long id, @PathVariable Long assetId,
+            @AuthenticationPrincipal KshUserDetails user) throws java.io.IOException {
+        var asset = templateService.authorizedResource(id, assetId, user.getId(), user.getRole());
+        return org.springframework.http.ResponseEntity.ok().header("Cache-Control", "private, no-store")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(slidesService.pdf(asset.getStoredPath(), asset.getOriginalFilename()));
+    }
+
+    @GetMapping("/{id}/resources/{assetId}/preview")
+    public String resourcePreview(@PathVariable Long id, @PathVariable Long assetId,
+            @AuthenticationPrincipal KshUserDetails user, Model model) {
+        var asset = templateService.authorizedResource(id, assetId, user.getId(), user.getRole());
+        String url = "/lecturer/library/templates/" + id + "/resources/" + assetId + "/content";
+        if (asset.getOriginalFilename().toLowerCase(java.util.Locale.ROOT).matches(".*\\.(pdf|pptx?)")) {
+            model.addAttribute("downloadUrl", "/lecturer/library/templates/" + id + "/resources/" + assetId + "/slides");
+            model.addAttribute("filename", asset.getOriginalFilename());
+            model.addAttribute("originalDownloadUrl", url);
+            return "student/pdfjs-viewer";
+        }
+        var detail = new com.ksh.features.library.dto.LibraryDtos.LibraryAssetDetail(assetId,
+                asset.getTitle(), asset.getOriginalFilename(), asset.getKind(), asset.getMimeType(),
+                "Tài liệu", "document", asset.getSizeBytes(), null, null, null, url, url, java.util.List.of());
+        model.addAttribute("assetPreview", resourcePreview.loadAuthorized(detail, asset.getStoredPath()));
+        return "library/asset-preview";
+    }
+
+    @GetMapping("/{id}/resources/{assetId}/content")
+    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> resourceContent(
+            @PathVariable Long id, @PathVariable Long assetId, @AuthenticationPrincipal KshUserDetails user) {
+        var asset = templateService.authorizedResource(id, assetId, user.getId(), user.getRole());
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Cache-Control", "private, no-store")
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Content-Disposition", org.springframework.http.ContentDisposition.attachment()
+                        .filename(asset.getOriginalFilename(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
+                .contentType(org.springframework.http.MediaType.parseMediaType(asset.getMimeType()))
+                .body(out -> { try (var object = resourceStorage.open(asset.getStoredPath())) { object.inputStream().transferTo(out); } });
+    }
 
     public LessonTemplateController(LessonTemplateService templateService,
                                     SyllabusImportTemplate syllabusImportTemplate) {

@@ -148,7 +148,8 @@ public class StudentLessonDetailService {
                 .filter(a -> section.getId().equals(a.getAnchorSectionId()))
                 .filter(a -> a.getAnchorLessonId() == null || lessonId.equals(a.getAnchorLessonId()))
                 .map(a -> new LessonAttachmentRow(a.getId(), a.getOriginalFilename(), a.getSizeBytes(),
-                        a.getMimeType(), "/api/classes/" + classId + "/materials/" + a.getId() + "/download", null))
+                        a.getMimeType(), "/api/classes/" + classId + "/materials/" + a.getId() + "/download",
+                        "/file-viewer/material?classId=" + classId + "&materialId=" + a.getId()))
                 .toList();
 
         return new LessonDetailView(
